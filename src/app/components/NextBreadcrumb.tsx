@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -87,7 +88,6 @@ export default function NextBreadcrumb({
                 className={`inline-flex items-center gap-1 px-3 py-1 rounded bg-white text-blue-700 hover:bg-blue-100 text-sm font-medium ${listClasses}`}
               >
                 {homeElement}
-                <span className="hidden sm:inline">Home</span>
               </Link>
             </li>
           )}
