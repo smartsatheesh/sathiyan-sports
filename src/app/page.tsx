@@ -7,6 +7,8 @@ import { Suspense } from 'react';
 import styles from './page.module.css';
 import Layout from './components/Layout';
 import { Divider } from '@mui/material';
+import Link from 'next/link';
+
 
 function BadmintonModel() {
   const { scene } = useGLTF('/models/badminton.glb');
@@ -30,12 +32,24 @@ export default function Home() {
     
     <div className={styles.page}>
       <main className={styles.main}>
-        <h1 className={styles.heading}>Welcome to Sathiyan Sports</h1>
+        <div>
+          <h1 className={styles.heading}>WELCOME TO SATHIYAN SPORTS</h1>
         <p className={styles.subtext}>
-          Experience our dynamic multisport environment – now in Madurai Perungudi!
+          Experience our dynamic multisport environment  <br /> Now in Madurai Perungudi!
         </p>
+        </div>
+        <div>
+          <div className='registerpagenavbarr'>
+          <Link
+            href="/register"
+            className="ml-4 px-4 py-2 rounded bg-white text-blue-700 text-sm font-medium hover:bg-blue-100 border border-blue-500"
+          >
+            REGISTER NOW
+          </Link>
+        </div>
+        </div>
 
-        <div className={styles.canvasContainer}>
+        {/* <div className={styles.canvasContainer}>
           {isClient && (
             <Canvas camera={{ position: [0, 2, 8], fov: 50 }}>
               <ambientLight intensity={0.4} />
@@ -50,7 +64,7 @@ export default function Home() {
               </Suspense>
             </Canvas>
           )}
-        </div>
+        </div> */}
       </main>
     </div>
   

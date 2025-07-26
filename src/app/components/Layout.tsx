@@ -37,7 +37,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <AppBar position="fixed" sx={{ zIndex: 1201 }}>
           <Toolbar>
             <Typography variant="h6" noWrap component="div">
-              Sathiyan Sports
+              SATHIYAN SPORTS
             </Typography>
           </Toolbar>
         </AppBar>

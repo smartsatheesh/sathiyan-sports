@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Document from './fontstyle';
 import {
   Home as HomeIcon,
   ChevronRight,
@@ -79,28 +80,32 @@ export default function NextBreadcrumb({
       className={`sticky top-0 z-50 w-full shadow-md bg-gradient-to-r from-purple-600 to-blue-600 py-4 px-6 ${containerClasses}`}
       aria-label="breadcrumb"
     >
-      <div className="flex justify-between items-center">
-        <ol className="flex items-center space-x-1 overflow-x-auto">
+      <div className= "allnavbarpadd">
+        <ul className="holenavvv">
           {breadcrumbs.length === 0 ? null : (
             <li className="flex items-center gap-1">
-              <Link
+              <div className='alllistitemsonnav'>
+                <Link
                 href="/"
                 className={`inline-flex items-center gap-1 px-3 py-1 rounded bg-white text-blue-700 hover:bg-blue-100 text-sm font-medium ${listClasses}`}
               >
-                {homeElement}
+              {homeElement}
               </Link>
+
+             <Link href="/about" className="inline-flex items-center gap-1 px-3 py-1 rounded bg-white text-blue-700 hover:bg-blue-100 text-sm font-medium">
+              About
+            </Link>
+            <Link href="/contact" className="inline-flex items-center gap-1 px-3 py-1 rounded bg-white text-blue-700 hover:bg-blue-100 text-sm font-medium">
+              Contact
+            </Link>
+            <Link href="/register" className="inline-flex items-center gap-1 px-3 py-1 rounded bg-white text-blue-700 hover:bg-blue-100 text-sm font-medium">
+              Register
+            </Link>
+              </div>
             </li>
           )}
           {breadcrumbs}
-        </ol>
-        <div>
-          <Link
-            href="/register"
-            className="ml-4 px-4 py-2 rounded bg-white text-blue-700 text-sm font-medium hover:bg-blue-100 border border-blue-500"
-          >
-            Register Now
-          </Link>
-        </div>
+        </ul>
       </div>
     </nav>
   );

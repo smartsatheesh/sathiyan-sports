@@ -20,7 +20,18 @@
     filter: invert();
   }
 }
-
+.registerpagenavbarr{
+  color: black !important;
+ display: flex !important;
+  justify-content: center !important;
+ background: #c3c3cf !important;
+ padding: 1rem  !important;
+ font-weight: 500 !important;
+ 
+}
+.MuiInputBase-input{
+  border-color: #f7f7fa !important;
+}
 .page {
   display: flex;
   flex-direction: column;
@@ -42,15 +53,18 @@
 }
 
 .heading {
-  font-size: 2.5rem;
-  font-weight: bold;
-  color: #007a91;
-  margin-bottom: 1rem;
+      color: #f3f5f6;
+    margin-bottom: 1rem;
+    font-size: 2.5rem;
+    font-weight: bold;
+    font-family: "Cormorant Infant", serif;
 }
 
 .subtext {
-  font-size: 1.2rem;
-  margin-bottom: 2rem;
+      color: #f2f2f2;
+    margin-bottom: 2rem;
+    font-family: "Cormorant Infant", serif;
+    font-size: 1.2rem;
 }
 
 .canvasContainer {

@@ -1,6 +1,13 @@
 :root {
-  --background: #f8f3f3;
+  --background: #f7f7fa;
   --foreground: #171717;
+}
+.css-1cl7zdz {
+  max-width: 50% !important;
+}
+
+.MuiInputBase-input {
+  border-color: 1px solid white !important;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -15,15 +22,179 @@ body {
   max-width: 100vw;
   overflow-x: hidden;
 }
-
+.MuiButtonBase-root {
+  color: #fcf8f8 !important;
+}
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color: #0d0d0d !important;
+}
+.imgonaboutpage {
+  /* width: 67%; */
+  height: 100vh;
+}
+.MuiTypography-root {
+  margin-top: 0rem !important;
+}
+.twosecaboutcont {
+  /* text-align: justify;
+    width: 32%;
+    padding: 1rem;
+    background-color: #9e9e7557;
+    border-radius: 1rem; */
+}
+.diaplayonaboutcont {
+  /* justify-content: space-evenly;
+    display: flex; */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-top: 19vh;
 }
 
+.contentcss {
+  /* background: aliceblue;
+    padding: 0.5rem;
+    border-radius: 1rem;
+    box-shadow: 0px 2px 12px -1px; */
+}
+.lucide-user-plus {
+  margin-bottom: -7px;
+  width: 18% !important;
+  display: none;
+  font-family: "Cormorant Infant", serif !important;
+}
+
+.fullregpage {
+  width: 100%;
+}
+.py-2 {
+  font-family: "Cormorant Infant", serif !important;
+}
+.lucide-info {
+  margin-bottom: -7px;
+  width: 18% !important;
+  display: none;
+}
+.boxdivv {
+  background-color: #171717;
+}
+.divonabout {
+  width: 100% !important;
+}
+.MuiFormLabel-root {
+  color: #ededed !important;
+}
+
+.allnavbarpadd {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-left: 2rem;
+  padding-right: 2rem;
+}
+.holenavvv {
+  background-color: #c3c3cf;
+  justify-content: space-between;
+  width: 100%;
+  padding: 1rem 2rem;
+  display: flex !important;
+}
+.displayflexontwosec {
+  display: flex;
+  justify-content: center;
+}
+.alllistitemsonnav {
+  flex-direction: row;
+  justify-content: space-evenly;
+  display: flex;
+  width: 29rem;
+}
+.registerpagenavbarr {
+  color: #fff !important;
+  background: #c3c3cf0d !important;
+  justify-content: center !important;
+  padding: 4px 8px;
+  border: 2px solid rgb(245, 241, 241);
+  /* border-color: white; */
+  display: flex !important;
+}
+.nameofregg {
+  font-size: large;
+  color: #f9f7f7;
+}
+.page-module___8aEwW__page {
+  width: 100%;
+  /* height: 100%; */
+  background-image: url(/homepagepiccsamble.jpg) !important;
+  background-size: contain; /* To make it fit and show fully */
+  background-position: center; /* Center the image */
+  background-repeat: no-repeat !important; /* Prevent tiling */
+}
+.MuiInputBase-input {
+  color: #adaaaa !important;
+}
+
+.Arial {
+  background-image: url(/public/download.jpg);
+}
+/* .togglebuttonongender{
+
+} */
+.togglbuttonforgender {
+  margin: 0 30px;
+}
+.togglebutonsubscription {
+  margin: 0 30px;
+}
+.addressfield {
+  margin: 0 30px;
+}
+.inputnamefield {
+  margin: 0 30px;
+}
+.shedulefield {
+  margin: 0 30px;
+}
+
+.supscriptioncontents {
+  margin: 0 30px;
+  text-align: center;
+  font-size: 0.2rem !important ;
+}
+
+.headingdivv {
+  justify-content: center;
+  display: flex;
+  padding-top: 20px;
+  color: #fff !important;
+}
+.fullregpage {
+  /* background-image: url('C:\Users\INMASS\Downloads\download.jpg'); */
+  background-color: #494646b5;
+  border-radius: 1rem;
+  margin-top: 1rem;
+}
+.fullasecdisplay {
+  display: flex;
+  justify-content: center;
+  background-image: url(/registerpageimagesamble.png);
+  background-size: cover; /* To make it fit and show fully */
+  background-position: center; /* Center the image */
+  background-repeat: no-repeat; /* Prevent tiling */
+}
+.whitespeconform {
+  display: flex;
+  justify-content: center;
+}
+.MuiInputBase-root {
+  color: #0a0a0a !important;
+}
 * {
   box-sizing: border-box;
   padding: 0;
@@ -39,4 +210,163 @@ a {
   html {
     color-scheme: dark;
   }
+}
+
+/* <---- slider css----> */
+
+html,
+body {
+  background: #f7f5e6;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.slider {
+  margin: 0 auto;
+  max-width: 940px;
+}
+
+.slide_viewer {
+  height: 340px;
+  overflow: hidden;
+  position: relative;
+}
+
+.slide_group {
+  height: 100%;
+  position: relative;
+  width: 100%;
+}
+
+.slide {
+  display: none;
+  height: 100%;
+  position: absolute;
+  width: 100%;
+}
+
+.slide:first-child {
+  display: block;
+}
+
+.slide:nth-of-type(1) {
+  background: #d7a151;
+}
+
+.slide:nth-of-type(2) {
+  background: #f4e4cd;
+}
+
+.slide:nth-of-type(3) {
+  background: #c75534;
+}
+
+.slide:nth-of-type(4) {
+  background: #d1d1d4;
+}
+
+.slide_buttons {
+  left: 0;
+  position: absolute;
+  right: 0;
+  text-align: center;
+}
+
+a.slide_btn {
+  color: #474544;
+  font-size: 42px;
+  margin: 0 0.175em;
+  -webkit-transition: all 0.4s ease-in-out;
+  -moz-transition: all 0.4s ease-in-out;
+  -ms-transition: all 0.4s ease-in-out;
+  -o-transition: all 0.4s ease-in-out;
+  transition: all 0.4s ease-in-out;
+}
+
+.slide_btn.active,
+.slide_btn:hover {
+  color: #428cc6;
+  cursor: pointer;
+}
+
+.directional_nav {
+  height: 340px;
+  margin: 0 auto;
+  max-width: 940px;
+  position: relative;
+  top: -340px;
+}
+
+.previous_btn {
+  bottom: 0;
+  left: 100px;
+  margin: auto;
+  position: absolute;
+  top: 0;
+}
+
+.next_btn {
+  bottom: 0;
+  margin: auto;
+  position: absolute;
+  right: 100px;
+  top: 0;
+}
+
+.previous_btn,
+.next_btn {
+  cursor: pointer;
+  height: 65px;
+  opacity: 0.5;
+  -webkit-transition: opacity 0.4s ease-in-out;
+  -moz-transition: opacity 0.4s ease-in-out;
+  -ms-transition: opacity 0.4s ease-in-out;
+  -o-transition: opacity 0.4s ease-in-out;
+  transition: opacity 0.4s ease-in-out;
+  width: 65px;
+}
+
+.previous_btn:hover,
+.next_btn:hover {
+  opacity: 1;
+}
+
+@media only screen and (max-width: 767px) {
+  .previous_btn {
+    left: 50px;
+  }
+  .next_btn {
+    right: 50px;
+  }
+}
+
+/* <--new css on about page--> */
+.about-page {
+  background-color: #f9f9f9;
+  padding: 60px 20px;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.about-container {
+  max-width: 900px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  padding: 40px;
+}
+
+.about-heading {
+  color: #1a73e8;
+  font-size: 1.8rem;
+  margin-bottom: 16px;
+}
+
+.about-text {
+  font-size: 1.1rem;
+  line-height: 1.7;
+  color: #333333;
+  margin-bottom: 40px;
 }

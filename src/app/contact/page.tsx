@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { Box, Button, Container, TextField, Typography } from '@mui/material';
+import { Box, Button, Container, TextField, Typography } from "@mui/material";
 
 export default function ContactPage() {
   return (
@@ -9,8 +9,8 @@ export default function ContactPage() {
         component="form"
         sx={{
           mt: 8,
-          display: 'flex',
-          flexDirection: 'column',
+          display: "flex",
+          flexDirection: "column",
           gap: 2,
         }}
         noValidate
@@ -20,12 +20,7 @@ export default function ContactPage() {
           Contact Us
         </Typography>
 
-        <TextField
-          label="Name"
-          variant="outlined"
-          fullWidth
-          required
-        />
+        <TextField label="Name" variant="outlined" fullWidth required />
         <TextField
           label="Email"
           variant="outlined"
