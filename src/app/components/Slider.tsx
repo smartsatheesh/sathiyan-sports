@@ -6,7 +6,7 @@ import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 
 const sliderImages = [
-  "Banner_final.png",
+  "BannerCurrent.png",
   "/image.jpg",
   "/image1.jpg",
   "/AbstractPeople.jpg",
@@ -34,9 +34,7 @@ const Carousel = () => {
               src={img}
               alt={`Slide ${index + 1}`}
               className="custom-slider-image"
-              style={{ objectFit: "cover", width: "100%", height: "100%" }}
             />
-
             <div className="slider-register-overlay">
               <Link href="/register" passHref>
                 <button className="slider-register-btn">REGISTER NOW</button>

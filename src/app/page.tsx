@@ -216,20 +216,22 @@ export default function Home() {
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              minHeight: { xs: "50vh", md: "60vh" },
-              mt: { xs: 2, md: 4 },
+              minHeight: "80vh", // Increased for better vertical centering
+              mt: { xs: 0, md: 2 }, // Reduced top margin
               mb: 4,
             }}
           >
             <Paper
               elevation={8}
               sx={{
-                p: { xs: 3, md: 5 },
+                p: { xs: 4, md: 6 }, // Increased padding
                 textAlign: "center",
                 borderRadius: 4,
                 width: "100%",
+                maxWidth: "600px", // Set maximum width
                 background: "rgba(255,255,255,0.97)",
                 boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.18)",
+                mx: "auto", // Center horizontally
               }}
             >
               <Typography
@@ -240,6 +242,7 @@ export default function Home() {
                   fontWeight: 800,
                   letterSpacing: 1,
                   fontSize: { xs: "2rem", md: "2.5rem" },
+                  mb: 4, // Added more bottom margin
                 }}
               >
                 Contact Us
@@ -250,9 +253,9 @@ export default function Home() {
                   display: "flex",
                   flexDirection: "column",
                   gap: 3,
-                  mt: 4,
-                  mx: "auto",
-                  maxWidth: "500px",
+                  width: "100%",
+                  maxWidth: "450px", // Slightly narrower form
+                  mx: "auto", // Center the form
                 }}
                 noValidate
                 autoComplete="off"
@@ -262,7 +265,12 @@ export default function Home() {
                   variant="outlined"
                   fullWidth
                   required
-                  sx={{ bgcolor: "background.paper" }}
+                  sx={{
+                    bgcolor: "background.paper",
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 2,
+                    },
+                  }}
                 />
                 <TextField
                   label="Email"
@@ -270,7 +278,12 @@ export default function Home() {
                   fullWidth
                   required
                   type="email"
-                  sx={{ bgcolor: "background.paper" }}
+                  sx={{
+                    bgcolor: "background.paper",
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 2,
+                    },
+                  }}
                 />
                 <TextField
                   label="Message"
@@ -279,19 +292,26 @@ export default function Home() {
                   required
                   multiline
                   rows={4}
-                  sx={{ bgcolor: "background.paper" }}
+                  sx={{
+                    bgcolor: "background.paper",
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 2,
+                    },
+                  }}
                 />
                 <Button
                   variant="contained"
                   color="primary"
                   size="large"
                   sx={{
-                    mt: 2,
+                    mt: 3, // Increased top margin
                     py: 1.5,
-                    px: 4,
+                    px: 6, // Wider button
                     fontSize: { xs: "1rem", md: "1.1rem" },
                     fontWeight: 700,
                     borderRadius: 2,
+                    width: "200px", // Fixed width button
+                    alignSelf: "center", // Center the button
                   }}
                 >
                   Send Message
