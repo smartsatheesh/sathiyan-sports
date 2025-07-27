@@ -12,10 +12,12 @@ import {
   Button,
   useTheme,
   useMediaQuery,
+  Container,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
+import Link from "next/link";
 
-const navItems = ["Home", "About", "Contact", "Register"];
+const navItems = ["Home", "About", "Contact"];
 
 const Navbar = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -27,12 +29,34 @@ const Navbar = () => {
   };
 
   return (
-    <>
-      <AppBar position="static" sx={{ background: "#222" }}>
-        <Toolbar>
+    <AppBar position="sticky">
+      <Container maxWidth="xl">
+        <Toolbar disableGutters>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             🏆 Sathiyan Sports Club
           </Typography>
+
+          <Box sx={{ flexGrow: 1, display: { xs: "none", md: "flex" } }}>
+            {navItems.map((item) => (
+              <Button key={item} sx={{ color: "#fff", ml: 2 }}>
+                {item}
+              </Button>
+            ))}
+            <Link href="/register" passHref>
+              <Button
+                variant="contained"
+                color="secondary"
+                sx={{
+                  ml: 2,
+                  fontWeight: 600,
+                  borderRadius: "8px",
+                  textTransform: "none",
+                }}
+              >
+                Register Now
+              </Button>
+            </Link>
+          </Box>
 
           {isMobile ? (
             <>
@@ -53,21 +77,28 @@ const Navbar = () => {
                       </ListItem>
                     ))}
                   </List>
+                  <Link href="/register" passHref>
+                    <Button
+                      variant="contained"
+                      color="secondary"
+                      fullWidth
+                      sx={{
+                        mt: 1,
+                        fontWeight: 600,
+                        borderRadius: "8px",
+                        textTransform: "none",
+                      }}
+                    >
+                      Register Now
+                    </Button>
+                  </Link>
                 </Box>
               </Drawer>
             </>
-          ) : (
-            <Box>
-              {navItems.map((item) => (
-                <Button key={item} sx={{ color: "#fff", ml: 2 }}>
-                  {item}
-                </Button>
-              ))}
-            </Box>
-          )}
+          ) : null}
         </Toolbar>
-      </AppBar>
-    </>
+      </Container>
+    </AppBar>
   );
 };
 

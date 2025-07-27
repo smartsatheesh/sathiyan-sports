@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import Slider from "react-slick";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 
@@ -15,6 +15,12 @@ const sliderImages = [
 ];
 
 const Carousel = () => {
+  const router = useRouter();
+
+  const handleRegisterClick = () => {
+    router.push("/register");
+  };
+
   const settings = {
     dots: true,
     infinite: true,
@@ -36,9 +42,12 @@ const Carousel = () => {
               className="custom-slider-image"
             />
             <div className="slider-register-overlay">
-              <Link href="/register" passHref>
-                <button className="slider-register-btn">REGISTER NOW</button>
-              </Link>
+              <button
+                className="slider-register-btn"
+                onClick={handleRegisterClick}
+              >
+                REGISTER NOW
+              </button>
             </div>
           </div>
         ))}
