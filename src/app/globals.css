@@ -370,3 +370,145 @@ a.slide_btn {
   color: #333333;
   margin-bottom: 40px;
 }
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1;
+}
+
+.about-box {
+  background: #fff;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+}
+html {
+  scroll-behavior: smooth;
+}
+[id] {
+  scroll-margin-top: 80px; /* Adjust to your AppBar height */
+}
+
+.custom-slider-container {
+  margin: 0;
+  width: 100vw;
+  max-width: 100vw;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.custom-slider-image-wrapper {
+  position: relative;
+  width: 100%;
+  height: 60vw;
+  max-height: 500px;
+  min-height: 250px;
+  background: #222;
+}
+
+.custom-slider-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 0;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+  filter: brightness(0.92) saturate(1.1);
+  transition: filter 0.3s;
+}
+
+.slider-register-overlay {
+  position: absolute;
+  bottom: 8%;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.slider-register-btn {
+  pointer-events: all;
+  background: #8e24aa;
+  color: #fff;
+  font-size: 1.4rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 32px;
+  padding: 0.8rem 2.5rem;
+  box-shadow: 0 4px 24px rgba(142, 36, 170, 0.18);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.slider-register-btn:hover {
+  background: #6d1b7b;
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+  .custom-slider-image-wrapper {
+    height: 40vw;
+    min-height: 180px;
+  }
+}
+@media (max-width: 600px) {
+  .custom-slider-image-wrapper {
+    height: 38vw;
+    min-height: 120px;
+  }
+  .slider-register-btn {
+    font-size: 1rem;
+    padding: 0.6rem 1.5rem;
+  }
+}
+
+.slider-section-wrapper {
+  position: relative;
+  width: 100vw;
+  min-height: 400px;
+  overflow: visible;
+  background: transparent;
+  margin: 0 auto;
+  transition: background 0.3s;
+}
+.slider-section-wrapper > * {
+  position: absolute;
+  width: 100vw;
+  left: 0;
+  top: 0;
+  animation: slide-in-right 0.5s;
+}
+.slider-section-wrapper.left > * {
+  animation: slide-in-left 0.5s;
+}
+.slider-section-wrapper.right > * {
+  animation: slide-in-right 0.5s;
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100vw);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100vw);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

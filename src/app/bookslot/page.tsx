@@ -1,22 +1,23 @@
-'use client'
+"use client";
 
 import {
+  Typography,
   Box,
-  Button,
   FormControl,
   InputLabel,
   MenuItem,
   Select,
   SelectChangeEvent,
   TextField,
-  Typography,
-} from '@mui/material'; 
-import { useState } from 'react';
+  Button,
+} from "@mui/material";
+import Link from "next/link";
+import { useState } from "react";
 
 const SlotBookingPage = () => {
-  const [sport, setSport] = useState('');
-  const [date, setDate] = useState('');
-  const [slot, setSlot] = useState('');
+  const [sport, setSport] = useState("");
+  const [date, setDate] = useState("");
+  const [slot, setSlot] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,13 +25,22 @@ const SlotBookingPage = () => {
   };
 
   return (
-
-      <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 500 }}>
-        <Typography variant="h6" gutterBottom>Book a Slot</Typography>
+    <Box sx={{ bgcolor: "background.default", minHeight: "100vh" }}>
+      <Box
+        component="form"
+        onSubmit={handleSubmit}
+        sx={{ maxWidth: 500, mx: "auto", mt: 6 }}
+      >
+        <Typography variant="h6" gutterBottom>
+          Book a Slot
+        </Typography>
 
         <FormControl fullWidth margin="normal">
           <InputLabel>Sport</InputLabel>
-          <Select value={sport} onChange={(e: SelectChangeEvent) => setSport(e.target.value)}>
+          <Select
+            value={sport}
+            onChange={(e: SelectChangeEvent) => setSport(e.target.value)}
+          >
             <MenuItem value="football">Football</MenuItem>
             <MenuItem value="cricket">Cricket</MenuItem>
             <MenuItem value="badminton">Ball Badminton</MenuItem>
@@ -50,7 +60,10 @@ const SlotBookingPage = () => {
 
         <FormControl fullWidth margin="normal">
           <InputLabel>Time Slot</InputLabel>
-          <Select value={slot} onChange={(e: SelectChangeEvent) => setSlot(e.target.value)}>
+          <Select
+            value={slot}
+            onChange={(e: SelectChangeEvent) => setSlot(e.target.value)}
+          >
             <MenuItem value="6-7AM">6:00 AM – 7:00 AM</MenuItem>
             <MenuItem value="7-8AM">7:00 AM – 8:00 AM</MenuItem>
             <MenuItem value="4-5PM">4:00 PM – 5:00 PM</MenuItem>
@@ -58,11 +71,13 @@ const SlotBookingPage = () => {
           </Select>
         </FormControl>
 
-        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-          <Button type="submit" variant="contained">Book Now</Button>
+        <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
+          <Button type="submit" variant="contained">
+            Book Now
+          </Button>
         </Box>
       </Box>
-
+    </Box>
   );
 };
 

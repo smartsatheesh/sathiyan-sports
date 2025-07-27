@@ -1,3 +1,4 @@
+"use client";
 import React, { useState } from "react";
 import {
   TextField,
@@ -6,193 +7,210 @@ import {
   Typography,
   ToggleButtonGroup,
   ToggleButton,
+  Paper,
+  Divider,
+  Stack,
+  useTheme,
+  Alert,
+  Container,
 } from "@mui/material";
-import Slider from "./Jsfileonslider"; // Your React slider here
 
 const RegistrationForm = () => {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+  });
   const [gender, setGender] = useState("");
   const [interest, setInterest] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const theme = useTheme();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert("Form Submitted");
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch("/api/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Registration failed");
+      }
+
+      setSuccess("Registration successful!");
+      setFormData({ name: "", email: "", phone: "" });
+    } catch (err: any) {
+      setError(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div>
-      {/* ✅ Use the new React Slider on landing page slider */}
-      <Slider />
-      {/* <---about page code---> */}
+    <Container maxWidth="sm" sx={{ py: 4 }}>
+      <Paper
+        elevation={6}
+        sx={{
+          maxWidth: 500,
+          width: "100%",
+          borderRadius: 4,
+          p: 3,
+          bgcolor: "background.paper",
+        }}
+      >
+        <Box component="form" onSubmit={handleSubmit} sx={{ width: "100%" }}>
+          <Stack spacing={2}>
+            <Typography
+              variant="h5"
+              color="primary"
+              align="center"
+              sx={{ fontWeight: 700, letterSpacing: 1 }}
+              gutterBottom
+            >
+              SATHIYAN MULTISPORTS CLUB
+            </Typography>
+            <Divider />
 
-      <div>
-        <div className="about-page">
-          <div className="about-container">
-            <h2 className="about-heading">🎯 Our Vision</h2>
-            <p className="about-text">
-              To inspire and empower people of all ages to lead active, healthy
-              lives by offering top-quality sports facilities, inclusive
-              programs, and strong community engagement.
-            </p>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
+            {success && (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                {success}
+              </Alert>
+            )}
 
-            <h2 className="about-heading">🎯 Our Mission</h2>
-            <p className="about-text">
-              To create safe, accessible, and professional multi-sport
-              environments—including football turfs, cricket nets, indoor
-              courts, and ball badminton arenas—where individuals can train,
-              play, and grow together.
-            </p>
-          </div>
-        </div>
-      </div>
-      {/* <---about page code---> */}
-      {/* <---contact page code---> */}
-      <div>
-        <Box
-          component="form"
-          sx={{
-            mt: 8,
-            display: "flex",
-            flexDirection: "column",
-            gap: 2,
-          }}
-          noValidate
-          autoComplete="off"
-        >
-          <Typography variant="h4" component="h1" gutterBottom>
-            Contact Us
-          </Typography>
+            <TextField
+              fullWidth
+              label="Your Good Name"
+              required
+              margin="normal"
+              variant="outlined"
+              value={formData.name}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+            />
+            <TextField
+              fullWidth
+              label="Email"
+              required
+              margin="normal"
+              variant="outlined"
+              type="email"
+              value={formData.email}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+            />
+            <TextField
+              fullWidth
+              label="Mobile Number"
+              required
+              margin="normal"
+              variant="outlined"
+              value={formData.phone}
+              onChange={(e) =>
+                setFormData({ ...formData, phone: e.target.value })
+              }
+            />
+            <TextField
+              fullWidth
+              type="number"
+              label="Age"
+              required
+              margin="normal"
+              variant="outlined"
+            />
 
-          <TextField label="Name" variant="outlined" fullWidth required />
-          <TextField
-            label="Email"
-            variant="outlined"
-            fullWidth
-            required
-            type="email"
-          />
-          <TextField
-            label="Message"
-            variant="outlined"
-            fullWidth
-            required
-            multiline
-            rows={4}
-          />
+            <Typography sx={{ mt: 1, fontWeight: 500 }}>Gender</Typography>
+            <ToggleButtonGroup
+              exclusive
+              fullWidth
+              value={gender}
+              onChange={(e, val) => setGender(val)}
+              sx={{ mb: 1 }}
+              color="primary"
+            >
+              <ToggleButton value="Female">Female</ToggleButton>
+              <ToggleButton value="Male">Male</ToggleButton>
+            </ToggleButtonGroup>
 
-          <Button variant="contained" color="primary" size="large">
-            Submit
-          </Button>
-        </Box>
-      </div>
+            <TextField
+              fullWidth
+              label="Schedule"
+              required
+              margin="normal"
+              variant="outlined"
+            />
 
-      {/* <---contact page code---> */}
-
-      <div className="fullasecdisplay">
-        <div className="whitespeconform">
-          <Box
-            className="fullregpage"
-            component="form"
-            onSubmit={handleSubmit}
-            sx={{ maxWidth: 500 }}
-          >
-            <div className="headingdivv">
-              <Typography className="nameofregg" variant="h6" gutterBottom>
-                SATHIYAN MULTISPORTS CLUB
-              </Typography>
-            </div>
-
-            <div className="inputnamefield">
-              <TextField
-                fullWidth
-                label="Your GoodName"
-                required
-                margin="normal"
-              />
-            </div>
-
-            <div className="inputnamefield">
-              <TextField
-                fullWidth
-                label="Mobile Number"
-                required
-                margin="normal"
-              />
-            </div>
-
-            <div className="inputnamefield">
-              <TextField
-                fullWidth
-                type="number"
-                label="Age"
-                required
-                margin="normal"
-              />
-            </div>
-
-            <div className="inputnamefield">
-              <Typography sx={{ mt: 2 }}>Gender</Typography>
-            </div>
-
-            <div className="togglbuttonforgender">
-              <ToggleButtonGroup
-                exclusive
-                fullWidth
-                value={gender}
-                onChange={(e, val) => setGender(val)}
-                sx={{ mb: 2 }}
-              >
-                <ToggleButton value="Female">FeMale</ToggleButton>
-                <ToggleButton value="Male">Male</ToggleButton>
-              </ToggleButtonGroup>
-            </div>
-
-            <div className="shedulefield">
-              <TextField fullWidth label="Schedule" required margin="normal" />
-            </div>
-
-            <div className="supscriptioncontents">
-              <Typography sx={{ mt: 2 }}>
-                If you are really interested then you can win our free
-                subscription offer! T&C Applied
-              </Typography>
-            </div>
-
-            <div className="togglebutonsubscription">
-              <ToggleButtonGroup
-                exclusive
-                fullWidth
-                value={interest}
-                onChange={(e, val) => setInterest(val)}
-                sx={{ mb: 2 }}
-              >
-                <ToggleButton value="No">Not Interested</ToggleButton>
-                <ToggleButton value="Yes">Interested</ToggleButton>
-              </ToggleButtonGroup>
-            </div>
-
-            <div className="addressfield">
-              <TextField fullWidth label="Address" required margin="normal" />
-            </div>
-
-            <Box
+            <Typography
               sx={{
-                mt: 2,
-                display: "flex",
-                paddingBottom: "20px",
-                justifyContent: "space-evenly",
+                mt: 1,
+                fontSize: 15,
+                color: "text.secondary",
+                textAlign: "center",
               }}
             >
-              <Button type="reset" variant="outlined">
+              If you are really interested then you can win our free
+              subscription offer! <b>T&C Applied</b>
+            </Typography>
+            <ToggleButtonGroup
+              exclusive
+              fullWidth
+              value={interest}
+              onChange={(e, val) => setInterest(val)}
+              sx={{ mb: 1 }}
+              color="secondary"
+            >
+              <ToggleButton value="No">Not Interested</ToggleButton>
+              <ToggleButton value="Yes">Interested</ToggleButton>
+            </ToggleButtonGroup>
+
+            <TextField
+              fullWidth
+              label="Address"
+              required
+              margin="normal"
+              variant="outlined"
+            />
+
+            <Stack
+              direction="row"
+              spacing={2}
+              justifyContent="center"
+              sx={{ mt: 2 }}
+            >
+              <Button type="reset" variant="outlined" color="secondary">
                 Cancel
               </Button>
-              <Button type="submit" variant="contained">
-                Save
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                disabled={loading}
+              >
+                {loading ? "Registering..." : "Register"}
               </Button>
-            </Box>
-          </Box>
-        </div>
-      </div>
-    </div>
+            </Stack>
+          </Stack>
+        </Box>
+      </Paper>
+    </Container>
   );
 };
 

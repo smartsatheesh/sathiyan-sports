@@ -1,80 +1,60 @@
-'use client';
+import "./globals.css";
+import { Suspense } from "react";
+import type { Metadata } from "next";
+import { AppBar, Toolbar, Typography, Button } from "@mui/material";
+import Link from "next/link";
 
-import React from 'react';
-import Link from 'next/link';
-import {
-  AppBar,
-  Box,
-  CssBaseline,
-  Drawer,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  Toolbar,
-  Typography,
-  ThemeProvider,
-} from '@mui/material';
-import theme from '../theme/theme'; // Adjust path if needed
+export const metadata: Metadata = {
+  title: "Sathiyan Sports",
+  description: "Multi-sport slot booking app",
+};
 
-const drawerWidth = 240;
-
-const navItems = [
-  { text: 'Home', path: '/' },
-  { text: 'Register', path: '/register' },
-  { text: 'Book Slot', path: '/book-slot' },
-  { text: 'Contact', path: '/contact' },
-  { text: 'About', path: '/about' },
-  { text: 'Admin', path: '/admin' },
-];
-
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Box sx={{ display: 'flex', fontFamily: 'Arial, Helvetica, sans-serif' }}>
-        {/* Top App Bar */}
-        <AppBar position="fixed" sx={{ zIndex: 1201 }}>
+    <html lang="en">
+      <head>
+        <link rel="icon" href="/sathiyanlogo.jpeg" type="image/jpeg" />
+        <link rel="shortcut icon" href="/sathiyanlogo.jpeg" type="image/jpeg" />
+      </head>
+      <body className="Arial">
+        <AppBar position="sticky" color="primary" elevation={3}>
           <Toolbar>
-            <Typography variant="h6" noWrap component="div">
+            <Button href="/" component="a" sx={{ p: 0, minWidth: 40, mr: 2 }}>
+              <img
+                src="/sathiyanlogo.jpeg"
+                alt="Sathiyan Logo"
+                style={{ height: 40, width: 40, borderRadius: 8 }}
+              />
+            </Button>
+            <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
               SATHIYAN SPORTS
             </Typography>
+            <Button color="inherit" href="/" component="a">
+              Home
+            </Button>
+            <Button color="inherit" component={Link} href="/about">
+              About
+            </Button>
+            <Button color="inherit" href="/#contact" component="a">
+              Contact
+            </Button>
+            <Button color="inherit" component={Link} href="/admin">
+              Admin
+            </Button>
+            <Button color="inherit" component={Link} href="/bookslot">
+              Book Slot
+            </Button>
+            <Button color="inherit" component={Link} href="/register">
+              Registration
+            </Button>
           </Toolbar>
         </AppBar>
-
-        {/* Sidebar Navigation Drawer */}
-        <Drawer
-          variant="permanent"
-          sx={{
-            width: drawerWidth,
-            flexShrink: 0,
-            [`& .MuiDrawer-paper`]: {
-              width: drawerWidth,
-              boxSizing: 'border-box',
-            },
-          }}
-        >
-          <Toolbar />
-          <List>
-            {navItems.map((item) => (
-              <ListItem key={item.text} disablePadding>
-
-                <Link href={item.path} passHref legacyBehavior>
-                  <ListItemButton component="a">
-                    <ListItemText primary={item.text} />
-                  </ListItemButton>
-                </Link>
-              </ListItem>
-            ))}
-          </List>
-        </Drawer>
-
-        {/* Main Content Area */}
-        <Box component="main" sx={{ flexGrow: 1, p: 3, marginLeft: drawerWidth }}>
-          <Toolbar />
-          {children}
-        </Box>
-      </Box>
-    </ThemeProvider>
+        <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+      </body>
+    </html>
   );
 }

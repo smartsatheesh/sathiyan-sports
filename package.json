@@ -15,10 +15,17 @@
     "@mui/material": "^7.1.2",
     "@react-three/drei": "^10.3.0",
     "@react-three/fiber": "^9.1.2",
+    "@types/react-slick": "^0.23.13",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
     "lucide-react": "^0.522.0",
+    "mongoose": "^8.16.5",
     "next": "15.3.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-slick": "^0.30.3",
+    "slick-carousel": "^1.8.1",
     "three": "^0.177.0"
   },
   "devDependencies": {
