@@ -87,7 +87,7 @@ export default function BookSlot() {
   };
 
   return (
-    <Box sx={{ height: "calc(100vh - 64px)" }}>
+    <Box sx={{ height: "calc(100vh - 64px)" } as any}>
       {" "}
       {/* Subtract header height */}
       <Container maxWidth="xl" sx={{ height: "100%", py: 2 }}>
@@ -113,7 +113,7 @@ export default function BookSlot() {
               gap: 3,
               flex: 1,
               minHeight: 0, // Important for nested scrolling
-            }}
+            } as any}
           >
             {/* Left Side - Sport Selection */}
             <Paper
@@ -261,7 +261,7 @@ export default function BookSlot() {
                       />
                     ))
                   ) : (
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary" align="center">
                       No slots selected
                     </Typography>
                   )}
