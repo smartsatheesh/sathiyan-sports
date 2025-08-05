@@ -6,12 +6,13 @@ import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 
 const sliderImages = [
-  "BannerCurrent.png",
+ 
   "/image.jpg",
   "/image1.jpg",
   "/AbstractPeople.jpg",
   "/pexels-eberhardgross-1367192.jpg",
   "/registerpageimagesamble.png",
+   "/BannerCurrent.png",
 ];
 
 const Carousel = () => {
