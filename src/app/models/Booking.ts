@@ -24,17 +24,11 @@ const bookingSchema = new mongoose.Schema({
   },
   totalHours: {
     type: Number,
-    default: function() {
-      // For Functions and Events, calculate total hours; for sports, default to slot count
-      return this.sport === "Functions and Events" ? 0 : this.timeSlots?.length || 1;
-    }
+    default: 1
   },
   eventType: {
     type: String,
     enum: ["Corporate Event", "Wedding", "Birthday Party", "Conference", "Other"],
-    required: function() {
-      return this.sport === "Functions and Events";
-    }
   },
   specialRequirements: {
     type: String,
