@@ -4,7 +4,7 @@ const bookingSchema = new mongoose.Schema({
   sport: {
     type: String,
     required: [true, "Sport is required"],
-    enum: ["Cricket", "Football", "Shuttle Badminton", "Functions and Events"],
+    enum: ["Cricket", "Football", "Shuttle Badminton"],
   },
   date: {
     type: Date,
@@ -21,18 +21,6 @@ const bookingSchema = new mongoose.Schema({
   pricePerSlot: {
     type: Number,
     required: [true, "Price per slot is required"],
-  },
-  totalHours: {
-    type: Number,
-    default: 1
-  },
-  eventType: {
-    type: String,
-    enum: ["Corporate Event", "Wedding", "Birthday Party", "Conference", "Other"],
-  },
-  specialRequirements: {
-    type: String,
-    maxlength: 500
   },
   isWeekend: {
     type: Boolean,
@@ -68,16 +56,10 @@ const bookingSchema = new mongoose.Schema({
   paymentExpiry: {
     type: Date,
   },
-  paymentCompletedAt: {
-    type: Date,
-  },
   bookingStatus: {
     type: String,
     default: "pending",
     enum: ["pending", "confirmed", "cancelled", "completed", "expired"],
-  },
-  cancelledAt: {
-    type: Date,
   },
   createdAt: {
     type: Date,
