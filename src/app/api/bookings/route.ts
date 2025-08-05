@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "../../server/Mongo";
 import Booking from "../../models/Booking";
 import { format, startOfDay, endOfDay } from "date-fns";
-import { NotificationService } from "../../services/notificationService";
 
 // POST - Create a new booking
 export async function POST(req: NextRequest) {
@@ -20,9 +19,6 @@ export async function POST(req: NextRequest) {
       customerName,
       customerEmail,
       customerPhone,
-      paymentExpiry,
-      paymentStatus = "pending",
-      bookingStatus = "pending",
     } = body;
 
     // Validate required fields
@@ -33,7 +29,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if any of the selected time slots are already booked (only for confirmed bookings)
+    // Check if any of the selected time slots are already booked
     const bookingDate = new Date(date);
     const existingBookings = await Booking.find({
       sport,
@@ -42,13 +38,12 @@ export async function POST(req: NextRequest) {
         $lte: endOfDay(bookingDate),
       },
       timeSlots: { $in: timeSlots },
-      bookingStatus: { $in: ["confirmed", "pending"] }, // Include pending bookings
-      paymentStatus: { $ne: "expired" }, // Exclude expired payments
+      bookingStatus: { $ne: "cancelled" },
     });
 
     if (existingBookings.length > 0) {
       const bookedSlots = existingBookings.flatMap(booking => booking.timeSlots);
-      const conflictingSlots = timeSlots.filter((slot: string) => bookedSlots.includes(slot));
+      const conflictingSlots = timeSlots.filter(slot => bookedSlots.includes(slot));
       
       return NextResponse.json(
         { 
@@ -71,43 +66,12 @@ export async function POST(req: NextRequest) {
       customerName,
       customerEmail,
       customerPhone,
-      paymentExpiry: paymentExpiry ? new Date(paymentExpiry) : undefined,
-      paymentStatus,
-      bookingStatus,
     });
-
-    // Send booking confirmation notifications
-    try {
-      const userNotificationData = {
-        name: customerName,
-        phone: customerPhone,
-        email: customerEmail,
-        preferences: {
-          sms: true,
-          push: false, // User hasn't set up push notifications yet
-          whatsapp: true,
-        },
-      };
-
-      const bookingDetails = {
-        bookingId: booking._id.toString(),
-        sport,
-        date: format(bookingDate, 'dd MMM yyyy'),
-        timeSlots,
-        totalAmount,
-      };
-
-      await NotificationService.sendBookingConfirmation(userNotificationData, bookingDetails);
-    } catch (notificationError) {
-      console.error('Failed to send booking confirmation notifications:', notificationError);
-      // Don't fail the booking creation if notifications fail
-    }
 
     return NextResponse.json({
       message: "Booking created successfully",
       success: true,
       booking,
-      bookingId: booking._id,
     });
   } catch (error) {
     console.error("Booking creation error:", error);
@@ -136,15 +100,14 @@ export async function GET(req: NextRequest) {
 
     const queryDate = new Date(date);
     
-    // Find all bookings for the specified sport and date (exclude cancelled and expired)
+    // Find all bookings for the specified sport and date
     const bookings = await Booking.find({
       sport,
       date: {
         $gte: startOfDay(queryDate),
         $lte: endOfDay(queryDate),
       },
-      bookingStatus: { $nin: ["cancelled", "expired"] },
-      paymentStatus: { $nin: ["expired", "cancelled"] },
+      bookingStatus: { $ne: "cancelled" },
     }).select("timeSlots");
 
     // Extract all booked time slots

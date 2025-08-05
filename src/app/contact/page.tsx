@@ -15,7 +15,6 @@ import { useState } from "react";
 interface FormData {
   name: string;
   email: string;
-  mobile: string;
   message: string;
 }
 
@@ -29,7 +28,6 @@ export default function ContactPage() {
   const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
-    mobile: '',
     message: ''
   });
   const [loading, setLoading] = useState(false);
@@ -52,7 +50,7 @@ export default function ContactPage() {
     event.preventDefault();
     
     // Basic validation
-    if (!formData.name.trim() || !formData.email.trim() || !formData.mobile.trim() || !formData.message.trim()) {
+    if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
       setAlert({
         open: true,
         message: 'Please fill in all fields',
@@ -84,7 +82,6 @@ export default function ContactPage() {
         setFormData({
           name: '',
           email: '',
-          mobile: '',
           message: ''
         });
       } else {
@@ -124,7 +121,17 @@ export default function ContactPage() {
         noValidate
         autoComplete="off"
       >
-        <Typography variant="h4" component="h1" gutterBottom>
+        <Typography 
+          variant="h4" 
+          component="h1" 
+          gutterBottom
+          align="center"
+          sx={{
+            fontWeight: 800,
+            color: "primary.main",
+            mb: 4,
+          }}
+        >
           Contact Us
         </Typography>
         
@@ -140,7 +147,7 @@ export default function ContactPage() {
           value={formData.name}
           onChange={handleInputChange('name')}
           disabled={loading}
-          />
+        />
         <TextField
           label="Email"
           variant="outlined"
@@ -150,17 +157,6 @@ export default function ContactPage() {
           value={formData.email}
           onChange={handleInputChange('email')}
           disabled={loading}
-        />
-        <TextField
-          label="Mobile Number"
-          variant="outlined"
-          fullWidth
-          required
-          type="tel"
-          value={formData.mobile}
-          onChange={handleInputChange('mobile')}
-          disabled={loading}
-          placeholder="Enter your mobile number"
         />
         <TextField
           label="Message"

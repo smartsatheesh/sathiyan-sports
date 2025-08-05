@@ -118,8 +118,17 @@ export default function RegisterPage() {
   return (
     <Container maxWidth="sm" sx={{ py: 4 }}>
       <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
-        <Typography variant="h4" gutterBottom align="center">
-          Register
+        <Typography 
+          variant="h4" 
+          gutterBottom 
+          align="center"
+          sx={{
+            fontWeight: 800,
+            color: "primary.main",
+            mb: 4,
+          }}
+        >
+          Register for Membership
         </Typography>
 
         {error && (
