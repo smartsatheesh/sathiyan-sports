@@ -42,6 +42,16 @@ const Navbar = () => {
                 {item}
               </Button>
             ))}
+            <Link href="/bookslot" passHref>
+              <Button sx={{ color: "#fff", ml: 2 }}>
+                Book Slot
+              </Button>
+            </Link>
+            <Link href="/notifications" passHref>
+              <Button sx={{ color: "#fff", ml: 2 }}>
+                📱 Notifications
+              </Button>
+            </Link>
             <Link href="/register" passHref>
               <Button
                 variant="contained"
