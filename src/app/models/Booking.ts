@@ -4,7 +4,7 @@ const bookingSchema = new mongoose.Schema({
   sport: {
     type: String,
     required: [true, "Sport is required"],
-    enum: ["Cricket", "Football", "Shuttle Badminton"],
+    enum: ["Cricket", "Football", "Shuttle Badminton", "Functions and Events"],
   },
   date: {
     type: Date,
@@ -38,6 +38,17 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     required: [true, "Customer phone is required"],
   },
+  // Functions and Events specific fields
+  eventType: {
+    type: String,
+    enum: ["Corporate Event", "Wedding", "Birthday Party", "Conference", "Other"],
+  },
+  totalHours: {
+    type: Number,
+  },
+  specialRequirements: {
+    type: String,
+  },
   paymentStatus: {
     type: String,
     default: "pending",
@@ -45,12 +56,24 @@ const bookingSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ["upi", "gpay", "cash"],
+    enum: ["upi", "gpay", "netbanking", "card", "wallet", "cash"],
   },
   paymentId: {
     type: String,
   },
   upiTransactionId: {
+    type: String,
+  },
+  paymentReference: {
+    type: String,
+  },
+  bankDetails: {
+    type: String,
+  },
+  walletDetails: {
+    type: String,
+  },
+  upiApp: {
     type: String,
   },
   paymentExpiry: {

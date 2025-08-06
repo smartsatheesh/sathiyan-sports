@@ -19,6 +19,8 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/sathiyanlogo.jpeg" type="image/jpeg" />
         <link rel="shortcut icon" href="/sathiyanlogo.jpeg" type="image/jpeg" />
+        {/* Razorpay Checkout Script for Real UPI Payments */}
+        <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
       </head>
       <body className="Arial">
         <AppBar position="sticky" color="primary" elevation={3}>

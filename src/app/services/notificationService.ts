@@ -1,6 +1,6 @@
 // Unified Notification Service
-import { SMSService } from './smsService';
-import { PushNotificationService } from './pushNotificationService';
+//import { SMSService } from './smsService';
+//import { PushNotificationService } from './pushNotificationService';
 import { WhatsAppService } from './whatsappService';
 
 export interface NotificationPreferences {
@@ -28,7 +28,7 @@ export class NotificationService {
 
     try {
       // SMS Notification
-      if (user.preferences.sms) {
+     /*  if (user.preferences.sms) {
         const smsResult = await SMSService.sendBookingConfirmation(
           user.name,
           user.phone,
@@ -47,7 +47,7 @@ export class NotificationService {
           bookingDetails
         );
         results.push({ type: 'push', results: pushResult });
-      }
+      } */
 
       // WhatsApp Notification
       if (user.preferences.whatsapp) {
@@ -85,7 +85,7 @@ export class NotificationService {
 
     try {
       // SMS Notification
-      if (user.preferences.sms) {
+     /*  if (user.preferences.sms) {
         const smsResult = await SMSService.sendPaymentReminder(
           user.name,
           user.phone,
@@ -105,7 +105,7 @@ export class NotificationService {
           minutesLeft
         );
         results.push({ type: 'push', results: pushResult });
-      }
+      } */
 
       // WhatsApp Notification
       if (user.preferences.whatsapp) {
@@ -143,7 +143,7 @@ export class NotificationService {
 
     try {
       // SMS Notification
-      if (user.preferences.sms) {
+    /*   if (user.preferences.sms) {
         const smsResult = await SMSService.sendPaymentSuccess(
           user.name,
           user.phone,
@@ -162,7 +162,7 @@ export class NotificationService {
           bookingDetails
         );
         results.push({ type: 'push', results: pushResult });
-      }
+      } */
 
       // WhatsApp Notification
       if (user.preferences.whatsapp) {
@@ -200,7 +200,7 @@ export class NotificationService {
 
     try {
       // SMS Notification
-      if (user.preferences.sms) {
+    /*   if (user.preferences.sms) {
         const smsResult = await SMSService.sendBookingCancellation(
           user.name,
           user.phone,
@@ -222,7 +222,7 @@ export class NotificationService {
         );
         results.push({ type: 'push', results: pushResult });
       }
-
+ */
       // WhatsApp Notification
       if (user.preferences.whatsapp) {
         const whatsappResult = await WhatsAppService.sendBookingCancellation(

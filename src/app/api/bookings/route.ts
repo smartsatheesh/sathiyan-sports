@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "../../server/Mongo";
 import Booking from "../../models/Booking";
 import { format, startOfDay, endOfDay } from "date-fns";
-import { NotificationService } from "../../services/notificationService";
+// COMMENTED OUT: Notification services (Twilio/Firebase)
+// import { NotificationService } from "../../services/notificationService";
 
 // POST - Create a new booking
 export async function POST(req: NextRequest) {
@@ -76,16 +77,16 @@ export async function POST(req: NextRequest) {
       bookingStatus,
     });
 
-    // Send booking confirmation notifications
+    // Send booking confirmation notifications (WhatsApp only)
     try {
       const userNotificationData = {
         name: customerName,
         phone: customerPhone,
         email: customerEmail,
         preferences: {
-          sms: true,
-          push: false, // User hasn't set up push notifications yet
-          whatsapp: true,
+          sms: false, // COMMENTED OUT: Twilio SMS disabled
+          push: false, // COMMENTED OUT: Firebase push notifications disabled
+          whatsapp: true, // Only WhatsApp remains active
         },
       };
 
@@ -97,7 +98,11 @@ export async function POST(req: NextRequest) {
         totalAmount,
       };
 
-      await NotificationService.sendBookingConfirmation(userNotificationData, bookingDetails);
+      // COMMENTED OUT: Notification services (Twilio/Firebase)
+      // await NotificationService.sendBookingConfirmation(userNotificationData, bookingDetails);
+      
+      // Only WhatsApp notifications remain active
+      console.log('Booking confirmation - WhatsApp notification would be sent:', { userNotificationData, bookingDetails });
     } catch (notificationError) {
       console.error('Failed to send booking confirmation notifications:', notificationError);
       // Don't fail the booking creation if notifications fail

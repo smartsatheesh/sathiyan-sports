@@ -15,10 +15,10 @@ declare global {
 const USE_LOCAL_MONGODB = false;
 
 // Choose the appropriate connection string
-const MONGODB_URI = process.env.MONGODB_URI || 
-  (USE_LOCAL_MONGODB 
-    ? "mongodb://localhost:27017/sathiyan-sports"
-    : "mongodb://smartsatheesh16:hxyX5nHuJa1Tzgck@ac-zhkkd6w-shard-00-00.ld4gdje.mongodb.net:27017,ac-zhkkd6w-shard-00-01.ld4gdje.mongodb.net:27017,ac-zhkkd6w-shard-00-02.ld4gdje.mongodb.net:27017/SathiyanSports?ssl=true&replicaSet=atlas-12t0o1-shard-0&authSource=admin&retryWrites=true&w=majority");
+const MONGODB_URI = USE_LOCAL_MONGODB 
+  ? "mongodb://localhost:27017/sathiyan-sports"
+  : "mongodb+srv://smartsatheesh16:hxyX5nHuJa1Tzgck@ac-zhkkd6w.ld4gdje.mongodb.net/SathiyanSports?retryWrites=true&w=majority&appName=SathiyanSports";
+
 if (!MONGODB_URI) {
   throw new Error(
     "Please define the MONGODB_URI environment variable inside .env"
@@ -38,9 +38,13 @@ async function connectDB() {
   if (!cached?.promise) {
     const opts = {
       bufferCommands: false,
-      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 10s
-      socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-      family: 4 // Use IPv4, skip trying IPv6
+      serverSelectionTimeoutMS: 10000, // Increased timeout
+      socketTimeoutMS: 45000,
+      family: 4, // Use IPv4, skip trying IPv6
+      maxPoolSize: 10, // Maintain up to 10 socket connections
+      minPoolSize: 5, // Maintain at least 5 socket connections
+      maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
+      connectTimeoutMS: 10000, // Give up initial connection after 10 seconds
     };
 
     cached!.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
@@ -50,10 +54,23 @@ async function connectDB() {
 
   try {
     cached!.conn = await cached!.promise;
-    console.log('MongoDB connected successfully');
+    console.log('MongoDB Atlas connected successfully');
   } catch (e) {
     cached!.promise = null;
     console.error('MongoDB connection error:', e);
+    
+    // Provide helpful error messages based on error type
+    if (e instanceof Error) {
+      if (e.message.includes('IP address')) {
+        console.error('❌ IP WHITELIST ERROR: Add your current IP address to MongoDB Atlas Network Access');
+        console.error('🔗 Go to: https://cloud.mongodb.com → Network Access → Add IP Address');
+      } else if (e.message.includes('authentication')) {
+        console.error('❌ AUTHENTICATION ERROR: Check your MongoDB username and password');
+      } else if (e.message.includes('ENOTFOUND')) {
+        console.error('❌ NETWORK ERROR: Check your internet connection and MongoDB URI');
+      }
+    }
+    
     throw e;
   }
 

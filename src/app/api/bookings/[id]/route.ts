@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "../../../server/Mongo";
 import Booking from "../../../models/Booking";
-import { NotificationService } from "../../../services/notificationService";
+// import { NotificationService } from "../../../services/notificationService";
 import { format } from "date-fns";
 
 export async function PATCH(
@@ -19,7 +19,11 @@ export async function PATCH(
       bookingStatus,
       paymentMethod,
       upiTransactionId,
-      paymentId
+      paymentId,
+      paymentReference,
+      bankDetails,
+      walletDetails,
+      upiApp
     } = body;
 
     // Find the booking
@@ -38,6 +42,10 @@ export async function PATCH(
     if (paymentMethod) updateData.paymentMethod = paymentMethod;
     if (upiTransactionId) updateData.upiTransactionId = upiTransactionId;
     if (paymentId) updateData.paymentId = paymentId;
+    if (paymentReference) updateData.paymentReference = paymentReference;
+    if (bankDetails) updateData.bankDetails = bankDetails;
+    if (walletDetails) updateData.walletDetails = walletDetails;
+    if (upiApp) updateData.upiApp = upiApp;
     
     updateData.updatedAt = new Date();
 
@@ -50,15 +58,15 @@ export async function PATCH(
     // Send notifications based on payment status change
     try {
       if (paymentStatus === 'completed' && booking.paymentStatus !== 'completed') {
-        // Payment successful - send success notification
+        // Payment successful - send success notification (WhatsApp only)
         const userNotificationData = {
           name: booking.customerName,
           phone: booking.customerPhone,
           email: booking.customerEmail,
           preferences: {
-            sms: true,
-            push: false,
-            whatsapp: true,
+            sms: false, // COMMENTED OUT: Twilio SMS disabled
+            push: false, // COMMENTED OUT: Firebase push notifications disabled
+            whatsapp: true, // Only WhatsApp remains active
           },
         };
 
@@ -70,25 +78,31 @@ export async function PATCH(
           totalAmount: booking.totalAmount,
         };
 
-        await NotificationService.sendPaymentSuccess(userNotificationData, bookingDetails);
+        // await NotificationService.sendPaymentSuccess(userNotificationData, bookingDetails);
+        console.log('Payment success notification would be sent:', { userNotificationData, bookingDetails });
       } else if (paymentStatus === 'expired' && booking.paymentStatus !== 'expired') {
-        // Payment expired - send cancellation notification
+        // Payment expired - send cancellation notification (WhatsApp only)
         const userNotificationData = {
           name: booking.customerName,
           phone: booking.customerPhone,
           email: booking.customerEmail,
           preferences: {
-            sms: true,
-            push: false,
-            whatsapp: true,
+            sms: false, // COMMENTED OUT: Twilio SMS disabled
+            push: false, // COMMENTED OUT: Firebase push notifications disabled
+            whatsapp: true, // Only WhatsApp remains active
           },
         };
 
-        await NotificationService.sendBookingCancellation(
+        // await NotificationService.sendBookingCancellation(
+        //   userNotificationData,
+        //   booking._id.toString(),
+        //   'Payment time expired'
+        // );
+        console.log('Booking cancellation notification would be sent:', {
           userNotificationData,
-          booking._id.toString(),
-          'Payment time expired'
-        );
+          bookingId: booking._id.toString(),
+          reason: 'Payment time expired'
+        });
       }
     } catch (notificationError) {
       console.error('Failed to send notification:', notificationError);
