@@ -115,10 +115,10 @@ const sports = [
 
 // Special session slots for Functions and Events
 const eventSessions = [
-  { time: "Morning Session (6:00 AM - 12:00 PM)", hours: 6 },
-  { time: "Afternoon Session (12:00 PM - 6:00 PM)", hours: 6 },
-  { time: "Evening Session (6:00 PM - 12:00 AM)", hours: 6 },
-  { time: "Full Day (6:00 AM - 12:00 AM)", hours: 18 },
+  { time: "Morning Session (06:00 - 12:00)", hours: 6 },
+  { time: "Afternoon Session (12:00 - 18:00)", hours: 6 },
+  { time: "Evening Session (18:00 - 24:00)", hours: 6 },
+  { time: "Full Day (06:00 - 24:00)", hours: 18 },
   { time: "Custom Hours (Minimum 3 hours)", hours: 3 }
 ];
 
@@ -166,14 +166,14 @@ const generateTimeSlots = (isEvent = false) => {
   
   const slots = [];
   for (let hour = 5; hour <= 24; hour++) {
-    // 6 AM to 7 PM (6-7, 7-8, ..., 19-20)
+    // 5:00 to 24:00 (5-6, 6-7, ..., 23-24)
     const startTime = format(
       setHours(setMinutes(new Date(), 0), hour),
-      "hh:mm aa"
+      "HH:mm"
     );
     const endTime = format(
       setHours(setMinutes(new Date(), 0), hour + 1),
-      "hh:mm aa"
+      "HH:mm"
     );
     const timeString = `${startTime} - ${endTime}`;
     slots.push({
@@ -203,7 +203,7 @@ export default function BookSlot() {
   
   // Enhanced Payment dialog states - HDFC Bank Style
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'netbanking' | 'card' | 'wallet'>('upi');
+  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'netbanking' | 'card' | 'wallet' | 'phonepe'>('phonepe');
   const [paymentStep, setPaymentStep] = useState<'method' | 'processing' | 'verification' | 'success'>('method');
   const [selectedBank, setSelectedBank] = useState('');
   const [selectedWallet, setSelectedWallet] = useState('');
@@ -235,7 +235,7 @@ export default function BookSlot() {
     return `upi://pay?pa=${upiId}&pn=${encodeURIComponent(name)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
   };
 
-  // HDFC Bank style payment processing with Razorpay
+  // HDFC Bank style payment processing with Razorpay and PhonePe
   const processPayment = async () => {
     setPaymentProcessing(true);
     setPaymentStep('processing');
@@ -245,7 +245,38 @@ export default function BookSlot() {
     setPaymentReference(ref);
     
     try {
-      if (paymentMethod === 'upi') {
+      if (paymentMethod === 'phonepe') {
+        // Create PhonePe payment order
+        const orderResponse = await fetch('/api/phonepe/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: totalPrice,
+            customerInfo,
+            bookingReference: ref
+          })
+        });
+
+        const orderData = await orderResponse.json();
+
+        if (orderData.success) {
+          // Store transaction details for verification
+          setCurrentBookingId(orderData.transactionId);
+          
+          // Redirect to PhonePe payment page
+          window.open(orderData.paymentUrl, '_blank');
+          
+          // Set to verification step and wait for user to complete payment
+          setPaymentStep('verification');
+          setAlert({ 
+            type: 'info', 
+            message: 'Complete payment in the new tab and then verify below' 
+          });
+        } else {
+          setAlert({ type: 'error', message: orderData.message || 'Failed to create PhonePe payment' });
+          setPaymentStep('method');
+        }
+      } else if (paymentMethod === 'upi') {
         // Create Razorpay order for real UPI payment
         const orderResponse = await fetch('/api/payment/create', {
           method: 'POST',
@@ -340,7 +371,7 @@ export default function BookSlot() {
         // Other payment methods are coming soon
         setAlert({ 
           type: 'info', 
-          message: 'This payment method is coming soon. Please use UPI for now.' 
+          message: 'This payment method is coming soon. Please use PhonePe or UPI for now.' 
         });
         setPaymentStep('method');
       }
@@ -355,6 +386,90 @@ export default function BookSlot() {
 
   // Handle payment confirmation with enhanced verification
   const handlePaymentConfirmation = async () => {
+    if (paymentMethod === 'phonepe') {
+      // For PhonePe, verify using transaction ID
+      if (!currentBookingId) {
+        setAlert({ type: 'error', message: 'Transaction ID missing. Please restart payment process.' });
+        return;
+      }
+
+      setLoading(true);
+      try {
+        // Verify PhonePe payment
+        const verifyResponse = await fetch('/api/phonepe/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            transactionId: currentBookingId,
+            bookingReference: paymentReference
+          })
+        });
+
+        const verifyData = await verifyResponse.json();
+
+        if (verifyData.success) {
+          // Payment verified successfully
+          setUpiTransactionId(verifyData.payment.phonepeTransactionId);
+          
+          // Create booking in database
+          const bookingId = await createBookingInDB();
+          if (!bookingId) {
+            setLoading(false);
+            return;
+          }
+
+          // Update booking with payment details
+          const updateResponse = await fetch(`/api/bookings/${bookingId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              paymentStatus: 'completed',
+              bookingStatus: 'confirmed',
+              paymentMethod: 'phonepe',
+              upiTransactionId: verifyData.payment.phonepeTransactionId,
+              paymentReference: paymentReference,
+              phonepeTransactionId: verifyData.payment.transactionId
+            })
+          });
+
+          const updateData = await updateResponse.json();
+
+          if (updateData.success) {
+            setPaymentStep('success');
+            setTimerActive(false);
+            setAlert({ 
+              type: 'success', 
+              message: `PhonePe payment successful! Booking confirmed with reference ${paymentReference}` 
+            });
+            
+            // Auto close after 3 seconds
+            setTimeout(() => {
+              setPaymentDialogOpen(false);
+              // Reset form
+              setSelectedSport("");
+              setSelectedDate(null);
+              setSelectedTimeSlots([]);
+              setCustomerInfo({ name: "", email: "", phone: "", eventType: "Corporate Event", specialRequirements: "" });
+              setUpiTransactionId('');
+              setCurrentBookingId(null);
+              setPaymentStep('method');
+              setPaymentReference('');
+            }, 3000);
+          } else {
+            setAlert({ type: 'error', message: updateData.message || 'Failed to confirm booking' });
+          }
+        } else {
+          setAlert({ type: 'error', message: verifyData.message || 'Payment verification failed' });
+        }
+      } catch (error) {
+        console.error("PhonePe payment verification error:", error);
+        setAlert({ type: 'error', message: 'Failed to verify PhonePe payment' });
+      }
+      setLoading(false);
+      return;
+    }
+
+    // Original Razorpay/UPI verification logic
     if (!upiTransactionId.trim()) {
       setAlert({ type: 'error', message: 'Please enter transaction ID or reference number' });
       return;
@@ -606,7 +721,25 @@ export default function BookSlot() {
       </Typography>
       
       <Grid container spacing={2} sx={{ mt: 1 }}>
-        <Grid item xs={6} md={3}>
+        <Grid item xs={6} md={2.4}>
+          <Card 
+            variant={paymentMethod === 'phonepe' ? 'elevation' : 'outlined'}
+            sx={{ 
+              cursor: 'pointer', 
+              border: paymentMethod === 'phonepe' ? '2px solid' : 'none',
+              borderColor: paymentMethod === 'phonepe' ? 'primary.main' : 'transparent'
+            }}
+            onClick={() => setPaymentMethod('phonepe')}
+          >
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Typography sx={{ fontSize: '2rem', mb: 1 }}>💜</Typography>
+              <Typography variant="subtitle2">PhonePe</Typography>
+              <Typography variant="caption" color="success.main" fontWeight="bold">100% FREE</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={6} md={2.4}>
           <Card 
             variant={paymentMethod === 'upi' ? 'elevation' : 'outlined'}
             sx={{ 
@@ -624,7 +757,7 @@ export default function BookSlot() {
           </Card>
         </Grid>
         
-        <Grid item xs={6} md={3}>
+        <Grid item xs={6} md={2.4}>
           <Card 
             variant="outlined"
             sx={{ 
@@ -656,7 +789,7 @@ export default function BookSlot() {
           </Card>
         </Grid>
         
-        <Grid item xs={6} md={3}>
+        <Grid item xs={6} md={2.4}>
           <Card 
             variant="outlined"
             sx={{ 
@@ -688,7 +821,7 @@ export default function BookSlot() {
           </Card>
         </Grid>
         
-        <Grid item xs={6} md={3}>
+        <Grid item xs={6} md={2.4}>
           <Card 
             variant="outlined"
             sx={{ 
@@ -720,6 +853,40 @@ export default function BookSlot() {
           </Card>
         </Grid>
       </Grid>
+
+      {/* PhonePe Information */}
+      {paymentMethod === 'phonepe' && (
+        <Box sx={{ mt: 3 }}>
+          <Alert severity="success" sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" gutterBottom fontWeight="bold">
+              🎉 PhonePe for Business - 100% FREE
+            </Typography>
+            <Typography variant="body2">
+              • Zero transaction fees for small businesses<br/>
+              • Direct UPI payments through PhonePe, GPay, Paytm<br/>
+              • Instant payment confirmation<br/>
+              • No monthly charges or setup fees
+            </Typography>
+          </Alert>
+          
+          <Box sx={{ textAlign: 'center', p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
+            <Typography variant="h6" gutterBottom>Ready to Pay with PhonePe</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Click "Pay" to redirect to PhonePe secure payment page
+            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+              {upiApps.slice(0, 4).map((app) => (
+                <Chip 
+                  key={app.code}
+                  label={app.icon + ' ' + app.name}
+                  size="small"
+                  variant="outlined"
+                />
+              ))}
+            </Box>
+          </Box>
+        </Box>
+      )}
 
       {/* Method-specific options */}
       {paymentMethod === 'upi' && (
@@ -809,6 +976,60 @@ export default function BookSlot() {
 
   const PaymentVerification = () => (
     <Box sx={{ mt: 2 }}>
+      {paymentMethod === 'phonepe' && (
+        <Box sx={{ textAlign: 'center', mb: 3 }}>
+          <Typography variant="h6" gutterBottom>PhonePe Payment Verification</Typography>
+          
+          <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}>
+            <Typography variant="subtitle2" gutterBottom fontWeight="bold">
+              📱 Complete your PhonePe payment:
+            </Typography>
+            <Typography variant="body2" component="div">
+              1. A new tab/window should have opened with PhonePe payment page<br/>
+              2. Complete the payment using any UPI app (PhonePe, GPay, Paytm, etc.)<br/>
+              3. After successful payment, return to this page<br/>
+              4. Click "Verify Payment" below to confirm your booking<br/>
+              5. <strong>No need to enter transaction ID manually!</strong>
+            </Typography>
+          </Alert>
+
+          <Paper elevation={3} sx={{ p: 3, mb: 3, bgcolor: 'success.light', color: 'success.contrastText' }}>
+            <Typography variant="h6" gutterBottom>
+              💜 PhonePe Payment - 100% FREE
+            </Typography>
+            <Typography variant="body2">
+              Amount: ₹{totalPrice?.toLocaleString()}<br/>
+              Reference: {paymentReference}<br/>
+              Transaction ID: {currentBookingId}
+            </Typography>
+          </Paper>
+
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mb: 2 }}>
+            <Button
+              variant="outlined"
+              onClick={() => setPaymentStep('method')}
+              disabled={loading}
+            >
+              Change Payment Method
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handlePaymentConfirmation}
+              disabled={loading}
+              startIcon={loading ? <CircularProgress size={20} /> : <Verified />}
+              size="large"
+              color="success"
+            >
+              {loading ? 'Verifying PhonePe Payment...' : 'Verify PhonePe Payment'}
+            </Button>
+          </Box>
+
+          <Typography variant="caption" display="block" sx={{ textAlign: 'center', color: 'text.secondary' }}>
+            Click verify only after completing payment in PhonePe
+          </Typography>
+        </Box>
+      )}
+
       {paymentMethod === 'upi' && (
         <Box sx={{ textAlign: 'center', mb: 3 }}>
           <Typography variant="h6" gutterBottom>Pay via UPI</Typography>
@@ -887,82 +1108,80 @@ export default function BookSlot() {
               Ref: {paymentReference}
             </Button>
           </Box>
+
+          <Paper elevation={1} sx={{ p: 2, mb: 3, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+            <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Timer />
+              Payment Reference: {paymentReference}
+            </Typography>
+            <Typography variant="body2">
+              Amount: ₹{totalPrice?.toLocaleString()} | 
+              Method: {paymentMethod.toUpperCase()} | 
+              Time Left: {formatTimer(paymentTimer)}
+            </Typography>
+          </Paper>
+
+          {/* Manual Transaction ID Entry */}
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" gutterBottom fontWeight="bold">
+              ⚠️ Important: Enter your actual transaction details
+            </Typography>
+            <List dense>
+              <ListItem>• Complete payment first using the QR code or UPI ID above</ListItem>
+              <ListItem>• Find the Transaction ID in your payment app's history</ListItem>
+              <ListItem>• Transaction ID format: Usually 12 digits (e.g., 123456789012)</ListItem>
+              <ListItem>• Without valid Transaction ID, booking cannot be confirmed</ListItem>
+            </List>
+          </Alert>
+
+          <TextField
+            fullWidth
+            label="Transaction ID / UTR Number"
+            value={upiTransactionId}
+            onChange={(e) => {
+              console.log('Transaction ID input changed:', e.target.value);
+              setUpiTransactionId(e.target.value);
+            }}
+            onFocus={() => console.log('Transaction ID field focused')}
+            onBlur={() => console.log('Transaction ID field blurred')}
+            placeholder="Enter 12-digit transaction ID from your payment app"
+            variant="outlined"
+            helperText="Find this in your payment app's transaction history (required)"
+            sx={{ mb: 3 }}
+            required
+            autoComplete="off"
+            autoFocus
+            error={upiTransactionId.length > 0 && upiTransactionId.length < 8}
+            inputProps={{
+              'data-testid': 'transaction-id-input',
+              style: { backgroundColor: 'white' }
+            }}
+          />
+
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+            <Button
+              variant="outlined"
+              onClick={() => setPaymentStep('method')}
+              disabled={loading}
+            >
+              Change Payment Method
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handlePaymentConfirmation}
+              disabled={loading || !upiTransactionId.trim() || upiTransactionId.length < 8}
+              startIcon={loading ? <CircularProgress size={20} /> : <Verified />}
+              size="large"
+            >
+              {loading ? 'Verifying Payment...' : 'Verify & Confirm Booking'}
+            </Button>
+          </Box>
+
+          <Typography variant="caption" display="block" sx={{ textAlign: 'center', mt: 2, color: 'text.secondary' }}>
+            Your booking will be confirmed after payment verification
+          </Typography>
         </Box>
       )}
-
-      <Paper elevation={1} sx={{ p: 2, mb: 3, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
-        <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Timer />
-          Payment Reference: {paymentReference}
-        </Typography>
-        <Typography variant="body2">
-          Amount: ₹{totalPrice?.toLocaleString()} | 
-          Method: {paymentMethod.toUpperCase()} | 
-          Time Left: {formatTimer(paymentTimer)}
-        </Typography>
-      </Paper>
-
-      {/* Manual Transaction ID Entry */}
-      <Alert severity="warning" sx={{ mb: 3 }}>
-        <Typography variant="subtitle2" gutterBottom fontWeight="bold">
-          ⚠️ Important: Enter your actual transaction details
-        </Typography>
-        <List dense>
-          <ListItem>• Complete payment first using the QR code or UPI ID above</ListItem>
-          <ListItem>• Find the Transaction ID in your payment app's history</ListItem>
-          <ListItem>• Transaction ID format: Usually 12 digits (e.g., 123456789012)</ListItem>
-          <ListItem>• Without valid Transaction ID, booking cannot be confirmed</ListItem>
-        </List>
-      </Alert>
-
-      <TextField
-        fullWidth
-        label="Transaction ID / UTR Number"
-        value={upiTransactionId}
-        onChange={(e) => {
-          console.log('Transaction ID input changed:', e.target.value);
-          setUpiTransactionId(e.target.value);
-        }}
-        onFocus={() => console.log('Transaction ID field focused')}
-        onBlur={() => console.log('Transaction ID field blurred')}
-        placeholder="Enter 12-digit transaction ID from your payment app"
-        variant="outlined"
-        helperText="Find this in your payment app's transaction history (required)"
-        sx={{ mb: 3 }}
-        required
-        autoComplete="off"
-        autoFocus
-        error={upiTransactionId.length > 0 && upiTransactionId.length < 8}
-        inputProps={{
-          'data-testid': 'transaction-id-input',
-          style: { backgroundColor: 'white' }
-        }}
-      />
-
-
-
-      <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-        <Button
-          variant="outlined"
-          onClick={() => setPaymentStep('method')}
-          disabled={loading}
-        >
-          Change Payment Method
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handlePaymentConfirmation}
-          disabled={loading || !upiTransactionId.trim() || upiTransactionId.length < 8}
-          startIcon={loading ? <CircularProgress size={20} /> : <Verified />}
-          size="large"
-        >
-          {loading ? 'Verifying Payment...' : 'Verify & Confirm Booking'}
-        </Button>
-      </Box>
-
-      <Typography variant="caption" display="block" sx={{ textAlign: 'center', mt: 2, color: 'text.secondary' }}>
-        Your booking will be confirmed after payment verification
-      </Typography>
     </Box>
   );
 
