@@ -47,6 +47,11 @@ const Navbar = () => {
                 Book Slot
               </Button>
             </Link>
+            <Link href="/s3" passHref>
+              <Button sx={{ color: "#fff", ml: 2 }}>
+                💪 S3 Fitness Plans
+              </Button>
+            </Link>
             <Link href="/notifications" passHref>
               <Button sx={{ color: "#fff", ml: 2 }}>
                 📱 Notifications
@@ -86,6 +91,21 @@ const Navbar = () => {
                         <ListItemText primary={text} />
                       </ListItem>
                     ))}
+                    <Link href="/bookslot" passHref>
+                      <ListItem button>
+                        <ListItemText primary="Book Slot" />
+                      </ListItem>
+                    </Link>
+                    <Link href="/s3" passHref>
+                      <ListItem button>
+                        <ListItemText primary="💪 S3 Fitness Plans" />
+                      </ListItem>
+                    </Link>
+                    <Link href="/notifications" passHref>
+                      <ListItem button>
+                        <ListItemText primary="📱 Notifications" />
+                      </ListItem>
+                    </Link>
                   </List>
                   <Link href="/register" passHref>
                     <Button
