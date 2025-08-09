@@ -1,4 +1,4 @@
-import "./globals.css";
+import "../globals.css";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { AppBar, Toolbar, Typography, Button } from "@mui/material";

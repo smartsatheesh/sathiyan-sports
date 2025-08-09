@@ -1,7 +1,6 @@
 "use client";
 
 import { Box, Typography, Container } from "@mui/material";
-import Layout from "../components/Layout";
 
 const AboutPage = () => (
   <Container maxWidth="lg" sx={{ py: 4 }}>

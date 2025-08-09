@@ -20,11 +20,17 @@ const bookingSchema = new mongoose.Schema({
   },
   pricePerSlot: {
     type: Number,
-    required: [true, "Price per slot is required"],
+    required: false, // Made optional for simplified booking flow
   },
   isWeekend: {
     type: Boolean,
-    required: true,
+    required: false, // Made optional for simplified booking flow
+  },
+  // User reference for authenticated bookings
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: false, // Optional for guest bookings
   },
   customerName: {
     type: String,
@@ -52,11 +58,11 @@ const bookingSchema = new mongoose.Schema({
   paymentStatus: {
     type: String,
     default: "pending",
-    enum: ["pending", "completed", "failed", "cancelled", "expired"],
+    enum: ["pending", "pending_verification", "paid", "failed", "refunded", "cancelled", "expired"],
   },
   paymentMethod: {
     type: String,
-    enum: ["upi", "gpay", "netbanking", "card", "wallet", "cash"],
+    enum: ["upi", "gpay", "whatsapp", "netbanking", "card", "wallet", "cash"],
   },
   paymentId: {
     type: String,
@@ -83,6 +89,20 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     default: "pending",
     enum: ["pending", "confirmed", "cancelled", "completed", "expired"],
+  },
+  cancellationReason: {
+    type: String,
+  },
+  cancellationDate: {
+    type: Date,
+  },
+  refundAmount: {
+    type: Number,
+  },
+  refundStatus: {
+    type: String,
+    enum: ["none", "pending", "processed", "failed"],
+    default: "none",
   },
   createdAt: {
     type: Date,

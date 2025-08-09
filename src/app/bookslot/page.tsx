@@ -1,5 +1,7 @@
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import {
   Container,
   Paper,
@@ -57,6 +59,7 @@ import {
   Timer,
   Verified,
 } from "@mui/icons-material";
+import SimplePaymentDialog from "../components/SimplePaymentDialog";
 
 // Custom weekend function that includes Friday, Saturday, and Sunday
 const isWeekend = (date: Date): boolean => {
@@ -185,6 +188,10 @@ const generateTimeSlots = (isEvent = false) => {
 };
 
 export default function BookSlot() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  // All useState hooks must be at the top level
   const [selectedSport, setSelectedSport] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
@@ -215,6 +222,50 @@ export default function BookSlot() {
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [paymentReference, setPaymentReference] = useState('');
+
+  // Simple Payment Dialog states
+  const [simplePaymentOpen, setSimplePaymentOpen] = useState(false);
+  const [currentBookingData, setCurrentBookingData] = useState<any>(null);
+
+  // Authentication check
+  useEffect(() => {
+    if (status === 'loading') return; // Still loading
+
+    if (!session) {
+      // Redirect to login with callback URL
+      router.push(`/auth/login?callbackUrl=${encodeURIComponent('/bookslot')}`);
+      return;
+    }
+  }, [session, status, router]);
+
+  // Auto-fill customer information for authenticated users
+  useEffect(() => {
+    if (session?.user) {
+      setCustomerInfo(prev => ({
+        ...prev,
+        name: session.user.name || prev.name,
+        email: session.user.email || prev.email,
+        phone: session.user.mobile || prev.phone,
+      }));
+    }
+  }, [session]);
+
+  // Show loading while checking authentication
+  if (status === 'loading') {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+        <CircularProgress />
+        <Typography variant="h6" sx={{ ml: 2 }}>
+          Checking authentication...
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Don't render anything if not authenticated (will redirect)
+  if (!session) {
+    return null;
+  }
 
   // Generate payment reference number
   const generatePaymentRef = () => {
@@ -629,7 +680,7 @@ export default function BookSlot() {
     );
   };
 
-  // Handle booking submission - Open payment dialog first
+  // Handle booking submission - Open simplified payment dialog
   const handleBooking = async () => {
     // Email is optional since we're only using WhatsApp notifications
     if (!selectedSport || !selectedDate || selectedTimeSlots.length === 0 || !customerInfo.name || !customerInfo.phone) {
@@ -637,14 +688,62 @@ export default function BookSlot() {
       return;
     }
 
-    // Close booking dialog and open payment dialog immediately
+    // Prepare booking data for payment
+    const bookingData = {
+      sport: selectedSport,
+      date: selectedDate,
+      timeSlot: selectedTimeSlots.join(', '),
+      customerInfo,
+      totalPrice: totalPrice
+    };
+
+    setCurrentBookingData(bookingData);
     setBookingDialogOpen(false);
-    setPaymentDialogOpen(true);
-    setPaymentTimer(300); // Reset to 5 minutes
-    setTimerActive(true);
-    setUpiTransactionId('');
-    setPaymentStep('method');
-    setAlert({ type: 'info', message: 'Complete payment to confirm your booking' });
+    setSimplePaymentOpen(true);
+  };
+
+  // Handle payment completion from SimplePaymentDialog
+  const handlePaymentComplete = async (transactionId: string, paymentMethod: string) => {
+    if (!currentBookingData) return;
+
+    try {
+      setLoading(true);
+      
+      const response = await fetch('/api/bookings/simple-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...currentBookingData,
+          transactionId,
+          paymentMethod,
+          paymentReference: `${paymentMethod.toUpperCase()}_${Date.now()}`
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setAlert({ 
+          type: 'success', 
+          message: `Booking created successfully! Reference: ${result.booking.bookingReference}. Payment verification in progress.` 
+        });
+        
+        // Reset form
+        setSelectedSport('');
+        setSelectedDate(null);
+        setSelectedTimeSlots([]);
+        setCustomerInfo({ name: '', email: '', phone: '', eventType: '', specialRequirements: '' });
+        setSimplePaymentOpen(false);
+        setCurrentBookingData(null);
+      } else {
+        setAlert({ type: 'error', message: result.message || 'Booking failed' });
+      }
+    } catch (error) {
+      console.error('Booking error:', error);
+      setAlert({ type: 'error', message: 'Failed to create booking. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Create booking in database after payment is initiated
@@ -664,6 +763,7 @@ export default function BookSlot() {
         totalAmount: totalPrice,
         pricePerSlot,
         isWeekend: isWeekend(selectedDate!),
+        userId: session?.user?.id, // Add user reference for authenticated bookings
         customerName: customerInfo.name,
         customerEmail: customerInfo.email,
         customerPhone: customerInfo.phone,
@@ -1652,6 +1752,19 @@ export default function BookSlot() {
           </Box>
         </DialogActions>
       </Dialog>
+
+      {/* Simplified Payment Dialog - WhatsApp & GPay Only */}
+      <SimplePaymentDialog
+        open={simplePaymentOpen}
+        onClose={() => {
+          setSimplePaymentOpen(false);
+          setCurrentBookingData(null);
+        }}
+        amount={totalPrice || 0}
+        customerInfo={customerInfo}
+        bookingReference={`BK_${selectedSport}_${new Date().getTime().toString().slice(-6)}`}
+        onPaymentComplete={handlePaymentComplete}
+      />
     </Box>
   );
 }

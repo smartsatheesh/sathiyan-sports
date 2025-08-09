@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/app/server/Mongo';
+import connectDB from '@/app/server/Mongo';
 import FitnessEnrollment from '@/app/models/FitnessEnrollment';
 
 // In a real application, you would have a FitnessPlan model

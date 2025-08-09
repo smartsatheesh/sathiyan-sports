@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from "react";
 import {
   AppBar,
@@ -13,119 +15,379 @@ import {
   useTheme,
   useMediaQuery,
   Container,
+  Avatar,
+  Menu,
+  MenuItem,
+  Divider,
+  CircularProgress,
 } from "@mui/material";
-import MenuIcon from "@mui/icons-material/Menu";
+import {
+  Menu as MenuIcon,
+  AccountCircle,
+  Dashboard,
+  BookOnline,
+  Person,
+  ExitToApp,
+  Login,
+  AppRegistration,
+} from "@mui/icons-material";
 import Link from "next/link";
+import { useSession, signOut } from "next-auth/react";
 
-const navItems = ["Home", "About", "Contact"];
+const publicNavItems = [
+  { label: "Home", href: "/" },
+  { label: "About", href: "/about" },
+  { label: "Contact", href: "/contact" },
+];
 
 const Navbar = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const { data: session, status } = useSession();
 
   const toggleDrawer = () => {
     setDrawerOpen(!drawerOpen);
   };
 
+  const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleProfileMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleSignOut = async () => {
+    await signOut({ callbackUrl: "/" });
+    handleProfileMenuClose();
+  };
+
+  const isLoading = status === "loading";
+  const isAuthenticated = status === "authenticated";
+  const user = session?.user;
+  const isAdmin = user?.role === "admin";
+
+  // Profile menu items
+  const profileMenuItems = [
+    { label: "Profile", href: "/profile", icon: <Person /> },
+    { label: "My Bookings", href: "/my-bookings", icon: <BookOnline /> },
+  ];
+
+  if (isAdmin) {
+    profileMenuItems.unshift({
+      label: "Admin Dashboard",
+      href: "/admin",
+      icon: <Dashboard />,
+    });
+  }
+
   return (
     <AppBar position="sticky">
       <Container maxWidth="xl">
         <Toolbar disableGutters>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            🏆 Sathiyan Sports Club
-          </Typography>
+          {/* Logo Section */}
+          <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>
+            <Box sx={{ display: "flex", alignItems: "center", mr: 2 }}>
+              <img
+                src="/logo2.jpeg"
+                alt="Sathiyan Sports Logo"
+                style={{
+                  height: 40,
+                  width: 40,
+                  borderRadius: 8,
+                  marginRight: 8
+                }}
+              />
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  '&:hover': { opacity: 0.8 }
+                }}
+              >
+                SATHIYAN SPORTS
+              </Typography>
+            </Box>
+          </Link>
 
-          <Box sx={{ flexGrow: 1, display: { xs: "none", md: "flex" } }}>
-            {navItems.map((item) => (
-              <Button key={item} sx={{ color: "#fff", ml: 2 }}>
-                {item}
-              </Button>
+          <Box sx={{ flexGrow: 1, display: { xs: "none", md: "flex" }, ml: 4 }}>
+            {publicNavItems.map((item) => (
+              <Link key={item.label} href={item.href} passHref>
+                <Button sx={{ color: "#fff", ml: 2 }}>
+                  {item.label}
+                </Button>
+              </Link>
             ))}
+            
+            {/* Book Slot - Protected */}
             <Link href="/bookslot" passHref>
               <Button sx={{ color: "#fff", ml: 2 }}>
                 Book Slot
               </Button>
             </Link>
+            
+            {/* S3 Fitness Plans */}
             <Link href="/s3" passHref>
               <Button sx={{ color: "#fff", ml: 2 }}>
                 💪 S3 Fitness Plans
               </Button>
             </Link>
-            <Link href="/notifications" passHref>
-              <Button sx={{ color: "#fff", ml: 2 }}>
-                📱 Notifications
-              </Button>
-            </Link>
-            <Link href="/register" passHref>
-              <Button
-                variant="contained"
-                color="secondary"
-                sx={{
-                  ml: 2,
-                  fontWeight: 600,
-                  borderRadius: "8px",
-                  textTransform: "none",
-                }}
-              >
-                Register Now
-              </Button>
-            </Link>
+
+            {/* Admin Dashboard - Admin only */}
+            {isAdmin && (
+              <Link href="/admin" passHref>
+                <Button sx={{ color: "#fff", ml: 2 }}>
+                  🛠️ Admin
+                </Button>
+              </Link>
+            )}
           </Box>
 
-          {isMobile ? (
+          {/* Authentication Section */}
+          <Box sx={{ display: "flex", alignItems: "center", ml: 2 }}>
+            {isLoading ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : isAuthenticated ? (
+              // Authenticated User Menu
+              <>
+                <Button
+                  onClick={handleProfileMenuOpen}
+                  sx={{
+                    color: "#fff",
+                    textTransform: "none",
+                    borderRadius: "20px",
+                    padding: "6px 16px",
+                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
+                  }}
+                  startIcon={
+                    user?.image ? (
+                      <Avatar 
+                        src={user.image} 
+                        sx={{ width: 28, height: 28 }} 
+                      />
+                    ) : (
+                      <AccountCircle />
+                    )
+                  }
+                >
+                  {user?.name?.split(' ')[0] || 'User'}
+                </Button>
+
+                <Menu
+                  anchorEl={anchorEl}
+                  open={Boolean(anchorEl)}
+                  onClose={handleProfileMenuClose}
+                  transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                  anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                  PaperProps={{
+                    sx: {
+                      mt: 1,
+                      minWidth: 200,
+                    }
+                  }}
+                >
+                  <Box sx={{ px: 2, py: 1 }}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Welcome, {user?.name}
+                    </Typography>
+                    {user?.role && (
+                      <Typography variant="caption" color="primary.main">
+                        {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                      </Typography>
+                    )}
+                  </Box>
+                  <Divider />
+                  
+                  {profileMenuItems.map((item) => (
+                    <Link key={item.label} href={item.href} passHref>
+                      <MenuItem onClick={handleProfileMenuClose}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {item.icon}
+                          {item.label}
+                        </Box>
+                      </MenuItem>
+                    </Link>
+                  ))}
+                  
+                  <Divider />
+                  <MenuItem onClick={handleSignOut}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <ExitToApp />
+                      Sign Out
+                    </Box>
+                  </MenuItem>
+                </Menu>
+              </>
+            ) : (
+              // Unauthenticated User Buttons
+              <>
+                <Link href="/auth/login" passHref>
+                  <Button
+                    variant="outlined"
+                    startIcon={<Login />}
+                    sx={{
+                      color: "#fff",
+                      borderColor: "#fff",
+                      mr: 1,
+                      textTransform: "none",
+                      fontWeight: 600,
+                      '&:hover': {
+                        borderColor: "#fff",
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                      }
+                    }}
+                  >
+                    Login
+                  </Button>
+                </Link>
+                <Link href="/register" passHref>
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    startIcon={<AppRegistration />}
+                    sx={{
+                      fontWeight: 600,
+                      borderRadius: "8px",
+                      textTransform: "none",
+                    }}
+                  >
+                    Register
+                  </Button>
+                </Link>
+              </>
+            )}
+          </Box>
+
+          {/* Mobile Menu */}
+          {isMobile && (
             <>
               <IconButton
                 color="inherit"
-                edge="start"
+                edge="end"
                 onClick={toggleDrawer}
                 size="large"
+                sx={{ ml: 1 }}
               >
                 <MenuIcon />
               </IconButton>
               <Drawer anchor="right" open={drawerOpen} onClose={toggleDrawer}>
-                <Box sx={{ width: 250 }}>
+                <Box sx={{ width: 280, p: 2 }}>
+                  {/* Logo Section for Mobile */}
+                  <Box sx={{ mb: 3, p: 2, textAlign: 'center', borderBottom: '1px solid #e0e0e0' }}>
+                    <img
+                      src="/logo2.jpeg"
+                      alt="Sathiyan Sports Logo"
+                      style={{
+                        height: 50,
+                        width: 50,
+                        borderRadius: 8,
+                        marginBottom: 8
+                      }}
+                    />
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                      SATHIYAN SPORTS
+                    </Typography>
+                  </Box>
+                  
+                  {/* User Info Section for Mobile */}
+                  {isAuthenticated && (
+                    <Box sx={{ mb: 2, p: 2, backgroundColor: 'primary.main', borderRadius: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        {user?.image ? (
+                          <Avatar src={user.image} />
+                        ) : (
+                          <Avatar><AccountCircle /></Avatar>
+                        )}
+                        <Box>
+                          <Typography variant="subtitle1" sx={{ color: 'white' }}>
+                            {user?.name}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'white', opacity: 0.8 }}>
+                            {(user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "")}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  )}
+
                   <List>
-                    {navItems.map((text, index) => (
-                      <ListItem button key={index}>
-                        <ListItemText primary={text} />
-                      </ListItem>
+                    {publicNavItems.map((item) => (
+                      <Link key={item.label} href={item.href} passHref>
+                        <ListItem button onClick={toggleDrawer}>
+                          <ListItemText primary={item.label} />
+                        </ListItem>
+                      </Link>
                     ))}
+                    
                     <Link href="/bookslot" passHref>
-                      <ListItem button>
+                      <ListItem button onClick={toggleDrawer}>
                         <ListItemText primary="Book Slot" />
                       </ListItem>
                     </Link>
+                    
                     <Link href="/s3" passHref>
-                      <ListItem button>
+                      <ListItem button onClick={toggleDrawer}>
                         <ListItemText primary="💪 S3 Fitness Plans" />
                       </ListItem>
                     </Link>
-                    <Link href="/notifications" passHref>
-                      <ListItem button>
-                        <ListItemText primary="📱 Notifications" />
-                      </ListItem>
-                    </Link>
+
+                    {isAuthenticated && (
+                      <>
+                        <Divider sx={{ my: 1 }} />
+                        {profileMenuItems.map((item) => (
+                          <Link key={item.label} href={item.href} passHref>
+                            <ListItem button onClick={toggleDrawer}>
+                              <ListItemText primary={item.label} />
+                            </ListItem>
+                          </Link>
+                        ))}
+                        <ListItem button onClick={handleSignOut}>
+                          <ListItemText primary="Sign Out" />
+                        </ListItem>
+                      </>
+                    )}
                   </List>
-                  <Link href="/register" passHref>
-                    <Button
-                      variant="contained"
-                      color="secondary"
-                      fullWidth
-                      sx={{
-                        mt: 1,
-                        fontWeight: 600,
-                        borderRadius: "8px",
-                        textTransform: "none",
-                      }}
-                    >
-                      Register Now
-                    </Button>
-                  </Link>
+
+                  {/* Mobile Auth Buttons */}
+                  {!isAuthenticated && (
+                    <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Link href="/auth/login" passHref>
+                        <Button
+                          variant="outlined"
+                          fullWidth
+                          startIcon={<Login />}
+                          onClick={toggleDrawer}
+                          sx={{
+                            fontWeight: 600,
+                            borderWidth: 2,
+                            '&:hover': {
+                              borderWidth: 2,
+                            }
+                          }}
+                        >
+                          Login
+                        </Button>
+                      </Link>
+                      <Link href="/register" passHref>
+                        <Button
+                          variant="contained"
+                          color="secondary"
+                          fullWidth
+                          startIcon={<AppRegistration />}
+                          onClick={toggleDrawer}
+                        >
+                          Register
+                        </Button>
+                      </Link>
+                    </Box>
+                  )}
                 </Box>
               </Drawer>
             </>
-          ) : null}
+          )}
         </Toolbar>
       </Container>
     </AppBar>

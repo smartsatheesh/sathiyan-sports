@@ -1,5 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import {
   Container,
   Paper,
@@ -28,8 +30,19 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Avatar,
 } from "@mui/material";
 import { format } from "date-fns";
+import {
+  Dashboard,
+  People,
+  BookOnline,
+  ContactMail,
+  FitnessCenter,
+  Refresh,
+  Visibility,
+  Security,
+} from "@mui/icons-material";
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -79,6 +92,9 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function AdminDashboard() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  
   const [tabValue, setTabValue] = useState(0);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -96,6 +112,35 @@ export default function AdminDashboard() {
     bookingStatus: '',
     paymentStatus: ''
   });
+
+  // Authentication check
+  useEffect(() => {
+    if (status === "loading") return; // Still loading
+    
+    if (!session) {
+      router.push("/auth/login?callbackUrl=/admin");
+      return;
+    }
+    
+    if (session.user?.role !== "admin") {
+      router.push("/"); // Redirect non-admin users to home
+      return;
+    }
+  }, [session, status, router]);
+
+  // Show loading while checking authentication
+  if (status === "loading") {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Container>
+    );
+  }
+
+  // Show nothing while redirecting
+  if (!session || session.user?.role !== "admin") {
+    return null;
+  }
 
   useEffect(() => {
     fetchData();

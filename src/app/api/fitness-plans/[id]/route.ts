@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/app/server/Mongo';
+import connectDB from '@/app/server/Mongo';
 import FitnessEnrollment from '@/app/models/FitnessEnrollment';
 
 // GET - Fetch enrollment details by ID

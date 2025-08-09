@@ -20,8 +20,20 @@ import {
   RadioGroup,
   FormControlLabel,
   FormLabel,
+  IconButton,
+  InputAdornment,
+  Link as MuiLink,
 } from "@mui/material";
+import { 
+  Visibility, 
+  VisibilityOff, 
+  PersonAdd, 
+  Phone, 
+  Email, 
+  Lock 
+} from "@mui/icons-material";
 import { addMonths, addYears } from "date-fns";
+import Link from "next/link";
 
 const SUBSCRIPTION_PRICES = {
   monthly: 1200,
@@ -30,24 +42,47 @@ const SUBSCRIPTION_PRICES = {
 };
 
 const TIME_SLOTS = [
+  "12:00 AM - 01:00 AM",
+  "01:00 AM - 02:00 AM",
+  "02:00 AM - 03:00 AM",
+  "03:00 AM - 04:00 AM",
+  "04:00 AM - 05:00 AM",
+  "05:00 AM - 06:00 AM",
   "06:00 AM - 07:00 AM",
   "07:00 AM - 08:00 AM",
   "08:00 AM - 09:00 AM",
+  "09:00 AM - 10:00 AM",
+  "10:00 AM - 11:00 AM",
+  "11:00 AM - 12:00 PM",
+  "12:00 PM - 01:00 PM",
+  "01:00 PM - 02:00 PM",
+  "02:00 PM - 03:00 PM",
+  "03:00 PM - 04:00 PM",
   "04:00 PM - 05:00 PM",
   "05:00 PM - 06:00 PM",
   "06:00 PM - 07:00 PM",
+  "07:00 PM - 08:00 PM",
+  "08:00 PM - 09:00 PM",
+  "09:00 PM - 10:00 PM",
+  "10:00 PM - 11:00 PM",
+  "11:00 PM - 12:00 AM",
 ];
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    phone: "",
+    mobile: "",
+    password: "",
+    confirmPassword: "",
     gender: "",
     preferredSport: "",
     preferredTimeSlot: "",
     subscriptionType: "",
+    role: "customer", // Default role
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -72,6 +107,31 @@ export default function RegisterPage() {
     setLoading(true);
     setError("");
     setSuccess("");
+
+    // Client-side validation
+    if (!formData.name || !formData.email || !formData.mobile || !formData.password || !formData.confirmPassword) {
+      setError("All required fields must be filled");
+      setLoading(false);
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match");
+      setLoading(false);
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.gender || !formData.preferredSport || !formData.preferredTimeSlot || !formData.subscriptionType) {
+      setError("Please complete all required selections");
+      setLoading(false);
+      return;
+    }
 
     const subscriptionAmount =
       SUBSCRIPTION_PRICES[
@@ -98,15 +158,18 @@ export default function RegisterPage() {
         throw new Error(data.message || "Registration failed");
       }
 
-      setSuccess("Registration successful! Welcome to Sathiyan Sports.");
+      setSuccess("Registration successful! Welcome to Sathiyan Sports. You can now login with your mobile number and password.");
       setFormData({
         name: "",
         email: "",
-        phone: "",
+        mobile: "",
+        password: "",
+        confirmPassword: "",
         gender: "",
         preferredSport: "",
         preferredTimeSlot: "",
         subscriptionType: "",
+        role: "customer",
       });
     } catch (err: any) {
       setError(err.message || "Something went wrong");
@@ -166,10 +229,86 @@ export default function RegisterPage() {
             margin="normal"
             required
             fullWidth
-            label="Phone"
-            value={formData.phone}
+            label="Mobile Number"
+            value={formData.mobile}
             onChange={(e) =>
-              setFormData({ ...formData, phone: e.target.value })
+              setFormData({ ...formData, mobile: e.target.value })
+            }
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Phone color="primary" />
+                </InputAdornment>
+              ),
+            }}
+            placeholder="Enter your mobile number"
+            helperText="This will be your username for login"
+          />
+
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            label="Password"
+            type={showPassword ? 'text' : 'password'}
+            value={formData.password}
+            onChange={(e) =>
+              setFormData({ ...formData, password: e.target.value })
+            }
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Lock color="primary" />
+                </InputAdornment>
+              ),
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowPassword(!showPassword)}
+                    edge="end"
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+            placeholder="Create a strong password"
+            helperText="Minimum 6 characters required"
+          />
+
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            label="Confirm Password"
+            type={showConfirmPassword ? 'text' : 'password'}
+            value={formData.confirmPassword}
+            onChange={(e) =>
+              setFormData({ ...formData, confirmPassword: e.target.value })
+            }
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Lock color="primary" />
+                </InputAdornment>
+              ),
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    edge="end"
+                  >
+                    {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+            placeholder="Re-enter your password"
+            error={formData.password !== formData.confirmPassword && formData.confirmPassword !== ''}
+            helperText={
+              formData.password !== formData.confirmPassword && formData.confirmPassword !== ''
+                ? 'Passwords do not match'
+                : 'Must match the password above'
             }
           />
 
@@ -261,6 +400,26 @@ export default function RegisterPage() {
           >
             {loading ? <CircularProgress size={24} /> : "Register & Pay"}
           </Button>
+
+          <Box sx={{ textAlign: 'center', mt: 2 }}>
+            <Typography variant="body2">
+              Already have an account?{' '}
+              <Link href="/auth/login" passHref>
+                <MuiLink 
+                  component="span" 
+                  sx={{ 
+                    color: 'primary.main', 
+                    textDecoration: 'none',
+                    '&:hover': {
+                      textDecoration: 'underline'
+                    }
+                  }}
+                >
+                  Login here
+                </MuiLink>
+              </Link>
+            </Typography>
+          </Box>
         </Box>
       </Paper>
     </Container>

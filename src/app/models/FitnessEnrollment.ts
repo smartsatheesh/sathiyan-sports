@@ -49,7 +49,6 @@ const FitnessEnrollmentSchema: Schema = new Schema({
   enrollmentId: {
     type: String,
     required: true,
-    unique: true,
     default: () => 'FP' + Date.now().toString().slice(-8)
   },
   planId: {
@@ -176,7 +175,7 @@ const FitnessEnrollmentSchema: Schema = new Schema({
 });
 
 // Add indexes for better query performance
-FitnessEnrollmentSchema.index({ enrollmentId: 1 });
+FitnessEnrollmentSchema.index({ enrollmentId: 1 }, { unique: true });
 FitnessEnrollmentSchema.index({ userEmail: 1 });
 FitnessEnrollmentSchema.index({ userPhone: 1 });
 FitnessEnrollmentSchema.index({ planCategory: 1 });
@@ -184,7 +183,7 @@ FitnessEnrollmentSchema.index({ status: 1 });
 FitnessEnrollmentSchema.index({ paymentStatus: 1 });
 
 // Pre-save middleware to calculate progress percentage
-FitnessEnrollmentSchema.pre('save', function(next) {
+FitnessEnrollmentSchema.pre('save', function(this: IFitnessEnrollment, next) {
   if (this.totalDays > 0) {
     this.progressPercentage = Math.round((this.completedDays / this.totalDays) * 100);
   }

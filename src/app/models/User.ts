@@ -10,50 +10,102 @@ const userSchema = new mongoose.Schema({
     required: [true, "Email is required"],
     unique: true,
   },
+  mobile: {
+    type: String,
+    required: [true, "Mobile number is required"],
+    unique: true,
+  },
   phone: {
     type: String,
-    required: [true, "Phone number is required"],
+    // Keep for backward compatibility, but mobile is primary
+  },
+  password: {
+    type: String,
+    // Required only for custom login, not for social logins
+  },
+  role: {
+    type: String,
+    default: "customer",
+    enum: ["customer", "admin"],
+  },
+  provider: {
+    type: String,
+    enum: ["google", "facebook", "credentials"],
+  },
+  providerId: {
+    type: String,
+  },
+  image: {
+    type: String,
+  },
+  emailVerified: {
+    type: Boolean,
+    default: false,
+  },
+  mobileVerified: {
+    type: Boolean,
+    default: false,
   },
   gender: {
     type: String,
-    required: [true, "Gender is required"],
     enum: ["male", "female", "other"],
   },
   preferredSport: {
     type: String,
-    required: [true, "Preferred sport is required"],
-    enum: ["Cricket", "Football", "Shuttle Badminton"],
+    enum: ["Cricket", "Football", "Shuttle Badminton", "Functions and Events"],
   },
   preferredTimeSlot: {
     type: String,
-    required: [true, "Preferred time slot is required"],
   },
   subscriptionType: {
     type: String,
-    required: [true, "Subscription type is required"],
     enum: ["monthly", "quarterly", "yearly"],
   },
   subscriptionAmount: {
     type: Number,
-    required: [true, "Subscription amount is required"],
   },
   paymentStatus: {
     type: String,
     default: "pending",
     enum: ["pending", "completed", "failed"],
-  },
+    },
   subscriptionStartDate: {
     type: Date,
-    default: Date.now,
   },
   subscriptionEndDate: {
     type: Date,
-    required: true,
+  },
+  lastLogin: {
+    type: Date,
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+  // Password reset fields
+  resetPasswordToken: {
+    type: String,
+  },
+  resetPasswordExpires: {
+    type: Date,
   },
   createdAt: {
     type: Date,
     default: Date.now,
   },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+// Add index for role only (email and mobile already indexed via unique: true)
+userSchema.index({ role: 1 });
+
+// Update timestamp on save
+userSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
 });
 
 const User = mongoose.models.User || mongoose.model("User", userSchema);
