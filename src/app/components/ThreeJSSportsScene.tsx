@@ -23,11 +23,11 @@ function SportModel({ url, position, scale = 1, rotationSpeed = 0.01 }: {
       
       // Enhanced action animation - especially for football
       if (url.includes('football')) {
-        // Football action: bouncing, spinning, and moving
-        modelRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 2) * 0.3;
-        modelRef.current.position.x = position[0] + Math.sin(state.clock.elapsedTime * 0.8) * 0.5;
-        modelRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 1.5) * 0.3;
-        modelRef.current.rotation.z = Math.cos(state.clock.elapsedTime * 1.2) * 0.2;
+        // Football action: smaller, more subtle movements
+        modelRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 1.8) * 0.15;
+        modelRef.current.position.x = position[0] + Math.sin(state.clock.elapsedTime * 0.6) * 0.2;
+        modelRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 1.2) * 0.15;
+        modelRef.current.rotation.z = Math.cos(state.clock.elapsedTime * 1.0) * 0.1;
       } else {
         // Other models: subtle bounce animation
         modelRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 1.5) * 0.15;
@@ -42,9 +42,9 @@ function SportModel({ url, position, scale = 1, rotationSpeed = 0.01 }: {
 
   return (
     <Float 
-      speed={hovered ? 3 : (url.includes('football') ? 2.5 : 2)} 
-      rotationIntensity={hovered ? 0.6 : (url.includes('football') ? 0.5 : 0.3)} 
-      floatIntensity={hovered ? 1.2 : (url.includes('football') ? 1.0 : 0.8)}
+      speed={hovered ? 3 : (url.includes('football') ? 2.0 : 2)} 
+      rotationIntensity={hovered ? 0.6 : (url.includes('football') ? 0.3 : 0.3)} 
+      floatIntensity={hovered ? 1.2 : (url.includes('football') ? 0.6 : 0.8)}
     >
       <group 
         ref={modelRef} 
@@ -87,12 +87,12 @@ export default function ThreeJSSportsScene() {
           <Environment preset="studio" />
 
           {/* Sports Equipment - Repositioned for better animations */}
-          {/* Football - Moved further left with more space for action */}
+          {/* Football - Moved further left with smaller, subtle animation */}
           <SportModel 
             url="/models/football.glb" 
-            position={[-6, -0.5, 0]} 
-            scale={2.0}
-            rotationSpeed={0.03}
+            position={[-7, -0.5, 0]} 
+            scale={1.6}
+            rotationSpeed={0.02}
           />
           
           {/* Badminton Racket - Right side, brought down for better visibility */}
