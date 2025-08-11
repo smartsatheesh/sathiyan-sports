@@ -153,13 +153,13 @@ export default function Home() {
                       textShadow: '0 2px 4px rgba(0,0,0,0.1)'
                     }}
                   >
-                    Sathiyan Sports
+                    Welcome to Sathiyan MultiSport Club 
                   </Typography>
                   
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'center' }}>
                     <Button
                       component={Link}
-                      href="/bookslot"
+                      href="/register"
                       variant="contained"
                       size="large"
                       sx={{
@@ -176,9 +176,11 @@ export default function Home() {
                         transition: 'all 0.3s ease'
                       }}
                     >
-                      Book Now
+                      Register Now
                     </Button>
                     <Button
+                      component={Link}
+                      href="/bookslot"
                       variant="outlined"
                       size="large"
                       sx={{
@@ -196,9 +198,8 @@ export default function Home() {
                         },
                         transition: 'all 0.3s ease'
                       }}
-                      onClick={() => setActiveSection('about')}
                     >
-                      Learn More
+                      Book Now
                     </Button>
                   </Stack>
                 </Box>
@@ -237,6 +238,33 @@ export default function Home() {
                 </Box>
               </Box>
             </Box>
+
+            {/* Image Carousel Section - Moved after 3D animation */}
+            <Container maxWidth="lg" sx={{ py: 8 }}>
+              <Typography
+                variant="h3"
+                textAlign="center"
+                sx={{
+                  mb: 6,
+                  fontWeight: 700,
+                  color: theme.palette.primary.main
+                }}
+              >
+                Explore Our Facilities
+              </Typography>
+              <Paper
+                elevation={8}
+                sx={{
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                  boxShadow: theme.shadows[12],
+                  position: 'relative'
+                }}
+              >
+                <CarouselBackground3D />
+                <Carousel />
+              </Paper>
+            </Container>
 
             {/* Sports Cards Section */}
             <Container maxWidth="lg" sx={{ py: 8 }}>
@@ -305,33 +333,6 @@ export default function Home() {
 
             {/* Features Section */}
             <FeaturesSection />
-
-            {/* Image Carousel Section with 3D Background */}
-            <Container maxWidth="lg" sx={{ pb: 8 }}>
-              <Typography
-                variant="h3"
-                textAlign="center"
-                sx={{
-                  mb: 6,
-                  fontWeight: 700,
-                  color: theme.palette.primary.main
-                }}
-              >
-                Explore Our Facilities
-              </Typography>
-              <Paper
-                elevation={8}
-                sx={{
-                  borderRadius: 4,
-                  overflow: 'hidden',
-                  boxShadow: theme.shadows[12],
-                  position: 'relative'
-                }}
-              >
-                <CarouselBackground3D />
-                <Carousel />
-              </Paper>
-            </Container>
 
             {/* Testimonials Section */}
             <TestimonialsSection />

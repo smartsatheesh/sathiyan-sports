@@ -83,7 +83,7 @@ export default function CenteredSportsScene() {
   return (
     <div style={{ height: '100%', width: '100%', position: 'relative' }}>
       <Canvas
-        camera={{ position: [0, 2, 10], fov: 75 }}
+        camera={{ position: [-1, 1, 10], fov: 75 }}
         style={{ background: 'transparent' }}
       >
         <Suspense fallback={<ThreeLoader />}>
@@ -102,26 +102,26 @@ export default function CenteredSportsScene() {
           {/* Environment for reflections */}
           <Environment preset="studio" />
 
-          {/* Sports Equipment - Better positioning and visibility */}
+          {/* Sports Equipment - Better positioning for bat visibility */}
           {/* Football - Left side */}
           <CenteredSportModel 
             url="/models/football.glb" 
-            position={[-4, 0, 0]} 
-            scale={1.2}
+            position={[-3, -0.5, 0]} 
+            scale={1.4}
             rotationSpeed={0.02}
           />
           
-          {/* Badminton Racket - Right side with better visibility */}
+          {/* Badminton Racket - Right side, brought down for visibility */}
           <CenteredSportModel 
             url="/models/badminton.glb" 
-            position={[4, 0, 0]} 
+            position={[3, -1.2, 0]} 
             scale={1.8}
             rotationSpeed={-0.02}
           />
 
-          {/* Center rotating sports ball - properly centered */}
+          {/* Center rotating sports ball - slightly left */}
           <Float speed={2.5} rotationIntensity={0.3} floatIntensity={0.6}>
-            <mesh position={[0, 0, 0]} scale={0.6}>
+            <mesh position={[-0.5, 0.5, 0]} scale={0.6}>
               <sphereGeometry args={[1, 24, 24]} />
               <meshStandardMaterial 
                 color="#FF9800" 

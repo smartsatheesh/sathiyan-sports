@@ -18,26 +18,37 @@ function SportModel({ url, position, scale = 1, rotationSpeed = 0.01 }: {
 
   useFrame((state) => {
     if (modelRef.current) {
-      // Continuous rotation
+      // Continuous rotation - more visible
       modelRef.current.rotation.y += rotationSpeed;
       
-      // Add subtle hover animation
-      if (hovered) {
-        modelRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 2) * 0.1;
+      // Enhanced action animation - especially for football
+      if (url.includes('football')) {
+        // Football action: bouncing, spinning, and moving
+        modelRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 2) * 0.3;
+        modelRef.current.position.x = position[0] + Math.sin(state.clock.elapsedTime * 0.8) * 0.5;
+        modelRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 1.5) * 0.3;
+        modelRef.current.rotation.z = Math.cos(state.clock.elapsedTime * 1.2) * 0.2;
+      } else {
+        // Other models: subtle bounce animation
+        modelRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 1.5) * 0.15;
+        modelRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.8) * 0.1;
       }
+      
+      // Add gentle scale breathing effect
+      const breathe = 1 + Math.sin(state.clock.elapsedTime * 2) * 0.05;
+      modelRef.current.scale.setScalar((hovered ? scale * 1.1 : scale) * breathe);
     }
   });
 
   return (
     <Float 
-      speed={hovered ? 2 : 1.5} 
-      rotationIntensity={hovered ? 0.4 : 0.2} 
-      floatIntensity={hovered ? 0.8 : 0.5}
+      speed={hovered ? 3 : (url.includes('football') ? 2.5 : 2)} 
+      rotationIntensity={hovered ? 0.6 : (url.includes('football') ? 0.5 : 0.3)} 
+      floatIntensity={hovered ? 1.2 : (url.includes('football') ? 1.0 : 0.8)}
     >
       <group 
         ref={modelRef} 
         position={position} 
-        scale={hovered ? scale * 1.1 : scale}
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
       >
@@ -47,9 +58,9 @@ function SportModel({ url, position, scale = 1, rotationSpeed = 0.01 }: {
         {hovered && (
           <pointLight 
             position={[0, 0, 0]} 
-            intensity={0.8} 
+            intensity={1.2} 
             color="#ffffff" 
-            distance={5}
+            distance={8}
           />
         )}
       </group>
@@ -62,7 +73,7 @@ export default function ThreeJSSportsScene() {
   return (
     <div style={{ height: '100%', width: '100%', position: 'relative' }}>
       <Canvas
-        camera={{ position: [0, 2, 10], fov: 75 }}
+        camera={{ position: [-1, 1, 10], fov: 75 }}
         style={{ background: 'transparent' }}
       >
         <Suspense fallback={null}>
@@ -75,33 +86,33 @@ export default function ThreeJSSportsScene() {
           {/* Environment for reflections */}
           <Environment preset="studio" />
 
-          {/* Sports Equipment - Full screen optimized positioning */}
-          {/* Football - Left side */}
+          {/* Sports Equipment - Repositioned for better animations */}
+          {/* Football - Moved further left with more space for action */}
           <SportModel 
             url="/models/football.glb" 
-            position={[-4, 0, 0]} 
-            scale={1.8}
-            rotationSpeed={0.015}
+            position={[-6, -0.5, 0]} 
+            scale={2.0}
+            rotationSpeed={0.03}
           />
           
-          {/* Badminton Racket - Right side with full visibility */}
+          {/* Badminton Racket - Right side, brought down for better visibility */}
           <SportModel 
             url="/models/badminton.glb" 
-            position={[4, 0, 0]} 
-            scale={2.2}
-            rotationSpeed={-0.015}
+            position={[4, -1.5, 0]} 
+            scale={2.5}
+            rotationSpeed={-0.02}
           />
 
-          {/* Center rotating sports ball - perfectly centered */}
-          <Float speed={2} rotationIntensity={0.2} floatIntensity={0.4}>
-            <mesh position={[0, 0, 0]} scale={0.8}>
+          {/* Center rotating sports ball - moved to upper right background */}
+          <Float speed={2.5} rotationIntensity={0.3} floatIntensity={0.6}>
+            <mesh position={[2, 2.5, -3]} scale={0.6}>
               <sphereGeometry args={[1, 32, 32]} />
               <meshStandardMaterial 
                 color="#FF6200" 
                 transparent 
-                opacity={0.95}
+                opacity={0.7}
                 emissive="#FF6200"
-                emissiveIntensity={0.15}
+                emissiveIntensity={0.2}
                 roughness={0.2}
                 metalness={0.8}
               />
