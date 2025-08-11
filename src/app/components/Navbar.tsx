@@ -84,7 +84,13 @@ const Navbar = () => {
   }
 
   return (
-    <AppBar position="sticky">
+    <AppBar 
+      position="sticky" 
+      sx={{ 
+        backgroundColor: 'primary.main',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      }}
+    >
       <Container maxWidth="xl">
         <Toolbar disableGutters>
           {/* Logo Section */}
@@ -132,7 +138,7 @@ const Navbar = () => {
             {/* S3 Fitness Plans */}
             <Link href="/s3" passHref>
               <Button sx={{ color: "#fff", ml: 2 }}>
-                💪 S3 Fitness Plans
+                💪 SQube Fitness Plans
               </Button>
             </Link>
 
@@ -229,15 +235,21 @@ const Navbar = () => {
                     variant="outlined"
                     startIcon={<Login />}
                     sx={{
-                      color: "#fff",
-                      borderColor: "#fff",
+                      color: "white",
+                      borderColor: "white",
+                      border: "2px solid white",
                       mr: 1,
                       textTransform: "none",
                       fontWeight: 600,
+                      minWidth: "100px",
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
                       '&:hover': {
-                        borderColor: "#fff",
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)'
-                      }
+                        borderColor: "white",
+                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                        color: "white"
+                      },
+                      // Ensure visibility
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                     }}
                   >
                     Login
@@ -252,6 +264,12 @@ const Navbar = () => {
                       fontWeight: 600,
                       borderRadius: "8px",
                       textTransform: "none",
+                      minWidth: "120px",
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                      '&:hover': {
+                        boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
+                        transform: 'translateY(-1px)',
+                      }
                     }}
                   >
                     Register
