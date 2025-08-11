@@ -222,7 +222,7 @@ export default function BookSlot() {
   const router = useRouter();
 
   // All useState hooks must be at the top level
-  const [selectedSport, setSelectedSport] = useState<string>("");
+  const [selectedSport, setSelectedSport] = useState<"Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events" | "">("");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
   const [selectedCourt, setSelectedCourt] = useState<string>(""); // Court selection for Shuttle Badminton
