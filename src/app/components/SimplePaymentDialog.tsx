@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -50,6 +50,26 @@ export default function SimplePaymentDialog({
   const [transactionId, setTransactionId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState(0); // 0: Select method, 1: Payment, 2: Verify
+
+  // Reset dialog state when it opens/closes
+  useEffect(() => {
+    if (open) {
+      // Reset state when dialog opens
+      setPaymentMethod(null);
+      setTransactionId('');
+      setIsSubmitting(false);
+      setStep(0);
+    }
+  }, [open]);
+
+  // Also reset when dialog closes
+  const handleClose = () => {
+    setPaymentMethod(null);
+    setTransactionId('');
+    setIsSubmitting(false);
+    setStep(0);
+    onClose();
+  };
 
   // WhatsApp payment details
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_PAYMENT_NUMBER || '9787020525';
@@ -114,7 +134,7 @@ export default function SimplePaymentDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         <Typography variant="h6" component="div">
           Payment - ₹{amount}
@@ -336,7 +356,7 @@ export default function SimplePaymentDialog({
 
       <DialogActions>
         {step === 0 && (
-          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={handleClose}>Cancel</Button>
         )}
         {step === 1 && (
           <>
@@ -351,7 +371,7 @@ export default function SimplePaymentDialog({
           </>
         )}
         {step === 2 && (
-          <Button onClick={onClose} variant="contained">
+          <Button onClick={handleClose} variant="contained">
             Close
           </Button>
         )}

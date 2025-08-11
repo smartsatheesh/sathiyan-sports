@@ -14,6 +14,12 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     required: true,
   }],
+  // Court selection for Shuttle Badminton
+  court: {
+    type: String,
+    enum: ["S1", "S2", "S3"], // Three shuttle courts
+    required: false // Will be validated in application logic
+  },
   totalAmount: {
     type: Number,
     required: [true, "Total amount is required"],
@@ -43,6 +49,11 @@ const bookingSchema = new mongoose.Schema({
   customerPhone: {
     type: String,
     required: [true, "Customer phone is required"],
+  },
+  // Booking reference for customer communication
+  bookingReference: {
+    type: String,
+    unique: true,
   },
   // Functions and Events specific fields
   eventType: {

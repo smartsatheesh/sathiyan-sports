@@ -195,6 +195,7 @@ export default function BookSlot() {
   const [selectedSport, setSelectedSport] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
+  const [selectedCourt, setSelectedCourt] = useState<string>(""); // Court selection for Shuttle Badminton
   const [timeSlots, setTimeSlots] = useState<Array<{time: string; available: boolean; hours?: number}>>(generateTimeSlots());
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -227,14 +228,33 @@ export default function BookSlot() {
   const [simplePaymentOpen, setSimplePaymentOpen] = useState(false);
   const [currentBookingData, setCurrentBookingData] = useState<any>(null);
 
-  // Authentication check
-  useEffect(() => {
-    if (status === 'loading') return; // Still loading
+  // Calculate total price based on sport type and hours/slots - MOVED TO TOP
+  const totalPrice = useMemo(() => {
+    if (!selectedSport || !selectedDate || selectedTimeSlots.length === 0)
+      return null;
+    const sport = sports.find((s) => s.name === selectedSport);
+    if (!sport) return null;
+    
+    const pricePerUnit = isWeekend(selectedDate) ? sport.weekendPrice : sport.basePrice;
+    
+    if (selectedSport === "Functions and Events") {
+      // For events, calculate based on hours
+      const totalHours = selectedTimeSlots.reduce((acc, timeSlot) => {
+        const slot = timeSlots.find(s => s.time === timeSlot);
+        return acc + (slot?.hours || 1);
+      }, 0);
+      return pricePerUnit * totalHours;
+    } else {
+      // For sports, calculate based on number of slots
+      return pricePerUnit * selectedTimeSlots.length;
+    }
+  }, [selectedSport, selectedDate, selectedTimeSlots, timeSlots]);
 
-    if (!session) {
+  // Authentication check - ALL HOOKS MUST BE BEFORE CONDITIONAL RETURNS
+  useEffect(() => {
+    if (status !== 'loading' && !session) {
       // Redirect to login with callback URL
       router.push(`/auth/login?callbackUrl=${encodeURIComponent('/bookslot')}`);
-      return;
     }
   }, [session, status, router]);
 
@@ -249,6 +269,92 @@ export default function BookSlot() {
       }));
     }
   }, [session]);
+
+  // Fetch booked slots when sport, date, or court change
+  useEffect(() => {
+    const fetchBookedSlots = async () => {
+      if (selectedSport && selectedDate) {
+        // For Shuttle Badminton, wait for court selection
+        if (selectedSport === "Shuttle Badminton" && !selectedCourt) {
+          return;
+        }
+
+        setLoading(true);
+        try {
+          // Build API URL with court parameter for Shuttle Badminton
+          let apiUrl = `/api/bookings?sport=${encodeURIComponent(selectedSport)}&date=${selectedDate.toISOString()}`;
+          if (selectedSport === "Shuttle Badminton" && selectedCourt) {
+            apiUrl += `&court=${selectedCourt}`;
+          }
+
+          const response = await fetch(apiUrl);
+          const data = await response.json();
+          
+          if (data.success) {
+            // For Shuttle Badminton with court selection, use court-specific data
+            if (selectedSport === "Shuttle Badminton" && selectedCourt && data.courtBookings) {
+              const courtSpecificSlots = data.courtBookings[selectedCourt] || [];
+              setBookedSlots(courtSpecificSlots);
+              
+              // Update time slots availability for specific court
+              const isEvent = selectedSport === "Functions and Events";
+              const updatedSlots = generateTimeSlots(isEvent).map(slot => ({
+                ...slot,
+                available: !courtSpecificSlots.includes(slot.time)
+              }));
+              setTimeSlots(updatedSlots);
+            } else {
+              // For other sports or general booking data
+              setBookedSlots(data.bookedSlots || []);
+              const isEvent = selectedSport === "Functions and Events";
+              const updatedSlots = generateTimeSlots(isEvent).map(slot => ({
+                ...slot,
+                available: !(data.bookedSlots || []).includes(slot.time)
+              }));
+              setTimeSlots(updatedSlots);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching booked slots:", error);
+          setAlert({ type: 'error', message: 'Failed to fetch available slots' });
+        }
+        setLoading(false);
+      }
+    };
+
+    fetchBookedSlots();
+  }, [selectedSport, selectedDate, selectedCourt]);
+
+  // Reset selected slots and court when sport or date changes and update time slots
+  useEffect(() => {
+    setSelectedTimeSlots([]);
+    
+    // Reset court selection when sport changes
+    if (selectedSport !== "Shuttle Badminton") {
+      setSelectedCourt("");
+    }
+    
+    if (selectedSport) {
+      const isEvent = selectedSport === "Functions and Events";
+      setTimeSlots(generateTimeSlots(isEvent));
+    }
+  }, [selectedSport, selectedDate]);
+
+  // Payment timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timerActive && paymentTimer > 0) {
+      interval = setInterval(() => {
+        setPaymentTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (paymentTimer === 0) {
+      // Timer expired
+      setPaymentDialogOpen(false);
+      setTimerActive(false);
+      setAlert({ type: 'error', message: 'Payment time expired. Please try again.' });
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, paymentTimer]);
 
   // Show loading while checking authentication
   if (status === 'loading') {
@@ -594,85 +700,6 @@ export default function BookSlot() {
     });
   };
 
-  // Fetch booked slots when sport and date change
-  useEffect(() => {
-    const fetchBookedSlots = async () => {
-      if (selectedSport && selectedDate) {
-        setLoading(true);
-        try {
-          const response = await fetch(
-            `/api/bookings?sport=${encodeURIComponent(selectedSport)}&date=${selectedDate.toISOString()}`
-          );
-          const data = await response.json();
-          
-          if (data.success) {
-            setBookedSlots(data.bookedSlots);
-            // Update time slots availability
-            const isEvent = selectedSport === "Functions and Events";
-            const updatedSlots = generateTimeSlots(isEvent).map(slot => ({
-              ...slot,
-              available: !data.bookedSlots.includes(slot.time)
-            }));
-            setTimeSlots(updatedSlots);
-          }
-        } catch (error) {
-          console.error("Error fetching booked slots:", error);
-          setAlert({ type: 'error', message: 'Failed to fetch available slots' });
-        }
-        setLoading(false);
-      }
-    };
-
-    fetchBookedSlots();
-  }, [selectedSport, selectedDate]);
-
-  // Reset selected slots when sport or date changes and update time slots
-  useEffect(() => {
-    setSelectedTimeSlots([]);
-    if (selectedSport) {
-      const isEvent = selectedSport === "Functions and Events";
-      setTimeSlots(generateTimeSlots(isEvent));
-    }
-  }, [selectedSport, selectedDate]);
-
-  // Payment timer effect
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (timerActive && paymentTimer > 0) {
-      interval = setInterval(() => {
-        setPaymentTimer((prev) => prev - 1);
-      }, 1000);
-    } else if (paymentTimer === 0) {
-      // Timer expired
-      setPaymentDialogOpen(false);
-      setTimerActive(false);
-      setAlert({ type: 'error', message: 'Payment time expired. Please try again.' });
-    }
-    return () => clearInterval(interval);
-  }, [timerActive, paymentTimer]);
-
-  // Calculate total price based on sport type and hours/slots
-  const totalPrice = useMemo(() => {
-    if (!selectedSport || !selectedDate || selectedTimeSlots.length === 0)
-      return null;
-    const sport = sports.find((s) => s.name === selectedSport);
-    if (!sport) return null;
-    
-    const pricePerUnit = isWeekend(selectedDate) ? sport.weekendPrice : sport.basePrice;
-    
-    if (selectedSport === "Functions and Events") {
-      // For events, calculate based on hours
-      const totalHours = selectedTimeSlots.reduce((acc, timeSlot) => {
-        const slot = timeSlots.find(s => s.time === timeSlot);
-        return acc + (slot?.hours || 1);
-      }, 0);
-      return pricePerUnit * totalHours;
-    } else {
-      // For sports, calculate based on number of slots
-      return pricePerUnit * selectedTimeSlots.length;
-    }
-  }, [selectedSport, selectedDate, selectedTimeSlots, timeSlots]);
-
   // Handle time slot selection/deselection
   const handleTimeSlotToggle = (time: string) => {
     setSelectedTimeSlots((prev) =>
@@ -688,11 +715,18 @@ export default function BookSlot() {
       return;
     }
 
+    // Validate court selection for Shuttle Badminton
+    if (selectedSport === "Shuttle Badminton" && !selectedCourt) {
+      setAlert({ type: 'error', message: 'Please select a court for Shuttle Badminton booking' });
+      return;
+    }
+
     // Prepare booking data for payment
     const bookingData = {
       sport: selectedSport,
       date: selectedDate,
       timeSlot: selectedTimeSlots.join(', '),
+      court: selectedSport === "Shuttle Badminton" ? selectedCourt : null,
       customerInfo,
       totalPrice: totalPrice
     };
@@ -1396,7 +1430,61 @@ export default function BookSlot() {
                     </LocalizationProvider>
                   </div>
 
-                  {selectedDate && (
+                  {/* Court Selection for Shuttle Badminton */}
+                  {selectedSport === "Shuttle Badminton" && (
+                    <Box sx={{ mt: 3 }}>
+                      <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        🏸 Select Court
+                      </Typography>
+                      <Alert 
+                        severity="info" 
+                        sx={{ 
+                          mb: 2,
+                          background: 'linear-gradient(135deg, #e8f5e8 0%, #f0f8ff 100%)',
+                          border: '1px solid #4caf50'
+                        }}
+                      >
+                        <Typography variant="body2">
+                          Choose from our 3 premium shuttle courts (S1, S2, S3). Each court is independent - availability shown is specific to your selected court.
+                        </Typography>
+                      </Alert>
+                      <Grid container spacing={2}>
+                        {['S1', 'S2', 'S3'].map((court) => (
+                          <Grid item xs={4} key={court}>
+                            <Card
+                              elevation={selectedCourt === court ? 6 : 2}
+                              sx={{
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease-in-out',
+                                transform: selectedCourt === court ? 'scale(1.05)' : 'scale(1)',
+                                background: selectedCourt === court 
+                                  ? 'linear-gradient(135deg, #4caf50 0%, #81c784 100%)'
+                                  : 'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)',
+                                color: selectedCourt === court ? 'white' : 'inherit',
+                                border: selectedCourt === court ? '2px solid #4caf50' : '1px solid #e0e0e0',
+                                '&:hover': {
+                                  transform: 'scale(1.03)',
+                                  boxShadow: 4
+                                }
+                              }}
+                              onClick={() => setSelectedCourt(court)}
+                            >
+                              <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                                <Typography variant="h6" fontWeight="bold">
+                                  Court {court}
+                                </Typography>
+                                <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                                  Premium Court
+                                </Typography>
+                              </CardContent>
+                            </Card>
+                          </Grid>
+                        ))}
+                      </Grid>
+                    </Box>
+                  )}
+
+                  {selectedDate && (selectedSport !== "Shuttle Badminton" || selectedCourt) && (
                     <>
                       <Box sx={{ mt: 3 }}>
                         <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
@@ -1527,6 +1615,9 @@ export default function BookSlot() {
                           <h4>Booking Summary</h4>
                           <div className="summary-details">
                             <p><strong>Sport:</strong> {selectedSport}</p>
+                            {selectedSport === "Shuttle Badminton" && selectedCourt && (
+                              <p><strong>Court:</strong> {selectedCourt}</p>
+                            )}
                             <p><strong>Date:</strong> {format(selectedDate, "dd MMM yyyy")}</p>
                             <p><strong>Selected Time{selectedTimeSlots.length > 1 ? 's' : ''}:</strong></p>
                             <ul>
@@ -1625,6 +1716,9 @@ export default function BookSlot() {
             <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
               <Typography variant="h6" gutterBottom>Booking Summary</Typography>
               <Typography variant="body2">Sport: {selectedSport}</Typography>
+              {selectedSport === "Shuttle Badminton" && selectedCourt && (
+                <Typography variant="body2">Court: {selectedCourt}</Typography>
+              )}
               <Typography variant="body2">Date: {selectedDate ? format(selectedDate, "dd MMM yyyy") : ""}</Typography>
               <Typography variant="body2">Time: {selectedTimeSlots.join(", ")}</Typography>
               {selectedSport === "Functions and Events" && (

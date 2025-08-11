@@ -53,6 +53,7 @@ interface TabPanelProps {
 interface Booking {
   _id: string;
   sport: string;
+  court?: string; // Optional court selection for Shuttle Badminton
   date: string;
   timeSlots: string[];
   totalAmount: number;
@@ -112,6 +113,7 @@ export default function AdminDashboard() {
     bookingStatus: '',
     paymentStatus: ''
   });
+  const [alert, setAlert] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
 
   // Authentication check
   useEffect(() => {
@@ -128,24 +130,8 @@ export default function AdminDashboard() {
     }
   }, [session, status, router]);
 
-  // Show loading while checking authentication
-  if (status === "loading") {
-    return (
-      <Container maxWidth="lg" sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
-        <CircularProgress />
-      </Container>
-    );
-  }
-
-  // Show nothing while redirecting
-  if (!session || session.user?.role !== "admin") {
-    return null;
-  }
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
+  // Define fetchData function before the useEffect that uses it
+  // This function fetches admin dashboard data
   const fetchData = async () => {
     setLoading(true);
     setError(null);
@@ -195,6 +181,25 @@ export default function AdminDashboard() {
     }
   };
 
+  // Fetch data effect - now after fetchData is defined
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Show loading while checking authentication
+  if (status === "loading") {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Container>
+    );
+  }
+
+  // Show nothing while redirecting
+  if (!session || session.user?.role !== "admin") {
+    return null;
+  }
+
   const handleBookingUpdate = async () => {
     if (!selectedBooking) return;
 
@@ -206,7 +211,7 @@ export default function AdminDashboard() {
         },
         body: JSON.stringify({
           bookingId: selectedBooking._id,
-          bookingStatus: updateStatus.bookingStatus || undefined,
+          status: updateStatus.bookingStatus || undefined,
           paymentStatus: updateStatus.paymentStatus || undefined,
         }),
       });
@@ -224,6 +229,35 @@ export default function AdminDashboard() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update booking');
+    }
+  };
+
+  // Quick approve function
+  const handleQuickApprove = async (booking: Booking) => {
+    try {
+      const response = await fetch('/api/admin/bookings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookingId: booking._id,
+          status: 'confirmed',
+          paymentStatus: 'paid',
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Refresh data
+        await fetchData();
+        setAlert({ type: 'success', message: `Booking ${booking._id.slice(-8)} approved successfully!` });
+      } else {
+        throw new Error(data.message || 'Failed to approve booking');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve booking');
     }
   };
 
@@ -375,8 +409,22 @@ export default function AdminDashboard() {
                     <TableCell>{booking._id.slice(-8)}</TableCell>
                     <TableCell>{booking.customerName}</TableCell>
                     <TableCell>{booking.sport}</TableCell>
+                    <TableCell>
+                      {booking.sport === "Shuttle Badminton" && booking.court ? (
+                        <Chip label={`Court ${booking.court}`} size="small" color="primary" />
+                      ) : (
+                        <span>-</span>
+                      )}
+                    </TableCell>
                     <TableCell>{format(new Date(booking.date), 'MMM dd, yyyy')}</TableCell>
                     <TableCell>{booking.timeSlots.join(', ')}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={booking.paymentStatus}
+                        color={getStatusColor(booking.paymentStatus) as any}
+                        size="small"
+                      />
+                    </TableCell>
                     <TableCell>
                       <Chip
                         label={booking.bookingStatus}
@@ -385,13 +433,28 @@ export default function AdminDashboard() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Button 
-                        size="small" 
-                        color="primary"
-                        onClick={() => handleViewBooking(booking)}
-                      >
-                        View
-                      </Button>
+                      <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column' }}>
+                        {(booking.bookingStatus === 'pending' || booking.paymentStatus === 'pending_verification') && (
+                          <Button 
+                            size="small" 
+                            color="success"
+                            variant="contained"
+                            onClick={() => handleQuickApprove(booking)}
+                            sx={{ fontSize: '0.7rem', py: 0.5 }}
+                          >
+                            ✅ Approve
+                          </Button>
+                        )}
+                        <Button 
+                          size="small" 
+                          color="primary"
+                          variant="outlined"
+                          onClick={() => handleViewBooking(booking)}
+                          sx={{ fontSize: '0.7rem', py: 0.5 }}
+                        >
+                          👁️ View
+                        </Button>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}

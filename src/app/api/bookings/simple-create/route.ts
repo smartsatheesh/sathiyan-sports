@@ -11,12 +11,21 @@ export async function POST(request: NextRequest) {
       sport,
       date,
       timeSlot,
+      court,
       customerInfo,
       totalPrice,
       transactionId,
       paymentMethod,
       paymentReference
     } = body;
+
+    // Validate court selection for Shuttle Badminton
+    if (sport === "Shuttle Badminton" && !court) {
+      return NextResponse.json(
+        { success: false, message: 'Court selection is required for Shuttle Badminton' },
+        { status: 400 }
+      );
+    }
 
     // Validate required fields
     if (!sport || !date || !timeSlot || !customerInfo || !totalPrice) {
@@ -34,7 +43,8 @@ export async function POST(request: NextRequest) {
       bookingReference,
       sport,
       date: new Date(date),
-      timeSlot,
+      timeSlots: [timeSlot], // Convert single timeSlot to array format
+      court: court || undefined, // Include court for Shuttle Badminton
       customerName: customerInfo.name,
       customerEmail: customerInfo.email,
       customerPhone: customerInfo.phone,
@@ -43,9 +53,9 @@ export async function POST(request: NextRequest) {
       paymentMethod: paymentMethod || 'manual',
       transactionId: transactionId || '',
       paymentReference: paymentReference || '',
-      status: 'pending_payment_verification',
-      bookingDate: new Date(),
-      notes: `Payment method: ${paymentMethod}, Transaction ID: ${transactionId}`,
+      bookingStatus: 'pending', // Use proper enum value
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     const booking = await Booking.create(bookingData);
@@ -61,9 +71,9 @@ export async function POST(request: NextRequest) {
         bookingReference: booking.bookingReference,
         sport: booking.sport,
         date: booking.date,
-        timeSlot: booking.timeSlot,
+        timeSlots: booking.timeSlots, // Use timeSlots (plural) from the model
         totalAmount: booking.totalAmount,
-        status: booking.status,
+        bookingStatus: booking.bookingStatus, // Use bookingStatus from the model
         paymentStatus: booking.paymentStatus
       },
       nextSteps: [
@@ -97,7 +107,7 @@ async function sendWhatsAppNotifications(booking: any) {
         `📝 Booking Ref: ${booking.bookingReference}\n` +
         `🏃 Sport: ${booking.sport}\n` +
         `📅 Date: ${new Date(booking.date).toLocaleDateString('en-IN')}\n` +
-        `⏰ Time: ${booking.timeSlot}\n` +
+        `⏰ Time: ${booking.timeSlots ? booking.timeSlots.join(', ') : 'N/A'}\n` +
         `👤 Customer: ${booking.customerName}\n` +
         `📞 Phone: ${booking.customerPhone}\n` +
         `💰 Amount: ₹${booking.totalAmount}\n` +
@@ -123,7 +133,7 @@ async function sendWhatsAppNotifications(booking: any) {
       `📝 Ref: ${booking.bookingReference}\n` +
       `🏃 Sport: ${booking.sport}\n` +
       `📅 Date: ${new Date(booking.date).toLocaleDateString('en-IN')}\n` +
-      `⏰ Time: ${booking.timeSlot}\n` +
+      `⏰ Time: ${booking.timeSlots ? booking.timeSlots.join(', ') : 'N/A'}\n` +
       `💰 Amount: ₹${booking.totalAmount}\n\n` +
       `⏳ Status: Payment Verification in Progress\n\n` +
       `We will verify your payment and confirm your booking within 30 minutes during business hours.\n\n` +

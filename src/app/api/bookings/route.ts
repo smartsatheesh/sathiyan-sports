@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
       sport,
       date,
       timeSlots,
+      court, // Add court field for Shuttle Badminton
       totalAmount,
       pricePerSlot,
       isWeekend,
@@ -34,9 +35,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if any of the selected time slots are already booked (only for confirmed bookings)
+    // Validate court selection for Shuttle Badminton
+    if (sport === "Shuttle Badminton" && !court) {
+      return NextResponse.json(
+        { message: "Court selection is required for Shuttle Badminton", success: false },
+        { status: 400 }
+      );
+    }
+
+    // Check if any of the selected time slots are already booked
     const bookingDate = new Date(date);
-    const existingBookings = await Booking.find({
+    let existingBookingsQuery: any = {
       sport,
       date: {
         $gte: startOfDay(bookingDate),
@@ -45,7 +54,14 @@ export async function POST(req: NextRequest) {
       timeSlots: { $in: timeSlots },
       bookingStatus: { $in: ["confirmed", "pending"] }, // Include pending bookings
       paymentStatus: { $ne: "expired" }, // Exclude expired payments
-    });
+    };
+
+    // For Shuttle Badminton, check conflicts only for the specific court
+    if (sport === "Shuttle Badminton" && court) {
+      existingBookingsQuery.court = court;
+    }
+
+    const existingBookings = await Booking.find(existingBookingsQuery);
 
     if (existingBookings.length > 0) {
       const bookedSlots = existingBookings.flatMap(booking => booking.timeSlots);
@@ -62,7 +78,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create the booking
-    const booking = await Booking.create({
+    const bookingData: any = {
       sport,
       date: bookingDate,
       timeSlots,
@@ -72,10 +88,18 @@ export async function POST(req: NextRequest) {
       customerName,
       customerEmail,
       customerPhone,
+      bookingReference: `BK_${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
       paymentExpiry: paymentExpiry ? new Date(paymentExpiry) : undefined,
       paymentStatus,
       bookingStatus,
-    });
+    };
+
+    // Add court field for Shuttle Badminton
+    if (sport === "Shuttle Badminton" && court) {
+      bookingData.court = court;
+    }
+
+    const booking = await Booking.create(bookingData);
 
     // Send booking confirmation notifications (WhatsApp only)
     try {
@@ -131,6 +155,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const sport = searchParams.get("sport");
     const date = searchParams.get("date");
+    const court = searchParams.get("court"); // Add court parameter for Shuttle Badminton
 
     if (!sport || !date) {
       return NextResponse.json(
@@ -141,8 +166,8 @@ export async function GET(req: NextRequest) {
 
     const queryDate = new Date(date);
     
-    // Find all bookings for the specified sport and date (exclude cancelled and expired)
-    const bookings = await Booking.find({
+    // Build query for finding bookings
+    let bookingQuery: any = {
       sport,
       date: {
         $gte: startOfDay(queryDate),
@@ -150,9 +175,44 @@ export async function GET(req: NextRequest) {
       },
       bookingStatus: { $nin: ["cancelled", "expired"] },
       paymentStatus: { $nin: ["expired", "cancelled"] },
-    }).select("timeSlots");
+    };
 
-    // Extract all booked time slots
+    // For Shuttle Badminton, if court is specified, filter by court
+    // If no court specified, return slots for ALL courts (for general availability)
+    if (sport === "Shuttle Badminton" && court) {
+      bookingQuery.court = court;
+    }
+
+    const bookings = await Booking.find(bookingQuery).select("timeSlots court");
+
+    // For Shuttle Badminton without specific court, return court-specific data
+    if (sport === "Shuttle Badminton" && !court) {
+      const courtBookings: { [key: string]: string[] } = {
+        S1: [],
+        S2: [],
+        S3: []
+      };
+
+      bookings.forEach(booking => {
+        const bookingCourt = booking.court || 'S1'; // Default to S1 for legacy bookings
+        if (courtBookings[bookingCourt]) {
+          courtBookings[bookingCourt].push(...booking.timeSlots);
+        }
+      });
+
+      // Remove duplicates for each court
+      Object.keys(courtBookings).forEach(court => {
+        courtBookings[court] = [...new Set(courtBookings[court])];
+      });
+
+      return NextResponse.json({
+        success: true,
+        courtBookings,
+        bookedSlots: [], // Keep for backward compatibility
+      });
+    }
+
+    // Extract all booked time slots (for other sports or specific court)
     const bookedSlots = bookings.flatMap(booking => booking.timeSlots);
 
     return NextResponse.json({
