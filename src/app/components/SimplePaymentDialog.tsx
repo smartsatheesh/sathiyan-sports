@@ -73,8 +73,38 @@ export default function SimplePaymentDialog({
 
   // WhatsApp payment details
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_PAYMENT_NUMBER || '9787020525';
-  const paymentMessage = `Hi! I want to make a payment of ₹${amount} for booking ${bookingReference}. Customer: ${customerInfo.name}, Phone: ${customerInfo.phone}.`;
-  const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(paymentMessage)}`;
+  
+  // Clean and format WhatsApp number properly
+  const formatWhatsAppNumber = (number: string) => {
+    // Remove any non-numeric characters
+    const cleaned = number.replace(/\D/g, '');
+    
+    // Handle different number formats
+    if (cleaned.startsWith('91') && cleaned.length === 12) {
+      return cleaned; // Already has country code
+    } else if (cleaned.length === 10) {
+      return `91${cleaned}`; // Add country code to 10-digit number
+    } else if (cleaned.startsWith('919') && cleaned.length === 13) {
+      return cleaned.substring(1); // Remove extra 9 if it's 919...
+    }
+    return cleaned;
+  };
+  
+  const formattedWhatsappNumber = formatWhatsAppNumber(whatsappNumber);
+  
+  // Create a simple, clean message
+  const paymentMessage = `Payment request: ₹${amount} for booking ${bookingReference}`;
+  const whatsappUrl = `https://wa.me/${formattedWhatsappNumber}?text=${encodeURIComponent(paymentMessage)}`;
+
+  // Debug logging
+  console.log('WhatsApp URL Debug:', {
+    originalNumber: whatsappNumber,
+    formattedNumber: formattedWhatsappNumber,
+    message: paymentMessage,
+    encodedMessage: encodeURIComponent(paymentMessage),
+    fullUrl: whatsappUrl,
+    urlLength: whatsappUrl.length
+  });
 
   // GPay UPI details
   const upiId = process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'smartsatheesh7-1@okhdfcbank';
@@ -215,8 +245,37 @@ export default function SimplePaymentDialog({
                   variant="contained"
                   startIcon={<WhatsApp />}
                   fullWidth
-                  href={whatsappUrl}
-                  target="_blank"
+                  onClick={() => {
+                    console.log('WhatsApp Button Debug:', {
+                      originalNumber: whatsappNumber,
+                      formattedNumber: formattedWhatsappNumber,
+                      message: paymentMessage,
+                      fullUrl: whatsappUrl
+                    });
+                    
+                    // Check if the URL is valid
+                    if (formattedWhatsappNumber && formattedWhatsappNumber.length >= 12) {
+                      // Try opening WhatsApp URL
+                      try {
+                        const link = document.createElement('a');
+                        link.href = whatsappUrl;
+                        link.target = '_blank';
+                        link.rel = 'noopener noreferrer';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      } catch (error) {
+                        console.error('Failed to open WhatsApp:', error);
+                        // Fallback: copy number and show message
+                        copyToClipboard(`+${formattedWhatsappNumber}`);
+                        alert(`WhatsApp link failed. Number copied: +${formattedWhatsappNumber}. Please open WhatsApp manually.`);
+                      }
+                    } else {
+                      // Invalid number format
+                      console.error('Invalid WhatsApp number format:', formattedWhatsappNumber);
+                      alert('Invalid WhatsApp number configuration. Please contact support.');
+                    }
+                  }}
                   sx={{ 
                     mb: 2,
                     backgroundColor: '#25D366',
@@ -227,8 +286,30 @@ export default function SimplePaymentDialog({
                 </Button>
                 
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Or manually send a message to: <strong>{whatsappNumber}</strong>
+                  Or manually send a message to: <strong>+91 {whatsappNumber}</strong>
                 </Typography>
+                
+                <Box sx={{ mb: 2 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<ContentCopy />}
+                    onClick={() => copyToClipboard(`+91${whatsappNumber}`)}
+                    sx={{ mr: 1 }}
+                  >
+                    Copy Number
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => {
+                      // Try opening WhatsApp with just the number (no message)
+                      window.open(`https://wa.me/${formattedWhatsappNumber}`, '_blank');
+                    }}
+                  >
+                    Open WhatsApp Only
+                  </Button>
+                </Box>
                 
                 <TextField
                   multiline
