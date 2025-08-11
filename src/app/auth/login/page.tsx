@@ -126,53 +126,25 @@ export default function LoginPage() {
   };
 
   return (
-    <Box 
-      sx={{ 
-        minHeight: '100vh',
-        background: '#f5f5f5',
-        display: 'flex',
-        alignItems: 'center',
-        py: 4
-      }}
-    >
+    <Box className="login-container">
       <Container maxWidth="sm">
         <Paper 
-          elevation={10} 
-          sx={{ 
-            p: 4,
-            borderRadius: 3,
-            background: 'white',
-            border: '1px solid rgba(0, 0, 0, 0.1)',
-            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.1)'
-          }}
+          elevation={24} 
+          className="login-paper"
         >
           {/* Header */}
           <Box sx={{ textAlign: 'center', mb: 4 }}>
-            <LoginIcon 
-              sx={{ 
-                fontSize: 48, 
-                color: 'primary.main', 
-                mb: 2,
-                background: 'linear-gradient(45deg, #667eea, #764ba2)',
-                borderRadius: '50%',
-                p: 1
-              }} 
-            />
+            <LoginIcon className="login-icon" />
             <Typography 
               variant="h4" 
               gutterBottom 
-              sx={{ 
-                fontWeight: 'bold',
-                color: 'text.primary'
-              }}
+              className="login-title"
             >
               Welcome Back
             </Typography>
             <Typography 
               variant="body1" 
-              sx={{ 
-                color: 'text.secondary'
-              }}
+              className="login-subtitle"
             >
               Sign in to access Sathiyan Sports Club
             </Typography>
@@ -197,15 +169,7 @@ export default function LoginPage() {
                 startIcon={<Google />}
                 onClick={() => handleSocialLogin('google')}
                 disabled={socialLoading !== ''}
-                sx={{ 
-                  py: 1.5,
-                  borderColor: '#db4437',
-                  color: '#db4437',
-                  '&:hover': {
-                    borderColor: '#db4437',
-                    backgroundColor: 'rgba(219, 68, 55, 0.1)'
-                  }
-                }}
+                className="login-social-button"
               >
                 {socialLoading === 'google' ? (
                   <CircularProgress size={20} />
@@ -221,15 +185,7 @@ export default function LoginPage() {
                 startIcon={<Facebook />}
                 onClick={() => handleSocialLogin('facebook')}
                 disabled={socialLoading !== ''}
-                sx={{ 
-                  py: 1.5,
-                  borderColor: '#3b5998',
-                  color: '#3b5998',
-                  '&:hover': {
-                    borderColor: '#3b5998',
-                    backgroundColor: 'rgba(59, 89, 152, 0.1)'
-                  }
-                }}
+                className="login-social-button"
               >
                 {socialLoading === 'facebook' ? (
                   <CircularProgress size={20} />
@@ -240,13 +196,10 @@ export default function LoginPage() {
             </Grid>
           </Grid>
 
-          <Divider sx={{ my: 3, borderColor: 'rgba(0, 0, 0, 0.12)' }}>
+          <Divider className="login-divider">
             <Typography 
               variant="body2" 
-              sx={{ 
-                color: 'text.secondary',
-                fontWeight: 500 
-              }}
+              className="login-divider-text"
             >
               OR
             </Typography>
@@ -307,15 +260,7 @@ export default function LoginPage() {
               fullWidth
               variant="contained"
               disabled={loading}
-              sx={{ 
-                mt: 3, 
-                mb: 2, 
-                py: 1.5,
-                background: 'linear-gradient(45deg, #667eea, #764ba2)',
-                '&:hover': {
-                  background: 'linear-gradient(45deg, #5a67d8, #6b46c1)',
-                }
-              }}
+              className="login-submit-button"
             >
               {loading ? (
                 <CircularProgress size={24} color="inherit" />
@@ -332,14 +277,7 @@ export default function LoginPage() {
               <Link href="/register" passHref>
                 <MuiLink 
                   component="span" 
-                  sx={{ 
-                    color: 'primary.main',
-                    textDecoration: 'none',
-                    fontWeight: 'bold',
-                    '&:hover': {
-                      textDecoration: 'underline'
-                    }
-                  }}
+                  className="login-link"
                 >
                   Register here
                 </MuiLink>
@@ -365,12 +303,12 @@ export default function LoginPage() {
           </Box>
 
           {/* Features Info */}
-          <Card sx={{ mt: 4, bgcolor: 'rgba(102, 126, 234, 0.1)' }}>
+          <Card className="login-features-card">
             <CardContent sx={{ py: 2 }}>
-              <Typography variant="subtitle2" gutterBottom color="primary.main" fontWeight="bold">
+              <Typography variant="subtitle2" gutterBottom className="login-features-title">
                 🏆 What you get with login:
               </Typography>
-              <Typography variant="body2" color="text.secondary" component="div">
+              <Typography variant="body2" component="div" className="login-features-list">
                 • Book sports slots and facilities<br/>
                 • Access S3 Fitness Plans<br/>
                 • Track your bookings and progress<br/>

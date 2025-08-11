@@ -33,7 +33,7 @@ const Carousel = () => {
   };
 
   return (
-    <div className="custom-slider-container">
+    <div className="custom-slider-container" style={{ position: 'relative', zIndex: 2 }}>
       <Slider {...settings}>
         {sliderImages.map((img, index) => (
           <div key={index} className="custom-slider-image-wrapper">
@@ -41,11 +41,21 @@ const Carousel = () => {
               src={img}
               alt={`Slide ${index + 1}`}
               className="custom-slider-image"
+              style={{ 
+                filter: 'brightness(0.85) contrast(1.1)',
+                transition: 'all 0.3s ease'
+              }}
             />
             <div className="slider-register-overlay">
               <button
                 className="slider-register-btn"
                 onClick={handleRegisterClick}
+                style={{
+                  background: 'linear-gradient(45deg, #8e24aa, #d81b60)',
+                  boxShadow: '0 6px 20px rgba(142, 36, 170, 0.4)',
+                  border: '2px solid rgba(255, 255, 255, 0.2)',
+                  backdropFilter: 'blur(10px)'
+                }}
               >
                 REGISTER NOW
               </button>

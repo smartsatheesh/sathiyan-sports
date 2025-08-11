@@ -11,18 +11,82 @@ import {
   CardContent,
   Divider,
   TextField,
+  Grid,
+  Chip,
+  Stack,
+  useTheme,
+  alpha,
 } from "@mui/material";
+import {
+  SportsSoccer,
+  SportsTennis,
+  Event,
+  Star,
+  CheckCircle,
+  TrendingUp,
+  EmojiEvents,
+  Schedule,
+} from "@mui/icons-material";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import Footer from "./components/Footer";
+import TestimonialsSection from "./components/TestimonialsSection";
+import FeaturesSection from "./components/FeaturesSection";
 
 const Carousel = dynamic(() => import("./components/Slider"), { ssr: false });
+const ThreeJSSportsScene = dynamic(() => import("./components/ThreeJSSportsScene"), { ssr: false });
+const CarouselBackground3D = dynamic(() => import("./components/CarouselBackground3D"), { ssr: false });
 
 const sectionKeys = ["home", "about", "contact"];
+
+// Sports data for the landing page
+const sportsData = [
+  {
+    name: "Cricket",
+    icon: <SportsSoccer sx={{ fontSize: 40, color: "#4caf50" }} />,
+    price: "₹699",
+    weekendPrice: "₹999",
+    features: ["Professional Pitch", "Equipment Available", "Changing Rooms"],
+    description: "Experience cricket at its finest with our professional-grade facilities"
+  },
+  {
+    name: "Football",
+    icon: <SportsSoccer sx={{ fontSize: 40, color: "#2196f3" }} />,
+    price: "₹699",
+    weekendPrice: "₹999",
+    features: ["FIFA Standard Turf", "Floodlights", "Goal Posts"],
+    description: "Play football on our world-class turf with professional amenities"
+  },
+  {
+    name: "Badminton",
+    icon: <SportsTennis sx={{ fontSize: 40, color: "#ff9800" }} />,
+    price: "₹699",
+    weekendPrice: "₹999",
+    features: ["4 Courts Available", "Professional Nets", "Indoor Facility"],
+    description: "Indoor badminton courts with wooden flooring and professional setup"
+  },
+  {
+    name: "Functions & Events",
+    icon: <Event sx={{ fontSize: 40, color: "#9c27b0" }} />,
+    price: "₹1,999/hr",
+    weekendPrice: "₹2,499/hr",
+    features: ["200+ Capacity", "A/V Equipment", "Catering Facilities"],
+    description: "Host your special events in our spacious and well-equipped venue"
+  }
+];
+
+const statsData = [
+  { number: "5000+", label: "Happy Customers", icon: <EmojiEvents /> },
+  { number: "50+", label: "Events Hosted", icon: <Event /> },
+  { number: "24/7", label: "Available Hours", icon: <Schedule /> },
+  { number: "4.9/5", label: "Customer Rating", icon: <Star /> }
+];
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState("home");
   const [slideDirection, setSlideDirection] = useState("right");
   const prevSection = useRef("home");
+  const theme = useTheme();
 
   // Listen for hash changes and update section
   useEffect(() => {
@@ -45,168 +109,324 @@ export default function Home() {
   }, []);
 
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #e3f2fd 0%, #fff 100%)",
-        bgcolor: "background.default",
-      }}
-    >
-      {/* Full-width, centered slider */}
+    <>
       <Box
         sx={{
-          width: "100vw",
-          maxWidth: "100vw",
-          mx: "auto",
-          pt: 2,
-          pb: 4,
+          minHeight: "100vh",
+          background: `linear-gradient(135deg, ${alpha(theme.palette.primary.light, 0.1)} 0%, ${alpha(theme.palette.secondary.light, 0.05)} 100%)`,
         }}
       >
-        <Carousel />
-      </Box>
-
-      {/* Animated Section Content */}
-      <Box
-        className={`slider-section-wrapper ${slideDirection}`}
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "flex-start",
-          minHeight: "60vh",
-          px: { xs: 1, sm: 2 },
-        }}
-      >
+        {/* Home Section - Full Screen 3D Hero + Original Content */}
         {activeSection === "home" && (
+          <Box>
+            {/* Full Screen 3D Hero Section */}
+            <Box sx={{ height: "100vh", width: "100vw", position: "relative" }}>
+              <Box sx={{ 
+                height: "100%",
+                width: "100%",
+                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)}, ${alpha(theme.palette.secondary.main, 0.05)})`,
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <ThreeJSSportsScene />
+                
+                {/* Minimal overlay for branding */}
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 32,
+                    left: 32,
+                    right: 32,
+                    zIndex: 10,
+                    textAlign: 'center'
+                  }}
+                >
+                  <Typography
+                    variant="h3"
+                    sx={{
+                      fontWeight: 800,
+                      background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                      backgroundClip: 'text',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      mb: 2,
+                      textShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    Sathiyan Sports
+                  </Typography>
+                  
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'center' }}>
+                    <Button
+                      component={Link}
+                      href="/bookslot"
+                      variant="contained"
+                      size="large"
+                      sx={{
+                        px: 4,
+                        py: 1.5,
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold',
+                        background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                        boxShadow: theme.shadows[8],
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: theme.shadows[12]
+                        },
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      Book Now
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="large"
+                      sx={{
+                        px: 4,
+                        py: 1.5,
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold',
+                        borderWidth: 2,
+                        backgroundColor: alpha('#ffffff', 0.9),
+                        backdropFilter: 'blur(10px)',
+                        '&:hover': {
+                          borderWidth: 2,
+                          transform: 'translateY(-2px)',
+                          backgroundColor: '#ffffff'
+                        },
+                        transition: 'all 0.3s ease'
+                      }}
+                      onClick={() => setActiveSection('about')}
+                    >
+                      Learn More
+                    </Button>
+                  </Stack>
+                </Box>
+
+                {/* Bottom overlay with quick stats */}
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    bottom: 32,
+                    left: 32,
+                    right: 32,
+                    background: `linear-gradient(90deg, ${alpha('#000000', 0.6)}, ${alpha('#000000', 0.3)})`,
+                    borderRadius: 3,
+                    p: 3,
+                    backdropFilter: 'blur(15px)',
+                    border: `1px solid ${alpha('#ffffff', 0.2)}`
+                  }}
+                >
+                  <Grid container spacing={3}>
+                    {statsData.map((stat, index) => (
+                      <Grid item xs={6} sm={3} key={index}>
+                        <Box sx={{ textAlign: 'center', color: 'white' }}>
+                          <Box sx={{ color: theme.palette.primary.light, mb: 1 }}>
+                            {stat.icon}
+                          </Box>
+                          <Typography variant="h6" fontWeight="bold">
+                            {stat.number}
+                          </Typography>
+                          <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                            {stat.label}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              </Box>
+            </Box>
+
+            {/* Sports Cards Section */}
+            <Container maxWidth="lg" sx={{ py: 8 }}>
+              <Typography
+                variant="h3"
+                textAlign="center"
+                sx={{
+                  mb: 6,
+                  fontWeight: 700,
+                  color: theme.palette.primary.main
+                }}
+              >
+                Our Sports Facilities
+              </Typography>
+              
+              <Grid container spacing={4}>
+                {sportsData.map((sport, index) => (
+                  <Grid item xs={12} sm={6} md={3} key={index}>
+                    <Card
+                      sx={{
+                        height: '100%',
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                          transform: 'translateY(-8px)',
+                          boxShadow: theme.shadows[12]
+                        },
+                        background: `linear-gradient(135deg, ${alpha('#ffffff', 0.9)}, ${alpha(theme.palette.primary.light, 0.05)})`,
+                        backdropFilter: 'blur(10px)',
+                        border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
+                      }}
+                    >
+                      <CardContent sx={{ p: 3, textAlign: 'center' }}>
+                        <Box sx={{ mb: 2 }}>
+                          {sport.icon}
+                        </Box>
+                        <Typography variant="h6" fontWeight="bold" gutterBottom>
+                          {sport.name}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                          {sport.description}
+                        </Typography>
+                        
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="h6" color="primary" fontWeight="bold">
+                            {sport.price}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Weekends: {sport.weekendPrice}
+                          </Typography>
+                        </Box>
+
+                        <Stack spacing={0.5}>
+                          {sport.features.map((feature, idx) => (
+                            <Box key={idx} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <CheckCircle sx={{ fontSize: 16, color: 'success.main', mr: 1 }} />
+                              <Typography variant="caption">{feature}</Typography>
+                            </Box>
+                          ))}
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            </Container>
+
+            {/* Features Section */}
+            <FeaturesSection />
+
+            {/* Image Carousel Section with 3D Background */}
+            <Container maxWidth="lg" sx={{ pb: 8 }}>
+              <Typography
+                variant="h3"
+                textAlign="center"
+                sx={{
+                  mb: 6,
+                  fontWeight: 700,
+                  color: theme.palette.primary.main
+                }}
+              >
+                Explore Our Facilities
+              </Typography>
+              <Paper
+                elevation={8}
+                sx={{
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                  boxShadow: theme.shadows[12],
+                  position: 'relative'
+                }}
+              >
+                <CarouselBackground3D />
+                <Carousel />
+              </Paper>
+            </Container>
+
+            {/* Testimonials Section */}
+            <TestimonialsSection />
+          </Box>
+        )}
+
+        {/* About Section */}
+        {activeSection === "about" && (
           <Container
-            id="home"
+            id="about"
             maxWidth="lg"
             sx={{
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              minHeight: { xs: "40vh", md: "60vh" },
-              mt: { xs: 2, md: 4 },
-              mb: 4,
+              minHeight: "80vh",
+              py: 8
             }}
           >
-            <Paper
-              elevation={8}
+            <Typography
+              variant="h2"
+              textAlign="center"
               sx={{
-                p: { xs: 3, md: 7 },
-                textAlign: "center",
-                borderRadius: 4,
-                width: "100%",
-                background: "rgba(255,255,255,0.97)",
-                boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.18)",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
+                mb: 6,
+                fontWeight: 700,
+                color: theme.palette.primary.main
               }}
             >
-              <Typography
-                variant="h2"
-                color="primary"
-                gutterBottom
-                sx={{
-                  fontWeight: 900,
-                  letterSpacing: 2,
-                  fontSize: { xs: "2rem", md: "3rem" },
-                }}
-              >
-                WELCOME TO SATHIYAN SPORTS
-              </Typography>
-              <Typography
-                variant="h5"
-                color="text.secondary"
-                sx={{
-                  mb: 4,
-                  fontWeight: 500,
-                  fontSize: { xs: "1.1rem", md: "1.5rem" },
-                }}
-              >
-                Experience our dynamic multisport environment <br /> Now in
-                <b> Madurai Perungudi!</b>
-              </Typography>
-              <Button
-                variant="contained"
-                color="secondary"
-                size="large"
-                component={Link}
-                href="/register"
-                sx={{
-                  mt: 2,
-                  fontWeight: 700,
-                  px: 6,
-                  py: 1.5,
-                  borderRadius: 3,
-                  fontSize: { xs: "1rem", md: "1.2rem" },
-                  boxShadow: "0 2px 8px rgba(156,39,176,0.18)",
-                }}
-              >
-                REGISTER NOW
-              </Button>
-            </Paper>
+              About Sathiyan Sports
+            </Typography>
+            
+            <Grid container spacing={4}>
+              <Grid item xs={12} md={6}>
+                <Card
+                  elevation={6}
+                  sx={{
+                    height: '100%',
+                    borderRadius: 4,
+                    background: `linear-gradient(135deg, ${alpha('#ffffff', 0.9)}, ${alpha(theme.palette.primary.light, 0.05)})`,
+                    border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
+                  }}
+                >
+                  <CardContent sx={{ p: 4 }}>
+                    <Typography
+                      variant="h4"
+                      color="primary"
+                      gutterBottom
+                      sx={{ fontWeight: 700, display: 'flex', alignItems: 'center' }}
+                    >
+                      🎯 Our Vision
+                    </Typography>
+                    <Typography variant="body1" sx={{ lineHeight: 1.7 }}>
+                      To inspire and empower people of all ages to lead active,
+                      healthy lives by offering top-quality sports facilities,
+                      inclusive programs, and strong community engagement. We envision
+                      a future where sports becomes a way of life for everyone.
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <Card
+                  elevation={6}
+                  sx={{
+                    height: '100%',
+                    borderRadius: 4,
+                    background: `linear-gradient(135deg, ${alpha('#ffffff', 0.9)}, ${alpha(theme.palette.secondary.light, 0.05)})`,
+                    border: `1px solid ${alpha(theme.palette.secondary.main, 0.1)}`
+                  }}
+                >
+                  <CardContent sx={{ p: 4 }}>
+                    <Typography
+                      variant="h4"
+                      color="secondary"
+                      gutterBottom
+                      sx={{ fontWeight: 700, display: 'flex', alignItems: 'center' }}
+                    >
+                      🚀 Our Mission
+                    </Typography>
+                    <Typography variant="body1" sx={{ lineHeight: 1.7 }}>
+                      To create safe, accessible, and professional multi-sport
+                      environments—including football turfs, cricket nets, indoor
+                      courts, and ball badminton arenas—where individuals can train,
+                      play, and grow together in a supportive community.
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
           </Container>
         )}
 
-        {activeSection === "about" && (
-          <Container
-            id="about"
-            maxWidth="md"
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              mb: 4,
-            }}
-          >
-            <Card
-              elevation={6}
-              sx={{
-                borderRadius: 4,
-                bgcolor: "background.paper",
-                width: "100%",
-                maxWidth: 700,
-                p: { xs: 2, md: 4 },
-                background: "rgba(255,255,255,0.97)",
-                boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.13)",
-              }}
-            >
-              <CardContent>
-                <Typography
-                  variant="h4"
-                  color="primary"
-                  gutterBottom
-                  sx={{ fontWeight: 700 }}
-                >
-                  🎯 Our Vision
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  To inspire and empower people of all ages to lead active,
-                  healthy lives by offering top-quality sports facilities,
-                  inclusive programs, and strong community engagement.
-                </Typography>
-                <Divider sx={{ my: 2 }} />
-                <Typography
-                  variant="h4"
-                  color="primary"
-                  gutterBottom
-                  sx={{ fontWeight: 700 }}
-                >
-                  🚀 Our Mission
-                </Typography>
-                <Typography variant="body1">
-                  To create safe, accessible, and professional multi-sport
-                  environments—including football turfs, cricket nets, indoor
-                  courts, and ball badminton arenas—where individuals can train,
-                  play, and grow together.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Container>
-        )}
-
+        {/* Contact Section */}
         {activeSection === "contact" && (
           <Container
             id="contact"
@@ -216,22 +436,21 @@ export default function Home() {
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              minHeight: "80vh", // Increased for better vertical centering
-              mt: { xs: 0, md: 2 }, // Reduced top margin
-              mb: 4,
+              minHeight: "80vh",
+              py: 8
             }}
           >
             <Paper
               elevation={8}
               sx={{
-                p: { xs: 4, md: 6 }, // Increased padding
+                p: { xs: 4, md: 6 },
                 textAlign: "center",
                 borderRadius: 4,
                 width: "100%",
-                maxWidth: "600px", // Set maximum width
-                background: "rgba(255,255,255,0.97)",
-                boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.18)",
-                mx: "auto", // Center horizontally
+                maxWidth: "600px",
+                background: `linear-gradient(135deg, ${alpha('#ffffff', 0.95)}, ${alpha(theme.palette.primary.light, 0.05)})`,
+                backdropFilter: 'blur(10px)',
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
               }}
             >
               <Typography
@@ -242,7 +461,7 @@ export default function Home() {
                   fontWeight: 800,
                   letterSpacing: 1,
                   fontSize: { xs: "2rem", md: "2.5rem" },
-                  mb: 4, // Added more bottom margin
+                  mb: 4
                 }}
               >
                 Contact Us
@@ -254,8 +473,8 @@ export default function Home() {
                   flexDirection: "column",
                   gap: 3,
                   width: "100%",
-                  maxWidth: "450px", // Slightly narrower form
-                  mx: "auto", // Center the form
+                  maxWidth: "450px",
+                  mx: "auto"
                 }}
                 noValidate
                 autoComplete="off"
@@ -304,14 +523,20 @@ export default function Home() {
                   color="primary"
                   size="large"
                   sx={{
-                    mt: 3, // Increased top margin
+                    mt: 3,
                     py: 1.5,
-                    px: 6, // Wider button
+                    px: 6,
                     fontSize: { xs: "1rem", md: "1.1rem" },
                     fontWeight: 700,
                     borderRadius: 2,
-                    width: "200px", // Fixed width button
-                    alignSelf: "center", // Center the button
+                    width: "200px",
+                    alignSelf: "center",
+                    background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      boxShadow: theme.shadows[8]
+                    },
+                    transition: 'all 0.3s ease'
                   }}
                 >
                   Send Message
@@ -321,6 +546,9 @@ export default function Home() {
           </Container>
         )}
       </Box>
-    </Box>
+      
+      {/* Footer */}
+      <Footer />
+    </>
   );
 }

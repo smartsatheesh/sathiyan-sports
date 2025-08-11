@@ -234,6 +234,7 @@ const Navbar = () => {
                   <Button
                     variant="outlined"
                     startIcon={<Login />}
+                    className="navbar-login-button"
                     sx={{
                       color: "white",
                       borderColor: "white",

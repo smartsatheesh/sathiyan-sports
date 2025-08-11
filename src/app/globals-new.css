@@ -1,0 +1,499 @@
+/* Global Theme Variables */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --primary-gradient: linear-gradient(135deg, #00ACC1 0%, #0097A7 50%, #006064 100%);
+  --primary-color: #00ACC1;
+  --primary-dark: #006064;
+  --primary-light: rgba(0, 172, 193, 0.1);
+}
+
+/* Base Styles */
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Universal Theme Styles */
+
+/* Navbar and AppBar Styles */
+.MuiAppBar-root {
+  background: var(--primary-gradient) !important;
+  box-shadow: 0 2px 8px rgba(0, 172, 193, 0.3) !important;
+}
+
+/* Primary Button Styles */
+.MuiButton-contained {
+  background: var(--primary-gradient) !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(0, 172, 193, 0.3) !important;
+  transition: all 0.3s ease !important;
+  text-transform: none !important;
+  font-weight: 600 !important;
+}
+
+.MuiButton-contained:hover {
+  background: linear-gradient(135deg, #0097A7 0%, #006064 50%, #004D40 100%) !important;
+  box-shadow: 0 6px 16px rgba(0, 172, 193, 0.4) !important;
+  transform: translateY(-2px) !important;
+}
+
+.MuiButton-contained:disabled {
+  background: rgba(0, 172, 193, 0.5) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Outlined Button Styles - FIXED for login visibility */
+.MuiButton-outlined {
+  border: 2px solid var(--primary-color) !important;
+  color: var(--primary-color) !important;
+  background-color: transparent !important;
+  transition: all 0.3s ease !important;
+  text-transform: none !important;
+  font-weight: 600 !important;
+}
+
+.MuiButton-outlined:hover {
+  background-color: var(--primary-light) !important;
+  border-color: var(--primary-dark) !important;
+  color: var(--primary-dark) !important;
+}
+
+/* Text Button Styles */
+.MuiButton-text {
+  color: var(--primary-color) !important;
+  text-transform: none !important;
+}
+
+.MuiButton-text:hover {
+  background-color: var(--primary-light) !important;
+}
+
+/* Form Input Styles */
+.MuiTextField-root,
+.MuiOutlinedInput-root {
+  background-color: white !important;
+  border-radius: 8px !important;
+}
+
+.MuiInputLabel-root {
+  color: #666 !important;
+  font-weight: 500 !important;
+}
+
+.MuiOutlinedInput-input {
+  color: #000 !important;
+  font-size: 1rem !important;
+}
+
+.MuiOutlinedInput-notchedOutline {
+  border-color: rgba(0, 172, 193, 0.3) !important;
+}
+
+.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: var(--primary-color) !important;
+}
+
+.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: var(--primary-color) !important;
+  border-width: 2px !important;
+}
+
+.MuiFormLabel-root.Mui-focused {
+  color: var(--primary-color) !important;
+}
+
+/* Input Base Overrides */
+.MuiInputBase-root {
+  background-color: white !important;
+  color: #000 !important;
+}
+
+.MuiInputBase-input {
+  color: #000 !important;
+}
+
+/* Toggle Button Styles */
+.MuiToggleButtonGroup-root {
+  background-color: white !important;
+  border-radius: 8px !important;
+}
+
+.MuiToggleButton-root {
+  color: #666 !important;
+  border-color: rgba(0, 172, 193, 0.3) !important;
+  background-color: white !important;
+}
+
+.MuiToggleButton-root.Mui-selected {
+  color: white !important;
+  background: var(--primary-gradient) !important;
+  border-color: var(--primary-color) !important;
+}
+
+/* Chip Styles */
+.MuiChip-root {
+  background-color: var(--primary-light) !important;
+  color: var(--primary-dark) !important;
+  border: 1px solid rgba(0, 172, 193, 0.3) !important;
+}
+
+.MuiChip-filled {
+  background: var(--primary-gradient) !important;
+  color: white !important;
+}
+
+/* Card Styles */
+.MuiCard-root {
+  background-color: white !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  border: 1px solid rgba(0, 172, 193, 0.1) !important;
+}
+
+/* Paper Styles */
+.MuiPaper-root {
+  background-color: white !important;
+}
+
+/* Dialog Styles */
+.MuiDialog-paper {
+  background-color: white !important;
+}
+
+/* Menu Styles */
+.MuiMenu-paper {
+  background-color: white !important;
+  border: 1px solid rgba(0, 172, 193, 0.2) !important;
+}
+
+.MuiMenuItem-root:hover {
+  background-color: var(--primary-light) !important;
+}
+
+/* Tab Styles */
+.MuiTabs-indicator {
+  background: var(--primary-gradient) !important;
+}
+
+.MuiTab-root {
+  color: #666 !important;
+  text-transform: none !important;
+}
+
+.MuiTab-root.Mui-selected {
+  color: var(--primary-color) !important;
+}
+
+/* Progress Indicators */
+.MuiCircularProgress-root {
+  color: var(--primary-color) !important;
+}
+
+.MuiLinearProgress-root {
+  background-color: rgba(0, 172, 193, 0.2) !important;
+}
+
+.MuiLinearProgress-bar {
+  background: var(--primary-gradient) !important;
+}
+
+/* Alert Styles */
+.MuiAlert-standardInfo {
+  background-color: var(--primary-light) !important;
+  color: var(--primary-dark) !important;
+  border: 1px solid rgba(0, 172, 193, 0.3) !important;
+}
+
+/* Drawer Styles */
+.MuiDrawer-paper {
+  background-color: white !important;
+}
+
+/* Typography Overrides */
+.MuiTypography-root {
+  margin-top: 0rem !important;
+}
+
+/* Login Page Styles */
+.login-container {
+  min-height: 100vh;
+  background: var(--primary-gradient);
+  display: flex;
+  align-items: center;
+  padding: 2rem 0;
+}
+
+.login-paper {
+  padding: 2rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 20px 50px 0 rgba(0, 0, 0, 0.15);
+}
+
+.login-icon {
+  font-size: 3.5rem;
+  color: white;
+  margin-bottom: 1rem;
+  background: var(--primary-gradient);
+  border-radius: 50%;
+  padding: 1rem;
+  box-shadow: 0 8px 25px rgba(0, 172, 193, 0.3);
+}
+
+.login-title {
+  font-weight: bold;
+  color: var(--primary-color);
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.login-subtitle {
+  color: #666;
+  font-weight: 500;
+}
+
+.login-social-button {
+  padding: 0.75rem 1rem;
+  border-color: var(--primary-color) !important;
+  color: var(--primary-color) !important;
+  border-width: 2px !important;
+  background-color: white !important;
+}
+
+.login-social-button:hover {
+  border-color: var(--primary-color) !important;
+  background-color: var(--primary-light) !important;
+  border-width: 2px !important;
+}
+
+.login-divider {
+  margin: 1.5rem 0;
+  border-color: rgba(0, 172, 193, 0.2);
+}
+
+.login-divider-text {
+  color: var(--primary-color);
+  font-weight: 600;
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 0.25rem 1rem;
+  border-radius: 0.5rem;
+}
+
+.login-submit-button {
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--primary-gradient) !important;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  box-shadow: 0 6px 20px rgba(0, 172, 193, 0.3);
+  transition: all 0.2s ease;
+  color: white !important;
+}
+
+.login-submit-button:hover {
+  background: linear-gradient(135deg, #0097A7, #006064) !important;
+  box-shadow: 0 8px 25px rgba(0, 172, 193, 0.4);
+  transform: translateY(-2px);
+}
+
+.login-submit-button:disabled {
+  background: rgba(0, 172, 193, 0.6) !important;
+}
+
+.login-link {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.login-link:hover {
+  text-decoration: underline;
+}
+
+.login-features-card {
+  margin-top: 2rem;
+  background: linear-gradient(135deg, var(--primary-light), rgba(0, 151, 167, 0.05));
+  border: 1px solid rgba(0, 172, 193, 0.2);
+  border-radius: 0.75rem;
+}
+
+.login-features-title {
+  color: var(--primary-color);
+  font-weight: bold;
+}
+
+.login-features-list {
+  color: #666;
+}
+
+/* Book Slot Page Styles */
+.book-slot-container {
+  padding: 24px;
+  background: white;
+  border-radius: 24px;
+  flex: 1 1 70%;
+}
+
+.sport-card {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 3px solid transparent;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.sport-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+.sport-card.selected {
+  border-color: var(--primary-color);
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  transform: translateY(-3px);
+}
+
+.proceed-button {
+  background: var(--primary-gradient) !important;
+  color: white !important;
+  margin-top: 24px;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: 0 4px 15px rgba(0, 172, 193, 0.3);
+  transition: all 0.3s ease;
+}
+
+.proceed-button:hover {
+  background: linear-gradient(135deg, #0097A7, #006064) !important;
+  box-shadow: 0 6px 20px rgba(0, 172, 193, 0.4);
+  transform: translateY(-2px);
+}
+
+/* Payment Buttons */
+.upi-payment-button {
+  background: var(--primary-gradient) !important;
+  color: white !important;
+  font-weight: bold;
+  text-transform: none;
+  padding: 12px 24px;
+  border-radius: 25px;
+  font-size: 1.1rem;
+}
+
+.upi-payment-button:hover {
+  background: linear-gradient(135deg, #0097A7, #006064) !important;
+}
+
+.gpay-payment-button {
+  background: var(--primary-gradient) !important;
+  color: white !important;
+  font-weight: bold;
+  text-transform: none;
+  padding: 12px 24px;
+  border-radius: 25px;
+  font-size: 1.1rem;
+}
+
+.gpay-payment-button:hover {
+  background: linear-gradient(135deg, #0097A7, #006064) !important;
+}
+
+/* About Page Styles */
+.about-page {
+  background-color: #f9f9f9;
+  padding: 60px 20px;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.about-container {
+  max-width: 900px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  padding: 40px;
+}
+
+.about-heading {
+  color: var(--primary-color);
+  font-size: 1.8rem;
+  margin-bottom: 16px;
+}
+
+/* Slider Styles */
+.slider-register-btn {
+  background: var(--primary-gradient) !important;
+  color: white;
+  border: none;
+  padding: 12px 32px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.slider-register-btn:hover {
+  background: linear-gradient(135deg, #0097A7, #006064) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .login-container {
+    padding: 1rem;
+  }
+  
+  .login-paper {
+    padding: 1.5rem;
+  }
+}
+
+/* Scroll Behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+[id] {
+  scroll-margin-top: 80px;
+}
+
+/* Animations */
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+.payment-timer-warning {
+  animation: pulse 1s infinite;
+}

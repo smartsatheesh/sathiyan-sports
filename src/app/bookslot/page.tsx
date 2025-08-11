@@ -157,14 +157,36 @@ const upiApps = [
   { code: 'WHATSAPP', name: 'WhatsApp Pay', icon: '💚' },
 ];
 
-// Update the timeSlots generation
-const generateTimeSlots = (isEvent = false) => {
+// Update the timeSlots generation with past date/time filtering
+const generateTimeSlots = (isEvent = false, selectedDate: Date | null = null) => {
+  const now = new Date();
+  const currentHour = now.getHours();
+  const isToday = selectedDate && 
+    selectedDate.getDate() === now.getDate() &&
+    selectedDate.getMonth() === now.getMonth() &&
+    selectedDate.getFullYear() === now.getFullYear();
+
   if (isEvent) {
-    return eventSessions.map(session => ({
-      time: session.time,
-      hours: session.hours,
-      available: true
-    }));
+    return eventSessions.map(session => {
+      let available = true;
+      
+      // If it's today, check if the session time has passed
+      if (isToday) {
+        // Extract start hour from session time
+        const sessionMatch = session.time.match(/\((\d{2}):00/);
+        if (sessionMatch) {
+          const sessionStartHour = parseInt(sessionMatch[1], 10);
+          // Disable if session has already started (with 1 hour buffer)
+          available = currentHour < sessionStartHour;
+        }
+      }
+      
+      return {
+        time: session.time,
+        hours: session.hours,
+        available
+      };
+    });
   }
   
   const slots = [];
@@ -179,9 +201,17 @@ const generateTimeSlots = (isEvent = false) => {
       "HH:mm"
     );
     const timeString = `${startTime} - ${endTime}`;
+    
+    // Check if this time slot is in the past for today
+    let available = true;
+    if (isToday) {
+      // Disable slots that have already passed (with 1 hour buffer for booking)
+      available = hour > currentHour;
+    }
+    
     slots.push({
       time: timeString,
-      available: true, // Will be updated based on API response
+      available, // Will be further updated based on API response
     });
   }
   return slots;
@@ -196,7 +226,7 @@ export default function BookSlot() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
   const [selectedCourt, setSelectedCourt] = useState<string>(""); // Court selection for Shuttle Badminton
-  const [timeSlots, setTimeSlots] = useState<Array<{time: string; available: boolean; hours?: number}>>(generateTimeSlots());
+  const [timeSlots, setTimeSlots] = useState<Array<{time: string; available: boolean; hours?: number}>>(generateTimeSlots(false, null));
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
@@ -296,20 +326,20 @@ export default function BookSlot() {
               const courtSpecificSlots = data.courtBookings[selectedCourt] || [];
               setBookedSlots(courtSpecificSlots);
               
-              // Update time slots availability for specific court
+              // Update time slots availability for specific court with past time filtering
               const isEvent = selectedSport === "Functions and Events";
-              const updatedSlots = generateTimeSlots(isEvent).map(slot => ({
+              const updatedSlots = generateTimeSlots(isEvent, selectedDate).map(slot => ({
                 ...slot,
-                available: !courtSpecificSlots.includes(slot.time)
+                available: slot.available && !courtSpecificSlots.includes(slot.time)
               }));
               setTimeSlots(updatedSlots);
             } else {
               // For other sports or general booking data
               setBookedSlots(data.bookedSlots || []);
               const isEvent = selectedSport === "Functions and Events";
-              const updatedSlots = generateTimeSlots(isEvent).map(slot => ({
+              const updatedSlots = generateTimeSlots(isEvent, selectedDate).map(slot => ({
                 ...slot,
-                available: !(data.bookedSlots || []).includes(slot.time)
+                available: slot.available && !(data.bookedSlots || []).includes(slot.time)
               }));
               setTimeSlots(updatedSlots);
             }
@@ -336,7 +366,7 @@ export default function BookSlot() {
     
     if (selectedSport) {
       const isEvent = selectedSport === "Functions and Events";
-      setTimeSlots(generateTimeSlots(isEvent));
+      setTimeSlots(generateTimeSlots(isEvent, selectedDate));
     }
   }, [selectedSport, selectedDate]);
 
