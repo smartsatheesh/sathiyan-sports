@@ -137,9 +137,9 @@ const Navbar = () => {
             
             {/* S3 Fitness Plans */}
             <Link href="/s3" passHref>
-              <Button sx={{ color: "#fff", ml: 2 }}>
-                💪 SQube Fitness Plans
-              </Button>
+                <Button sx={{ color: "#fff", ml: 2 }} startIcon={<i className="fa-solid fa-cube"></i>}>
+                💪 S³ Fitness Plans
+                </Button>
             </Link>
 
             {/* Admin Dashboard - Admin only */}

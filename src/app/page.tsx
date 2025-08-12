@@ -26,6 +26,7 @@ import {
   TrendingUp,
   EmojiEvents,
   Schedule,
+  SportsCricket,
 } from "@mui/icons-material";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -43,7 +44,7 @@ const sectionKeys = ["home", "about", "contact"];
 const sportsData = [
   {
     name: "Cricket",
-    icon: <SportsSoccer sx={{ fontSize: 40, color: "#4caf50" }} />,
+    icon: () => <SportsCricket sx={{ fontSize: 40, color: "#4caf50" }} />,
     price: "₹699",
     weekendPrice: "₹999",
     features: ["Professional Pitch", "Equipment Available", "Changing Rooms"],
@@ -51,7 +52,7 @@ const sportsData = [
   },
   {
     name: "Football",
-    icon: <SportsSoccer sx={{ fontSize: 40, color: "#2196f3" }} />,
+    icon: () => <SportsSoccer sx={{ fontSize: 40, color: "#2196f3" }} />,
     price: "₹699",
     weekendPrice: "₹999",
     features: ["FIFA Standard Turf", "Floodlights", "Goal Posts"],
@@ -59,15 +60,15 @@ const sportsData = [
   },
   {
     name: "Badminton",
-    icon: <SportsTennis sx={{ fontSize: 40, color: "#ff9800" }} />,
+    icon: () => <SportsTennis sx={{ fontSize: 40, color: "#ff9800" }} />,
     price: "₹699",
     weekendPrice: "₹999",
-    features: ["4 Courts Available", "Professional Nets", "Indoor Facility"],
+    features: ["3 Courts Available", "Professional Nets", "Indoor Facility"],
     description: "Indoor badminton courts with wooden flooring and professional setup"
   },
   {
     name: "Functions & Events",
-    icon: <Event sx={{ fontSize: 40, color: "#9c27b0" }} />,
+    icon: () => <Event sx={{ fontSize: 40, color: "#9c27b0" }} />,
     price: "₹1,999/hr",
     weekendPrice: "₹2,499/hr",
     features: ["200+ Capacity", "A/V Equipment", "Catering Facilities"],
@@ -76,8 +77,8 @@ const sportsData = [
 ];
 
 const statsData = [
-  { number: "5000+", label: "Happy Customers", icon: <EmojiEvents /> },
-  { number: "50+", label: "Events Hosted", icon: <Event /> },
+  { number: "99+", label: "Happy Customers", icon: <EmojiEvents /> },
+  { number: "10+", label: "Events Hosted", icon: <Event /> },
   { number: "24/7", label: "Available Hours", icon: <Schedule /> },
   { number: "4.9/5", label: "Customer Rating", icon: <Star /> }
 ];
@@ -298,7 +299,7 @@ export default function Home() {
                     >
                       <CardContent sx={{ p: 3, textAlign: 'center' }}>
                         <Box sx={{ mb: 2 }}>
-                          {sport.icon}
+                          {sport.icon()}
                         </Box>
                         <Typography variant="h6" fontWeight="bold" gutterBottom>
                           {sport.name}
