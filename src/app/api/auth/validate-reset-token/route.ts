@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    const user = await User.findOne({
+    const user = await (User.findOne as any)({
       resetPasswordToken: token,
       resetPasswordExpires: { $gt: new Date() }, // Check if token hasn't expired
     });

@@ -215,27 +215,12 @@ const Footer = () => {
         <Divider sx={{ my: 4, borderColor: alpha('#ffffff', 0.2) }} />
 
         {/* Bottom Section */}
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', md: 'row' },
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            textAlign: { xs: 'center', md: 'left' }
-          }}
-        >
+        <div className="footer-bottom-section">
           <Typography variant="body2" sx={{ opacity: 0.8 }}>
             © {new Date().getFullYear()} Sathiyan Sports. All rights reserved.
           </Typography>
           
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              gap: 2,
-              mt: { xs: 2, md: 0 }
-            }}
-          >
+          <div className="footer-social-links">
             <Link href="/privacy" color="inherit" underline="hover" sx={{ opacity: 0.8 }}>
               Privacy Policy
             </Link>
@@ -245,38 +230,16 @@ const Footer = () => {
             <Link href="/cancellation" color="inherit" underline="hover" sx={{ opacity: 0.8 }}>
               Cancellation Policy
             </Link>
-          </Box>
-        </Box>
+          </div>
+        </div>
 
         {/* Floating Sports Icons */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 20,
-            right: 20,
-            opacity: 0.1,
-            fontSize: '4rem',
-            animation: 'float 6s ease-in-out infinite',
-            '@keyframes float': {
-              '0%, 100%': { transform: 'translateY(0px)' },
-              '50%': { transform: 'translateY(-20px)' }
-            }
-          }}
-        >
+        <div className="footer-floating-icon-right">
           🏏
-        </Box>
-        <Box
-          sx={{
-            position: 'absolute',
-            bottom: 20,
-            left: 20,
-            opacity: 0.1,
-            fontSize: '3rem',
-            animation: 'float 4s ease-in-out infinite reverse',
-          }}
-        >
+        </div>
+        <div className="footer-floating-icon-left">
           ⚽
-        </Box>
+        </div>
       </Container>
     </Box>
   );

@@ -95,7 +95,7 @@ const Navbar = () => {
         <Toolbar disableGutters>
           {/* Logo Section */}
           <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>
-            <Box sx={{ display: "flex", alignItems: "center", mr: 2 }}>
+            <div style={{ display: "flex", alignItems: "center", marginRight: 16 }}>
               <img
                 src="/logo2.jpeg"
                 alt="Sathiyan Sports Logo"
@@ -116,10 +116,10 @@ const Navbar = () => {
               >
                 SATHIYAN SPORTS
               </Typography>
-            </Box>
+            </div>
           </Link>
 
-          <Box sx={{ flexGrow: 1, display: { xs: "none", md: "flex" }, ml: 4 }}>
+          <div className="navbar-desktop-menu" style={{ flexGrow: 1, marginLeft: 32 }}>
             {publicNavItems.map((item) => (
               <Link key={item.label} href={item.href} passHref>
                 <Button sx={{ color: "#fff", ml: 2 }}>
@@ -150,10 +150,10 @@ const Navbar = () => {
                 </Button>
               </Link>
             )}
-          </Box>
+          </div>
 
           {/* Authentication Section */}
-          <Box sx={{ display: "flex", alignItems: "center", ml: 2 }}>
+          <div style={{ display: "flex", alignItems: "center", marginLeft: 16 }}>
             {isLoading ? (
               <CircularProgress size={24} color="inherit" />
             ) : isAuthenticated ? (
@@ -195,7 +195,7 @@ const Navbar = () => {
                     }
                   }}
                 >
-                  <Box sx={{ px: 2, py: 1 }}>
+                  <div style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 8, paddingBottom: 8 }}>
                     <Typography variant="subtitle2" color="text.secondary">
                       Welcome, {user?.name}
                     </Typography>
@@ -204,26 +204,26 @@ const Navbar = () => {
                         {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                       </Typography>
                     )}
-                  </Box>
+                  </div>
                   <Divider />
                   
                   {profileMenuItems.map((item) => (
                     <Link key={item.label} href={item.href} passHref>
                       <MenuItem onClick={handleProfileMenuClose}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           {item.icon}
                           {item.label}
-                        </Box>
+                        </div>
                       </MenuItem>
                     </Link>
                   ))}
                   
                   <Divider />
                   <MenuItem onClick={handleSignOut}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <ExitToApp />
                       Sign Out
-                    </Box>
+                    </div>
                   </MenuItem>
                 </Menu>
               </>
@@ -278,7 +278,7 @@ const Navbar = () => {
                 </Link>
               </>
             )}
-          </Box>
+          </div>
 
           {/* Mobile Menu */}
           {isMobile && (
@@ -293,9 +293,14 @@ const Navbar = () => {
                 <MenuIcon />
               </IconButton>
               <Drawer anchor="right" open={drawerOpen} onClose={toggleDrawer}>
-                <Box sx={{ width: 280, p: 2 }}>
+                <div style={{ width: 280, padding: 16 }}>
                   {/* Logo Section for Mobile */}
-                  <Box sx={{ mb: 3, p: 2, textAlign: 'center', borderBottom: '1px solid #e0e0e0' }}>
+                  <div style={{ 
+                    marginBottom: 24, 
+                    padding: 16, 
+                    textAlign: 'center', 
+                    borderBottom: '1px solid #e0e0e0' 
+                  }}>
                     <img
                       src="/logo2.jpeg"
                       alt="Sathiyan Sports Logo"
@@ -309,27 +314,34 @@ const Navbar = () => {
                     <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main' }}>
                       SATHIYAN SPORTS
                     </Typography>
-                  </Box>
+                  </div>
                   
                   {/* User Info Section for Mobile */}
                   {isAuthenticated && (
-                    <Box sx={{ mb: 2, p: 2, backgroundColor: 'primary.main', borderRadius: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <div style={{ 
+                      marginBottom: 16, 
+                      padding: 16, 
+                      backgroundColor: '#00ACC1', 
+                      borderRadius: 8 
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                         {user?.image ? (
                           <Avatar src={user.image} />
                         ) : (
-                          <Avatar><AccountCircle /></Avatar>
+                          <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                            <AccountCircle />
+                          </Avatar>
                         )}
-                        <Box>
+                        <div>
                           <Typography variant="subtitle1" sx={{ color: 'white' }}>
                             {user?.name}
                           </Typography>
                           <Typography variant="caption" sx={{ color: 'white', opacity: 0.8 }}>
                             {(user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "")}
                           </Typography>
-                        </Box>
-                      </Box>
-                    </Box>
+                        </div>
+                      </div>
+                    </div>
                   )}
 
                   <List>
@@ -372,7 +384,12 @@ const Navbar = () => {
 
                   {/* Mobile Auth Buttons */}
                   {!isAuthenticated && (
-                    <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <div style={{ 
+                      marginTop: 16, 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      gap: 8 
+                    }}>
                       <Link href="/auth/login" passHref>
                         <Button
                           variant="outlined"
@@ -401,9 +418,9 @@ const Navbar = () => {
                           Register
                         </Button>
                       </Link>
-                    </Box>
+                    </div>
                   )}
-                </Box>
+                </div>
               </Drawer>
             </>
           )}

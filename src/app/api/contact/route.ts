@@ -84,12 +84,12 @@ export async function GET(req: NextRequest) {
 
     const skip = (page - 1) * limit;
 
-    const contacts = await Contact.find(query)
+    const contacts = await (Contact.find as any)(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
-    const total = await Contact.countDocuments(query);
+    const total = await (Contact.countDocuments as any)(query);
 
     return NextResponse.json({
       success: true,

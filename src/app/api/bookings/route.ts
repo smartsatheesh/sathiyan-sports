@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       existingBookingsQuery.court = court;
     }
 
-    const existingBookings = await Booking.find(existingBookingsQuery);
+    const existingBookings = await (Booking.find as any)(existingBookingsQuery);
 
     if (existingBookings.length > 0) {
       const bookedSlots = existingBookings.flatMap(booking => booking.timeSlots);
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       bookingData.court = court;
     }
 
-    const booking = await Booking.create(bookingData);
+    const booking = await (Booking.create as any)(bookingData);
 
     // Send booking confirmation notifications (WhatsApp only)
     try {
@@ -183,7 +183,7 @@ export async function GET(req: NextRequest) {
       bookingQuery.court = court;
     }
 
-    const bookings = await Booking.find(bookingQuery).select("timeSlots court");
+    const bookings = await (Booking.find as any)(bookingQuery).select("timeSlots court");
 
     // For Shuttle Badminton without specific court, return court-specific data
     if (sport === "Shuttle Badminton" && !court) {

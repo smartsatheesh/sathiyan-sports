@@ -7,7 +7,7 @@ export async function GET() {
     await connectDB();
     
     // Get all users (for debugging - remove in production)
-    const users = await User.find({}, { password: 0 }).limit(10); // Exclude passwords
+    const users = await (User.find as any)({}, { password: 0 }).limit(10); // Exclude passwords
     
     return NextResponse.json({
       success: true,

@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    const user = await User.findOne({ email });
+    const user = await (User.findOne as any)({ email });
 
     if (!user) {
       // For security, don't reveal if email exists or not
@@ -49,13 +49,7 @@ export async function POST(request: NextRequest) {
     const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
 
     // Save reset token to user
-    await User.findByIdAndUpdate(user._id, {
-      resetPasswordToken: resetToken,
-      resetPasswordExpires: resetTokenExpiry,
-    });
-
-    // Save reset token to user
-    await User.findByIdAndUpdate(user._id, {
+    await (User.findByIdAndUpdate as any)(user._id, {
       resetPasswordToken: resetToken,
       resetPasswordExpires: resetTokenExpiry,
     });

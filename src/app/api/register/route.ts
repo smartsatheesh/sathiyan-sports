@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     }
 
     // Check if user already exists by email or mobile
-    const existingUser = await User.findOne({
+    const existingUser = await (User.findOne as any)({
       $or: [
         { email: body.email },
         { mobile: body.mobile }
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
       phone: body.mobile,
     };
 
-    const user = await User.create(userData);
+    const user = await (User.create as any)(userData);
 
     // Send welcome email (async, don't wait for it)
     emailService.sendWelcomeEmail(user.email, user.name).catch((error) => {

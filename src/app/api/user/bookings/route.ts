@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     // Find bookings for the current user
     // Assuming the Booking model has a userId field
-    const bookings = await Booking.find({ 
+    const bookings = await (Booking.find as any)({ 
       $or: [
         { userId: session.user.id },
         { customerEmail: session.user.email },

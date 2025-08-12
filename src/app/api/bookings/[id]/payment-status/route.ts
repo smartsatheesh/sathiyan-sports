@@ -10,7 +10,7 @@ export async function GET(
     await connectDB();
     
     const bookingId = params.id;
-    const booking = await Booking.findById(bookingId);
+    const booking = await (Booking.findById as any)(bookingId);
     
     if (!booking) {
       return NextResponse.json(
@@ -56,7 +56,7 @@ export async function POST(
     const { transactionId, status, amount, paymentMethod } = body;
     
     if (status === 'SUCCESS' || status === 'COMPLETED') {
-      const updatedBooking = await Booking.findByIdAndUpdate(
+      const updatedBooking = await (Booking.findByIdAndUpdate as any)(
         bookingId,
         {
           paymentStatus: 'completed',

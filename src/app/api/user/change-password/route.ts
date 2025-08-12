@@ -32,7 +32,7 @@ export async function PUT(request: NextRequest) {
 
     await connectDB();
 
-    const user = await User.findById(session.user.id);
+    const user = await (User.findById as any)(session.user.id);
 
     if (!user) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
@@ -68,7 +68,7 @@ export async function PUT(request: NextRequest) {
     const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
 
     // Update password
-    await User.findByIdAndUpdate(session.user.id, {
+    await (User.findByIdAndUpdate as any)(session.user.id, {
       password: hashedNewPassword,
     });
 

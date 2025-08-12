@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    const user = await User.findOne({
+    const user = await (User.findOne as any)({
       resetPasswordToken: token,
       resetPasswordExpires: { $gt: new Date() }, // Check if token hasn't expired
     });
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // Update password and clear reset token fields
-    await User.findByIdAndUpdate(user._id, {
+    await (User.findByIdAndUpdate as any)(user._id, {
       password: hashedPassword,
       resetPasswordToken: undefined,
       resetPasswordExpires: undefined,

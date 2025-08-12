@@ -23,13 +23,13 @@ export async function GET(req: NextRequest) {
 
     const skip = (page - 1) * limit;
 
-    const users = await User.find(query)
+    const users = await (User.find as any)(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .select("-__v"); // Exclude version field
 
-    const total = await User.countDocuments(query);
+    const total = await (User.countDocuments as any)(query);
 
     return NextResponse.json({
       success: true,

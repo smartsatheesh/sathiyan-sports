@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
 
-    const user = await User.findById(session.user.id).select(
+    const user = await (User.findById as any)(session.user.id).select(
       "-password -__v"
     );
 
@@ -84,7 +84,7 @@ export async function PUT(request: NextRequest) {
     await connectDB();
 
     // Check if email or mobile already exists (excluding current user)
-    const existingUser = await User.findOne({
+    const existingUser = await (User.findOne as any)({
       $and: [
         { _id: { $ne: session.user.id } },
         {
@@ -111,7 +111,7 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
+    const updatedUser = await (User.findByIdAndUpdate as any)(
       session.user.id,
       {
         name,

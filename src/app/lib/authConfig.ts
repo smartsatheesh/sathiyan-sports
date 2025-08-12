@@ -74,7 +74,7 @@ export const authOptions: AuthOptions = {
           
           console.log('🔍 Looking for user with mobile:', credentials.mobile);
           // Find user by mobile number
-          const user = await User.findOne({ mobile: credentials.mobile });
+          const user = await (User.findOne as any)({ mobile: credentials.mobile });
           
           if (!user) {
             console.error('❌ No user found with mobile:', credentials.mobile);
@@ -124,7 +124,7 @@ export const authOptions: AuthOptions = {
         
         if (account?.provider === 'google' || account?.provider === 'facebook') {
           // Check if user already exists
-          let existingUser = await User.findOne({ email: user.email });
+          let existingUser = await (User.findOne as any)({ email: user.email });
           
           if (!existingUser) {
             // Create new user for social login

@@ -11,7 +11,7 @@ export async function GET(
     await connectDB();
     
     const enrollmentId = params.id;
-    const enrollment = await FitnessEnrollment.findOne({ enrollmentId });
+    const enrollment = await (FitnessEnrollment.findOne as any)({ enrollmentId });
     
     if (!enrollment) {
       return NextResponse.json({
@@ -45,7 +45,7 @@ export async function PATCH(
     const enrollmentId = params.id;
     const body = await request.json();
     
-    const enrollment = await FitnessEnrollment.findOne({ enrollmentId });
+    const enrollment = await (FitnessEnrollment.findOne as any)({ enrollmentId });
     
     if (!enrollment) {
       return NextResponse.json({
@@ -120,7 +120,7 @@ export async function DELETE(
     await connectDB();
     
     const enrollmentId = params.id;
-    const enrollment = await FitnessEnrollment.findOne({ enrollmentId });
+    const enrollment = await (FitnessEnrollment.findOne as any)({ enrollmentId });
     
     if (!enrollment) {
       return NextResponse.json({

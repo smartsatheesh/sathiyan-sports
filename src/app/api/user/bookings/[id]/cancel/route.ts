@@ -20,7 +20,7 @@ export async function PUT(
     await connectDB();
 
     // Find the booking and verify ownership
-    const booking = await Booking.findOne({
+    const booking = await (Booking.findOne as any)({
       _id: bookingId,
       $or: [
         { userId: session.user.id },
@@ -64,7 +64,7 @@ export async function PUT(
     }
 
     // Update booking status
-    const updatedBooking = await Booking.findByIdAndUpdate(
+    const updatedBooking = await (Booking.findByIdAndUpdate as any)(
       bookingId,
       {
         bookingStatus: 'cancelled',

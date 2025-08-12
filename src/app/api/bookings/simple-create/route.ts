@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date(),
     };
 
-    const booking = await Booking.create(bookingData);
+    const booking = await (Booking.create as any)(bookingData);
 
     // Send WhatsApp notifications
     await sendWhatsAppNotifications(booking);

@@ -13,18 +13,18 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status");
     const sport = searchParams.get("sport");
 
-    const query: any = {};
+    const query: Record<string, any> = {};
     if (status) query.bookingStatus = status;
     if (sport) query.sport = sport;
 
     const skip = (page - 1) * limit;
 
-    const bookings = await Booking.find(query)
+    const bookings = await (Booking.find as any)(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
-    const total = await Booking.countDocuments(query);
+    const total = await (Booking.countDocuments as any)(query);
 
     return NextResponse.json({
       success: true,
@@ -63,7 +63,7 @@ export async function PUT(req: NextRequest) {
     if (status) updateData.bookingStatus = status;
     if (paymentStatus) updateData.paymentStatus = paymentStatus;
 
-    const booking = await Booking.findByIdAndUpdate(
+    const booking = await (Booking.findByIdAndUpdate as any)(
       bookingId,
       updateData,
       { new: true }

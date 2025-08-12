@@ -67,7 +67,17 @@ const isWeekend = (date: Date): boolean => {
   return day === 0 || day === 5 || day === 6; // Sunday, Friday, Saturday
 };
 
-const sports = [
+// Sports data with proper typing to match selectedSport state
+const sports: Array<{
+  id: number;
+  name: "Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events";
+  basePrice: number;
+  weekendPrice: number;
+  icon: string;
+  color: string;
+  description: string;
+  features: string[];
+}> = [
   {
     id: 1,
     name: "Cricket",
@@ -327,8 +337,8 @@ export default function BookSlot() {
               setBookedSlots(courtSpecificSlots);
               
               // Update time slots availability for specific court with past time filtering
-              const isEvent = selectedSport === "Functions and Events";
-              const updatedSlots = generateTimeSlots(isEvent, selectedDate).map(slot => ({
+              // Since we're in Shuttle Badminton block, isEvent is always false
+              const updatedSlots = generateTimeSlots(false, selectedDate).map(slot => ({
                 ...slot,
                 available: slot.available && !courtSpecificSlots.includes(slot.time)
               }));
@@ -389,12 +399,18 @@ export default function BookSlot() {
   // Show loading while checking authentication
   if (status === 'loading') {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+      <Container sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '50vh',
+        py: 4 
+      }}>
         <CircularProgress />
         <Typography variant="h6" sx={{ ml: 2 }}>
           Checking authentication...
         </Typography>
-      </Box>
+      </Container>
     );
   }
 

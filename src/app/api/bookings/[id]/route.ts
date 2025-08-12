@@ -27,7 +27,7 @@ export async function PATCH(
     } = body;
 
     // Find the booking
-    const booking = await Booking.findById(bookingId);
+    const booking = await (Booking.findById as any)(bookingId);
     if (!booking) {
       return NextResponse.json(
         { message: "Booking not found", success: false },
@@ -49,7 +49,7 @@ export async function PATCH(
     
     updateData.updatedAt = new Date();
 
-    const updatedBooking = await Booking.findByIdAndUpdate(
+    const updatedBooking = await (Booking.findByIdAndUpdate as any)(
       bookingId,
       updateData,
       { new: true }
@@ -137,7 +137,7 @@ export async function GET(
     await connectDB();
     
     const bookingId = params.id;
-    const booking = await Booking.findById(bookingId);
+    const booking = await (Booking.findById as any)(bookingId);
     
     if (!booking) {
       return NextResponse.json(
