@@ -156,6 +156,20 @@ export default function Home() {
                   >
                     Welcome to Sathiyan MultiSport Club 
                   </Typography>
+                  <Typography
+                    variant="h4"
+                    sx={{
+                      fontWeight: 400,
+                      background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                      backgroundClip: 'text',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      mb: 2,
+                      textShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    Where Passion Meets Purpose & Performance
+                  </Typography>
                   
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'center' }}>
                     <Button
