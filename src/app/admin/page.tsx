@@ -70,9 +70,12 @@ interface User {
   name: string;
   email: string;
   phone: string;
+  mobile: string;
   preferredSport: string;
   subscriptionType: string;
   paymentStatus: string;
+  status: string;
+  verifiedAt?: string;
   createdAt: string;
 }
 
@@ -274,14 +277,58 @@ export default function AdminDashboard() {
     switch (status.toLowerCase()) {
       case 'confirmed':
       case 'completed':
+      case 'verified':
         return 'success';
       case 'pending':
         return 'warning';
       case 'cancelled':
       case 'failed':
+      case 'rejected':
         return 'error';
+      case 'suspended':
+        return 'default';
       default:
         return 'default';
+    }
+  };
+
+  // User verification function
+  const handleUserVerification = async (userId: string, action: 'verify' | 'reject' | 'suspend') => {
+    try {
+      const response = await fetch('/api/admin/users/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          action,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Refresh data
+        await fetchData();
+        setAlert({ 
+          type: 'success', 
+          message: `User ${action}ed successfully!` 
+        });
+        
+        // Clear alert after 3 seconds
+        setTimeout(() => setAlert(null), 3000);
+      } else {
+        throw new Error(data.message || `Failed to ${action} user`);
+      }
+    } catch (err) {
+      setAlert({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : `Failed to ${action} user` 
+      });
+      
+      // Clear alert after 5 seconds
+      setTimeout(() => setAlert(null), 5000);
     }
   };
 
@@ -314,6 +361,17 @@ export default function AdminDashboard() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Alert Display */}
+      {alert && (
+        <Alert 
+          severity={alert.type} 
+          sx={{ mb: 3 }}
+          onClose={() => setAlert(null)}
+        >
+          {alert.message}
+        </Alert>
+      )}
+
       <Typography
         variant="h3"
         align="center"
@@ -474,7 +532,9 @@ export default function AdminDashboard() {
                   <TableCell>Phone</TableCell>
                   <TableCell>Preferred Sport</TableCell>
                   <TableCell>Subscription</TableCell>
-                  <TableCell>Status</TableCell>
+                  <TableCell>User Status</TableCell>
+                  <TableCell>Payment Status</TableCell>
+                  <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -483,15 +543,70 @@ export default function AdminDashboard() {
                     <TableCell>{user._id.slice(-8)}</TableCell>
                     <TableCell>{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.phone}</TableCell>
-                    <TableCell>{user.preferredSport}</TableCell>
-                    <TableCell>{user.subscriptionType}</TableCell>
+                    <TableCell>{user.phone || user.mobile}</TableCell>
+                    <TableCell>{user.preferredSport || 'N/A'}</TableCell>
+                    <TableCell>{user.subscriptionType || 'N/A'}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={user.status || 'pending'}
+                        color={getStatusColor(user.status || 'pending') as any}
+                        size="small"
+                      />
+                    </TableCell>
                     <TableCell>
                       <Chip
                         label={user.paymentStatus}
                         color={getStatusColor(user.paymentStatus) as any}
                         size="small"
                       />
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        {(!user.status || user.status === 'pending') && (
+                          <>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="success"
+                              onClick={() => handleUserVerification(user._id, 'verify')}
+                              sx={{ fontSize: '0.7rem', py: 0.5, minWidth: 'auto', px: 1 }}
+                            >
+                              ✓ Verify
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="error"
+                              onClick={() => handleUserVerification(user._id, 'reject')}
+                              sx={{ fontSize: '0.7rem', py: 0.5, minWidth: 'auto', px: 1 }}
+                            >
+                              ✗ Reject
+                            </Button>
+                          </>
+                        )}
+                        {user.status === 'verified' && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="warning"
+                            onClick={() => handleUserVerification(user._id, 'suspend')}
+                            sx={{ fontSize: '0.7rem', py: 0.5, minWidth: 'auto', px: 1 }}
+                          >
+                            ⏸ Suspend
+                          </Button>
+                        )}
+                        {(user.status === 'rejected' || user.status === 'suspended') && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="primary"
+                            onClick={() => handleUserVerification(user._id, 'verify')}
+                            sx={{ fontSize: '0.7rem', py: 0.5, minWidth: 'auto', px: 1 }}
+                          >
+                            🔄 Reactivate
+                          </Button>
+                        )}
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}

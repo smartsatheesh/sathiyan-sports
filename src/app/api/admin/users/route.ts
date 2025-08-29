@@ -2,22 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "../../../server/Mongo";
 import User from "../../../models/User";
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 // GET - Fetch all users (for admin)
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
 
-    const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
-    const search = searchParams.get("search");
+    // Extract search params directly from NextRequest
+    const page = parseInt(req.nextUrl.searchParams.get("page") || "1");
+    const limit = parseInt(req.nextUrl.searchParams.get("limit") || "10");
+    const search = req.nextUrl.searchParams.get("search");
 
     const query: any = {};
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
-        { phone: { $regex: search, $options: "i" } }
+        { phone: { $regex: search, $options: "i" } },
+        { mobile: { $regex: search, $options: "i" } }
       ];
     }
 

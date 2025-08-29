@@ -4,6 +4,9 @@ import { authOptions } from "@/app/lib/authConfig";
 import connectDB from "@/app/server/Mongo";
 import Booking from "@/app/models/Booking";
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);

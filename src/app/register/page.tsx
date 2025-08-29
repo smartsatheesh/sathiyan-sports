@@ -398,7 +398,7 @@ export default function RegisterPage() {
             sx={{ mt: 3, mb: 2 }}
             disabled={loading}
           >
-            {loading ? <CircularProgress size={24} /> : "Register & Pay"}
+            {loading ? <CircularProgress size={24} /> : "Register"}
           </Button>
 
           <Box sx={{ textAlign: 'center', mt: 2 }}>
