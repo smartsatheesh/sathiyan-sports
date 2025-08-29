@@ -69,6 +69,18 @@ const userSchema = new mongoose.Schema({
     default: "pending",
     enum: ["pending", "completed", "failed"],
     },
+  status: {
+    type: String,
+    default: "pending",
+    enum: ["pending", "verified", "rejected", "suspended"],
+  },
+  verifiedAt: {
+    type: Date,
+  },
+  verifiedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
   subscriptionStartDate: {
     type: Date,
   },
