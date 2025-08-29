@@ -17,6 +17,7 @@ import {
   useTheme,
   alpha,
   CircularProgress,
+  Tooltip,
 } from "@mui/material";
 import {
   SportsSoccer,
@@ -269,7 +270,7 @@ export default function Home() {
                   {/* Performance toggle */}
                   <Box sx={{ position: 'absolute', top: -16, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                     {!disable3D ? (
-                      <>
+                      <Tooltip title="Disable 3D for faster loading" placement="left">
                         <Button
                           size="small"
                           variant="outlined"
@@ -289,22 +290,9 @@ export default function Home() {
                         >
                           🚀 Fast Mode
                         </Button>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontSize: '0.6rem',
-                            color: alpha('#000000', 0.6),
-                            backgroundColor: alpha('#ffffff', 0.8),
-                            px: 0.5,
-                            borderRadius: 0.5,
-                            mt: 0.5
-                          }}
-                        >
-                          Disable 3D for faster loading
-                        </Typography>
-                      </>
+                      </Tooltip>
                     ) : (
-                      <>
+                      <Tooltip title="Enable 3D animations and interactive experience" placement="left">
                         <Button
                           size="small"
                           variant="contained"
@@ -336,20 +324,7 @@ export default function Home() {
                         >
                           ✨ Animation Mode
                         </Button>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontSize: '0.6rem',
-                            color: alpha('#000000', 0.6),
-                            backgroundColor: alpha('#ffffff', 0.8),
-                            px: 0.5,
-                            borderRadius: 0.5,
-                            mt: 0.5
-                          }}
-                        >
-                          Enable 3D animations
-                        </Typography>
-                      </>
+                      </Tooltip>
                     )}
                   </Box>
 
