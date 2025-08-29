@@ -16,6 +16,7 @@ import {
   Stack,
   useTheme,
   alpha,
+  CircularProgress,
 } from "@mui/material";
 import {
   SportsSoccer,
@@ -33,10 +34,46 @@ import dynamic from "next/dynamic";
 import Footer from "./components/Footer";
 import TestimonialsSection from "./components/TestimonialsSection";
 import FeaturesSection from "./components/FeaturesSection";
+import StaticHeroBackground from "./components/StaticHeroBackground";
 
 const Carousel = dynamic(() => import("./components/Slider"), { ssr: false });
-const ThreeJSSportsScene = dynamic(() => import("./components/ThreeJSSportsScene"), { ssr: false });
-const CarouselBackground3D = dynamic(() => import("./components/CarouselBackground3D"), { ssr: false });
+const ThreeJSSportsScene = dynamic(() => import("./components/ThreeJSSportsScene"), { 
+  ssr: false,
+  loading: () => (
+    <Box
+      sx={{
+        height: "100vh",
+        width: "100vw",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
+        color: "white"
+      }}
+    >
+      <Box sx={{ textAlign: "center" }}>
+        <CircularProgress size={60} sx={{ color: "white", mb: 2 }} />
+        <Typography variant="h6">Loading 3D Experience...</Typography>
+      </Box>
+    </Box>
+  )
+});
+const CarouselBackground3D = dynamic(() => import("./components/CarouselBackground3D"), { 
+  ssr: false,
+  loading: () => (
+    <Box
+      sx={{
+        height: "400px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(45deg, #f5f5f5, #e0e0e0)"
+      }}
+    >
+      <CircularProgress size={40} />
+    </Box>
+  )
+});
 
 const sectionKeys = ["home", "about", "contact"];
 
@@ -86,7 +123,11 @@ const statsData = [
 export default function Home() {
   const [activeSection, setActiveSection] = useState("home");
   const [slideDirection, setSlideDirection] = useState("right");
+  const [shouldLoad3D, setShouldLoad3D] = useState(false);
+  const [shouldLoadCarousel3D, setShouldLoadCarousel3D] = useState(false);
+  const [disable3D, setDisable3D] = useState(false);
   const prevSection = useRef("home");
+  const carouselRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
 
   // Listen for hash changes and update section
@@ -109,6 +150,51 @@ export default function Home() {
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
+  // Progressive loading strategy
+  useEffect(() => {
+    // Check for reduced motion preference or low-end device
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isLowEndDevice = navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4;
+    
+    if (prefersReducedMotion || isLowEndDevice) {
+      setDisable3D(true);
+      return;
+    }
+
+    // Load main 3D scene after a short delay to prioritize initial content
+    const timer1 = setTimeout(() => {
+      setShouldLoad3D(true);
+    }, 1000); // Load after 1 second
+
+    return () => {
+      clearTimeout(timer1);
+    };
+  }, []);
+
+  // Intersection Observer for carousel 3D
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setShouldLoadCarousel3D(true);
+            observer.disconnect(); // Stop observing once loaded
+          }
+        });
+      },
+      {
+        threshold: 0.1, // Load when 10% of the element is visible
+        rootMargin: '100px', // Start loading 100px before it comes into view
+      }
+    );
+
+    if (carouselRef.current) {
+      observer.observe(carouselRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <>
       <Box
@@ -129,7 +215,30 @@ export default function Home() {
                 position: 'relative',
                 overflow: 'hidden'
               }}>
-                <ThreeJSSportsScene />
+                {/* Static background loads immediately */}
+                <StaticHeroBackground />
+                
+                {!disable3D && shouldLoad3D && <ThreeJSSportsScene />}
+                
+                {!disable3D && !shouldLoad3D && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      zIndex: 10,
+                      textAlign: "center",
+                      color: theme.palette.primary.main
+                    }}
+                  >
+                    <CircularProgress size={60} sx={{ color: theme.palette.primary.main, mb: 2 }} />
+                    <Typography variant="h6">Preparing 3D Experience...</Typography>
+                    <Typography variant="body2" sx={{ mt: 1, opacity: 0.7 }}>
+                      This will only take a moment
+                    </Typography>
+                  </Box>
+                )}
                 
                 {/* Minimal overlay for branding */}
                 <Box
@@ -142,6 +251,31 @@ export default function Home() {
                     textAlign: 'center'
                   }}
                 >
+                  {/* Performance toggle */}
+                  {!disable3D && (
+                    <Box sx={{ position: 'absolute', top: -16, right: 0 }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => setDisable3D(true)}
+                        sx={{
+                          fontSize: '0.7rem',
+                          py: 0.5,
+                          px: 1,
+                          backgroundColor: alpha('#ffffff', 0.9),
+                          borderColor: alpha('#000000', 0.3),
+                          color: '#666',
+                          '&:hover': {
+                            backgroundColor: '#ffffff',
+                            borderColor: '#000000'
+                          }
+                        }}
+                      >
+                        🚀 Fast Mode
+                      </Button>
+                    </Box>
+                  )}
+
                   <Typography
                     variant="h3"
                     sx={{
@@ -255,7 +389,7 @@ export default function Home() {
             </Box>
 
             {/* Image Carousel Section - Moved after 3D animation */}
-            <Container maxWidth="lg" sx={{ py: 8 }}>
+            <Container maxWidth="lg" sx={{ py: 8 }} ref={carouselRef}>
               <Typography
                 variant="h3"
                 textAlign="center"
@@ -276,7 +410,26 @@ export default function Home() {
                   position: 'relative'
                 }}
               >
-                <CarouselBackground3D />
+                {!disable3D && shouldLoadCarousel3D ? (
+                  <CarouselBackground3D />
+                ) : !disable3D ? (
+                  <Box
+                    sx={{
+                      height: "400px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "linear-gradient(45deg, #f5f5f5, #e0e0e0)"
+                    }}
+                  >
+                    <Box sx={{ textAlign: "center" }}>
+                      <CircularProgress size={40} />
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        Loading 3D Background...
+                      </Typography>
+                    </Box>
+                  </Box>
+                ) : null}
                 <Carousel />
               </Paper>
             </Container>

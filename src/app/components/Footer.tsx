@@ -31,7 +31,7 @@ const Footer = () => {
 
   const socialMedia = [
     { icon: <Facebook />, url: 'https://facebook.com/sathiyansports', label: 'Facebook' },
-    { icon: <Instagram />, url: 'https://instagram.com/sathiyansports', label: 'Instagram' },
+    { icon: <Instagram />, url: 'https://instagram.com/sathiyan_multi_sportclub', label: 'Instagram' },
     { icon: <Twitter />, url: 'https://twitter.com/sathiyansports', label: 'Twitter' },
     { icon: <YouTube />, url: 'https://youtube.com/sathiyansports', label: 'YouTube' }
   ];
@@ -108,7 +108,7 @@ const Footer = () => {
               <Stack spacing={1}>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <Phone sx={{ fontSize: 16, mr: 1, opacity: 0.8 }} />
-                  <Typography variant="body2">+91 98765 43210</Typography>
+                  <Typography variant="body2">+91 8811090194/9787020525</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <Email sx={{ fontSize: 16, mr: 1, opacity: 0.8 }} />
@@ -116,7 +116,7 @@ const Footer = () => {
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <LocationOn sx={{ fontSize: 16, mr: 1, opacity: 0.8 }} />
-                  <Typography variant="body2">Chennai, Tamil Nadu, India</Typography>
+                  <Typography variant="body2">Perungudi, Madurai, Tamil Nadu</Typography>
                 </Box>
               </Stack>
             </Box>
