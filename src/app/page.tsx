@@ -218,8 +218,23 @@ export default function Home() {
                 {/* Static background loads immediately */}
                 <StaticHeroBackground />
                 
-                {!disable3D && shouldLoad3D && <ThreeJSSportsScene />}
+                {/* 3D Scene with smooth transition */}
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    opacity: !disable3D && shouldLoad3D ? 1 : 0,
+                    transition: 'opacity 0.8s ease-in-out',
+                    zIndex: 1
+                  }}
+                >
+                  {!disable3D && shouldLoad3D && <ThreeJSSportsScene />}
+                </Box>
                 
+                {/* Loading indicator */}
                 {!disable3D && !shouldLoad3D && (
                   <Box
                     sx={{
@@ -252,29 +267,91 @@ export default function Home() {
                   }}
                 >
                   {/* Performance toggle */}
-                  {!disable3D && (
-                    <Box sx={{ position: 'absolute', top: -16, right: 0 }}>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={() => setDisable3D(true)}
-                        sx={{
-                          fontSize: '0.7rem',
-                          py: 0.5,
-                          px: 1,
-                          backgroundColor: alpha('#ffffff', 0.9),
-                          borderColor: alpha('#000000', 0.3),
-                          color: '#666',
-                          '&:hover': {
-                            backgroundColor: '#ffffff',
-                            borderColor: '#000000'
-                          }
-                        }}
-                      >
-                        🚀 Fast Mode
-                      </Button>
-                    </Box>
-                  )}
+                  <Box sx={{ position: 'absolute', top: -16, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                    {!disable3D ? (
+                      <>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => setDisable3D(true)}
+                          sx={{
+                            fontSize: '0.7rem',
+                            py: 0.5,
+                            px: 1,
+                            backgroundColor: alpha('#ffffff', 0.9),
+                            borderColor: alpha('#000000', 0.3),
+                            color: '#666',
+                            '&:hover': {
+                              backgroundColor: '#ffffff',
+                              borderColor: '#000000'
+                            }
+                          }}
+                        >
+                          🚀 Fast Mode
+                        </Button>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontSize: '0.6rem',
+                            color: alpha('#000000', 0.6),
+                            backgroundColor: alpha('#ffffff', 0.8),
+                            px: 0.5,
+                            borderRadius: 0.5,
+                            mt: 0.5
+                          }}
+                        >
+                          Disable 3D for faster loading
+                        </Typography>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          onClick={() => {
+                            setDisable3D(false);
+                            // Reset the loading states to trigger fresh load
+                            setShouldLoad3D(false);
+                            setShouldLoadCarousel3D(false);
+                            
+                            // Then start loading after a small delay
+                            setTimeout(() => {
+                              setShouldLoad3D(true);
+                              setShouldLoadCarousel3D(true);
+                            }, 100);
+                          }}
+                          sx={{
+                            fontSize: '0.7rem',
+                            py: 0.5,
+                            px: 1,
+                            background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                            color: 'white',
+                            '&:hover': {
+                              background: `linear-gradient(45deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
+                              transform: 'translateY(-1px)',
+                              boxShadow: theme.shadows[4]
+                            },
+                            transition: 'all 0.3s ease'
+                          }}
+                        >
+                          ✨ Animation Mode
+                        </Button>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontSize: '0.6rem',
+                            color: alpha('#000000', 0.6),
+                            backgroundColor: alpha('#ffffff', 0.8),
+                            px: 0.5,
+                            borderRadius: 0.5,
+                            mt: 0.5
+                          }}
+                        >
+                          Enable 3D animations
+                        </Typography>
+                      </>
+                    )}
+                  </Box>
 
                   <Typography
                     variant="h3"
