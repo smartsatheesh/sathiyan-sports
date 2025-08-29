@@ -84,7 +84,7 @@ const sportsData = [
     name: "Cricket",
     icon: () => <SportsCricket sx={{ fontSize: 40, color: "#4caf50" }} />,
     price: "₹699",
-    weekendPrice: "₹999",
+    weekendPrice: "₹899 onwards",
     features: ["Professional Pitch", "Equipment Available", "Changing Rooms"],
     description: "Experience cricket at its finest with our professional-grade facilities"
   },
@@ -92,7 +92,7 @@ const sportsData = [
     name: "Football",
     icon: () => <SportsSoccer sx={{ fontSize: 40, color: "#2196f3" }} />,
     price: "₹699",
-    weekendPrice: "₹999",
+    weekendPrice: "₹899 onwards",
     features: ["FIFA Standard Turf", "Floodlights", "Goal Posts"],
     description: "Play football on our world-class turf with professional amenities"
   },
@@ -100,7 +100,7 @@ const sportsData = [
     name: "Badminton",
     icon: () => <SportsTennis sx={{ fontSize: 40, color: "#ff9800" }} />,
     price: "₹699",
-    weekendPrice: "₹999",
+    weekendPrice: "₹899 onwards",
     features: ["3 Courts Available", "Professional Nets", "Indoor Facility"],
     description: "Indoor badminton courts with wooden flooring and professional setup"
   },
@@ -108,17 +108,17 @@ const sportsData = [
     name: "Functions & Events",
     icon: () => <Event sx={{ fontSize: 40, color: "#9c27b0" }} />,
     price: "₹1,999/hr",
-    weekendPrice: "₹2,499/hr",
+    weekendPrice: "₹2,499/hr onwards",
     features: ["200+ Capacity", "A/V Equipment", "Catering Facilities"],
     description: "Host your special events in our spacious and well-equipped venue"
   }
 ];
 
 const statsData = [
-  { number: "99+", label: "Happy Customers", icon: <EmojiEvents /> },
-  { number: "10+", label: "Events Hosted", icon: <Event /> },
+  { number: "19+", label: "Happy Customers", icon: <EmojiEvents /> },
+  { number: "0+", label: "Events Hosted", icon: <Event /> },
   { number: "24/7", label: "Available Hours", icon: <Schedule /> },
-  { number: "4.9/5", label: "Customer Rating", icon: <Star /> }
+  { number: "5/5", label: "Customer Rating", icon: <Star /> }
 ];
 
 export default function Home() {

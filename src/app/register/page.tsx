@@ -376,17 +376,17 @@ export default function RegisterPage() {
               <FormControlLabel
                 value="monthly"
                 control={<Radio />}
-                label="Monthly (₹1,200)"
+                label="Monthly"
               />
               <FormControlLabel
                 value="quarterly"
                 control={<Radio />}
-                label="Quarterly (₹3,000)"
+                label="Quarterly"
               />
               <FormControlLabel
                 value="yearly"
                 control={<Radio />}
-                label="Yearly (₹10,000)"
+                label="Yearly"
               />
             </RadioGroup>
           </FormControl>
