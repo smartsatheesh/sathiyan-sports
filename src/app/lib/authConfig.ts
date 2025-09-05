@@ -41,17 +41,23 @@ declare module "next-auth/jwt" {
 
 export const authOptions: AuthOptions = {
   providers: [
-    // Google OAuth Provider
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
+    // Conditionally add Google OAuth Provider only if credentials are available
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET 
+      ? [GoogleProvider({
+          clientId: process.env.GOOGLE_CLIENT_ID,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        })] 
+      : []
+    ),
     
-    // Facebook OAuth Provider
-    FacebookProvider({
-      clientId: process.env.FACEBOOK_CLIENT_ID!,
-      clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
-    }),
+    // Conditionally add Facebook OAuth Provider only if credentials are available
+    ...(process.env.FACEBOOK_CLIENT_ID && process.env.FACEBOOK_CLIENT_SECRET 
+      ? [FacebookProvider({
+          clientId: process.env.FACEBOOK_CLIENT_ID,
+          clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+        })] 
+      : []
+    ),
     
     // Custom Credentials Provider (Mobile + Password)
     CredentialsProvider({
@@ -122,6 +128,7 @@ export const authOptions: AuthOptions = {
       try {
         await connectDB();
         
+        // Handle OAuth providers (Google/Facebook) only if they exist
         if (account?.provider === 'google' || account?.provider === 'facebook') {
           // Check if user already exists
           let existingUser = await (User.findOne as any)({ email: user.email });
