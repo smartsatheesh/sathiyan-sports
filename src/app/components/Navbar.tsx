@@ -86,60 +86,31 @@ const Navbar = () => {
   return (
     <AppBar 
       position="sticky" 
-      sx={{ 
-        backgroundColor: 'primary.main',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        minHeight: { xs: 64, sm: 64, md: 70 }, // Ensure minimum height on all devices
-        '& .MuiToolbar-root': {
-          minHeight: { xs: 64, sm: 64, md: 70 },
-          paddingX: { xs: 2, sm: 3 },
-        }
-      }}
+      className="navbar-root"
     >
       <Container maxWidth="xl">
         <Toolbar 
           disableGutters
-          sx={{
-            minHeight: { xs: 64, sm: 64, md: 70 },
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
+          className="navbar-toolbar"
         >
           {/* Logo Section */}
-          <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>
-            <div style={{ display: "flex", alignItems: "center", marginRight: 16 }}>
+          <Link href="/" className="navbar-logo-section">
+            <div className="navbar-logo-section">
               <img
                 src="/logo2.jpeg"
                 alt="Sathiyan Sports Logo"
-                style={{
-                  height: 40,
-                  width: 40,
-                  borderRadius: 8,
-                  marginRight: 8
-                }}
+                className="navbar-logo-img"
               />
               <Typography 
                 variant="h6" 
-                sx={{ 
-                  cursor: "pointer",
-                  fontWeight: 700,
-                  '&:hover': { opacity: 0.8 }
-                }}
+                className="navbar-logo-text"
               >
                 SATHIYAN SPORTS
               </Typography>
             </div>
           </Link>
 
-          <div 
-            className="navbar-desktop-menu" 
-            style={{ 
-              flexGrow: 1, 
-              marginLeft: 32,
-              display: isMobile ? 'none' : 'block' // Hide desktop menu on mobile
-            }}
-          >
+          <div className="navbar-desktop-menu">
             {publicNavItems.map((item) => (
               <Link key={item.label} href={item.href} passHref>
                 <Button sx={{ color: "#fff", ml: 2 }}>
@@ -173,13 +144,7 @@ const Navbar = () => {
           </div>
 
           {/* Authentication Section */}
-          <div 
-            style={{ 
-              display: isMobile ? 'none' : 'flex', // Hide auth buttons on mobile (they're in drawer)
-              alignItems: "center", 
-              marginLeft: 16
-            }}
-          >
+          <div className="navbar-auth-section">
             {isLoading ? (
               <CircularProgress size={24} color="inherit" />
             ) : isAuthenticated ? (
@@ -187,18 +152,12 @@ const Navbar = () => {
               <>
                 <Button
                   onClick={handleProfileMenuOpen}
-                  sx={{
-                    color: "#fff",
-                    textTransform: "none",
-                    borderRadius: "20px",
-                    padding: "6px 16px",
-                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
-                  }}
+                  className="navbar-profile-button"
                   startIcon={
                     user?.image ? (
                       <Avatar 
                         src={user.image} 
-                        sx={{ width: 28, height: 28 }} 
+                        className="navbar-profile-avatar"
                       />
                     ) : (
                       <AccountCircle />
@@ -214,14 +173,9 @@ const Navbar = () => {
                   onClose={handleProfileMenuClose}
                   transformOrigin={{ horizontal: 'right', vertical: 'top' }}
                   anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-                  PaperProps={{
-                    sx: {
-                      mt: 1,
-                      minWidth: 200,
-                    }
-                  }}
+                  className="navbar-profile-menu"
                 >
-                  <div style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 8, paddingBottom: 8 }}>
+                  <div className="navbar-profile-menu-header">
                     <Typography variant="subtitle2" color="text.secondary">
                       Welcome, {user?.name}
                     </Typography>
@@ -236,7 +190,7 @@ const Navbar = () => {
                   {profileMenuItems.map((item) => (
                     <Link key={item.label} href={item.href} passHref>
                       <MenuItem onClick={handleProfileMenuClose}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="navbar-menu-item-content">
                           {item.icon}
                           {item.label}
                         </div>
@@ -246,7 +200,7 @@ const Navbar = () => {
                   
                   <Divider />
                   <MenuItem onClick={handleSignOut}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="navbar-menu-item-content">
                       <ExitToApp />
                       Sign Out
                     </div>
@@ -261,23 +215,6 @@ const Navbar = () => {
                     variant="outlined"
                     startIcon={<Login />}
                     className="navbar-login-button"
-                    sx={{
-                      color: "white",
-                      borderColor: "white",
-                      border: "2px solid white",
-                      mr: 1,
-                      textTransform: "none",
-                      fontWeight: 600,
-                      minWidth: "100px",
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                      '&:hover': {
-                        borderColor: "white",
-                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                        color: "white"
-                      },
-                      // Ensure visibility
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                    }}
                   >
                     Login
                   </Button>
@@ -287,17 +224,7 @@ const Navbar = () => {
                     variant="contained"
                     color="secondary"
                     startIcon={<AppRegistration />}
-                    sx={{
-                      fontWeight: 600,
-                      borderRadius: "8px",
-                      textTransform: "none",
-                      minWidth: "120px",
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                      '&:hover': {
-                        boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
-                        transform: 'translateY(-1px)',
-                      }
-                    }}
+                    className="navbar-register-button"
                   >
                     Register
                   </Button>
@@ -313,12 +240,7 @@ const Navbar = () => {
               edge="end"
               onClick={toggleDrawer}
               size="large"
-              sx={{ 
-                ml: 1,
-                display: { xs: 'flex', lg: 'none' }, // Only show on mobile
-                color: '#fff',
-                '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
-              }}
+              className="navbar-mobile-button"
             >
               <MenuIcon />
             </IconButton>
@@ -330,57 +252,39 @@ const Navbar = () => {
               anchor="right" 
               open={drawerOpen} 
               onClose={toggleDrawer}
-              sx={{
-                '& .MuiDrawer-paper': {
-                  width: 280,
-                  backgroundColor: '#fff',
-                }
+              classes={{
+                paper: 'navbar-drawer-paper'
               }}
             >
-                <div style={{ width: 280, padding: 16 }}>
+                <div className="navbar-drawer-content">
                   {/* Logo Section for Mobile */}
-                  <div style={{ 
-                    marginBottom: 24, 
-                    padding: 16, 
-                    textAlign: 'center', 
-                    borderBottom: '1px solid #e0e0e0' 
-                  }}>
+                  <div className="navbar-drawer-logo">
                     <img
                       src="/logo2.jpeg"
                       alt="Sathiyan Sports Logo"
-                      style={{
-                        height: 50,
-                        width: 50,
-                        borderRadius: 8,
-                        marginBottom: 8
-                      }}
+                      className="navbar-drawer-logo-img"
                     />
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                    <Typography variant="h6" className="navbar-drawer-logo-text">
                       SATHIYAN SPORTS
                     </Typography>
                   </div>
                   
                   {/* User Info Section for Mobile */}
                   {isAuthenticated && (
-                    <div style={{ 
-                      marginBottom: 16, 
-                      padding: 16, 
-                      backgroundColor: '#00ACC1', 
-                      borderRadius: 8 
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <div className="navbar-drawer-user-info">
+                      <div className="navbar-drawer-user-content">
                         {user?.image ? (
                           <Avatar src={user.image} />
                         ) : (
-                          <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                          <Avatar className="navbar-drawer-user-avatar">
                             <AccountCircle />
                           </Avatar>
                         )}
                         <div>
-                          <Typography variant="subtitle1" sx={{ color: 'white' }}>
+                          <Typography variant="subtitle1" className="navbar-drawer-user-name">
                             {user?.name}
                           </Typography>
-                          <Typography variant="caption" sx={{ color: 'white', opacity: 0.8 }}>
+                          <Typography variant="caption" className="navbar-drawer-user-role">
                             {(user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "")}
                           </Typography>
                         </div>
@@ -428,25 +332,14 @@ const Navbar = () => {
 
                   {/* Mobile Auth Buttons */}
                   {!isAuthenticated && (
-                    <div style={{ 
-                      marginTop: 16, 
-                      display: 'flex', 
-                      flexDirection: 'column', 
-                      gap: 8 
-                    }}>
+                    <div className="navbar-drawer-auth-buttons">
                       <Link href="/auth/login" passHref>
                         <Button
                           variant="outlined"
                           fullWidth
                           startIcon={<Login />}
                           onClick={toggleDrawer}
-                          sx={{
-                            fontWeight: 600,
-                            borderWidth: 2,
-                            '&:hover': {
-                              borderWidth: 2,
-                            }
-                          }}
+                          className="navbar-drawer-login-button"
                         >
                           Login
                         </Button>

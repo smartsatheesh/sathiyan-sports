@@ -6,204 +6,168 @@
     <title>Mobile Responsiveness Test - Sathiyan Sports</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: Arial, sans-serif;
             margin: 0;
             padding: 20px;
             background: #f5f5f5;
         }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
+        .test-container {
             background: white;
             border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        h1 { color: #2d5aa0; text-align: center; }
-        .test-section {
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
             padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 { color: #00ACC1; text-align: center; }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
             margin: 20px 0;
         }
-        .test-section.fixed { border-color: #28a745; background: #f8fff8; }
-        .test-section.info { border-color: #17a2b8; background: #f8f9ff; }
+        .status-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .status-good { border-left: 4px solid #28a745; }
+        .status-warning { border-left: 4px solid #ffc107; }
+        .status-error { border-left: 4px solid #dc3545; }
         .btn {
-            padding: 12px 24px;
+            padding: 10px 20px;
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 16px;
             margin: 5px;
             text-decoration: none;
             display: inline-block;
-            color: white;
         }
-        .btn-primary { background: #007bff; }
-        .btn-success { background: #28a745; }
-        .btn-warning { background: #ffc107; color: #212529; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
         .device-info {
             background: #e9ecef;
-            padding: 15px;
-            border-radius: 6px;
-            margin: 15px 0;
+            padding: 10px;
+            border-radius: 4px;
             font-family: monospace;
-            font-size: 14px;
-        }
-        .fix-list {
-            background: #d4edda;
-            padding: 15px;
-            border-radius: 6px;
-            border-left: 4px solid #28a745;
-        }
-        .fix-list h4 {
-            margin-top: 0;
-            color: #155724;
-        }
-        .fix-list ul {
-            margin: 10px 0;
-            padding-left: 20px;
-        }
-        .fix-list li {
-            margin: 5px 0;
+            font-size: 12px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>📱 Mobile Responsiveness Test</h1>
-        <p style="text-align: center; color: #666;">Testing navigation fixes for Vivo V23 5G and other mobile devices</p>
+    <div class="test-container">
+        <h1>📱 Mobile Navbar Fix Test</h1>
+        <p style="text-align: center; color: #666;">Testing the fixed navbar layout</p>
 
-        <div class="test-section info">
-            <h3>📊 Device Information</h3>
-            <div class="device-info" id="device-info">
-                Loading device information...
-            </div>
-        </div>
-
-        <div class="test-section fixed">
-            <h3>✅ Fixes Applied</h3>
-            <div class="fix-list">
-                <h4>Navigation Improvements:</h4>
+        <div class="status-grid">
+            <div class="status-card status-good">
+                <h3>✅ Applied Fixes</h3>
                 <ul>
-                    <li>✅ Changed breakpoint from 'md' to 'lg' (1200px) for better mobile detection</li>
-                    <li>✅ Added proper viewport meta tag with user-scalable=0</li>
-                    <li>✅ Fixed AppBar position to 'fixed' for better mobile compatibility</li>
-                    <li>✅ Forced hamburger menu visibility with higher z-index</li>
-                    <li>✅ Added specific CSS for Vivo V23 5G screen dimensions</li>
-                    <li>✅ Enhanced Material-UI theme with mobile-specific breakpoints</li>
-                    <li>✅ Added body margin-top to account for fixed navbar</li>
-                    <li>✅ Force-displayed mobile menu icons with !important declarations</li>
+                    <li>AppBar: sticky position</li>
+                    <li>Max height: 64px/56px</li>
+                    <li>Logo: 36px, constrained</li>
+                    <li>Menu: proper positioning</li>
+                    <li>Overflow: hidden</li>
+                    <li>Text: ellipsis on overflow</li>
                 </ul>
             </div>
-        </div>
 
-        <div class="test-section">
-            <h3>🧪 Test Navigation</h3>
-            <p>Click these links to test the navigation on your mobile device:</p>
-            
-            <a href="http://localhost:3001" class="btn btn-primary">🏠 Home Page</a>
-            <a href="http://localhost:3001/about" class="btn btn-primary">ℹ️ About Page</a>
-            <a href="http://localhost:3001/contact" class="btn btn-primary">📞 Contact Page</a>
-            <a href="http://localhost:3001/bookslot" class="btn btn-success">🎯 Book Slot</a>
-            <a href="http://localhost:3001/auth/login" class="btn btn-warning">🔐 Login</a>
-        </div>
-
-        <div class="test-section">
-            <h3>📋 Testing Checklist</h3>
-            <p><strong>On your mobile device, verify:</strong></p>
-            <ul>
-                <li>☑️ Navigation bar is visible at the top</li>
-                <li>☑️ Hamburger menu (☰) icon is visible on the right</li>
-                <li>☑️ Clicking hamburger opens the side drawer</li>
-                <li>☑️ All menu items are accessible in the drawer</li>
-                <li>☑️ Logo and title are visible and properly sized</li>
-                <li>☑️ No horizontal scrolling is needed</li>
-                <li>☑️ Navbar stays at the top when scrolling</li>
-            </ul>
-        </div>
-
-        <div class="test-section">
-            <h3>🔧 Additional Mobile Settings</h3>
-            <p><strong>If you still have issues:</strong></p>
-            <ul>
-                <li>🔄 Force refresh the page (Ctrl+Shift+R or Cmd+Shift+R)</li>
-                <li>📱 Try rotating your device (portrait ↔ landscape)</li>
-                <li>🧹 Clear browser cache and cookies</li>
-                <li>🌐 Try in incognito/private browsing mode</li>
-                <li>📶 Check if you have a stable internet connection</li>
-            </ul>
-        </div>
-
-        <div class="test-section">
-            <h3>📱 Vivo V23 5G Specific Fixes</h3>
-            <p>Special optimizations for your device:</p>
-            <div class="device-info">
-Screen Resolution: 2400 × 1080 pixels
-Viewport Optimizations: Applied
-CSS Forced Visibility: ✅ Enabled
-Material-UI Overrides: ✅ Active
-Fixed Positioning: ✅ Implemented
+            <div class="status-card">
+                <h3>📊 Device Info</h3>
+                <div class="device-info" id="device-info">Loading...</div>
             </div>
+        </div>
+
+        <div class="test-container">
+            <h3>🎯 Quick Tests</h3>
+            <a href="/" class="btn btn-primary">🏠 Home Page</a>
+            <a href="/about" class="btn btn-success">ℹ️ About Page</a>
+            <button class="btn btn-primary" onclick="testNavbar()">🧪 Test Navbar</button>
+        </div>
+
+        <div class="test-container">
+            <h3>� Test Results</h3>
+            <div id="test-results">Click "Test Navbar" to check the fixes</div>
         </div>
     </div>
 
     <script>
-        function getDeviceInfo() {
+        function updateDeviceInfo() {
             const info = {
-                userAgent: navigator.userAgent,
-                viewport: `${window.innerWidth} × ${window.innerHeight}`,
-                screen: `${screen.width} × ${screen.height}`,
-                devicePixelRatio: window.devicePixelRatio,
-                platform: navigator.platform,
-                cookieEnabled: navigator.cookieEnabled,
-                language: navigator.language,
-                online: navigator.onLine
+                'Screen': `${window.screen.width}x${window.screen.height}`,
+                'Viewport': `${window.innerWidth}x${window.innerHeight}`,
+                'DPR': window.devicePixelRatio,
+                'Mobile': window.innerWidth < 1200 ? 'Yes' : 'No'
             };
-
-            return info;
+            
+            let infoHTML = '';
+            for (const [key, value] of Object.entries(info)) {
+                infoHTML += `${key}: ${value}<br>`;
+            }
+            
+            document.getElementById('device-info').innerHTML = infoHTML;
         }
 
-        function displayDeviceInfo() {
-            const info = getDeviceInfo();
-            const container = document.getElementById('device-info');
+        function testNavbar() {
+            const results = document.getElementById('test-results');
+            let testHTML = '<h4>🔍 Navbar Test Results:</h4>';
             
-            let html = '';
-            Object.entries(info).forEach(([key, value]) => {
-                const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-                html += `${label}: ${value}\n`;
-            });
+            // Test navbar height
+            const navbar = document.querySelector('.MuiAppBar-root');
+            if (navbar) {
+                const height = navbar.offsetHeight;
+                const expectedMobile = 56;
+                const expectedDesktop = 64;
+                const isMobile = window.innerWidth < 1200;
+                const expected = isMobile ? expectedMobile : expectedDesktop;
+                const isGood = height <= expected + 5; // 5px tolerance
+                
+                testHTML += `
+                    <div class="status-card ${isGood ? 'status-good' : 'status-error'}">
+                        <strong>${isGood ? '✅' : '❌'} Navbar Height</strong><br>
+                        Current: ${height}px<br>
+                        Expected: ≤${expected}px (${isMobile ? 'mobile' : 'desktop'})<br>
+                        Status: ${isGood ? 'Good' : 'Too tall - may hide content'}
+                    </div>
+                `;
+            }
             
-            container.textContent = html;
+            // Test hamburger menu visibility on mobile
+            if (window.innerWidth < 1200) {
+                const menuBtn = document.querySelector('[aria-label="menu"]');
+                const isVisible = menuBtn && window.getComputedStyle(menuBtn).display !== 'none';
+                
+                testHTML += `
+                    <div class="status-card ${isVisible ? 'status-good' : 'status-error'}">
+                        <strong>${isVisible ? '✅' : '❌'} Mobile Menu</strong><br>
+                        Hamburger menu: ${isVisible ? 'Visible' : 'Hidden'}<br>
+                        Status: ${isVisible ? 'Working correctly' : 'Menu not accessible'}
+                    </div>
+                `;
+            }
+            
+            // Test desktop menu hidden on mobile
+            if (window.innerWidth < 1200) {
+                const desktopMenu = document.querySelector('.navbar-desktop-menu');
+                const isHidden = !desktopMenu || window.getComputedStyle(desktopMenu).display === 'none';
+                
+                testHTML += `
+                    <div class="status-card ${isHidden ? 'status-good' : 'status-warning'}">
+                        <strong>${isHidden ? '✅' : '⚠️'} Desktop Menu</strong><br>
+                        Desktop menu: ${isHidden ? 'Hidden' : 'Visible'}<br>
+                        Status: ${isHidden ? 'Correctly hidden on mobile' : 'May cause layout issues'}
+                    </div>
+                `;
+            }
+            
+            results.innerHTML = testHTML;
         }
 
-        function checkMobileOptimizations() {
-            const isMobile = window.innerWidth <= 1199;
-            const hasViewportMeta = document.querySelector('meta[name="viewport"]');
-            const hasResponsiveCSS = document.querySelector('link[href*="responsive"]');
-            
-            console.log('Mobile Detection:', {
-                isMobile,
-                screenWidth: window.innerWidth,
-                hasViewportMeta: !!hasViewportMeta,
-                hasResponsiveCSS: !!hasResponsiveCSS
-            });
-        }
-
-        // Initialize on page load
-        window.addEventListener('load', () => {
-            displayDeviceInfo();
-            checkMobileOptimizations();
-        });
-
-        // Update on resize
-        window.addEventListener('resize', () => {
-            displayDeviceInfo();
-            checkMobileOptimizations();
-        });
-
-        // Auto-refresh device info every 5 seconds
-        setInterval(displayDeviceInfo, 5000);
+        // Auto-update on resize
+        window.addEventListener('resize', updateDeviceInfo);
+        
+        // Initial load
+        updateDeviceInfo();
     </script>
 </body>
 </html>
