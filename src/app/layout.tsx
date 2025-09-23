@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./navbar-responsive.css";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Providers from "./providers";
@@ -17,6 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
         <link rel="icon" href="/sathiyanlogo.jpeg" type="image/jpeg" />
         <link rel="shortcut icon" href="/sathiyanlogo.jpeg" type="image/jpeg" />
         {/* Razorpay Checkout Script for Real UPI Payments */}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/app/server/Mongo';
 import Booking from '@/app/models/Booking';
+import whatsAppCloudService from '@/app/services/WhatsAppCloudService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -100,49 +101,51 @@ export async function POST(request: NextRequest) {
 
 async function sendWhatsAppNotifications(booking: any) {
   try {
-    const adminNumber = process.env.WHATSAPP_ADMIN_NUMBER;
-    
-    if (adminNumber) {
-      const adminMessage = `🏆 NEW BOOKING ALERT 🏆\n\n` +
-        `📝 Booking Ref: ${booking.bookingReference}\n` +
-        `🏃 Sport: ${booking.sport}\n` +
-        `📅 Date: ${new Date(booking.date).toLocaleDateString('en-IN')}\n` +
-        `⏰ Time: ${booking.timeSlots ? booking.timeSlots.join(', ') : 'N/A'}\n` +
-        `👤 Customer: ${booking.customerName}\n` +
-        `📞 Phone: ${booking.customerPhone}\n` +
-        `💰 Amount: ₹${booking.totalAmount}\n` +
-        `💳 Payment: ${booking.paymentMethod}\n` +
-        `🆔 Transaction ID: ${booking.transactionId}\n` +
-        `⏱️ Booked: ${new Date().toLocaleString('en-IN')}\n\n` +
-        `🔔 ACTION REQUIRED:\n` +
-        `1. Verify the payment transaction\n` +
-        `2. Confirm the slot availability\n` +
-        `3. Update booking status\n` +
-        `4. Contact customer for confirmation\n\n` +
-        `🎯 Please verify and confirm this booking ASAP!`;
+    // Format date and time for display
+    const bookingDate = new Date(booking.date).toLocaleDateString('en-IN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
 
-      // You could integrate with WhatsApp Business API here
-      console.log('Admin notification sent for booking:', booking.bookingReference);
-      console.log('Message:', adminMessage);
-    }
+    const timeSlot = Array.isArray(booking.timeSlots) ? booking.timeSlots.join(', ') : booking.timeSlots || 'N/A';
+    const courtName = booking.court || `${booking.sport} Court`;
 
-    // Customer notification
-    const customerMessage = `✅ BOOKING CONFIRMATION\n\n` +
-      `Hello ${booking.customerName}!\n\n` +
-      `Your booking has been received:\n` +
-      `📝 Ref: ${booking.bookingReference}\n` +
-      `🏃 Sport: ${booking.sport}\n` +
-      `📅 Date: ${new Date(booking.date).toLocaleDateString('en-IN')}\n` +
-      `⏰ Time: ${booking.timeSlots ? booking.timeSlots.join(', ') : 'N/A'}\n` +
-      `💰 Amount: ₹${booking.totalAmount}\n\n` +
-      `⏳ Status: Payment Verification in Progress\n\n` +
-      `We will verify your payment and confirm your booking within 30 minutes during business hours.\n\n` +
-      `Thank you for choosing Sathiyan Sports! 🏆`;
+    // Send customer booking confirmation
+    const customerSuccess = await whatsAppCloudService.sendBookingConfirmation(
+      booking.customerPhone,
+      {
+        bookingReference: booking.bookingReference,
+        courtName,
+        date: bookingDate,
+        time: timeSlot,
+        amount: booking.totalAmount,
+        customerName: booking.customerName
+      }
+    );
 
-    console.log('Customer notification prepared for:', booking.customerPhone);
-    console.log('Message:', customerMessage);
+    // Send admin notification
+    const adminSuccess = await whatsAppCloudService.sendAdminNotification({
+      bookingReference: booking.bookingReference,
+      courtName,
+      date: bookingDate,
+      time: timeSlot,
+      amount: booking.totalAmount,
+      customerName: booking.customerName,
+      customerPhone: booking.customerPhone
+    });
+
+    console.log(`� WhatsApp notifications - Customer: ${customerSuccess ? '✅' : '❌'}, Admin: ${adminSuccess ? '✅' : '❌'}`);
 
   } catch (error) {
     console.warn('Failed to send WhatsApp notifications:', error);
+    
+    // Fallback to console logging for development/testing
+    console.log('📱 BOOKING NOTIFICATION (Fallback)');
+    console.log(`Customer: ${booking.customerName} (${booking.customerPhone})`);
+    console.log(`Booking: ${booking.bookingReference}`);
+    console.log(`Sport: ${booking.sport} | Amount: ₹${booking.totalAmount}`);
+    console.log(`Date: ${booking.date} | Time: ${booking.timeSlots}`);
   }
 }

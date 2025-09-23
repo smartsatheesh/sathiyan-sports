@@ -288,7 +288,7 @@ export default function Home() {
                             }
                           }}
                         >
-                          🚀 Fast Mode
+                          Fast Mode
                         </Button>
                       </Tooltip>
                     ) : (

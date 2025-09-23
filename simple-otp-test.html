@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple OTP Test - No WhatsApp Required</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 600px; 
+            margin: 50px auto; 
+            padding: 20px; 
+            background: #f5f5f5; 
+        }
+        .container { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+        }
+        .step { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border-left: 4px solid #4CAF50; 
+            background: #f9f9f9; 
+        }
+        input { 
+            width: 100%; 
+            padding: 12px; 
+            border: 1px solid #ddd; 
+            border-radius: 5px; 
+            font-size: 16px; 
+            margin: 10px 0; 
+        }
+        button { 
+            background: #4CAF50; 
+            color: white; 
+            padding: 12px 24px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 16px; 
+        }
+        button:hover { background: #45a049; }
+        button:disabled { background: #cccccc; cursor: not-allowed; }
+        .console { 
+            background: #000; 
+            color: #00ff00; 
+            padding: 15px; 
+            border-radius: 5px; 
+            font-family: monospace; 
+            margin: 10px 0; 
+            min-height: 100px; 
+        }
+        .alert { 
+            padding: 12px; 
+            margin: 10px 0; 
+            border-radius: 5px; 
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Simple OTP Password Reset</h1>
+        <p><strong>No WhatsApp setup required!</strong> OTP will be shown in the console below.</p>
+        
+        <div class="step">
+            <h3>Step 1: Enter Mobile Number</h3>
+            <input type="tel" id="mobile" value="9787020525" placeholder="10-digit mobile number" maxlength="10">
+            <button onclick="requestOTP()" id="requestBtn">Request OTP</button>
+            <div id="step1Status"></div>
+        </div>
+        
+        <div class="step">
+            <h3>Step 2: Enter OTP from Console</h3>
+            <input type="text" id="otp" placeholder="6-digit OTP" maxlength="6">
+            <button onclick="verifyOTP()" id="verifyBtn" disabled>Verify OTP</button>
+            <div id="step2Status"></div>
+        </div>
+        
+        <div class="step">
+            <h3>Step 3: Set New Password</h3>
+            <input type="password" id="newPassword" placeholder="New password" minlength="6">
+            <input type="password" id="confirmPassword" placeholder="Confirm password" minlength="6">
+            <button onclick="resetPassword()" id="resetBtn" disabled>Reset Password</button>
+            <div id="step3Status"></div>
+        </div>
+        
+        <div class="console" id="console">
+            <div>🔵 Simple OTP Console - Ready</div>
+            <div>💡 The OTP will appear here when you click "Request OTP"</div>
+        </div>
+    </div>
+
+    <script>
+        let resetToken = '';
+        let currentMobile = '';
+        
+        function log(message) {
+            const console = document.getElementById('console');
+            const time = new Date().toLocaleTimeString();
+            console.innerHTML += `\n<div>[${time}] ${message}</div>`;
+        }
+        
+        function showStatus(stepId, message, type = 'info') {
+            const element = document.getElementById(`${stepId}Status`);
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'warning';
+            element.innerHTML = `<div class="alert ${className}">${message}</div>`;
+        }
+        
+        async function requestOTP() {
+            const mobile = document.getElementById('mobile').value;
+            
+            if (!mobile || !/^[6-9]\d{9}$/.test(mobile)) {
+                showStatus('step1', 'Please enter a valid 10-digit mobile number', 'error');
+                return;
+            }
+            
+            currentMobile = mobile;
+            document.getElementById('requestBtn').disabled = true;
+            log('🔄 Requesting OTP...');
+            
+            try {
+                const response = await fetch('/api/auth/forgot-password-simple', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mobile })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus('step1', 'OTP generated! Check the console below for the code.', 'success');
+                    log('✅ OTP generated successfully');
+                    log(`🔐 YOUR OTP: ${data.devOtp || 'Check server console'}`);
+                    log('📋 Copy the OTP and paste it in Step 2');
+                    document.getElementById('verifyBtn').disabled = false;
+                } else {
+                    showStatus('step1', data.message, 'error');
+                    log('❌ Failed: ' + data.message);
+                }
+            } catch (error) {
+                showStatus('step1', 'Network error', 'error');
+                log('❌ Network error: ' + error.message);
+            } finally {
+                document.getElementById('requestBtn').disabled = false;
+            }
+        }
+        
+        async function verifyOTP() {
+            const otp = document.getElementById('otp').value;
+            
+            if (!otp || otp.length !== 6) {
+                showStatus('step2', 'Please enter a valid 6-digit OTP', 'error');
+                return;
+            }
+            
+            document.getElementById('verifyBtn').disabled = true;
+            log('🔄 Verifying OTP...');
+            
+            try {
+                const response = await fetch('/api/auth/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mobile: currentMobile, otp })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resetToken = data.resetToken;
+                    showStatus('step2', 'OTP verified! You can now reset your password.', 'success');
+                    log('✅ OTP verified successfully');
+                    document.getElementById('resetBtn').disabled = false;
+                } else {
+                    showStatus('step2', data.message, 'error');
+                    log('❌ Verification failed: ' + data.message);
+                }
+            } catch (error) {
+                showStatus('step2', 'Network error', 'error');
+                log('❌ Network error: ' + error.message);
+            } finally {
+                document.getElementById('verifyBtn').disabled = false;
+            }
+        }
+        
+        async function resetPassword() {
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (!newPassword || newPassword.length < 6) {
+                showStatus('step3', 'Password must be at least 6 characters', 'error');
+                return;
+            }
+            
+            if (newPassword !== confirmPassword) {
+                showStatus('step3', 'Passwords do not match', 'error');
+                return;
+            }
+            
+            document.getElementById('resetBtn').disabled = true;
+            log('🔄 Resetting password...');
+            
+            try {
+                const response = await fetch('/api/auth/reset-password-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        resetToken, 
+                        mobile: currentMobile, 
+                        newPassword, 
+                        confirmPassword 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus('step3', 'Password reset successfully! Redirecting to login...', 'success');
+                    log('🎉 Password reset completed!');
+                    setTimeout(() => {
+                        window.location.href = '/auth/login';
+                    }, 3000);
+                } else {
+                    showStatus('step3', data.message, 'error');
+                    log('❌ Reset failed: ' + data.message);
+                }
+            } catch (error) {
+                showStatus('step3', 'Network error', 'error');
+                log('❌ Network error: ' + error.message);
+            } finally {
+                document.getElementById('resetBtn').disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Alternatives - Sathiyan Sports</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2d5aa0;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .methods-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .method-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+        .method-card:hover {
+            border-color: #2d5aa0;
+            box-shadow: 0 4px 8px rgba(45,90,160,0.1);
+        }
+        .method-card.recommended {
+            border-color: #4CAF50;
+            background: #f8fff8;
+        }
+        .method-title {
+            font-weight: bold;
+            color: #2d5aa0;
+            margin-bottom: 10px;
+        }
+        .method-description {
+            color: #666;
+            margin-bottom: 15px;
+        }
+        .pros-cons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .pros, .cons {
+            font-size: 0.9em;
+        }
+        .pros h4, .cons h4 {
+            margin: 0 0 8px 0;
+            font-size: 0.9em;
+        }
+        .pros h4 { color: #4CAF50; }
+        .cons h4 { color: #f44336; }
+        .pros ul, .cons ul {
+            margin: 0;
+            padding-left: 18px;
+            list-style-type: none;
+        }
+        .pros li::before { content: "✅ "; }
+        .cons li::before { content: "❌ "; }
+        .test-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            font-weight: 500;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        input, select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .btn {
+            background: #2d5aa0;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #1e3f73;
+        }
+        .btn.btn-test {
+            background: #4CAF50;
+        }
+        .btn.btn-test:hover {
+            background: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .status {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .recommended-tag {
+            background: #4CAF50;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏸 WhatsApp Integration Alternatives</h1>
+        <p class="subtitle">Choose the best WhatsApp notification method for your needs</p>
+
+        <div id="status" class="status">
+            <strong>Loading status...</strong>
+        </div>
+
+        <div class="methods-grid">
+            <div class="method-card recommended">
+                <div class="method-title">
+                    Simple Console Method <span class="recommended-tag">RECOMMENDED</span>
+                </div>
+                <div class="method-description">
+                    Perfect for development and testing. No API setup required.
+                </div>
+                <div class="pros-cons">
+                    <div class="pros">
+                        <h4>Pros</h4>
+                        <ul>
+                            <li>Works immediately</li>
+                            <li>No API keys needed</li>
+                            <li>Great for development</li>
+                            <li>Generates WhatsApp URLs</li>
+                        </ul>
+                    </div>
+                    <div class="cons">
+                        <h4>Cons</h4>
+                        <ul>
+                            <li>Manual sending required</li>
+                            <li>Not fully automated</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="method-card">
+                <div class="method-title">WhatsApp URL Method</div>
+                <div class="method-description">
+                    Generate clickable URLs that open WhatsApp with pre-filled messages.
+                </div>
+                <div class="pros-cons">
+                    <div class="pros">
+                        <h4>Pros</h4>
+                        <ul>
+                            <li>No API setup needed</li>
+                            <li>One-click sending</li>
+                            <li>Works on all devices</li>
+                            <li>Semi-automated</li>
+                        </ul>
+                    </div>
+                    <div class="cons">
+                        <h4>Cons</h4>
+                        <ul>
+                            <li>Still requires user action</li>
+                            <li>Not fully automated</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="method-card">
+                <div class="method-title">Twilio WhatsApp API</div>
+                <div class="method-description">
+                    Professional WhatsApp Business API through Twilio.
+                </div>
+                <div class="pros-cons">
+                    <div class="pros">
+                        <h4>Pros</h4>
+                        <ul>
+                            <li>Fully automated</li>
+                            <li>Reliable delivery</li>
+                            <li>Good documentation</li>
+                            <li>Quick setup</li>
+                        </ul>
+                    </div>
+                    <div class="cons">
+                        <h4>Cons</h4>
+                        <ul>
+                            <li>Paid service</li>
+                            <li>Needs approval</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="method-card">
+                <div class="method-title">Meta WhatsApp Cloud API</div>
+                <div class="method-description">
+                    Official WhatsApp Business API from Meta (Facebook).
+                </div>
+                <div class="pros-cons">
+                    <div class="pros">
+                        <h4>Pros</h4>
+                        <ul>
+                            <li>Official API</li>
+                            <li>Free tier available</li>
+                            <li>Most features</li>
+                            <li>Long-term support</li>
+                        </ul>
+                    </div>
+                    <div class="cons">
+                        <h4>Cons</h4>
+                        <ul>
+                            <li>Complex setup</li>
+                            <li>Business verification</li>
+                            <li>Long approval process</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Test WhatsApp Methods</h3>
+            <form id="testForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="method">Method:</label>
+                        <select id="method" required>
+                            <option value="simple">Simple Console</option>
+                            <option value="url">WhatsApp URL</option>
+                            <option value="twilio">Twilio API</option>
+                            <option value="cloud">Meta Cloud API</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="type">Notification Type:</label>
+                        <select id="type" required>
+                            <option value="otp">otp</option>
+                            <option value="booking">booking</option>
+                            <option value="admin">admin</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="phoneNumber">Phone Number:</label>
+                        <input type="text" id="phoneNumber" value="919787020525" placeholder="919787020525" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="otp">OTP (for OTP test):</label>
+                        <input type="text" id="otp" value="123456" placeholder="123456">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-test">🧪 Test Notification</button>
+            </form>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // Load initial status
+        async function loadStatus() {
+            try {
+                const response = await fetch('/api/test-whatsapp-alternatives');
+                const data = await response.json();
+                
+                const statusDiv = document.getElementById('status');
+                if (data.success) {
+                    statusDiv.innerHTML = `
+                        <strong>Current Method:</strong> ${data.status.currentMethod.toUpperCase()}<br>
+                        <strong>Available Methods:</strong> ${Object.entries(data.status.available)
+                            .filter(([key, val]) => val)
+                            .map(([key]) => key)
+                            .join(', ')}<br>
+                        <strong>Service Status:</strong> ${JSON.stringify(data.status.service)}
+                    `;
+                } else {
+                    statusDiv.innerHTML = '<strong>Error loading status</strong>';
+                }
+            } catch (error) {
+                document.getElementById('status').innerHTML = '<strong>Error connecting to server</strong>';
+            }
+        }
+
+        // Test form submission
+        document.getElementById('testForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {
+                method: formData.get('method'),
+                type: formData.get('type'),
+                phoneNumber: formData.get('phoneNumber'),
+                data: {
+                    otp: formData.get('otp'),
+                    bookingReference: 'TEST-' + Date.now(),
+                    courtName: 'Test Court',
+                    date: new Date().toDateString(),
+                    time: '10:00 AM - 11:00 AM',
+                    amount: 500,
+                    customerName: 'Test Customer'
+                }
+            };
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="result">⏳ Sending notification...</div>';
+
+            try {
+                const response = await fetch('/api/test-whatsapp-alternatives', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    let message = `✅ Test completed using ${result.method.toUpperCase()} method\n\n`;
+                    message += `Result: ${JSON.stringify(result.result, null, 2)}\n\n`;
+                    message += `Instructions: ${result.instructions}`;
+                    
+                    resultDiv.innerHTML = `<div class="result success">${message}</div>`;
+                    
+                    // If there's a WhatsApp URL, show it prominently
+                    if (result.result.whatsappUrl) {
+                        const linkDiv = document.createElement('div');
+                        linkDiv.innerHTML = `
+                            <div style="margin-top: 15px; padding: 15px; background: #e8f5e8; border-radius: 6px;">
+                                <strong>📱 WhatsApp URL Generated:</strong><br>
+                                <a href="${result.result.whatsappUrl}" target="_blank" style="color: #25d366; text-decoration: none; font-weight: bold;">
+                                    👆 Click here to send via WhatsApp
+                                </a>
+                            </div>
+                        `;
+                        resultDiv.appendChild(linkDiv);
+                    }
+                } else {
+                    resultDiv.innerHTML = `<div class="result error">❌ Error: ${result.message}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result error">❌ Network Error: ${error.message}</div>`;
+            }
+        });
+
+        // Load status on page load
+        loadStatus();
+    </script>
+</body>
+</html>

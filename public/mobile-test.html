@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>Mobile Responsiveness Test - Sathiyan Sports</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 { color: #2d5aa0; text-align: center; }
+        .test-section {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-section.fixed { border-color: #28a745; background: #f8fff8; }
+        .test-section.info { border-color: #17a2b8; background: #f8f9ff; }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            text-decoration: none;
+            display: inline-block;
+            color: white;
+        }
+        .btn-primary { background: #007bff; }
+        .btn-success { background: #28a745; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .device-info {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .fix-list {
+            background: #d4edda;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+        }
+        .fix-list h4 {
+            margin-top: 0;
+            color: #155724;
+        }
+        .fix-list ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .fix-list li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Mobile Responsiveness Test</h1>
+        <p style="text-align: center; color: #666;">Testing navigation fixes for Vivo V23 5G and other mobile devices</p>
+
+        <div class="test-section info">
+            <h3>📊 Device Information</h3>
+            <div class="device-info" id="device-info">
+                Loading device information...
+            </div>
+        </div>
+
+        <div class="test-section fixed">
+            <h3>✅ Fixes Applied</h3>
+            <div class="fix-list">
+                <h4>Navigation Improvements:</h4>
+                <ul>
+                    <li>✅ Changed breakpoint from 'md' to 'lg' (1200px) for better mobile detection</li>
+                    <li>✅ Added proper viewport meta tag with user-scalable=0</li>
+                    <li>✅ Fixed AppBar position to 'fixed' for better mobile compatibility</li>
+                    <li>✅ Forced hamburger menu visibility with higher z-index</li>
+                    <li>✅ Added specific CSS for Vivo V23 5G screen dimensions</li>
+                    <li>✅ Enhanced Material-UI theme with mobile-specific breakpoints</li>
+                    <li>✅ Added body margin-top to account for fixed navbar</li>
+                    <li>✅ Force-displayed mobile menu icons with !important declarations</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Test Navigation</h3>
+            <p>Click these links to test the navigation on your mobile device:</p>
+            
+            <a href="http://localhost:3001" class="btn btn-primary">🏠 Home Page</a>
+            <a href="http://localhost:3001/about" class="btn btn-primary">ℹ️ About Page</a>
+            <a href="http://localhost:3001/contact" class="btn btn-primary">📞 Contact Page</a>
+            <a href="http://localhost:3001/bookslot" class="btn btn-success">🎯 Book Slot</a>
+            <a href="http://localhost:3001/auth/login" class="btn btn-warning">🔐 Login</a>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Testing Checklist</h3>
+            <p><strong>On your mobile device, verify:</strong></p>
+            <ul>
+                <li>☑️ Navigation bar is visible at the top</li>
+                <li>☑️ Hamburger menu (☰) icon is visible on the right</li>
+                <li>☑️ Clicking hamburger opens the side drawer</li>
+                <li>☑️ All menu items are accessible in the drawer</li>
+                <li>☑️ Logo and title are visible and properly sized</li>
+                <li>☑️ No horizontal scrolling is needed</li>
+                <li>☑️ Navbar stays at the top when scrolling</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Additional Mobile Settings</h3>
+            <p><strong>If you still have issues:</strong></p>
+            <ul>
+                <li>🔄 Force refresh the page (Ctrl+Shift+R or Cmd+Shift+R)</li>
+                <li>📱 Try rotating your device (portrait ↔ landscape)</li>
+                <li>🧹 Clear browser cache and cookies</li>
+                <li>🌐 Try in incognito/private browsing mode</li>
+                <li>📶 Check if you have a stable internet connection</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>📱 Vivo V23 5G Specific Fixes</h3>
+            <p>Special optimizations for your device:</p>
+            <div class="device-info">
+Screen Resolution: 2400 × 1080 pixels
+Viewport Optimizations: Applied
+CSS Forced Visibility: ✅ Enabled
+Material-UI Overrides: ✅ Active
+Fixed Positioning: ✅ Implemented
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function getDeviceInfo() {
+            const info = {
+                userAgent: navigator.userAgent,
+                viewport: `${window.innerWidth} × ${window.innerHeight}`,
+                screen: `${screen.width} × ${screen.height}`,
+                devicePixelRatio: window.devicePixelRatio,
+                platform: navigator.platform,
+                cookieEnabled: navigator.cookieEnabled,
+                language: navigator.language,
+                online: navigator.onLine
+            };
+
+            return info;
+        }
+
+        function displayDeviceInfo() {
+            const info = getDeviceInfo();
+            const container = document.getElementById('device-info');
+            
+            let html = '';
+            Object.entries(info).forEach(([key, value]) => {
+                const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                html += `${label}: ${value}\n`;
+            });
+            
+            container.textContent = html;
+        }
+
+        function checkMobileOptimizations() {
+            const isMobile = window.innerWidth <= 1199;
+            const hasViewportMeta = document.querySelector('meta[name="viewport"]');
+            const hasResponsiveCSS = document.querySelector('link[href*="responsive"]');
+            
+            console.log('Mobile Detection:', {
+                isMobile,
+                screenWidth: window.innerWidth,
+                hasViewportMeta: !!hasViewportMeta,
+                hasResponsiveCSS: !!hasResponsiveCSS
+            });
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            displayDeviceInfo();
+            checkMobileOptimizations();
+        });
+
+        // Update on resize
+        window.addEventListener('resize', () => {
+            displayDeviceInfo();
+            checkMobileOptimizations();
+        });
+
+        // Auto-refresh device info every 5 seconds
+        setInterval(displayDeviceInfo, 5000);
+    </script>
+</body>
+</html>

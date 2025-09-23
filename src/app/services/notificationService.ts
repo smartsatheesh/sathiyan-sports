@@ -1,7 +1,7 @@
 // Unified Notification Service
 //import { SMSService } from './smsService';
 //import { PushNotificationService } from './pushNotificationService';
-import { WhatsAppService } from './whatsappService';
+import whatsAppCloudService from './WhatsAppCloudService';
 
 export interface NotificationPreferences {
   sms: boolean;
@@ -51,12 +51,11 @@ export class NotificationService {
 
       // WhatsApp Notification
       if (user.preferences.whatsapp) {
-        const whatsappResult = await WhatsAppService.sendBookingConfirmation(
-          user.name,
+        const whatsappResult = await whatsAppCloudService.sendBookingConfirmation(
           user.phone,
           bookingDetails
         );
-        results.push({ type: 'whatsapp', ...whatsappResult });
+        results.push({ type: 'whatsapp', success: whatsappResult });
       }
 
       console.log('Booking confirmation notifications sent:', results);
@@ -109,13 +108,11 @@ export class NotificationService {
 
       // WhatsApp Notification
       if (user.preferences.whatsapp) {
-        const whatsappResult = await WhatsAppService.sendPaymentReminder(
-          user.name,
+        const whatsappResult = await whatsAppCloudService.sendPaymentReminder(
           user.phone,
-          bookingDetails,
-          minutesLeft
+          bookingDetails
         );
-        results.push({ type: 'whatsapp', ...whatsappResult });
+        results.push({ type: 'whatsapp', success: whatsappResult });
       }
 
       console.log('Payment reminder notifications sent:', results);
@@ -166,12 +163,11 @@ export class NotificationService {
 
       // WhatsApp Notification
       if (user.preferences.whatsapp) {
-        const whatsappResult = await WhatsAppService.sendPaymentSuccess(
-          user.name,
+        const whatsappResult = await whatsAppCloudService.sendPaymentConfirmation(
           user.phone,
           bookingDetails
         );
-        results.push({ type: 'whatsapp', ...whatsappResult });
+        results.push({ type: 'whatsapp', success: whatsappResult });
       }
 
       console.log('Payment success notifications sent:', results);
@@ -225,13 +221,11 @@ export class NotificationService {
  */
       // WhatsApp Notification
       if (user.preferences.whatsapp) {
-        const whatsappResult = await WhatsAppService.sendBookingCancellation(
-          user.name,
+        const whatsappResult = await whatsAppCloudService.sendCancellationNotification(
           user.phone,
-          bookingId,
-          reason
+          { bookingReference: bookingId, customerName: user.name }
         );
-        results.push({ type: 'whatsapp', ...whatsappResult });
+        results.push({ type: 'whatsapp', success: whatsappResult });
       }
 
       console.log('Booking cancellation notifications sent:', results);

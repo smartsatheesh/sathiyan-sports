@@ -33,6 +33,11 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# WhatsApp session data - IMPORTANT: Never commit these!
+whatsapp-session/
+.wwebjs_auth/
+.wwebjs_cache/
+
 # vercel
 .vercel
 

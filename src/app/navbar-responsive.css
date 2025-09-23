@@ -1,0 +1,187 @@
+/* Mobile Navigation Responsive Fixes */
+
+/* Ensure proper viewport behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
+/* Force AppBar to be visible and properly positioned */
+.MuiAppBar-root {
+  position: fixed !important; /* Changed from sticky to fixed for better mobile support */
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 1300 !important; /* Higher z-index to ensure visibility */
+  width: 100% !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+/* Add top margin to body content to account for fixed navbar */
+.MuiAppBar-root + * {
+  margin-top: 64px !important;
+}
+
+@media (max-width: 479px) {
+  .MuiAppBar-root + * {
+    margin-top: 56px !important;
+  }
+}
+
+/* Toolbar fixes for all screen sizes with forced visibility */
+.MuiToolbar-root {
+  min-height: 64px !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  background-color: #00ACC1 !important; /* Force background color */
+}
+
+/* Mobile specific fixes - Force hamburger menu visibility */
+@media (max-width: 1199px) {
+  /* Hide desktop navigation on mobile */
+  .navbar-desktop-menu {
+    display: none !important;
+  }
+  
+  /* Force hamburger menu to be visible */
+  .MuiIconButton-root[aria-label="menu"] {
+    display: flex !important;
+    color: white !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 8px !important;
+    padding: 8px !important;
+  }
+  
+  /* Make sure login/register buttons are hidden on mobile */
+  .navbar-login-button {
+    display: none !important;
+  }
+  
+  /* Force mobile menu icon to appear */
+  .MuiSvgIcon-root {
+    color: white !important;
+    font-size: 1.5rem !important;
+  }
+}
+
+/* Specific fixes for Vivo V23 5G and similar devices */
+@media screen and (min-width: 360px) and (max-width: 414px) and (-webkit-device-pixel-ratio: 2) {
+  .MuiAppBar-root {
+    position: fixed !important;
+    top: 0 !important;
+    z-index: 9999 !important;
+    background-color: #00ACC1 !important;
+  }
+  
+  .MuiToolbar-root {
+    min-height: 64px !important;
+    padding: 0 12px !important;
+  }
+  
+  /* Force hamburger menu visibility on Vivo V23 5G */
+  .MuiIconButton-root {
+    display: flex !important;
+    color: white !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+  }
+}
+
+/* Tablet and small laptop fixes */
+@media (max-width: 1399px) {
+  .MuiToolbar-root {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  
+  .navbar-desktop-menu .MuiButton-root {
+    margin-left: 8px !important;
+    font-size: 0.9rem !important;
+  }
+}
+
+/* Very small mobile devices */
+@media (max-width: 480px) {
+  .MuiToolbar-root {
+    min-height: 56px !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+  
+  .MuiTypography-h6 {
+    font-size: 1.1rem !important;
+  }
+  
+  /* Logo adjustments for small screens */
+  .navbar-logo img {
+    width: 35px !important;
+    height: 35px !important;
+  }
+}
+
+/* Drawer (Mobile Menu) Improvements */
+.MuiDrawer-paper {
+  max-width: 320px !important;
+  width: 85vw !important;
+  z-index: 1400 !important; /* Higher than AppBar */
+}
+
+.MuiListItem-root {
+  padding: 12px 16px !important;
+}
+
+.MuiListItemText-primary {
+  font-weight: 500 !important;
+}
+
+/* Fix for overflow issues */
+.MuiContainer-root {
+  overflow: visible !important;
+  max-width: 100% !important;
+}
+
+/* Fix Material-UI button text visibility */
+.MuiButton-root {
+  color: inherit !important;
+}
+
+/* Responsive improvements for landscape orientation */
+@media (orientation: landscape) and (max-height: 500px) {
+  .MuiToolbar-root {
+    min-height: 48px !important;
+  }
+  
+  .MuiTypography-h6 {
+    font-size: 1rem !important;
+  }
+}
+
+/* Force visibility for Samsung, Vivo, Oppo devices */
+@media screen and (max-width: 1199px) {
+  .MuiAppBar-root {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  .MuiToolbar-root {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Force hamburger icon to show */
+  .MuiIconButton-edge-end {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    margin-left: auto !important;
+  }
+}

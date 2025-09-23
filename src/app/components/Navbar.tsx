@@ -44,7 +44,7 @@ const Navbar = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const isMobile = useMediaQuery(theme.breakpoints.down("lg")); // Changed from "md" to "lg" for better mobile detection
   const { data: session, status } = useSession();
 
   const toggleDrawer = () => {
@@ -89,10 +89,23 @@ const Navbar = () => {
       sx={{ 
         backgroundColor: 'primary.main',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        minHeight: { xs: 64, sm: 64, md: 70 }, // Ensure minimum height on all devices
+        '& .MuiToolbar-root': {
+          minHeight: { xs: 64, sm: 64, md: 70 },
+          paddingX: { xs: 2, sm: 3 },
+        }
       }}
     >
       <Container maxWidth="xl">
-        <Toolbar disableGutters>
+        <Toolbar 
+          disableGutters
+          sx={{
+            minHeight: { xs: 64, sm: 64, md: 70 },
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
           {/* Logo Section */}
           <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>
             <div style={{ display: "flex", alignItems: "center", marginRight: 16 }}>
@@ -119,7 +132,14 @@ const Navbar = () => {
             </div>
           </Link>
 
-          <div className="navbar-desktop-menu" style={{ flexGrow: 1, marginLeft: 32 }}>
+          <div 
+            className="navbar-desktop-menu" 
+            style={{ 
+              flexGrow: 1, 
+              marginLeft: 32,
+              display: isMobile ? 'none' : 'block' // Hide desktop menu on mobile
+            }}
+          >
             {publicNavItems.map((item) => (
               <Link key={item.label} href={item.href} passHref>
                 <Button sx={{ color: "#fff", ml: 2 }}>
@@ -153,7 +173,13 @@ const Navbar = () => {
           </div>
 
           {/* Authentication Section */}
-          <div style={{ display: "flex", alignItems: "center", marginLeft: 16 }}>
+          <div 
+            style={{ 
+              display: isMobile ? 'none' : 'flex', // Hide auth buttons on mobile (they're in drawer)
+              alignItems: "center", 
+              marginLeft: 16
+            }}
+          >
             {isLoading ? (
               <CircularProgress size={24} color="inherit" />
             ) : isAuthenticated ? (
@@ -282,17 +308,35 @@ const Navbar = () => {
 
           {/* Mobile Menu */}
           {isMobile && (
-            <>
-              <IconButton
-                color="inherit"
-                edge="end"
-                onClick={toggleDrawer}
-                size="large"
-                sx={{ ml: 1 }}
-              >
-                <MenuIcon />
-              </IconButton>
-              <Drawer anchor="right" open={drawerOpen} onClose={toggleDrawer}>
+            <IconButton
+              color="inherit"
+              edge="end"
+              onClick={toggleDrawer}
+              size="large"
+              sx={{ 
+                ml: 1,
+                display: { xs: 'flex', lg: 'none' }, // Only show on mobile
+                color: '#fff',
+                '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
+              }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
+
+          {/* Mobile Drawer */}
+          {isMobile && (
+            <Drawer 
+              anchor="right" 
+              open={drawerOpen} 
+              onClose={toggleDrawer}
+              sx={{
+                '& .MuiDrawer-paper': {
+                  width: 280,
+                  backgroundColor: '#fff',
+                }
+              }}
+            >
                 <div style={{ width: 280, padding: 16 }}>
                   {/* Logo Section for Mobile */}
                   <div style={{ 
@@ -422,7 +466,6 @@ const Navbar = () => {
                   )}
                 </div>
               </Drawer>
-            </>
           )}
         </Toolbar>
       </Container>

@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Cloud API Setup - Sathiyan Sports</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #25D366, #128C7E);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .step-section {
+            margin-bottom: 40px;
+            border: 2px solid #f0f0f0;
+            border-radius: 15px;
+            padding: 30px;
+            position: relative;
+        }
+
+        .step-number {
+            position: absolute;
+            top: -15px;
+            left: 30px;
+            background: #25D366;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .step-title {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 15px;
+            margin-top: 10px;
+        }
+
+        .step-description {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .code-block {
+            background: #f8f9fa;
+            border-left: 4px solid #25D366;
+            padding: 20px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+
+        .highlight {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+            margin: 15px 0;
+        }
+
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+            color: #856404;
+        }
+
+        .info {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+            color: #0c5460;
+        }
+
+        .btn {
+            display: inline-block;
+            background: #25D366;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #128C7E;
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #25D366;
+            color: #25D366;
+        }
+
+        .btn-outline:hover {
+            background: #25D366;
+            color: white;
+        }
+
+        .test-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px 0;
+        }
+
+        .status-indicator {
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            margin: 10px 0;
+            display: inline-block;
+        }
+
+        .status-unknown {
+            background: #f8f9fa;
+            color: #6c757d;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .checklist {
+            list-style: none;
+            padding: 0;
+        }
+
+        .checklist li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .checklist li:before {
+            content: "☐";
+            margin-right: 10px;
+            font-size: 16px;
+        }
+
+        .checklist li.completed:before {
+            content: "✅";
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        input[type="text"]:focus {
+            border-color: #25D366;
+            outline: none;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 WhatsApp Cloud API Setup</h1>
+            <p>Professional OTP delivery for Sathiyan Sports</p>
+        </div>
+
+        <div class="content">
+            <!-- Status Section -->
+            <div class="test-section">
+                <h2>📊 Current Status</h2>
+                <div id="statusContainer">
+                    <div class="status-indicator status-unknown" id="statusIndicator">
+                        🔍 Checking configuration...
+                    </div>
+                </div>
+                <button class="btn" onclick="checkStatus()">Check Status</button>
+                <button class="btn btn-outline" onclick="testAPI()">Test API</button>
+            </div>
+
+            <!-- Step 1: Meta Developer Account -->
+            <div class="step-section">
+                <div class="step-number">1</div>
+                <h3 class="step-title">Create Meta Developer Account</h3>
+                <div class="step-description">
+                    First, you need a Meta Developer account to access WhatsApp Business API.
+                </div>
+                
+                <div class="highlight info">
+                    <strong>📝 Action Required:</strong>
+                    <ol style="margin: 10px 0; padding-left: 20px;">
+                        <li>Go to <a href="https://developers.facebook.com/" target="_blank">Meta for Developers</a></li>
+                        <li>Click "Get Started" or "My Apps"</li>
+                        <li>Complete account verification if required</li>
+                    </ol>
+                </div>
+
+                <a href="https://developers.facebook.com/" target="_blank" class="btn">
+                    🌐 Open Meta Developers
+                </a>
+            </div>
+
+            <!-- Step 2: Create Business App -->
+            <div class="step-section">
+                <div class="step-number">2</div>
+                <h3 class="step-title">Create Business Application</h3>
+                <div class="step-description">
+                    Create a new business app that will handle WhatsApp messaging.
+                </div>
+
+                <div class="highlight warning">
+                    <strong>⚙️ App Configuration:</strong>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li><strong>App Type:</strong> Business</li>
+                        <li><strong>App Name:</strong> "Sathiyan Sports OTP System"</li>
+                        <li><strong>Contact Email:</strong> Your business email</li>
+                        <li><strong>Business Portfolio:</strong> Create new or select existing</li>
+                    </ul>
+                </div>
+
+                <div class="code-block">
+If you don't see "Business" option:
+1. Select "Other"
+2. Click "Next" 
+3. Choose "Business" from the next screen
+                </div>
+            </div>
+
+            <!-- Step 3: Add WhatsApp Product -->
+            <div class="step-section">
+                <div class="step-number">3</div>
+                <h3 class="step-title">Add WhatsApp Product</h3>
+                <div class="step-description">
+                    Add WhatsApp to your business app to enable messaging capabilities.
+                </div>
+
+                <div class="highlight success">
+                    <strong>🎯 What This Creates:</strong>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li>✅ Test WhatsApp Business Account (WABA)</li>
+                        <li>✅ Test business phone number</li>
+                        <li>✅ Pre-approved "hello_world" template</li>
+                        <li>✅ Ability to send to 5 test numbers</li>
+                    </ul>
+                </div>
+
+                <ol style="margin: 15px 0; padding-left: 20px;">
+                    <li>In your app dashboard, scroll to "Add products to your app"</li>
+                    <li>Find "WhatsApp" and click "Set up"</li>
+                    <li>Complete business portfolio setup if prompted</li>
+                </ol>
+            </div>
+
+            <!-- Step 4: Get Credentials -->
+            <div class="step-section">
+                <div class="step-number">4</div>
+                <h3 class="step-title">Get API Credentials</h3>
+                <div class="step-description">
+                    Extract the access token and phone number ID needed for your application.
+                </div>
+
+                <div class="form-group">
+                    <label>🔑 Access Token:</label>
+                    <div style="margin: 10px 0;">
+                        1. Go to WhatsApp → API Setup<br>
+                        2. Click "Generate access token"<br>
+                        3. Copy the generated token
+                    </div>
+                    <input type="text" id="accessToken" placeholder="Paste your access token here">
+                </div>
+
+                <div class="form-group">
+                    <label>📱 Phone Number ID:</label>
+                    <div style="margin: 10px 0;">
+                        1. In the same API Setup page<br>
+                        2. Look at the "From" dropdown<br>
+                        3. Copy the Phone number ID (not the display number)
+                    </div>
+                    <input type="text" id="phoneNumberId" placeholder="Paste your phone number ID here">
+                </div>
+
+                <button class="btn" onclick="saveCredentials()">💾 Save Credentials</button>
+            </div>
+
+            <!-- Step 5: Add Test Recipients -->
+            <div class="step-section">
+                <div class="step-number">5</div>
+                <h3 class="step-title">Add Test Recipients</h3>
+                <div class="step-description">
+                    Add phone numbers that can receive test messages.
+                </div>
+
+                <div class="highlight warning">
+                    <strong>📞 Numbers to Add:</strong>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li><strong>Your business number:</strong> 9787020525</li>
+                        <li><strong>Wife's number:</strong> 9566006597</li>
+                        <li><strong>Any other test numbers:</strong> Up to 5 total</li>
+                    </ul>
+                </div>
+
+                <ol style="margin: 15px 0; padding-left: 20px;">
+                    <li>In API Setup, under "Send and receive messages"</li>
+                    <li>Click "To" field → "Manage phone number list"</li>
+                    <li>Add each number and verify via WhatsApp</li>
+                    <li>Each number will receive a verification code</li>
+                </ol>
+            </div>
+
+            <!-- Step 6: Test Implementation -->
+            <div class="step-section">
+                <div class="step-number">6</div>
+                <h3 class="step-title">Test Your Implementation</h3>
+                <div class="step-description">
+                    Test the WhatsApp Cloud API integration with your OTP system.
+                </div>
+
+                <div class="form-group">
+                    <label>📱 Test Mobile Number:</label>
+                    <input type="text" id="testMobile" placeholder="Enter mobile number (e.g., 9566006597)" value="9566006597">
+                </div>
+
+                <button class="btn" onclick="sendTestOTP()">📤 Send Test OTP</button>
+                <button class="btn btn-outline" onclick="sendHelloWorld()">👋 Send Hello World</button>
+
+                <div id="testResults" style="margin-top: 20px;"></div>
+            </div>
+
+            <!-- Setup Checklist -->
+            <div class="test-section">
+                <h2>📋 Setup Checklist</h2>
+                <ul class="checklist">
+                    <li id="check-account">Meta Developer account created</li>
+                    <li id="check-app">Business app created</li>
+                    <li id="check-whatsapp">WhatsApp product added</li>
+                    <li id="check-token">Access token generated</li>
+                    <li id="check-phone">Phone number ID obtained</li>
+                    <li id="check-recipients">Test recipients added and verified</li>
+                    <li id="check-env">Environment variables configured</li>
+                    <li id="check-test">Test message sent successfully</li>
+                </ul>
+            </div>
+
+            <!-- Environment Variables -->
+            <div class="code-block">
+# Add these to your .env.local file:
+WHATSAPP_ACCESS_TOKEN=your_access_token_here
+WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id_here
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let accessToken = '';
+        let phoneNumberId = '';
+
+        async function checkStatus() {
+            const indicator = document.getElementById('statusIndicator');
+            indicator.textContent = '🔍 Checking...';
+            indicator.className = 'status-indicator status-unknown';
+
+            try {
+                const response = await fetch('/api/test-whatsapp-cloud');
+                const data = await response.json();
+
+                if (data.success) {
+                    indicator.textContent = `✅ Configured! Phone: ${data.phoneNumber}`;
+                    indicator.className = 'status-indicator status-success';
+                    markCheckCompleted('check-env');
+                } else {
+                    indicator.textContent = `❌ ${data.message}`;
+                    indicator.className = 'status-indicator status-error';
+                }
+
+                console.log('Status check result:', data);
+            } catch (error) {
+                indicator.textContent = '❌ Connection failed';
+                indicator.className = 'status-indicator status-error';
+                console.error('Status check error:', error);
+            }
+        }
+
+        async function testAPI() {
+            const mobile = document.getElementById('testMobile').value;
+            if (!mobile) {
+                alert('Please enter a mobile number');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = '<div class="status-indicator status-unknown">🔄 Testing API...</div>';
+
+            try {
+                const response = await fetch('/api/test-whatsapp-cloud', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ mobile, testType: 'template' })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    resultsDiv.innerHTML = `
+                        <div class="status-indicator status-success">
+                            ✅ Test successful! Message ID: ${data.messageId}
+                        </div>
+                        <div class="highlight success">
+                            <strong>Test OTP:</strong> ${data.testOTP}<br>
+                            <strong>Mobile:</strong> ${data.mobile}<br>
+                            <strong>Type:</strong> ${data.testType}
+                        </div>
+                    `;
+                    markCheckCompleted('check-test');
+                } else {
+                    resultsDiv.innerHTML = `
+                        <div class="status-indicator status-error">
+                            ❌ Test failed: ${data.message}
+                        </div>
+                        <div class="highlight warning">
+                            <strong>Troubleshooting:</strong><br>
+                            ${data.troubleshooting ? data.troubleshooting.join('<br>') : 'Check console for details'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = '<div class="status-indicator status-error">❌ Network error</div>';
+                console.error('Test error:', error);
+            }
+        }
+
+        async function sendTestOTP() {
+            const mobile = document.getElementById('testMobile').value;
+            if (!mobile) {
+                alert('Please enter a mobile number');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = '<div class="status-indicator status-unknown">📱 Sending OTP...</div>';
+
+            try {
+                const response = await fetch('/api/auth/forgot-password-cloud', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ mobile })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    resultsDiv.innerHTML = `
+                        <div class="status-indicator status-success">
+                            ✅ OTP sent via ${data.deliveryMethod}!
+                        </div>
+                        <div class="highlight success">
+                            <strong>Mobile:</strong> ${data.mobile}<br>
+                            <strong>Message ID:</strong> ${data.messageId || 'N/A'}<br>
+                            ${data.devOTP ? `<strong>Dev OTP:</strong> ${data.devOTP}<br>` : ''}
+                            <strong>Expires:</strong> ${data.expiresIn} minutes
+                        </div>
+                    `;
+                } else {
+                    resultsDiv.innerHTML = `
+                        <div class="status-indicator status-error">
+                            ❌ Failed: ${data.message}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = '<div class="status-indicator status-error">❌ Network error</div>';
+                console.error('OTP test error:', error);
+            }
+        }
+
+        async function sendHelloWorld() {
+            const mobile = document.getElementById('testMobile').value;
+            if (!mobile) {
+                alert('Please enter a mobile number');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = '<div class="status-indicator status-unknown">👋 Sending hello world...</div>';
+
+            try {
+                const response = await fetch('/api/test-whatsapp-cloud', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ mobile, testType: 'template' })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    resultsDiv.innerHTML = `
+                        <div class="status-indicator status-success">
+                            ✅ Hello World sent! Message ID: ${data.messageId}
+                        </div>
+                    `;
+                } else {
+                    resultsDiv.innerHTML = `
+                        <div class="status-indicator status-error">
+                            ❌ Failed: ${data.message}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = '<div class="status-indicator status-error">❌ Network error</div>';
+            }
+        }
+
+        function saveCredentials() {
+            accessToken = document.getElementById('accessToken').value;
+            phoneNumberId = document.getElementById('phoneNumberId').value;
+
+            if (accessToken && phoneNumberId) {
+                alert(`Credentials saved locally! 
+                
+Add these to your .env.local file:
+WHATSAPP_ACCESS_TOKEN=${accessToken}
+WHATSAPP_PHONE_NUMBER_ID=${phoneNumberId}`);
+                
+                markCheckCompleted('check-token');
+                markCheckCompleted('check-phone');
+            } else {
+                alert('Please enter both access token and phone number ID');
+            }
+        }
+
+        function markCheckCompleted(checkId) {
+            const element = document.getElementById(checkId);
+            if (element) {
+                element.classList.add('completed');
+            }
+        }
+
+        // Auto-check status on page load
+        window.onload = function() {
+            setTimeout(checkStatus, 1000);
+        };
+    </script>
+</body>
+</html>

@@ -25,11 +25,15 @@ class EmailService {
   async sendEmail({ to, subject, html, text }: EmailOptions): Promise<boolean> {
     try {
       if (!process.env.EMAIL_SERVER_USER || !process.env.EMAIL_SERVER_PASSWORD) {
-        console.log('📧 Email service not configured. Would send email:');
-        console.log(`To: ${to}`);
-        console.log(`Subject: ${subject}`);
-        console.log(`Content: ${text || html}`);
-        return true; // Return true for development
+        console.log('\n📧 =============== EMAIL NOTIFICATION ===============');
+        console.log('⚠️ Email service not configured - showing email content:');
+        console.log(`📧 To: ${to}`);
+        console.log(`📧 Subject: ${subject}`);
+        console.log(`📧 Content: ${text || html.replace(/<[^>]*>/g, '')}`);
+        console.log('📧 ================================================\n');
+        
+        // For development, we'll consider this successful
+        return true;
       }
 
       const mailOptions = {
