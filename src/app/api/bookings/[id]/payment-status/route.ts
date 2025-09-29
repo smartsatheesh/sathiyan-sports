@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "../../../../server/Mongo";
 import Booking from "../../../../models/Booking";
+import unifiedWhatsAppService from "../../../../services/UnifiedWhatsAppService";
 
 export async function GET(
   req: NextRequest,
@@ -69,6 +70,61 @@ export async function POST(
       );
 
       if (updatedBooking) {
+        // Send WhatsApp notification for booking confirmation
+        try {
+          const bookingDetails = {
+            bookingReference: updatedBooking.bookingReference,
+            courtName: updatedBooking.sport === 'Shuttle Badminton' 
+              ? `Court ${updatedBooking.court || 'TBD'}` 
+              : updatedBooking.sport,
+            date: new Date(updatedBooking.date).toLocaleDateString('en-IN', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            }),
+            time: updatedBooking.timeSlots.join(', '),
+            amount: updatedBooking.totalAmount,
+            customerName: updatedBooking.customerName
+          };
+
+          console.log('📱 Sending WhatsApp booking confirmation:', {
+            phone: updatedBooking.customerPhone,
+            reference: updatedBooking.bookingReference
+          });
+
+          const whatsappSent = await unifiedWhatsAppService.sendBookingConfirmation(
+            updatedBooking.customerPhone,
+            bookingDetails
+          );
+
+          if (whatsappSent) {
+            console.log('✅ WhatsApp booking confirmation sent successfully');
+          } else {
+            console.warn('⚠️ WhatsApp booking confirmation failed');
+          }
+
+          // Also send admin notification
+          const adminNotificationDetails = {
+            ...bookingDetails,
+            customerPhone: updatedBooking.customerPhone
+          };
+
+          const adminNotificationSent = await unifiedWhatsAppService.sendAdminNotification(
+            adminNotificationDetails
+          );
+
+          if (adminNotificationSent) {
+            console.log('✅ Admin WhatsApp notification sent successfully');
+          } else {
+            console.warn('⚠️ Admin WhatsApp notification failed');
+          }
+
+        } catch (whatsappError) {
+          console.error('❌ WhatsApp notification error:', whatsappError);
+          // Don't fail the payment confirmation if WhatsApp fails
+        }
+
         return NextResponse.json({
           success: true,
           message: "Payment confirmed via webhook",
