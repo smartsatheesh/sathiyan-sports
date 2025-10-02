@@ -68,11 +68,14 @@ const Navbar = () => {
   const isAuthenticated = status === "authenticated";
   const user = session?.user;
   const isAdmin = user?.role === "admin";
+  const isCoach = user?.role === "coach";
+  const hasCoachAccess = isAdmin || isCoach;
 
   // Profile menu items
   const profileMenuItems = [
     { label: "Profile", href: "/profile", icon: <Person /> },
     { label: "My Bookings", href: "/my-bookings", icon: <BookOnline /> },
+    { label: "My Plan", href: "/my-plan", icon: <Dashboard /> },
   ];
 
   if (isAdmin) {
@@ -126,12 +129,14 @@ const Navbar = () => {
               </Button>
             </Link>
             
-            {/* The Coach - AI Powered */}
-            <Link href="/coach" passHref>
-              <Button sx={{ color: "#fff", ml: 2 }}>
-                🤖 The Coach
-              </Button>
-            </Link>
+            {/* The Coach - AI Powered - Admin/Coach only */}
+            {hasCoachAccess && (
+              <Link href="/coach" passHref>
+                <Button sx={{ color: "#fff", ml: 2 }}>
+                  🤖 The Coach
+                </Button>
+              </Link>
+            )}
             
             {/* S3 Fitness Plans */}
             <Link href="/s3" passHref>
@@ -314,11 +319,14 @@ const Navbar = () => {
                       </ListItem>
                     </Link>
                     
-                    <Link href="/coach" passHref>
-                      <ListItem button onClick={toggleDrawer}>
-                        <ListItemText primary="🤖 The Coach" />
-                      </ListItem>
-                    </Link>
+                    {/* The Coach - Admin/Coach only */}
+                    {hasCoachAccess && (
+                      <Link href="/coach" passHref>
+                        <ListItem button onClick={toggleDrawer}>
+                          <ListItemText primary="🤖 The Coach" />
+                        </ListItem>
+                      </Link>
+                    )}
                     
                     <Link href="/s3" passHref>
                       <ListItem button onClick={toggleDrawer}>

@@ -29,6 +29,7 @@
 .coachHeader {
   text-align: center;
   margin-bottom: 3rem;
+  margin-top: 2rem;
   background: linear-gradient(135deg, #00ACC1 0%, #0097A7 100%);
   padding: 3rem 2rem;
   border-radius: 1rem;
@@ -763,4 +764,92 @@
 
 .pending {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* New Enhanced Styles */
+.generatePlanSection {
+  text-align: center;
+  padding: 2rem;
+}
+
+.planPreview {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.planPreview h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: #00ACC1;
+}
+
+.planPreview p {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 1.5rem;
+}
+
+.featureList {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.featureList li {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+  text-align: left;
+}
+
+.errorCard h3 {
+  color: #ef4444;
+  margin-bottom: 0.5rem;
+  font-size: 1.2rem;
+}
+
+.errorCard p {
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 1rem;
+}
+
+/* Existing Plan Banner */
+.existingPlanBanner {
+  background: linear-gradient(135deg, #20b2aa 0%, #48d1cc 100%);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: white;
+  box-shadow: 0 4px 16px rgba(32, 178, 170, 0.3);
+}
+
+.bannerIcon {
+  font-size: 2.5rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.bannerContent h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.bannerContent p {
+  margin: 0;
+  opacity: 0.9;
+  line-height: 1.5;
 }

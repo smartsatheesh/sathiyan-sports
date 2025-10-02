@@ -1,0 +1,300 @@
+/* Loading Spinner Component Styles */
+
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin: 2rem 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.loadingContainer::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, 
+    transparent, 
+    rgba(255, 255, 255, 0.03), 
+    transparent
+  );
+  animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+  100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+/* Spinner Styles */
+.spinner {
+  position: relative;
+  margin-bottom: 2rem;
+}
+
+.spinnerInner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinnerCircle {
+  position: absolute;
+  border-radius: 50%;
+  animation: pulse 2s infinite ease-in-out;
+}
+
+.spinner.small .spinnerCircle {
+  width: 40px;
+  height: 40px;
+}
+
+.spinner.medium .spinnerCircle {
+  width: 60px;
+  height: 60px;
+}
+
+.spinner.large .spinnerCircle {
+  width: 80px;
+  height: 80px;
+}
+
+/* Spinner Variants */
+.spinner.teal .spinnerCircle:nth-child(1) {
+  background: linear-gradient(45deg, #14b8a6, #0d9488);
+  animation-delay: 0s;
+}
+
+.spinner.teal .spinnerCircle:nth-child(2) {
+  background: linear-gradient(45deg, #06b6d4, #0891b2);
+  animation-delay: 0.5s;
+  transform: scale(0.8);
+}
+
+.spinner.teal .spinnerCircle:nth-child(3) {
+  background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+  animation-delay: 1s;
+  transform: scale(0.6);
+}
+
+.spinner.teal .spinnerCircle:nth-child(4) {
+  background: linear-gradient(45deg, #8b5cf6, #7c3aed);
+  animation-delay: 1.5s;
+  transform: scale(0.4);
+}
+
+.spinner.primary .spinnerCircle:nth-child(1) {
+  background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+  animation-delay: 0s;
+}
+
+.spinner.primary .spinnerCircle:nth-child(2) {
+  background: linear-gradient(45deg, #06b6d4, #0891b2);
+  animation-delay: 0.5s;
+  transform: scale(0.8);
+}
+
+.spinner.primary .spinnerCircle:nth-child(3) {
+  background: linear-gradient(45deg, #10b981, #059669);
+  animation-delay: 1s;
+  transform: scale(0.6);
+}
+
+.spinner.primary .spinnerCircle:nth-child(4) {
+  background: linear-gradient(45deg, #f59e0b, #d97706);
+  animation-delay: 1.5s;
+  transform: scale(0.4);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(1.2);
+  }
+}
+
+/* Loading Text */
+.loadingText {
+  text-align: center;
+  max-width: 500px;
+}
+
+.loadingTitle {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(45deg, #14b8a6, #06b6d4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.loadingMessage {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 2rem;
+  line-height: 1.5;
+}
+
+/* Loading Steps */
+.loadingSteps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+  animation: stepAppear 0.5s ease-out forwards;
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.step:nth-child(1) { animation-delay: 0.2s; }
+.step:nth-child(2) { animation-delay: 0.4s; }
+.step:nth-child(3) { animation-delay: 0.6s; }
+.step:nth-child(4) { animation-delay: 0.8s; }
+
+@keyframes stepAppear {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stepIcon {
+  font-size: 1.2rem;
+  animation: bounce 2s infinite;
+}
+
+.step:nth-child(1) .stepIcon { animation-delay: 0s; }
+.step:nth-child(2) .stepIcon { animation-delay: 0.5s; }
+.step:nth-child(3) .stepIcon { animation-delay: 1s; }
+.step:nth-child(4) .stepIcon { animation-delay: 1.5s; }
+
+@keyframes bounce {
+  0%, 50%, 100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-5px);
+  }
+}
+
+/* Progress Indicator */
+.progressIndicator {
+  width: 100%;
+  max-width: 400px;
+}
+
+.progressBar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, 
+    #14b8a6 0%, 
+    #06b6d4 25%, 
+    #3b82f6 50%, 
+    #8b5cf6 75%, 
+    #14b8a6 100%
+  );
+  background-size: 200% 100%;
+  animation: progressFlow 2s linear infinite;
+  border-radius: 3px;
+  width: 70%;
+}
+
+@keyframes progressFlow {
+  0% {
+    background-position: 200% 0;
+    width: 0%;
+  }
+  50% {
+    width: 70%;
+  }
+  100% {
+    background-position: -200% 0;
+    width: 100%;
+  }
+}
+
+.progressText {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  text-align: center;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .loadingContainer {
+    padding: 1.5rem;
+    margin: 1rem 0;
+  }
+  
+  .loadingTitle {
+    font-size: 1.5rem;
+  }
+  
+  .loadingMessage {
+    font-size: 1rem;
+  }
+  
+  .spinner.large .spinnerCircle {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .step {
+    font-size: 0.9rem;
+    padding: 0.5rem 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .loadingSteps {
+    gap: 0.5rem;
+  }
+  
+  .step {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.5rem;
+  }
+  
+  .stepIcon {
+    font-size: 1.5rem;
+  }
+}

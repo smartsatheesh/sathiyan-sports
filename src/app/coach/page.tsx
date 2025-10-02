@@ -4,6 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import SkillAssessment from '../components/SkillAssessment';
+import PlanDisplay from '../components/PlanDisplay';
+import FullCalendar from '../components/FullCalendar';
+import LoadingSpinner from '../components/LoadingSpinner';
 import styles from './coach.module.css';
 
 interface CoachFormData {
@@ -24,10 +27,14 @@ interface BMI {
   category: string;
 }
 
+// Main navigation tabs
+type TabType = 'generate' | 'calendar';
+
 const CoachPage: React.FC = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
   
+  const [activeTab, setActiveTab] = useState<TabType>('generate');
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<CoachFormData>({
     name: '',
@@ -53,7 +60,14 @@ const CoachPage: React.FC = () => {
       router.push('/auth/login?callbackUrl=/coach');
     }
     
-    if (session?.user) {
+    // Check if user has coach access (admin or coach role)
+    if (status === 'authenticated' && session?.user) {
+      const userRole = session.user.role;
+      if (userRole !== 'admin' && userRole !== 'coach') {
+        router.push('/'); // Redirect customers to home page
+        return;
+      }
+      
       setFormData(prev => ({
         ...prev,
         name: session.user.name || '',
@@ -63,6 +77,69 @@ const CoachPage: React.FC = () => {
 
   // Check if user is admin
   const isAdmin = session?.user?.role === 'admin';
+
+  // Load saved form data immediately on component mount
+  useEffect(() => {
+    const loadSavedFormData = () => {
+      const savedFormData = localStorage.getItem('coachFormData');
+      console.log('🔍 Checking localStorage for coachFormData:', savedFormData);
+      if (savedFormData) {
+        try {
+          const formDataObj = JSON.parse(savedFormData);
+          console.log('📝 Parsed form data from localStorage:', formDataObj);
+          console.log('🏃 Sport from saved data:', formDataObj.sport);
+          
+          setFormData(prev => {
+            const newData = {
+              ...prev,
+              ...formDataObj
+            };
+            console.log('🔄 Setting form data to:', newData);
+            return newData;
+          });
+          console.log('✅ Loaded saved form data with sport:', formDataObj.sport);
+        } catch (error) {
+          console.error('Error parsing saved form data:', error);
+          localStorage.removeItem('coachFormData'); // Clean up corrupted data
+        }
+      } else {
+        console.log('❌ No saved form data found in localStorage');
+      }
+    };
+
+    // Load form data immediately
+    loadSavedFormData();
+  }, []); // Empty dependency array - run once on mount
+
+  // Check for existing plans and update name when session is available
+  useEffect(() => {
+    const checkExistingPlan = () => {
+      const savedPlan = localStorage.getItem('currentCoachingPlan');
+      if (savedPlan) {
+        try {
+          const planData = JSON.parse(savedPlan);
+          setPlan(planData);
+          setStep(5); // Show the plan directly
+          console.log('📋 Found existing plan, displaying it directly');
+        } catch (error) {
+          console.error('Error parsing saved plan:', error);
+          localStorage.removeItem('currentCoachingPlan'); // Clean up corrupted data
+        }
+      }
+    };
+
+    if (session?.user) {
+      checkExistingPlan();
+      
+      // Update name from session if available and different
+      if (session.user.name && formData.name !== session.user.name) {
+        setFormData(prev => ({
+          ...prev,
+          name: session.user.name || ''
+        }));
+      }
+    }
+  }, [session?.user]);
 
   // Calculate BMI
   useEffect(() => {
@@ -80,6 +157,27 @@ const CoachPage: React.FC = () => {
     }
   }, [formData.height, formData.weight]);
 
+  // Save form data whenever it changes (but avoid infinite loops)
+  useEffect(() => {
+    // Only save if form has meaningful data and user is authenticated
+    if (session?.user && (formData.name || formData.sport || formData.age)) {
+      const dataToSave = {
+        ...formData,
+        // Ensure we preserve the user's name from session
+        name: session.user.name || formData.name
+      };
+      localStorage.setItem('coachFormData', JSON.stringify(dataToSave));
+      console.log('💾 Auto-saved form data:', dataToSave);
+    }
+  }, [formData, session?.user]);
+
+  // Additional debug logging for sport field changes
+  useEffect(() => {
+    if (formData.sport) {
+      console.log('🏃 Sport field state changed to:', formData.sport);
+    }
+  }, [formData.sport]);
+
   const sports = [
     'Shuttle Badminton',
     'Football',
@@ -93,35 +191,194 @@ const CoachPage: React.FC = () => {
   ];
 
   const handleInputChange = (field: keyof CoachFormData, value: any) => {
-    setFormData(prev => ({
-      ...prev,
+    console.log(`🔄 Updating ${field} to:`, value);
+    const updatedFormData = {
+      ...formData,
       [field]: value
-    }));
+    };
+    setFormData(updatedFormData);
+    
+    // Save form data to localStorage for persistence
+    localStorage.setItem('coachFormData', JSON.stringify(updatedFormData));
+    console.log(`💾 Saved form data to localStorage:`, updatedFormData);
+    
+    // Special logging for sport field
+    if (field === 'sport') {
+      console.log(`🏃 Sport field updated to: "${value}"`);
+    }
+  };
+
+  // Function to show plan generation success with navigation options
+  const showPlanGenerationSuccess = () => {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(45deg, #20b2aa, #008080);
+      color: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(32, 178, 170, 0.3);
+      z-index: 9999;
+      max-width: 350px;
+      font-family: system-ui, -apple-system, sans-serif;
+    `;
+    
+    notification.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+        <span style="font-size: 1.5rem;">🎉</span>
+        <strong>Plan Generated Successfully!</strong>
+      </div>
+      <p style="margin: 0 0 1rem 0; opacity: 0.9;">
+        Your personalized 3-month training plan is ready!
+      </p>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <button id="closeNotification" style="
+          background: rgba(255, 255, 255, 0.2);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          color: white;
+          padding: 0.5rem 1rem;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 0.9rem;
+          font-weight: 600;
+        ">Got It!</button>
+      </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Add event listeners
+    const closeBtn = notification.querySelector('#closeNotification');
+    
+    closeBtn?.addEventListener('click', () => {
+      document.body.removeChild(notification);
+    });
+    
+    // Auto-remove after 8 seconds
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        document.body.removeChild(notification);
+      }
+    }, 8000);
+  };
+
+  const validateFormData = () => {
+    console.log('🔍 Validating form data:', formData);
+    
+    const requiredFields = ['name', 'age', 'height', 'weight', 'sport'];
+    const missingFields = requiredFields.filter(field => {
+      const value = formData[field as keyof CoachFormData];
+      console.log(`Checking ${field}:`, value);
+      return !value || value === '' || value === null;
+    });
+
+    if (missingFields.length > 0) {
+      setError(`Missing required fields: ${missingFields.join(', ')}`);
+      return false;
+    }
+
+    // Validate numeric fields
+    const ageNum = parseInt(formData.age || '0');
+    if (formData.age && (ageNum < 6 || ageNum > 100)) {
+      setError(`Age must be between 6 and 100 years (current: ${ageNum})`);
+      return false;
+    }
+
+    const heightNum = formData.height || 0;
+    console.log('Height validation:', heightNum, typeof heightNum);
+    if (formData.height && (heightNum < 80 || heightNum > 250)) {
+      setError(`Height must be between 100cm and 250cm (current: ${heightNum}cm)`);
+      return false;
+    }
+
+    const weightNum = formData.weight || 0;
+    console.log('Weight validation:', weightNum, typeof weightNum);
+    if (formData.weight && (weightNum < 15 || weightNum > 300)) {
+      setError(`Weight must be between 20kg and 300kg (current: ${weightNum}kg)`);
+      return false;
+    }
+
+    console.log('✅ Validation passed!');
+    return true;
   };
 
   const generatePlan = async () => {
-    setLoading(true);
     setError('');
+    
+    // Validate form data first
+    if (!validateFormData()) {
+      return;
+    }
+
+    setLoading(true);
     
     const startTime = Date.now();
     
     try {
+      // Transform form data to match API expectations
+      const currentYear = new Date().getFullYear();
+      const birthYear = currentYear - parseInt(formData.age || '25');
+      const dateOfBirth = `${birthYear}-01-01`; // Default to January 1st
+      
+      const apiData = {
+        name: formData.name || 'User',
+        sex: 'other' as const, // Default value
+        dateOfBirth,
+        height: formData.height || 170,
+        weight: formData.weight || 70,
+        sport: formData.sport || 'General Fitness',
+        skillLevel: formData.skillLevel || 'beginner',
+        objectives: formData.goal ? [formData.goal] : ['Stay Fit'],
+        dailyHours: (formData.weeklyHours || 5) / 7, // Convert weekly to daily average
+        weeklyHours: formData.weeklyHours || 5,
+        schedule: {
+          monday: true,
+          tuesday: true,
+          wednesday: true,
+          thursday: true,
+          friday: true,
+          saturday: false,
+          sunday: false
+        },
+        preferredTime: 'evening',
+        userEmail: session?.user?.email || 'user@example.com',
+        // Use skill assessment scores or defaults
+        motorSkillsScore: formData.skillAssessment?.motorSkills || 70,
+        coordinationScore: formData.skillAssessment?.coordination || 70,
+        strengthScore: formData.skillAssessment?.strength || 70,
+        enduranceScore: formData.skillAssessment?.endurance || 70,
+      };
+
       const response = await fetch('/api/coach/generate-plan', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(apiData)
       });
 
       const result = await response.json();
       
       if (result.success) {
-        setPlan(result.plan);
+        setPlan(result.coachingPlan);
         const generationTime = Date.now() - startTime;
         
+        // Save plan to localStorage for calendar access
+        const planData = {
+          ...result.coachingPlan,
+          formData,
+          generatedAt: new Date().toISOString(),
+          generationTime
+        };
+        localStorage.setItem('currentCoachingPlan', JSON.stringify(planData));
+        
         // Save to MongoDB
-        await saveCoachDataToDatabase(result.plan, generationTime);
+        await saveCoachDataToDatabase(result.coachingPlan, generationTime);
+        
+        // Show success message with auto-navigation option
+        showPlanGenerationSuccess();
       } else {
         setError(result.error || 'Failed to generate plan');
       }
@@ -213,7 +470,7 @@ const CoachPage: React.FC = () => {
         })
       });
 
-      const result = await response.json();
+      const result = await response.json(); 
       
       if (result.success) {
         // Show success notification
@@ -272,12 +529,69 @@ const CoachPage: React.FC = () => {
     return null;
   }
 
+  // Check if user has required role
+  if (status === 'authenticated' && session?.user) {
+    const userRole = session.user.role;
+    if (userRole !== 'admin' && userRole !== 'coach') {
+      return (
+        <div className={styles.coachContainer}>
+          <div className={styles.coachWrapper}>
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '3rem',
+              background: '#fee2e2',
+              borderRadius: '12px',
+              margin: '2rem'
+            }}>
+              <h2 style={{ color: '#dc2626', marginBottom: '1rem' }}>🚫 Access Restricted</h2>
+              <p style={{ color: '#7f1d1d' }}>
+                The Coach feature is only available for coaches and administrators.
+              </p>
+              <button 
+                onClick={() => router.push('/')}
+                style={{
+                  background: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  marginTop: '1rem'
+                }}
+              >
+                Return to Home
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
+
   return (
     <div className={styles.coachContainer}>
       <div className={styles.coachWrapper}>
         {/* Header */}
         <div className={styles.coachHeader}>
-          <div className={styles.coachIcon}>🤖</div>
+          <div className={styles.coachIcon}>
+            <img 
+              src="/sir-alex-anime.png" 
+              alt="Sir Alex Ferguson - The Coach" 
+              style={{
+                width: '100%',
+                height: '100%',
+                borderRadius: '50%',
+                objectFit: 'cover'
+              }}
+              onError={(e) => {
+                // Fallback to emoji if image not found
+                e.currentTarget.style.display = 'none';
+                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                if (fallback) fallback.style.display = 'block';
+              }}
+            />
+            <span style={{ display: 'none', fontSize: '2rem' }}>🤖</span>
+          </div>
           <h1 className={styles.coachTitle}>The Coach</h1>
           <p className={styles.coachSubtitle}>AI-Powered Personal Sports & Fitness Coach</p>
           <p className={styles.coachDescription}>Powered by Gemini 2.5 • Personalized Training Plans</p>
@@ -297,6 +611,152 @@ const CoachPage: React.FC = () => {
           )}
         </div>
 
+        {/* Debug Section - Remove in production */}
+        {process.env.NODE_ENV === 'development' && (
+          <div style={{ 
+            background: '#f3f4f6', 
+            padding: '1rem', 
+            margin: '1rem 0', 
+            borderRadius: '0.5rem',
+            fontSize: '0.875rem'
+          }}>
+            <h4>🐛 Debug Info:</h4>
+            <p><strong>Name:</strong> "{formData.name}"</p>
+            <p><strong>Age:</strong> "{formData.age}"</p>
+            <p><strong>Height:</strong> {formData.height} (type: {typeof formData.height})</p>
+            <p><strong>Weight:</strong> {formData.weight} (type: {typeof formData.weight})</p>
+            <p><strong>Sport:</strong> "{formData.sport}"</p>
+            <p><strong>Current Step:</strong> {step}</p>
+            <button 
+              onClick={() => {
+                localStorage.removeItem('coachFormData');
+                localStorage.removeItem('currentCoachingPlan');
+                console.log('🗑️ Cleared localStorage');
+                window.location.reload();
+              }}
+              style={{
+                background: '#ef4444',
+                color: 'white',
+                border: 'none',
+                padding: '0.5rem 1rem',
+                borderRadius: '0.25rem',
+                cursor: 'pointer',
+                marginTop: '0.5rem'
+              }}
+            >
+              Clear localStorage & Reload
+            </button>
+            <button 
+              onClick={() => {
+                const savedData = localStorage.getItem('coachFormData');
+                console.log('📦 Current localStorage data:', savedData);
+                if (savedData) {
+                  console.log('📋 Parsed data:', JSON.parse(savedData));
+                }
+              }}
+              style={{
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                padding: '0.5rem 1rem',
+                borderRadius: '0.25rem',
+                cursor: 'pointer',
+                marginTop: '0.5rem',
+                marginLeft: '0.5rem'
+              }}
+            >
+              Log localStorage Data
+            </button>
+            <button 
+              onClick={() => {
+                const testData = {
+                  name: 'Test User',
+                  age: '25',
+                  height: 175,
+                  weight: 70,
+                  sport: 'Shuttle Badminton',
+                  skillLevel: 'beginner',
+                  weeklyHours: 5,
+                  goal: 'Test goal',
+                  injuries: '',
+                  skillAssessment: null
+                };
+                setFormData(testData);
+                localStorage.setItem('coachFormData', JSON.stringify(testData));
+                console.log('🧪 Set test data with sport:', testData.sport);
+              }}
+              style={{
+                background: '#10b981',
+                color: 'white',
+                border: 'none',
+                padding: '0.5rem 1rem',
+                borderRadius: '0.25rem',
+                cursor: 'pointer',
+                marginTop: '0.5rem',
+                marginLeft: '0.5rem'
+              }}
+            >
+              Fill Test Data
+            </button>
+          </div>
+        )}
+
+        {/* Tab Navigation */}
+        <div className={styles.tabNavigation} style={{
+          display: 'flex',
+          background: '#f8fafc',
+          borderRadius: '12px',
+          padding: '4px',
+          marginBottom: '2rem',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+        }}>
+          <button
+            onClick={() => setActiveTab('generate')}
+            className={`${styles.tabButton} ${activeTab === 'generate' ? styles.activeTab : ''}`}
+            style={{
+              flex: 1,
+              padding: '12px 20px',
+              border: 'none',
+              borderRadius: '8px',
+              background: activeTab === 'generate' ? '#3b82f6' : 'transparent',
+              color: activeTab === 'generate' ? 'white' : '#64748b',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+          >
+            🚀 Generate Plan
+          </button>
+          <button
+            onClick={() => setActiveTab('calendar')}
+            className={`${styles.tabButton} ${activeTab === 'calendar' ? styles.activeTab : ''}`}
+            style={{
+              flex: 1,
+              padding: '12px 20px',
+              border: 'none',
+              borderRadius: '8px',
+              background: activeTab === 'calendar' ? '#3b82f6' : 'transparent',
+              color: activeTab === 'calendar' ? 'white' : '#64748b',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+          >
+            📅 Calendar & Schedule
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'generate' && (
+          <>
         {/* Progress Indicator */}
         <div className={styles.progressContainer}>
           <div className={styles.progressSteps}>
@@ -377,7 +837,10 @@ const CoachPage: React.FC = () => {
                 <input
                   type="number"
                   value={formData.height || ''}
-                  onChange={(e) => handleInputChange('height', Number(e.target.value))}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    handleInputChange('height', value === '' ? null : Number(value));
+                  }}
                   className={styles.formInput}
                   placeholder="e.g., 175"
                 />
@@ -388,7 +851,10 @@ const CoachPage: React.FC = () => {
                 <input
                   type="number"
                   value={formData.weight || ''}
-                  onChange={(e) => handleInputChange('weight', Number(e.target.value))}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    handleInputChange('weight', value === '' ? null : Number(value));
+                  }}
                   className={styles.formInput}
                   placeholder="e.g., 70"
                 />
@@ -398,7 +864,10 @@ const CoachPage: React.FC = () => {
                 <label className={styles.formLabel}>Primary Sport</label>
                 <select
                   value={formData.sport}
-                  onChange={(e) => handleInputChange('sport', e.target.value)}
+                  onChange={(e) => {
+                    console.log('🏃 Sport dropdown changed to:', e.target.value);
+                    handleInputChange('sport', e.target.value);
+                  }}
                   className={styles.formSelect}
                 >
                   <option value="">Select your sport</option>
@@ -406,6 +875,12 @@ const CoachPage: React.FC = () => {
                     <option key={sport} value={sport}>{sport}</option>
                   ))}
                 </select>
+                {/* Debug info for sport field */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '0.25rem' }}>
+                    Current sport value: "{formData.sport}" (type: {typeof formData.sport})
+                  </div>
+                )}
               </div>
               
               <div className={styles.formGroup}>
@@ -576,156 +1051,180 @@ const CoachPage: React.FC = () => {
         {/* Step 5: Generate Plan */}
         {step === 5 && (
           <div className={styles.formCard}>
+            {plan && (
+              <div className={styles.existingPlanBanner}>
+                <div className={styles.bannerIcon}>📋</div>
+                <div className={styles.bannerContent}>
+                  <h3>Welcome Back!</h3>
+                  <p>Your existing training plan is displayed below. You can view it, export it, or create a new one.</p>
+                </div>
+              </div>
+            )}
+            
             <h2 className={styles.formTitle}>🚀 Your Personalized Training Plan</h2>
             
             {loading ? (
-              <div className={styles.loadingDiv}>
-                <div className={styles.spinner}></div>
-                <p className={styles.loadingText}>
-                  AI Coach is analyzing your profile and creating your personalized plan...
-                </p>
-              </div>
+              <LoadingSpinner 
+                message="Generating your personalized training plan with AI Coach powered by Gemini 2.5 Pro..."
+                size="large"
+                variant="teal"
+              />
             ) : error ? (
               <div className={styles.errorCard}>
-                Error: {error}
+                <h3>❌ Error Generating Plan</h3>
+                <p>{error}</p>
+                <button
+                  onClick={() => {
+                    setError('');
+                    generatePlan();
+                  }}
+                  className={`${styles.btn} ${styles.btnPrimary}`}
+                  style={{ marginTop: '1rem' }}
+                >
+                  🔄 Try Again
+                </button>
               </div>
             ) : plan ? (
-              <div className={styles.planContainer}>
-                {plan.overview && (
-                  <div className={styles.planSection}>
-                    <h3 className={styles.planSectionTitle}>📋 Plan Overview</h3>
-                    <p className={styles.planText}>{plan.overview}</p>
+              <div>
+                {/* Debug info for plan display */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div style={{ 
+                    background: '#fef3c7', 
+                    padding: '1rem', 
+                    margin: '1rem 0', 
+                    borderRadius: '0.5rem',
+                    fontSize: '0.875rem',
+                    border: '1px solid #f59e0b'
+                  }}>
+                    <h4>🐛 Plan Display Debug:</h4>
+                    <p><strong>Form Sport:</strong> "{formData.sport}"</p>
+                    <p><strong>Form Name:</strong> "{formData.name}"</p>
+                    <p><strong>Form Age:</strong> "{formData.age}"</p>
+                    <p><strong>Form Skill Level:</strong> "{formData.skillLevel}"</p>
+                    <p><strong>Plan exists:</strong> {plan ? 'Yes' : 'No'}</p>
                   </div>
                 )}
-                
-                {plan.weekly_schedule && (
-                  <div className={styles.planSection}>
-                    <h3 className={styles.planSectionTitle}>📅 Weekly Schedule</h3>
-                    {Object.entries(plan.weekly_schedule).map(([day, workout]: [string, any]) => (
-                      <div key={day} className={styles.workoutDay}>
-                        <h4 className={styles.workoutDayTitle}>{day}</h4>
-                        {workout.exercises ? (
-                          <ul className="mt-2 text-sm">
-                            {workout.exercises.map((exercise: string, idx: number) => (
-                              <li key={idx} className={styles.exerciseItem}>• {exercise}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className={styles.exerciseItem}>{workout}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {plan.nutrition_tips && (
-                  <div className={styles.planSection}>
-                    <h3 className={styles.planSectionTitle}>🥗 Nutrition Tips</h3>
-                    {Array.isArray(plan.nutrition_tips) ? (
-                      <ul>
-                        {plan.nutrition_tips.map((tip: string, idx: number) => (
-                          <li key={idx} className={styles.planText}>• {tip}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className={styles.planText}>{plan.nutrition_tips}</p>
-                    )}
-                  </div>
-                )}
-                
-                {plan.progress_tracking && (
-                  <div className={styles.planSection}>
-                    <h3 className={styles.planSectionTitle}>📊 Progress Tracking</h3>
-                    {Array.isArray(plan.progress_tracking) ? (
-                      <ul>
-                        {plan.progress_tracking.map((item: string, idx: number) => (
-                          <li key={idx} className={styles.planText}>• {item}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className={styles.planText}>{plan.progress_tracking}</p>
-                    )}
-                  </div>
-                )}
-                
-                <div className={styles.actionButtons}>
-                  <div className={styles.buttonContainer}>
-                    <button
-                      onClick={sendWhatsAppNotification}
-                      className={`${styles.btn} ${styles.btnSuccess}`}
-                    >
-                      📱 Send to WhatsApp
-                    </button>
-                    
-                    <button
-                      onClick={() => router.push('/coach/calendar')}
-                      className={`${styles.btn} ${styles.btnIndigo}`}
-                    >
-                      📅 View Calendar
-                    </button>
-                    
-                    <button
-                      onClick={() => {
-                        setStep(1);
-                        setPlan(null);
-                        setFormData({
-                          name: '',
-                          age: '',
-                          height: null,
-                          weight: null,
-                          sport: '',
-                          skillLevel: 'beginner',
-                          weeklyHours: null,
-                          goal: '',
-                          injuries: '',
-                          skillAssessment: null
-                        });
-                      }}
-                      className={`${styles.btn} ${styles.btnSecondary}`}
-                    >
-                      🔄 Create New Plan
-                    </button>
-                    
-                    {isAdmin && (
-                      <button
-                        onClick={() => {
-                          const exportData = {
-                            timestamp: new Date().toISOString(),
-                            user: {
-                              name: formData.name,
-                              age: formData.age,
-                              sport: formData.sport,
-                              skillLevel: formData.skillLevel,
-                              goal: formData.goal
-                            },
-                            plan,
-                            adminExport: true
-                          };
-                          const dataStr = JSON.stringify(exportData, null, 2);
-                          const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                          const url = URL.createObjectURL(dataBlob);
-                          const link = document.createElement('a');
-                          link.href = url;
-                          link.download = `coach-plan-${formData.name.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.json`;
-                          link.click();
-                        }}
-                        className={`${styles.btn} ${styles.btnPrimary}`}
-                        style={{ background: 'linear-gradient(45deg, #ff6b6b, #ffd93d)', color: '#333' }}
-                      >
-                        📊 Admin Export
-                      </button>
-                    )}
-                  </div>
-                </div>
+                <PlanDisplay 
+                  plan={plan}
+                  userInfo={{
+                    name: formData.name,
+                    age: formData.age,
+                    sport: formData.sport,
+                    skillLevel: formData.skillLevel,
+                    goal: formData.goal
+                  }}
+                  onExportPDF={() => {
+                  // Show success notification for PDF export
+                  const notification = document.createElement('div');
+                  notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: linear-gradient(45deg, #10b981, #059669);
+                    color: white;
+                    padding: 1rem 1.5rem;
+                    border-radius: 0.5rem;
+                    box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+                    z-index: 9999;
+                    font-weight: 500;
+                  `;
+                  notification.textContent = '📄 PDF exported successfully!';
+                  document.body.appendChild(notification);
+                  
+                  setTimeout(() => {
+                    document.body.removeChild(notification);
+                  }, 3000);
+                }}
+              />
               </div>
             ) : (
               <div className={styles.centerDiv}>
-                <button
-                  onClick={generatePlan}
-                  className={`${styles.btn} ${styles.btnPrimary} ${styles.btnLarge}`}
-                >
-                  🤖 Generate My AI Training Plan
-                </button>
+                <div className={styles.generatePlanSection}>
+                  <div className={styles.planPreview}>
+                    <h3>🤖 AI Coach Ready</h3>
+                    <p>Your personalized training plan will include:</p>
+                    <ul className={styles.featureList}>
+                      <li>� 12-week progressive training schedule</li>
+                      <li>🎯 Sport-specific skill development</li>
+                      <li>🥗 Nutrition guidance and meal timing</li>
+                      <li>📊 Progress tracking milestones</li>
+                      <li>💪 Motivational support system</li>
+                      <li>📄 Exportable PDF format</li>
+                    </ul>
+                  </div>
+                  
+                  <button
+                    onClick={generatePlan}
+                    className={`${styles.btn} ${styles.btnPrimary} ${styles.btnLarge}`}
+                  >
+                    ⚽ Generate My AI Training Plan
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {plan && (
+              <div className={styles.actionButtons}>
+                <div className={styles.buttonContainer}>
+                  <button
+                    onClick={sendWhatsAppNotification}
+                    className={`${styles.btn} ${styles.btnSuccess}`}
+                  >
+                    📱 Send to WhatsApp
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setStep(1);
+                      setPlan(null);
+                      setFormData({
+                        name: '',
+                        age: '',
+                        height: null,
+                        weight: null,
+                        sport: '',
+                        skillLevel: 'beginner',
+                        weeklyHours: null,
+                        goal: '',
+                        injuries: '',
+                        skillAssessment: null
+                      });
+                    }}
+                    className={`${styles.btn} ${styles.btnSecondary}`}
+                  >
+                    🔄 Create New Plan
+                  </button>
+                  
+                  {isAdmin && (
+                    <button
+                      onClick={() => {
+                        const exportData = {
+                          timestamp: new Date().toISOString(),
+                          user: {
+                            name: formData.name,
+                            age: formData.age,
+                            sport: formData.sport,
+                            skillLevel: formData.skillLevel,
+                            goal: formData.goal
+                          },
+                          plan,
+                          adminExport: true
+                        };
+                        const dataStr = JSON.stringify(exportData, null, 2);
+                        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                        const url = URL.createObjectURL(dataBlob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `coach-plan-${formData.name.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.json`;
+                        link.click();
+                      }}
+                      className={`${styles.btn} ${styles.btnPrimary}`}
+                      style={{ background: 'linear-gradient(45deg, #ff6b6b, #ffd93d)', color: '#333' }}
+                    >
+                      📊 Admin Export
+                    </button>
+                  )}
+                </div>
               </div>
             )}
             
@@ -739,6 +1238,35 @@ const CoachPage: React.FC = () => {
                 </button>
               </div>
             )}
+          </div>
+        )}
+        </>
+        )}
+
+        {/* Calendar Tab */}
+        {activeTab === 'calendar' && (
+          <div style={{ marginTop: '1rem' }}>
+            <div style={{ 
+              background: 'white', 
+              borderRadius: '12px', 
+              padding: '1.5rem',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
+              marginBottom: '2rem'
+            }}>
+              <h2 style={{ 
+                margin: '0 0 1rem 0', 
+                color: '#1f2937',
+                fontSize: '1.5rem',
+                fontWeight: '600'
+              }}>
+                📅 Training Calendar & Schedule
+              </h2>
+              <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>
+                View and manage your training schedule across monthly, weekly, and daily views. 
+                Click on any day to see workout details or edit your training plan.
+              </p>
+              <FullCalendar />
+            </div>
           </div>
         )}
       </div>

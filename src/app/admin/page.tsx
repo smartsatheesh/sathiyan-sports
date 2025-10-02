@@ -465,6 +465,38 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </Grid>
+        
+        {/* Reports Analytics Card */}
+        <Grid item xs={12} sm={6} md={3}>
+          <Card
+            sx={{
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              bgcolor: "linear-gradient(135deg, #20b2aa 0%, #008080 100%)",
+              color: "white",
+              cursor: "pointer",
+              transition: "transform 0.2s ease",
+              "&:hover": {
+                transform: "translateY(-4px)",
+                boxShadow: "0 10px 25px rgba(32, 178, 170, 0.4)"
+              }
+            }}
+            onClick={() => router.push('/admin/reports')}
+          >
+            <CardContent sx={{ textAlign: "center" }}>
+              <Typography sx={{ fontSize: "2rem", mb: 1 }}>
+                📊
+              </Typography>
+              <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
+                Reports & Analytics
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                Coach Performance & Athlete Progress
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
 
       {/* Main Content */}

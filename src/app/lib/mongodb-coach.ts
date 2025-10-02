@@ -37,6 +37,8 @@ export interface GeneratedPlan {
   planType: 'basic' | 'premium' | 'expert';
   generatedAt: Date;
   isActive: boolean;
+  workoutEdits?: { [date: string]: any }; // Edited workouts by date
+  lastModified?: Date;
   metadata: {
     generationTime: number; // milliseconds
     aiModel: string; // 'gemini-2.5'
@@ -67,18 +69,27 @@ async function connectToDatabase(): Promise<{ db: Db; client: MongoClient }> {
 
   const uri = process.env.MONGODB_URI;
   if (!uri) {
-    throw new Error('MONGODB_URI is not defined');
+    throw new Error('MONGODB_URI is not defined in environment variables');
   }
 
-  const client = new MongoClient(uri);
-  await client.connect();
+  console.log("🔗 Connecting to MongoDB...");
+  console.log("🔍 URI format check:", uri.startsWith('mongodb://') || uri.startsWith('mongodb+srv://'));
   
-  const db = client.db(process.env.MONGODB_DB || 'sathiyan_sports');
-  
-  cachedClient = client;
-  cachedDb = db;
-  
-  return { client, db };
+  try {
+    const client = new MongoClient(uri);
+    await client.connect();
+    
+    const db = client.db(process.env.MONGODB_DB || 'sathiyan_sports');
+    
+    cachedClient = client;
+    cachedDb = db;
+    
+    console.log("✅ MongoDB connected successfully");
+    return { client, db };
+  } catch (error) {
+    console.error("❌ MongoDB connection failed:", error);
+    throw new Error(`MongoDB connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 export async function getCoachUsersCollection(): Promise<Collection<CoachUser>> {

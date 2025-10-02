@@ -1,0 +1,937 @@
+/* Plan Display Component Styles */
+
+.planContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: #ffffff;
+  min-height: 100vh;
+  color: #1f2937;
+}
+
+.planHeader {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding: 2rem;
+  background: linear-gradient(135deg, #20b2aa 0%, #008080 100%);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  color: white;
+}
+
+.planTitle {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: white;
+}
+
+.planMeta {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.planMeta span {
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Export Controls */
+.exportControls {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+/* View Mode Selector */
+.viewModeSelector {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 0.5rem;
+  border: 1px solid #e2e8f0;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.viewModeBtn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.viewModeBtn:hover {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.viewModeBtn.active {
+  background: linear-gradient(45deg, #20b2aa, #008080);
+  color: white;
+  box-shadow: 0 2px 8px rgba(32, 178, 170, 0.3);
+}
+
+/* Bulk Actions */
+.bulkActions {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.bulkActionLabel {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin-right: 0.5rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+.bulkActionBtn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.selectAllWeek {
+  background: linear-gradient(45deg, #10b981, #059669);
+  color: white;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.selectAllWeek:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.selectAllMonth {
+  background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+  color: white;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.selectAllMonth:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.clearAll {
+  background: linear-gradient(45deg, #ef4444, #dc2626);
+  color: white;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.clearAll:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+/* Monthly View */
+.monthlyView {
+  margin-bottom: 2rem;
+}
+
+.monthTitle {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #1f2937;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.monthGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.weekCard {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.weekCard:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.weekCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.weekCardHeader h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.weekCompleteBtn {
+  background: linear-gradient(45deg, #10b981, #059669);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.weekCompleteBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.weekCardContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dayPreview {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.dayPreviewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.dayName {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.9rem;
+}
+
+.dayCheckbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.dayPreviewContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.workoutType {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin: 0;
+  flex: 1;
+}
+
+.workoutDuration {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  background: #e5e7eb;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* Day Navigation for Daily View */
+.dayNavigation {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.dayBtn {
+  padding: 0.75rem 1rem;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #374151;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 80px;
+}
+
+.dayBtn:hover {
+  border-color: #20b2aa;
+  background: #f0fdfa;
+}
+
+.dayBtn.active {
+  background: linear-gradient(45deg, #20b2aa, #008080);
+  color: white;
+  border-color: #20b2aa;
+}
+
+.dayBtn .dayDate {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+/* Enhanced Day Cards */
+.dayCard.clickable {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.dayCard.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(32, 178, 170, 0.15);
+  border-color: #20b2aa;
+}
+
+.clickHint {
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-align: center;
+  margin-top: 0.5rem;
+  padding: 0.25rem;
+  background: #f8fafc;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.dayCard.clickable:hover .clickHint {
+  opacity: 1;
+}
+
+/* Daily View */
+.dailyView {
+  margin-bottom: 2rem;
+}
+
+.dailyHeader {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.dailyTitle {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.dailyDate {
+  font-size: 1.1rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.dailyContent {
+  display: flex;
+  justify-content: center;
+}
+
+.dailyWorkoutCard {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 600px;
+  width: 100%;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.dailyWorkoutHeader {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.dailyWorkoutHeader h4 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1rem;
+}
+
+.dailyWorkoutMeta {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.dailyWorkoutActions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+}
+
+.viewDetailsBtn {
+  background: linear-gradient(45deg, #20b2aa, #008080);
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.viewDetailsBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(32, 178, 170, 0.3);
+}
+
+.dailyCompletedCheck {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+}
+
+.dailyCompletedCheck input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.restDayMessage {
+  text-align: center;
+  padding: 2rem;
+  background: #f0f9ff;
+  border: 2px solid #bae6fd;
+  border-radius: 12px;
+  color: #0369a1;
+}
+
+.restDayMessage p {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.exportBtn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pdfBtn {
+  background: linear-gradient(45deg, #ff6b6b, #ffd93d);
+  color: #333;
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+}
+
+.pdfBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+}
+
+.pdfBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid #333;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Navigation Styles */
+.monthNavigation {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.monthBtn {
+  padding: 0.75rem 1.5rem;
+  border: 2px solid #20b2aa;
+  background: white;
+  color: #20b2aa;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.monthBtn:hover {
+  background: #20b2aa;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(32, 178, 170, 0.3);
+}
+
+.monthBtn.active {
+  background: linear-gradient(45deg, #20b2aa, #008080);
+  border-color: #20b2aa;
+  color: white;
+  box-shadow: 0 4px 15px rgba(32, 178, 170, 0.3);
+}
+
+.weekNavigation {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.weekBtn {
+  padding: 0.5rem 1rem;
+  border: 1px solid #e5e7eb;
+  background: white;
+  color: #374151;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  min-width: 80px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.weekBtn:hover {
+  background: #f3f4f6;
+  border-color: #20b2aa;
+}
+
+.weekBtn.active {
+  background: linear-gradient(45deg, #20b2aa, #008080);
+  border-color: #20b2aa;
+  color: white;
+}
+
+.weekDate {
+  display: block;
+  font-size: 0.8rem;
+  opacity: 0.8;
+  margin-top: 0.25rem;
+}
+
+/* Week Display */
+.weekDisplay {
+  background: #f8fafc;
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.weekHeader {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.weekTitle {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: #20b2aa;
+}
+
+.weekDates {
+  font-size: 1.1rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.daysGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.dayCard {
+  background: white;
+  border-radius: 12px;
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.dayCard:hover {
+  background: #f9fafb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.restDay {
+  background: #fef3cd;
+  border-color: #fbbf24;
+}
+
+.dayHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.dayName {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+  color: #20b2aa;
+}
+
+.dayDate {
+  font-size: 0.9rem;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+
+.dayContent {
+  margin-bottom: 1rem;
+}
+
+.workout {
+  font-size: 1rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #374151;
+}
+
+.dayMeta {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.duration {
+  color: #3b82f6;
+}
+
+.intensity {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 0.8rem;
+}
+
+.low {
+  background: rgba(34, 197, 94, 0.2);
+  color: #059669;
+}
+
+.medium {
+  background: rgba(251, 191, 36, 0.2);
+  color: #d97706;
+}
+
+.high {
+  background: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+}
+
+.peak {
+  background: rgba(147, 51, 234, 0.2);
+  color: #7c3aed;
+}
+
+.dayActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.completedCheck {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: #6b7280;
+}
+
+.completedCheck input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #20b2aa;
+}
+
+/* Plan Overview */
+.planOverview {
+  background: #f8fafc;
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.overviewTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: #20b2aa;
+}
+
+.overviewContent {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.overviewText {
+  margin-bottom: 1.5rem;
+  color: #374151;
+}
+
+.goalsSection h4 {
+  color: #20b2aa;
+  margin-bottom: 0.75rem;
+  font-size: 1.2rem;
+}
+
+.goalsList {
+  list-style: none;
+  padding: 0;
+}
+
+.goalsList li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e5e7eb;
+  color: #374151;
+}
+
+.goalsList li:before {
+  content: "🎯 ";
+  margin-right: 0.5rem;
+}
+
+/* Nutrition Section */
+.nutritionSection {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.sectionTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: #ffd700;
+}
+
+.nutritionGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.nutritionCard {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.nutritionCard h4 {
+  color: #60a5fa;
+  margin-bottom: 0.75rem;
+  font-size: 1.1rem;
+}
+
+.nutritionCard ul {
+  list-style: none;
+  padding: 0;
+}
+
+.nutritionCard li {
+  padding: 0.25rem 0;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.nutritionCard li:before {
+  content: "• ";
+  color: #10b981;
+  margin-right: 0.5rem;
+}
+
+.nutritionCard p {
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.5;
+}
+
+/* Progress Section */
+.progressSection {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.progressGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.progressCard {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.progressCard h4 {
+  color: #fbbf24;
+  margin-bottom: 0.75rem;
+  font-size: 1.1rem;
+}
+
+.progressCard ul {
+  list-style: none;
+  padding: 0;
+}
+
+.progressCard li {
+  padding: 0.5rem 0;
+  color: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.progressCard li:before {
+  content: "📊 ";
+  margin-right: 0.5rem;
+}
+
+/* Quotes Section */
+.quotesSection {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.quotesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.quoteCard {
+  background: linear-gradient(45deg, rgba(99, 102, 241, 0.3), rgba(168, 85, 247, 0.3));
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  text-align: center;
+}
+
+.quoteCard p {
+  font-size: 1.1rem;
+  font-style: italic;
+  color: white;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .planContainer {
+    padding: 1rem;
+  }
+  
+  .planTitle {
+    font-size: 2rem;
+  }
+  
+  .planMeta {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .monthNavigation {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .weekNavigation {
+    justify-content: center;
+  }
+  
+  .daysGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .nutritionGrid,
+  .progressGrid,
+  .quotesGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,1163 @@
+/* Full Calendar Component Styles - Teal Theme */
+
+.calendarContainer {
+  min-height: 100vh;
+  background: white;
+  padding: 2rem;
+  color: #1f2937;
+}
+
+.calendarWrapper {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Header Styles */
+.calendarHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #20b2aa 0%, #008080 100%);
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  color: white;
+}
+
+.headerContent {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.calendarIcon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.calendarTitle {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: white;
+}
+
+.calendarSubtitle {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+}
+
+.calendarInstructions {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0.5rem 0 0 0;
+  font-style: italic;
+}
+
+.headerActions {
+  display: flex;
+  gap: 1rem;
+  flex-direction: column;
+}
+
+/* Action Buttons */
+.actionBtn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.exportBtn {
+  background: linear-gradient(45deg, #f59e0b, #fbbf24);
+  color: #333;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+}
+
+.exportBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+}
+
+.exportBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.todayBtn {
+  background: linear-gradient(45deg, #14b8a6, #0891b2);
+  color: white;
+  box-shadow: 0 4px 15px rgba(20, 184, 166, 0.3);
+}
+
+.todayBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(20, 184, 166, 0.4);
+}
+
+/* Bulk Actions */
+.bulkActions {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.bulkActionBtn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.selectAllWeek {
+  background: linear-gradient(45deg, #10b981, #059669);
+  color: white;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.selectAllWeek:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.selectAllMonth {
+  background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+  color: white;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.selectAllMonth:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.clearAll {
+  background: linear-gradient(45deg, #ef4444, #dc2626);
+  color: white;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.clearAll:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.bulkActionLabel {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.backBtn {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.backBtn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.adminBtn {
+  background: linear-gradient(45deg, #8b5cf6, #7c3aed);
+  color: white;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+}
+
+.adminBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+}
+
+/* View Mode Selector */
+.viewModeSelector {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 0.5rem;
+  border: 1px solid #e2e8f0;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.viewModeBtn {
+  padding: 0.5rem 1rem;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.viewModeBtn:hover {
+  background: #e2e8f0;
+  color: #1f2937;
+}
+
+.viewModeBtn.active {
+  background: linear-gradient(45deg, #14b8a6, #0891b2);
+  color: white;
+  box-shadow: 0 2px 8px rgba(20, 184, 166, 0.3);
+}
+
+/* Calendar Navigation */
+.calendarNavigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8fafc;
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid #e2e8f0;
+}
+
+.navBtn {
+  padding: 0.75rem 1.5rem;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #1f2937;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.navBtn:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.currentMonth {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+/* Calendar Grid */
+.calendarGrid {
+  background: white;
+  border-radius: 20px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.dayHeaders {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  margin-bottom: 1rem;
+}
+
+.dayHeader {
+  padding: 1rem;
+  text-align: center;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #334155;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.daysGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: #f8fafc;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.emptyDay {
+  height: 120px;
+  background: transparent;
+}
+
+.dayCell {
+  min-height: 120px;
+  background: white;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  border: 2px solid transparent;
+  display: flex;
+  flex-direction: column;
+}
+
+.dayCell:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.dayCell.hasWorkout:hover {
+  border-color: #20b2aa;
+  box-shadow: 0 4px 12px rgba(32, 178, 170, 0.2);
+}
+
+.dayCell.hasWorkout::after {
+  content: '👁️';
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.75rem;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.dayCell.hasWorkout:hover::after {
+  opacity: 1;
+}
+
+.dayCell.today {
+  background: rgba(20, 184, 166, 0.1);
+  border-color: #14b8a6;
+  box-shadow: 0 0 15px rgba(20, 184, 166, 0.2);
+}
+
+.dayCell.selected {
+  background: rgba(59, 130, 246, 0.3);
+  border-color: #3b82f6;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+}
+
+.dayCell.hasWorkout {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.dayCell.completed {
+  background: rgba(16, 185, 129, 0.3);
+  border-color: #10b981;
+}
+
+.dayNumber {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.workoutPreview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.workoutTitle {
+  font-size: 0.8rem;
+  color: #374151;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  line-height: 1.2;
+}
+
+.workoutMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.duration {
+  font-size: 0.7rem;
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.2);
+  padding: 0.15rem 0.3rem;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.intensity {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.3rem;
+  border-radius: 4px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.intensity.low {
+  background: rgba(34, 197, 94, 0.3);
+  color: #22c55e;
+}
+
+.intensity.medium {
+  background: rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+}
+
+.intensity.high {
+  background: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.intensity.peak {
+  background: rgba(147, 51, 234, 0.3);
+  color: #9333ea;
+}
+
+.completedBadge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 1rem;
+}
+
+.restDay {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  margin-top: auto;
+  font-style: italic;
+}
+
+/* Workout Details */
+.workoutDetails {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.detailsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.selectedDateTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+}
+
+.closeBtn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.closeBtn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.restDayDetails {
+  text-align: center;
+  padding: 3rem 0;
+}
+
+.restIcon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.restDayDetails h4 {
+  font-size: 1.5rem;
+  color: white;
+  margin-bottom: 0.5rem;
+}
+
+.restDayDetails p {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.1rem;
+}
+
+.workoutDetailsContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.workoutMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.metaCard {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.metaCard h4 {
+  color: #fbbf24;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+}
+
+.metaCard p {
+  color: white;
+  margin: 0;
+  font-weight: 500;
+}
+
+.intensityBadge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.workoutDescription {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.workoutDescription h4 {
+  color: #fbbf24;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.workoutDescription p {
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.motivationCard {
+  background: linear-gradient(45deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.2));
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.motivationCard h4 {
+  color: #fbbf24;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.motivationCard p {
+  color: white;
+  font-style: italic;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.workoutActions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.completeBtn {
+  background: linear-gradient(45deg, #22c55e, #16a34a);
+  color: white;
+  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+}
+
+.completeBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+}
+
+.completedBtn {
+  background: linear-gradient(45deg, #10b981, #059669);
+  color: white;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.shareBtn {
+  background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+  color: white;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+.shareBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+/* Progress Overview */
+.progressOverview {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.progressOverview h3 {
+  color: #fbbf24;
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.progressStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.statCard {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.statNumber {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #14b8a6;
+  margin-bottom: 0.5rem;
+}
+
+.statLabel {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+}
+
+/* Quick Actions */
+.quickActions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Loading State */
+.loadingContainer {
+  min-height: 50vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  margin: 2rem;
+  padding: 3rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(32, 178, 170, 0.3);
+  border-left-color: #20b2aa;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .calendarContainer {
+    padding: 1rem;
+  }
+  
+  .calendarHeader {
+    flex-direction: column;
+    text-align: center;
+    gap: 1.5rem;
+  }
+  
+  .headerActions {
+    flex-direction: row;
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .workoutMetaGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .workoutActions {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .calendarTitle {
+    font-size: 2rem;
+  }
+  
+  .daysGrid {
+    gap: 0.5px;
+  }
+  
+  .dayCell {
+    min-height: 80px;
+    padding: 0.5rem;
+  }
+  
+  .dayNumber {
+    font-size: 1rem;
+  }
+  
+  .workoutTitle {
+    font-size: 0.7rem;
+  }
+  
+  .duration,
+  .intensity {
+    font-size: 0.6rem;
+  }
+  
+  .progressStats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .quickActions {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+/* Weekly View Styles */
+.weekView {
+  background: white;
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.weekHeader {
+  text-align: center;
+  margin-bottom: 2rem;
+  color: #1f2937;
+}
+
+.weekHeader h3 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+  color: #0891b2;
+}
+
+.weekGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1rem;
+}
+
+.weekDay {
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1rem;
+  min-height: 200px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.weekDay:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  border-color: #14b8a6;
+}
+
+.weekDay.today {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, #fef3c7, #fef7cd);
+}
+
+.weekDay.hasWorkout {
+  background: linear-gradient(135deg, #e0f2fe, #b3e5fc);
+  border-color: #0891b2;
+}
+
+.weekDay.completed {
+  background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+  border-color: #10b981;
+}
+
+.weekDayHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.dayName {
+  font-weight: 700;
+  color: #1f2937;
+  font-size: 0.9rem;
+}
+
+.dayDate {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0891b2;
+}
+
+.weekWorkoutCard {
+  background: white;
+  border-radius: 12px;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+}
+
+.weekWorkoutCard .workoutTitle {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.3;
+}
+
+.weekWorkoutCard .workoutMeta {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: 0.25rem 0;
+}
+
+.completedBadge {
+  background: linear-gradient(45deg, #10b981, #059669);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
+.restDay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-style: italic;
+  font-size: 0.9rem;
+  height: 100%;
+  text-align: center;
+}
+
+/* Daily View Styles */
+.dayView {
+  background: white;
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.dayViewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.dayViewHeader h3 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+  color: #0891b2;
+}
+
+.dayNavigation {
+  display: flex;
+  gap: 1rem;
+}
+
+.dayNavBtn {
+  padding: 0.75rem 1.5rem;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #1f2937;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.dayNavBtn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+.dayViewContent {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.dayWorkoutCard {
+  background: linear-gradient(135deg, #f0fdfa, #ccfbf1);
+  border: 2px solid #14b8a6;
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.workoutHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.workoutHeader h4 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+  color: #1f2937;
+}
+
+.completeBtn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: linear-gradient(45deg, #14b8a6, #0891b2);
+  color: white;
+}
+
+.completeBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(20, 184, 166, 0.4);
+}
+
+.completeBtn.completed {
+  background: linear-gradient(45deg, #10b981, #059669);
+}
+
+.dayWorkoutCard .workoutTitle {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 1rem;
+}
+
+.dayWorkoutCard .workoutMeta {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.dayWorkoutCard .workoutMeta span {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.equipment {
+  background: rgba(255, 255, 255, 0.8);
+  padding: 1rem;
+  border-radius: 12px;
+  margin: 1rem 0;
+  color: #1f2937;
+}
+
+.motivationSection {
+  background: linear-gradient(45deg, #fef3c7, #fde68a);
+  padding: 1.5rem;
+  border-radius: 16px;
+  margin: 1.5rem 0;
+  border: 1px solid #f59e0b;
+}
+
+.motivationSection h5 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  color: #92400e;
+}
+
+.motivationSection p {
+  margin: 0;
+  color: #78350f;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.dayActions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.detailsBtn {
+  background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+  color: white;
+}
+
+.shareBtn {
+  background: linear-gradient(45deg, #8b5cf6, #7c3aed);
+  color: white;
+}
+
+.restDayCard {
+  background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+  border: 2px solid #cbd5e1;
+  border-radius: 20px;
+  padding: 3rem;
+  text-align: center;
+  color: #475569;
+}
+
+.restDayIcon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.restDayCard h4 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0 0 1rem 0;
+  color: #334155;
+}
+
+.restDayCard p {
+  font-size: 1.1rem;
+  margin: 0 0 2rem 0;
+  color: #64748b;
+}
+
+.restDayTips {
+  background: rgba(255, 255, 255, 0.8);
+  padding: 1.5rem;
+  border-radius: 16px;
+  text-align: left;
+}
+
+.restDayTips h5 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 1rem 0;
+  color: #475569;
+}
+
+.restDayTips ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: #64748b;
+}
+
+.restDayTips li {
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+/* Responsive Updates for Weekly and Daily Views */
+@media (max-width: 1024px) {
+  .weekGrid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+  }
+  
+  .weekDay {
+    min-height: 150px;
+    padding: 0.75rem;
+  }
+  
+  .dayViewHeader {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .dayNavigation {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .weekGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .weekDay {
+    min-height: 120px;
+    padding: 0.5rem;
+  }
+  
+  .weekDayHeader {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .dayViewHeader h3 {
+    font-size: 1.5rem;
+  }
+  
+  .dayNavigation {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .dayActions {
+    flex-direction: column;
+  }
+  
+  .workoutHeader {
+    flex-direction: column;
+    text-align: center;
+  }
+}

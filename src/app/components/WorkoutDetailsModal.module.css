@@ -1,0 +1,326 @@
+/* Workout Details Modal Styles */
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+.modalContent {
+  background: white;
+  border-radius: 20px;
+  max-width: 800px;
+  max-height: 90vh;
+  width: 100%;
+  overflow: hidden;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header */
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2rem;
+  background: linear-gradient(135deg, #20b2aa 0%, #008080 100%);
+  color: white;
+}
+
+.headerInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.modalTitle {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.modalDate {
+  font-size: 1rem;
+  margin: 0.5rem 0 0 0;
+  opacity: 0.9;
+}
+
+.closeButton {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.closeButton:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+/* Body */
+.modalBody {
+  padding: 2rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+/* Workout Overview */
+.workoutOverview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.overviewItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.overviewLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.overviewValue {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.overviewValue.low {
+  color: #10b981;
+}
+
+.overviewValue.medium {
+  color: #f59e0b;
+}
+
+.overviewValue.high {
+  color: #ef4444;
+}
+
+.overviewValue.peak {
+  color: #8b5cf6;
+}
+
+/* Sections */
+.section {
+  margin-bottom: 2rem;
+}
+
+.sectionTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sectionText {
+  color: #374151;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Exercises */
+.exercisesList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.exerciseCard {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.exerciseCard:hover {
+  border-color: #20b2aa;
+  box-shadow: 0 4px 12px rgba(32, 178, 170, 0.15);
+}
+
+.exerciseHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.exerciseName {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.exerciseSpecs {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.spec {
+  background: #20b2aa;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.exerciseDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.instructions {
+  color: #374151;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.equipment {
+  color: #6b7280;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.targetMuscles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.musclesTags {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.muscleTag {
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Equipment List */
+.equipmentList {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.equipmentItem {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Footer */
+.modalFooter {
+  padding: 1.5rem 2rem;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.closeModalButton {
+  background: linear-gradient(45deg, #20b2aa, #008080);
+  color: white;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.closeModalButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(32, 178, 170, 0.3);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .modalOverlay {
+    padding: 0.5rem;
+  }
+  
+  .modalContent {
+    max-height: 95vh;
+  }
+  
+  .modalHeader {
+    padding: 1.5rem;
+  }
+  
+  .modalBody {
+    padding: 1.5rem;
+  }
+  
+  .workoutOverview {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  
+  .exerciseHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .exerciseSpecs {
+    gap: 0.5rem;
+  }
+}
