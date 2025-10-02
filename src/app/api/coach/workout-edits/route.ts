@@ -126,9 +126,13 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('📖 GET Workout edits API called');
+    
     const session = await getServerSession(authOptions);
+    console.log('👤 GET Session check:', session?.user?.id ? 'Authenticated' : 'Not authenticated');
     
     if (!session?.user?.id) {
+      console.log('❌ GET Authentication failed - no session');
       return NextResponse.json(
         { success: false, error: 'Authentication required' }, 
         { status: 401 }
@@ -137,9 +141,11 @@ export async function GET(request: NextRequest) {
 
     const url = new URL(request.url);
     const planId = url.searchParams.get('planId');
+    console.log('🔍 GET Request planId:', planId);
 
     // Get the plans collection
     const plansCollection = await getGeneratedPlansCollection();
+    console.log('🗄️ GET Got plans collection');
     
     // Find the user's plan
     let planQuery: any;
@@ -147,19 +153,28 @@ export async function GET(request: NextRequest) {
       try {
         planQuery = { _id: new ObjectId(planId), userId: session.user.id };
       } catch (error) {
-        console.log('❌ Invalid planId format, falling back to userId query');
+        console.log('❌ GET Invalid planId format, falling back to userId query');
         planQuery = { userId: session.user.id };
       }
     } else {
       planQuery = { userId: session.user.id };
     }
 
+    console.log('🔍 GET Plan query:', planQuery);
+
     const userPlan = await plansCollection.findOne(
       planQuery,
       { sort: { generatedAt: -1 } }
     );
 
+    console.log('📋 GET Found plan:', userPlan ? 'Yes' : 'No');
+    if (userPlan) {
+      console.log('📝 GET Workout edits in plan:', Object.keys(userPlan.workoutEdits || {}).length, 'edits');
+      console.log('📅 GET Available edit dates:', Object.keys(userPlan.workoutEdits || {}));
+    }
+
     if (!userPlan) {
+      console.log('❌ GET No training plan found for user');
       return NextResponse.json(
         { success: false, error: 'No training plan found for user' },
         { status: 404 }

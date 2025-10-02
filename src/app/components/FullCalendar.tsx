@@ -277,6 +277,9 @@ const FullCalendar = () => {
 
   // Apply workout edits to the generated weekly plans
   const applyWorkoutEdits = (plans: WeeklyPlan[]) => {
+    console.log('🛠️ applyWorkoutEdits called with', plans.length, 'weekly plans');
+    console.log('🛠️ Available workout edits:', Object.keys(workoutEdits));
+    
     return plans.map(week => ({
       ...week,
       days: week.days.map(day => {
@@ -284,6 +287,7 @@ const FullCalendar = () => {
           const dateString = day.date.toDateString();
           const editedWorkout = workoutEdits[dateString];
           if (editedWorkout) {
+            console.log('✏️ Applying edit for', dateString, ':', editedWorkout.type);
             return {
               ...day,
               workout: editedWorkout.type,
@@ -303,11 +307,43 @@ const FullCalendar = () => {
 
   // Update weekly plans when workout edits change
   useEffect(() => {
+    console.log('🔄 useEffect triggered - workoutEdits changed');
+    console.log('📊 Current state:', {
+      weeklyPlansLength: weeklyPlans.length,
+      workoutEditsCount: Object.keys(workoutEdits).length,
+      workoutEditsDates: Object.keys(workoutEdits)
+    });
+    
     if (weeklyPlans.length > 0 && Object.keys(workoutEdits).length > 0) {
+      console.log('✅ Applying workout edits to weekly plans...');
       const updatedPlans = applyWorkoutEdits(weeklyPlans);
       setWeeklyPlans(updatedPlans);
+    } else {
+      console.log('⏳ Not ready to apply edits yet');
     }
   }, [workoutEdits]);
+
+  // Apply workout edits when weekly plans are first generated
+  useEffect(() => {
+    console.log('🔄 useEffect triggered - weeklyPlans changed');
+    console.log('📊 Plans state:', {
+      weeklyPlansLength: weeklyPlans.length,
+      workoutEditsCount: Object.keys(workoutEdits).length
+    });
+    
+    if (weeklyPlans.length > 0 && Object.keys(workoutEdits).length > 0) {
+      console.log('✅ Weekly plans loaded, applying existing workout edits...');
+      const updatedPlans = applyWorkoutEdits(weeklyPlans);
+      // Only update if there are actual changes to prevent infinite loop
+      const hasChanges = JSON.stringify(updatedPlans) !== JSON.stringify(weeklyPlans);
+      if (hasChanges) {
+        console.log('📝 Changes detected, updating weekly plans...');
+        setWeeklyPlans(updatedPlans);
+      } else {
+        console.log('📝 No changes detected, skipping update');
+      }
+    }
+  }, [weeklyPlans.length]); // Only depend on length to avoid infinite loops
 
   const getFocusForWeek = (month: number, week: number): string => {
     const focuses = {
