@@ -126,6 +126,13 @@ const Navbar = () => {
               </Button>
             </Link>
             
+            {/* The Coach - AI Powered */}
+            <Link href="/coach" passHref>
+              <Button sx={{ color: "#fff", ml: 2 }}>
+                🤖 The Coach
+              </Button>
+            </Link>
+            
             {/* S3 Fitness Plans */}
             <Link href="/s3" passHref>
                 <Button sx={{ color: "#fff", ml: 2 }} startIcon={<i className="fa-solid fa-cube"></i>}>
@@ -304,6 +311,12 @@ const Navbar = () => {
                     <Link href="/bookslot" passHref>
                       <ListItem button onClick={toggleDrawer}>
                         <ListItemText primary="Book Slot" />
+                      </ListItem>
+                    </Link>
+                    
+                    <Link href="/coach" passHref>
+                      <ListItem button onClick={toggleDrawer}>
+                        <ListItemText primary="🤖 The Coach" />
                       </ListItem>
                     </Link>
                     

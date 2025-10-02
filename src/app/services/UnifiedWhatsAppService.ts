@@ -116,12 +116,12 @@ class UnifiedWhatsAppService {
   async sendAdminNotification(
     bookingDetails: {
       bookingReference: string;
+      customerName: string;
+      customerPhone: string;
       courtName: string;
       date: string;
       time: string;
       amount: number;
-      customerName: string;
-      customerPhone: string;
     }
   ): Promise<boolean> {
     console.log(`📱 Sending admin notification via ${this.method} method`);
@@ -129,19 +129,72 @@ class UnifiedWhatsAppService {
     switch (this.method) {
       case 'cloud':
         return await whatsAppCloudService.sendAdminNotification(bookingDetails);
-        
+      
       case 'twilio':
-        // Twilio would need admin notification method - using simple for now
+        // Twilio doesn't have admin notification, use simple
         return await simpleNotificationService.sendAdminNotification(bookingDetails);
-        
+      
       case 'url':
         const urlResult = await whatsAppURLService.sendNotification('admin', bookingDetails);
-        console.log(`🔗 Admin WhatsApp URL: ${urlResult.whatsappUrl}`);
         return urlResult.success;
-        
+      
       case 'simple':
       default:
         return await simpleNotificationService.sendAdminNotification(bookingDetails);
+    }
+  }
+
+  /**
+   * Send custom message using the configured method
+   */
+  async sendCustomMessage(phoneNumber: string, message: string): Promise<boolean> {
+    console.log(`� Sending custom message via ${this.method} method to ${phoneNumber}`);
+
+    switch (this.method) {
+      case 'cloud':
+        // Use cloud service for custom message
+        try {
+          const result = await whatsAppCloudService.sendOTP(phoneNumber, message); // Reuse OTP method for custom text
+          return result.success;
+        } catch {
+          return false;
+        }
+      
+      case 'twilio':
+        // Use Twilio for custom message
+        try {
+          const result = await twilioWhatsAppService.sendOTP(phoneNumber, message); // Reuse OTP method for custom text
+          return result.success;
+        } catch {
+          return false;
+        }
+      
+      case 'url':
+        // Generate WhatsApp URL for custom message
+        const urlResult = await whatsAppURLService.sendNotification('custom', { 
+          phoneNumber, 
+          message 
+        });
+        return urlResult.success;
+      
+      case 'simple':
+      default:
+        // Use simple notification for custom message
+        console.log('\n📱 =============== CUSTOM MESSAGE NOTIFICATION ===============');
+        console.log(`🔔 Type: CUSTOM MESSAGE`);
+        console.log(`🕐 Time: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+        console.log(`📱 Method: SIMPLE (Console + URLs)`);
+        console.log('📄 Details:');
+        console.log(`   📞 phoneNumber: ${phoneNumber}`);
+        console.log(`   💬 message: ${message}`);
+        
+        // Generate WhatsApp URL
+        const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
+        const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+        console.log(`   🔗 WhatsApp URL: ${whatsappUrl}`);
+        console.log('📱 ===================================================================\n');
+        
+        return true;
     }
   }
 

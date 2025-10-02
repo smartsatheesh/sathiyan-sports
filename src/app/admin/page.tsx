@@ -433,6 +433,38 @@ export default function AdminDashboard() {
             </Card>
           </Grid>
         ))}
+        
+        {/* Coach Admin Access Card */}
+        <Grid item xs={12} sm={6} md={3}>
+          <Card
+            sx={{
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              bgcolor: "linear-gradient(135deg, #00ACC1 0%, #0097A7 100%)",
+              color: "white",
+              cursor: "pointer",
+              transition: "transform 0.2s ease",
+              "&:hover": {
+                transform: "translateY(-4px)",
+                boxShadow: "0 10px 25px rgba(0, 172, 193, 0.4)"
+              }
+            }}
+            onClick={() => router.push('/coach/admin')}
+          >
+            <CardContent sx={{ textAlign: "center" }}>
+              <Typography sx={{ fontSize: "2rem", mb: 1 }}>
+                🤖
+              </Typography>
+              <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
+                Coach Admin
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                AI Training Plans & Analytics
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
 
       {/* Main Content */}

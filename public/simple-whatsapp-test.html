@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple WhatsApp Notifications - Sathiyan Sports</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        .container {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #25d366;
+        }
+        .header h1 {
+            color: #25d366;
+            margin-bottom: 10px;
+        }
+        .method-badge {
+            background: #25d366;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e4e6ea;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button {
+            background-color: #25d366;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            text-decoration: none;
+            display: inline-block;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #1faa52;
+        }
+        .whatsapp-btn {
+            background-color: #25d366;
+            color: white !important;
+            text-decoration: none;
+            border-radius: 25px;
+            padding: 10px 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+            margin: 5px;
+        }
+        .whatsapp-btn:hover {
+            background-color: #1faa52;
+        }
+        .message-preview {
+            background: #e8f5e8;
+            border: 1px solid #25d366;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .url-box {
+            background: #f1f3f4;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            color: #666;
+        }
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .copy-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .notification-display {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 Simple WhatsApp Notifications</h1>
+            <span class="method-badge">SIMPLE METHOD ACTIVE</span>
+            <p>Easy WhatsApp notifications with click-to-send URLs</p>
+        </div>
+
+        <div class="instructions">
+            <h3>🚀 How Simple Method Works:</h3>
+            <ol>
+                <li><strong>Automatic URLs:</strong> System generates WhatsApp URLs for each notification</li>
+                <li><strong>Click to Send:</strong> Click the WhatsApp buttons to open pre-filled messages</li>
+                <li><strong>Console Logging:</strong> All notifications are logged in the server console</li>
+                <li><strong>No API Setup:</strong> Works without any WhatsApp API configuration</li>
+            </ol>
+        </div>
+
+        <!-- Test Simple WhatsApp Generation -->
+        <div class="section">
+            <h2>🧪 Test WhatsApp URL Generation</h2>
+            
+            <div class="form-group">
+                <label for="testPhone">Phone Number:</label>
+                <input type="tel" id="testPhone" placeholder="e.g., 9876543210 or +919876543210">
+            </div>
+
+            <div class="form-group">
+                <label for="testType">Message Type:</label>
+                <select id="testType">
+                    <option value="booking">Booking Confirmation</option>
+                    <option value="otp">OTP Message</option>
+                    <option value="admin">Admin Notification</option>
+                </select>
+            </div>
+
+            <button onclick="generateWhatsAppUrls()">Generate WhatsApp URLs</button>
+            
+            <div id="urlResult" class="result"></div>
+        </div>
+
+        <!-- Test API Integration -->
+        <div class="section">
+            <h2>🔗 Test API Integration</h2>
+            <p>Test the actual API that generates console logs and URLs</p>
+            
+            <div class="form-group">
+                <label for="apiPhone">Phone Number:</label>
+                <input type="tel" id="apiPhone" placeholder="e.g., 9876543210">
+            </div>
+
+            <button onclick="testApiNotification('booking')">Test Booking API</button>
+            <button onclick="testApiNotification('otp')">Test OTP API</button>
+            <button onclick="checkServiceStatus()">Check Status</button>
+            
+            <div id="apiResult" class="result"></div>
+        </div>
+
+        <!-- Manual Booking Confirmation -->
+        <div class="section">
+            <h2>✅ Manual Booking Confirmation</h2>
+            
+            <div class="form-group">
+                <label for="bookingId">Booking ID:</label>
+                <input type="text" id="bookingId" placeholder="Enter booking ID">
+            </div>
+
+            <button onclick="confirmBookingSimple()">Confirm Booking (Simple Method)</button>
+            
+            <div id="confirmResult" class="result"></div>
+        </div>
+
+        <!-- Console Output Display -->
+        <div class="section">
+            <h2>💻 Console Output Monitor</h2>
+            <p>This will show the console output from the simple notification service:</p>
+            <div id="consoleOutput" class="notification-display">
+                Console output will appear here when notifications are sent...
+            </div>
+            <button onclick="clearConsole()">Clear Console</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <p>⏳ Processing...</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+
+        function showLoading(show = true) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        function showResult(elementId, message, type = 'info') {
+            const resultDiv = document.getElementById(elementId);
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = message;
+            resultDiv.style.display = 'block';
+        }
+
+        function appendToConsole(message) {
+            const consoleDiv = document.getElementById('consoleOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            consoleDiv.textContent += `[${timestamp}] ${message}\n`;
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        function clearConsole() {
+            document.getElementById('consoleOutput').textContent = '';
+        }
+
+        function formatPhoneNumber(phone) {
+            const clean = phone.replace(/[^0-9]/g, '');
+            if (clean.length === 10 && /^[6-9]/.test(clean)) {
+                return `91${clean}`;
+            }
+            return clean;
+        }
+
+        function generateWhatsAppUrls() {
+            const phone = document.getElementById('testPhone').value;
+            const type = document.getElementById('testType').value;
+
+            if (!phone) {
+                showResult('urlResult', '❌ Please enter a phone number', 'error');
+                return;
+            }
+
+            const formattedPhone = formatPhoneNumber(phone);
+            let customerMessage = '';
+            let adminMessage = '';
+            let customerUrl = '';
+            let adminUrl = '';
+
+            if (type === 'booking') {
+                customerMessage = `🏸 *Booking Confirmed*
+
+Hi Customer!
+
+✅ Ref: TEST-${Date.now()}
+🏟️ Court: Test Court S1
+📅 Date: ${new Date().toLocaleDateString('en-IN')}
+⏰ Time: 10:00 AM - 11:00 AM
+💰 Amount: ₹500
+
+Payment: ${getUpiId()}
+
+Thank you! 🙏`;
+
+                adminMessage = `🚨 *New Booking Alert*
+
+Customer: Test Customer (${phone})
+Booking: TEST-${Date.now()}
+Court: Test Court S1
+Date: ${new Date().toLocaleDateString('en-IN')}
+Time: 10:00 AM - 11:00 AM
+Amount: ₹500`;
+
+                customerUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(customerMessage)}`;
+                adminUrl = `https://wa.me/919787020525?text=${encodeURIComponent(adminMessage)}`;
+
+            } else if (type === 'otp') {
+                customerMessage = `🏸 *Sathiyan Sports - Password Reset*
+
+Your OTP: *123456*
+
+Valid for 10 minutes only.
+Do not share this code.
+
+Thank you! 🙏`;
+
+                customerUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(customerMessage)}`;
+
+            } else if (type === 'admin') {
+                adminMessage = `🏸 *Admin Notification*
+
+New activity on Sathiyan Sports platform.
+Customer: Test Customer (${phone})
+Time: ${new Date().toLocaleString('en-IN')}`;
+
+                adminUrl = `https://wa.me/919787020525?text=${encodeURIComponent(adminMessage)}`;
+            }
+
+            let resultHtml = '<h3>✅ WhatsApp URLs Generated:</h3>';
+
+            if (customerUrl) {
+                resultHtml += `
+                    <div style="margin: 15px 0;">
+                        <h4>📱 Customer Message:</h4>
+                        <div class="message-preview">${customerMessage}</div>
+                        <a href="${customerUrl}" target="_blank" class="whatsapp-btn">
+                            📱 Send to Customer
+                        </a>
+                        <button class="copy-btn" onclick="copyToClipboard('${customerUrl}')">Copy URL</button>
+                    </div>
+                `;
+            }
+
+            if (adminUrl) {
+                resultHtml += `
+                    <div style="margin: 15px 0;">
+                        <h4>👨‍💼 Admin Message:</h4>
+                        <div class="message-preview">${adminMessage}</div>
+                        <a href="${adminUrl}" target="_blank" class="whatsapp-btn">
+                            📱 Send to Admin
+                        </a>
+                        <button class="copy-btn" onclick="copyToClipboard('${adminUrl}')">Copy URL</button>
+                    </div>
+                `;
+            }
+
+            showResult('urlResult', resultHtml, 'success');
+            appendToConsole(`Generated ${type} URLs for ${phone}`);
+        }
+
+        async function testApiNotification(type) {
+            const phone = document.getElementById('apiPhone').value;
+
+            if (!phone) {
+                showResult('apiResult', '❌ Please enter a phone number', 'error');
+                return;
+            }
+
+            showLoading(true);
+            try {
+                const response = await fetch(`${API_BASE}/test-whatsapp`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phoneNumber: phone,
+                        type: type
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    let message = `✅ ${data.message}`;
+                    if (data.whatsappUrl) {
+                        message += `<br><br><a href="${data.whatsappUrl}" target="_blank" class="whatsapp-btn">📱 Open WhatsApp</a>`;
+                    }
+                    if (data.method) {
+                        message += `<br><strong>Method:</strong> ${data.method.toUpperCase()}`;
+                    }
+                    showResult('apiResult', message, 'success');
+                    appendToConsole(`API ${type} test sent to ${phone} - Success`);
+                } else {
+                    showResult('apiResult', `❌ ${data.message}`, 'error');
+                    appendToConsole(`API ${type} test failed - ${data.error}`);
+                }
+            } catch (error) {
+                showResult('apiResult', `❌ Network Error: ${error.message}`, 'error');
+                appendToConsole(`API ${type} test failed - ${error.message}`);
+            }
+            showLoading(false);
+        }
+
+        async function checkServiceStatus() {
+            showLoading(true);
+            try {
+                const response = await fetch(`${API_BASE}/test-whatsapp`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const status = data.status;
+                    let html = `
+                        <h3>📊 Service Status</h3>
+                        <p><strong>Current Method:</strong> ${status.currentMethod.toUpperCase()}</p>
+                        <p><strong>Service Type:</strong> ${status.service.service}</p>
+                        <p><strong>Available Methods:</strong></p>
+                        <ul>
+                            <li>Simple Console: ✅ Always Available</li>
+                            <li>URL Generation: ✅ Always Available</li>
+                            <li>Cloud API: ${status.available.cloud ? '✅' : '❌'}</li>
+                            <li>Twilio: ${status.available.twilio ? '✅' : '❌'}</li>
+                        </ul>
+                    `;
+                    showResult('apiResult', html, 'success');
+                    appendToConsole('Service status checked - All systems operational');
+                } else {
+                    showResult('apiResult', `❌ Error: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showResult('apiResult', `❌ Network Error: ${error.message}`, 'error');
+            }
+            showLoading(false);
+        }
+
+        async function confirmBookingSimple() {
+            const bookingId = document.getElementById('bookingId').value;
+
+            if (!bookingId) {
+                showResult('confirmResult', '❌ Please enter a booking ID', 'error');
+                return;
+            }
+
+            showLoading(true);
+            try {
+                const response = await fetch(`${API_BASE}/bookings/${bookingId}/confirm`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        adminConfirmation: true,
+                        paymentMethod: 'manual',
+                        notes: 'Confirmed via Simple WhatsApp Interface'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    let message = `✅ ${data.message}`;
+                    if (data.booking) {
+                        message += `<br><strong>Reference:</strong> ${data.booking.bookingReference}`;
+                        message += `<br><strong>Customer:</strong> ${data.booking.customerName} (${data.booking.customerPhone})`;
+                        
+                        // Generate WhatsApp URLs for this booking
+                        const customerMessage = `🏸 *Booking Confirmed*
+
+Hi ${data.booking.customerName}!
+
+✅ Ref: ${data.booking.bookingReference}
+🏟️ Sport: ${data.booking.sport}
+📅 Date: ${new Date(data.booking.date).toLocaleDateString('en-IN')}
+⏰ Time: ${data.booking.timeSlots.join(', ')}
+💰 Amount: ₹${data.booking.totalAmount}
+
+Payment: ${getUpiId()}
+
+Thank you! 🙏`;
+
+                        const customerUrl = `https://wa.me/${data.booking.customerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(customerMessage)}`;
+                        
+                        message += `<br><br><a href="${customerUrl}" target="_blank" class="whatsapp-btn">📱 Send Confirmation to Customer</a>`;
+                    }
+                    showResult('confirmResult', message, 'success');
+                    appendToConsole(`Booking ${bookingId} confirmed successfully`);
+                } else {
+                    showResult('confirmResult', `❌ ${data.message}`, 'error');
+                    appendToConsole(`Booking confirmation failed - ${data.message}`);
+                }
+            } catch (error) {
+                showResult('confirmResult', `❌ Network Error: ${error.message}`, 'error');
+                appendToConsole(`Booking confirmation error - ${error.message}`);
+            }
+            showLoading(false);
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('URL copied to clipboard!');
+            }).catch(() => {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('URL copied to clipboard!');
+            });
+        }
+
+        function getUpiId() {
+            return 'smartsatheesh7-1@okhdfcbank'; // From your env configuration
+        }
+
+        // Auto-check status on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            checkServiceStatus();
+            appendToConsole('Simple WhatsApp Interface loaded successfully');
+        });
+    </script>
+</body>
+</html>

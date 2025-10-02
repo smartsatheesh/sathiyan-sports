@@ -100,9 +100,17 @@ Thank you for choosing Sathiyan Sports! 🙏`;
   }
 
   /**
+   * Generate WhatsApp URL for custom message
+   */
+  generateCustomMessageUrl(phoneNumber: string, message: string): string {
+    const encodedMessage = encodeURIComponent(message);
+    return `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
+  }
+
+  /**
    * Send notification by opening WhatsApp (browser-based)
    */
-  async sendNotification(type: 'otp' | 'booking' | 'admin', data: any): Promise<{
+  async sendNotification(type: 'otp' | 'booking' | 'admin' | 'custom', data: any): Promise<{
     success: boolean;
     whatsappUrl: string;
     message: string;
@@ -122,6 +130,10 @@ Thank you for choosing Sathiyan Sports! 🙏`;
       case 'admin':
         whatsappUrl = this.generateAdminNotificationUrl(data);
         message = 'Click to notify admin';
+        break;
+      case 'custom':
+        whatsappUrl = this.generateCustomMessageUrl(data.phoneNumber, data.message);
+        message = 'Click to send custom message';
         break;
       default:
         return {

@@ -4,6 +4,7 @@
   --primary-gradient: linear-gradient(135deg, #00ACC1 0%, #0097A7 50%, #006064 100%);
   --primary-color: #00ACC1;
   --primary-dark: #006064;
+  --primary-light: rgba(0, 172, 193, 0.1);
 }
 .css-1cl7zdz {
   max-width: 50% !important;

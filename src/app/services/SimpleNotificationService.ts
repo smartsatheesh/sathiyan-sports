@@ -156,14 +156,87 @@ Amount: ₹${bookingDetails.amount}`;
    * Log notification to console with nice formatting
    */
   private logNotification(type: string, data: any) {
-    console.log('\n📱 =============== NOTIFICATION ===============');
+    const timestamp = new Date().toLocaleString('en-IN', { 
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: '2-digit', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    
+    console.log('\n📱 ================== SIMPLE WHATSAPP NOTIFICATION ==================');
     console.log(`🔔 Type: ${type}`);
-    console.log(`🕐 Time: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+    console.log(`🕐 Time: ${timestamp}`);
+    console.log(`📱 Method: SIMPLE (Console + URLs)`);
     console.log('📄 Details:');
     Object.entries(data).forEach(([key, value]) => {
-      console.log(`   ${key}: ${value}`);
+      if (key === 'phoneNumber') {
+        console.log(`   📞 ${key}: ${value}`);
+      } else if (key === 'otp') {
+        console.log(`   🔑 ${key}: ${value}`);
+      } else if (key === 'bookingReference') {
+        console.log(`   📋 ${key}: ${value}`);
+      } else if (key === 'amount') {
+        console.log(`   💰 ${key}: ₹${value}`);
+      } else {
+        console.log(`   📝 ${key}: ${value}`);
+      }
     });
-    console.log('📱 =============================================\n');
+
+    // Generate and log WhatsApp URLs
+    if (type === 'BOOKING CONFIRMATION' && data.phoneNumber) {
+      const customerMessage = `🏸 *Booking Confirmed*
+
+Hi ${data.customerName}!
+
+✅ Ref: ${data.bookingReference}
+🏟️ Court: ${data.courtName}
+📅 Date: ${data.date}
+⏰ Time: ${data.time}
+💰 Amount: ₹${data.amount}
+
+Payment: ${process.env.NEXT_PUBLIC_GPAY_UPI_ID}
+
+Thank you! 🙏`;
+
+      const customerUrl = `https://wa.me/${data.phoneNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(customerMessage)}`;
+      
+      console.log('� WhatsApp URLs Generated:');
+      console.log(`   🔗 Customer URL: ${customerUrl}`);
+      
+      // Admin notification URL
+      const adminMessage = `🚨 *New Booking Alert*
+
+Customer: ${data.customerName} (${data.phoneNumber})
+Booking: ${data.bookingReference}
+Court: ${data.courtName}
+Date: ${data.date}
+Time: ${data.time}
+Amount: ₹${data.amount}`;
+
+      const adminPhone = process.env.NEXT_PUBLIC_WHATSAPP_ADMIN_NUMBER || '919787020525';
+      const adminUrl = `https://wa.me/${adminPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(adminMessage)}`;
+      console.log(`   🔗 Admin URL: ${adminUrl}`);
+    }
+
+    if (type === 'OTP' && data.phoneNumber) {
+      const otpMessage = `🏸 *Sathiyan Sports - Password Reset*
+
+Your OTP: *${data.otp}*
+
+Valid for 10 minutes only.
+Do not share this code.
+
+Thank you! 🙏`;
+
+      const otpUrl = `https://wa.me/${data.phoneNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(otpMessage)}`;
+      console.log('📱 WhatsApp URL Generated:');
+      console.log(`   🔗 OTP URL: ${otpUrl}`);
+    }
+
+    console.log('📱 ===================================================================\n');
   }
 
   /**

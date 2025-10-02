@@ -4,7 +4,7 @@ import { createTheme } from '@mui/material/styles';
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#00ACC1',
+      main: '#00ACC1', // Teal color for navbar
     },
     secondary: {
       main: '#ffffff',
