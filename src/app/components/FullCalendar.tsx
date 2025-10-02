@@ -692,6 +692,14 @@ const FullCalendar = () => {
     const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
     const weekNumber = Math.floor((date.getTime() - new Date().getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
     
+    // FIRST: Check if there's a saved workout edit for this date
+    const dateString = date.toDateString();
+    const editedWorkout = workoutEdits[dateString];
+    if (editedWorkout) {
+      console.log('📝 Found existing workout edit for', dateString, ':', editedWorkout);
+      return editedWorkout;
+    }
+    
     // Try to get detailed info from the plan if available
     const planData = plan?.coachingPlan;
     const weeklySchedule = planData?.weeklySchedule;

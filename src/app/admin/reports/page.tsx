@@ -490,7 +490,7 @@ const AdminReportsPage = () => {
             `Sport: ${athlete.sport} | Skill Level: ${athlete.skillLevel}`,
             `Plan Progress: ${athlete.planProgress}% | Workouts: ${athlete.completedWorkouts}/${athlete.totalWorkouts}`,
             `Current Status: Month ${athlete.currentMonth}, Week ${athlete.currentWeek}`,
-            `Plan Generated: ${athlete.planGeneratedDate.toLocaleDateString('en-IN')} | Last Active: ${athlete.lastActiveDate.toLocaleDateString('en-IN')}`
+            `Plan Generated: ${athlete.planGeneratedDate ? new Date(athlete.planGeneratedDate).toLocaleDateString('en-IN') : 'Unknown'} | Last Active: ${athlete.lastActiveDate ? new Date(athlete.lastActiveDate).toLocaleDateString('en-IN') : 'Never'}`
           ];
           
           athleteInfo.forEach(info => {
@@ -1047,7 +1047,7 @@ const AdminReportsPage = () => {
                       </td>
                       <td>
                         <span className={styles.lastActive}>
-                          {athlete.lastActiveDate.toLocaleDateString('en-IN')}
+                          {athlete.lastActiveDate ? new Date(athlete.lastActiveDate).toLocaleDateString('en-IN') : 'Never'}
                         </span>
                       </td>
                       <td>

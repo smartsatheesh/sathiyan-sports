@@ -82,11 +82,9 @@ const CoachPage: React.FC = () => {
   useEffect(() => {
     const loadSavedFormData = () => {
       const savedFormData = localStorage.getItem('coachFormData');
-      console.log('🔍 Checking localStorage for coachFormData:', savedFormData);
       if (savedFormData) {
         try {
           const formDataObj = JSON.parse(savedFormData);
-          console.log('📝 Parsed form data from localStorage:', formDataObj);
           console.log('🏃 Sport from saved data:', formDataObj.sport);
           
           setFormData(prev => {
@@ -102,8 +100,6 @@ const CoachPage: React.FC = () => {
           console.error('Error parsing saved form data:', error);
           localStorage.removeItem('coachFormData'); // Clean up corrupted data
         }
-      } else {
-        console.log('❌ No saved form data found in localStorage');
       }
     };
 
@@ -200,7 +196,6 @@ const CoachPage: React.FC = () => {
     
     // Save form data to localStorage for persistence
     localStorage.setItem('coachFormData', JSON.stringify(updatedFormData));
-    console.log(`💾 Saved form data to localStorage:`, updatedFormData);
     
     // Special logging for sport field
     if (field === 'sport') {
@@ -610,96 +605,6 @@ const CoachPage: React.FC = () => {
             </div>
           )}
         </div>
-
-        {/* Debug Section - Remove in production */}
-        {process.env.NODE_ENV === 'development' && (
-          <div style={{ 
-            background: '#f3f4f6', 
-            padding: '1rem', 
-            margin: '1rem 0', 
-            borderRadius: '0.5rem',
-            fontSize: '0.875rem'
-          }}>
-            <h4>🐛 Debug Info:</h4>
-            <p><strong>Name:</strong> "{formData.name}"</p>
-            <p><strong>Age:</strong> "{formData.age}"</p>
-            <p><strong>Height:</strong> {formData.height} (type: {typeof formData.height})</p>
-            <p><strong>Weight:</strong> {formData.weight} (type: {typeof formData.weight})</p>
-            <p><strong>Sport:</strong> "{formData.sport}"</p>
-            <p><strong>Current Step:</strong> {step}</p>
-            <button 
-              onClick={() => {
-                localStorage.removeItem('coachFormData');
-                localStorage.removeItem('currentCoachingPlan');
-                console.log('🗑️ Cleared localStorage');
-                window.location.reload();
-              }}
-              style={{
-                background: '#ef4444',
-                color: 'white',
-                border: 'none',
-                padding: '0.5rem 1rem',
-                borderRadius: '0.25rem',
-                cursor: 'pointer',
-                marginTop: '0.5rem'
-              }}
-            >
-              Clear localStorage & Reload
-            </button>
-            <button 
-              onClick={() => {
-                const savedData = localStorage.getItem('coachFormData');
-                console.log('📦 Current localStorage data:', savedData);
-                if (savedData) {
-                  console.log('📋 Parsed data:', JSON.parse(savedData));
-                }
-              }}
-              style={{
-                background: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                padding: '0.5rem 1rem',
-                borderRadius: '0.25rem',
-                cursor: 'pointer',
-                marginTop: '0.5rem',
-                marginLeft: '0.5rem'
-              }}
-            >
-              Log localStorage Data
-            </button>
-            <button 
-              onClick={() => {
-                const testData = {
-                  name: 'Test User',
-                  age: '25',
-                  height: 175,
-                  weight: 70,
-                  sport: 'Shuttle Badminton',
-                  skillLevel: 'beginner',
-                  weeklyHours: 5,
-                  goal: 'Test goal',
-                  injuries: '',
-                  skillAssessment: null
-                };
-                setFormData(testData);
-                localStorage.setItem('coachFormData', JSON.stringify(testData));
-                console.log('🧪 Set test data with sport:', testData.sport);
-              }}
-              style={{
-                background: '#10b981',
-                color: 'white',
-                border: 'none',
-                padding: '0.5rem 1rem',
-                borderRadius: '0.25rem',
-                cursor: 'pointer',
-                marginTop: '0.5rem',
-                marginLeft: '0.5rem'
-              }}
-            >
-              Fill Test Data
-            </button>
-          </div>
-        )}
 
         {/* Tab Navigation */}
         <div className={styles.tabNavigation} style={{

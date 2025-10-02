@@ -101,15 +101,15 @@ const MyPlanPage: React.FC = () => {
       </div>
 
       <div className={styles.planContainer}>
-        {plan ? (
+        {plan && plan.athleteProfile ? (
           <PlanDisplay 
             plan={plan} 
             userInfo={{
-              name: plan.athleteProfile.name,
-              age: plan.athleteProfile.age.toString(),
-              sport: plan.athleteProfile.sport,
-              skillLevel: plan.athleteProfile.skillLevel,
-              goal: plan.athleteProfile.goal
+              name: plan.athleteProfile?.name || 'Unknown',
+              age: plan.athleteProfile?.age?.toString() || '0',
+              sport: plan.athleteProfile?.sport || 'General',
+              skillLevel: plan.athleteProfile?.skillLevel || 'Beginner',
+              goal: plan.athleteProfile?.goal || 'Fitness'
             }}
           />
         ) : (
