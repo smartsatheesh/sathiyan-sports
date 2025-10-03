@@ -134,8 +134,27 @@ const Navbar = () => {
             {/* The Coach - AI Powered - Admin/Coach only */}
             {hasCoachAccess && (
               <Link href="/coach" passHref>
-                <Button sx={{ color: "#fff", ml: 2 }}>
-                  🤖 The Coach
+                <Button 
+                  sx={{ 
+                    color: "#fff", 
+                    ml: 2,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1
+                  }}
+                  startIcon={
+                    <img 
+                      src="/sir-alex-anime.png" 
+                      alt="Sir Alex" 
+                      style={{ 
+                        width: "20px", 
+                        height: "20px", 
+                        borderRadius: "4px" 
+                      }} 
+                    />
+                  }
+                >
+                  The Coach
                 </Button>
               </Link>
             )}
@@ -325,7 +344,22 @@ const Navbar = () => {
                     {hasCoachAccess && (
                       <Link href="/coach" passHref>
                         <ListItem button onClick={toggleDrawer}>
-                          <ListItemText primary="🤖 The Coach" />
+                          <ListItemText 
+                            primary={
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <img 
+                                  src="/sir-alex-anime.png" 
+                                  alt="Sir Alex" 
+                                  style={{ 
+                                    width: "16px", 
+                                    height: "16px", 
+                                    borderRadius: "3px" 
+                                  }} 
+                                />
+                                The Coach
+                              </Box>
+                            } 
+                          />
                         </ListItem>
                       </Link>
                     )}

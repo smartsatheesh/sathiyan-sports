@@ -540,7 +540,7 @@ const CoachPage: React.FC = () => {
             }}>
               <h2 style={{ color: '#dc2626', marginBottom: '1rem' }}>🚫 Access Restricted</h2>
               <p style={{ color: '#7f1d1d' }}>
-                The Coach feature is only available for coaches and administrators.
+                Sathiyan Sports AI Coach is only available for coaches and administrators.
               </p>
               <button 
                 onClick={() => router.push('/')}
@@ -587,9 +587,9 @@ const CoachPage: React.FC = () => {
             />
             <span style={{ display: 'none', fontSize: '2rem' }}>🤖</span>
           </div>
-          <h1 className={styles.coachTitle}>The Coach</h1>
-          <p className={styles.coachSubtitle}>AI-Powered Personal Sports & Fitness Coach</p>
-          <p className={styles.coachDescription}>Powered by Gemini 2.5 • Personalized Training Plans</p>
+          <h1 className={styles.coachTitle}>Sathiyan Sports AI Coach</h1>
+          <p className={styles.coachSubtitle}>Legendary Coaching Excellence Powered by AI</p>
+          <p className={styles.coachDescription}>Inspired by Sir Alex Ferguson • Personalized Training Plans</p>
           {isAdmin && (
             <div style={{ 
               marginTop: '0.5rem', 
@@ -634,7 +634,7 @@ const CoachPage: React.FC = () => {
               gap: '8px'
             }}
           >
-            🚀 Generate Plan
+            🏆 Generate Sathiyan Plan
           </button>
           <button
             onClick={() => setActiveTab('calendar')}
@@ -970,7 +970,7 @@ const CoachPage: React.FC = () => {
             
             {loading ? (
               <LoadingSpinner 
-                message="Generating your personalized training plan with AI Coach powered by Gemini 2.5 Pro..."
+                message="Generating your personalized training plan with Sathiyan Sports AI Coach powered by Gemini 2.5 Pro..."
                 size="large"
                 variant="teal"
               />
@@ -1046,7 +1046,7 @@ const CoachPage: React.FC = () => {
               <div className={styles.centerDiv}>
                 <div className={styles.generatePlanSection}>
                   <div className={styles.planPreview}>
-                    <h3>🤖 AI Coach Ready</h3>
+                    <h3>🏆 Sathiyan Sports AI Coach Ready</h3>
                     <p>Your personalized training plan will include:</p>
                     <ul className={styles.featureList}>
                       <li>� 12-week progressive training schedule</li>

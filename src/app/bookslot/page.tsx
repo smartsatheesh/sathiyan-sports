@@ -1397,7 +1397,7 @@ export default function BookSlot() {
           {alert.message}
         </Alert>
       )}
-      <Container maxWidth="xl" sx={{ height: "100%", py: 2 }}>
+      <Container maxWidth="xl" sx={{ height: "100%", py: 2, mt: 8 }}>
         <Box className="book-slot-content-wrapper">
           <Typography
             variant="h4"

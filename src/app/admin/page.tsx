@@ -338,7 +338,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4, textAlign: 'center' }}>
+      <Container maxWidth="lg" sx={{ py: 4, mt: 8, textAlign: 'center' }}>
         <CircularProgress size={60} />
         <Typography sx={{ mt: 2 }}>Loading dashboard data...</Typography>
       </Container>
@@ -347,7 +347,7 @@ export default function AdminDashboard() {
 
   if (error) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Container maxWidth="lg" sx={{ py: 4, mt: 8 }}>
         <Alert severity="error" action={
           <Button color="inherit" onClick={fetchData}>
             Retry
@@ -360,7 +360,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: 4, mt: 8 }}>
       {/* Alert Display */}
       {alert && (
         <Alert 

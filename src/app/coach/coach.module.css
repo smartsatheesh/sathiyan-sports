@@ -3,12 +3,14 @@
   min-height: 100vh;
   background: linear-gradient(135deg, #00ACC1 0%, #0097A7 100%);
   padding: 2rem 1rem;
+  margin-top: 64px;
 }
 
 .coachContainer {
   min-height: 100vh;
   background: #f8fafc;
   padding: 2rem 1rem;
+  margin-top: 64px;
 }
 
 .coach-wrapper {

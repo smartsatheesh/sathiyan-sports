@@ -202,7 +202,7 @@ export default function ProfilePage() {
 
   if (status === "loading" || loading) {
     return (
-      <Container maxWidth="md" sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
+      <Container maxWidth="md" sx={{ mt: 8, display: 'flex', justifyContent: 'center' }}>
         <CircularProgress />
       </Container>
     );
@@ -213,7 +213,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth="md" sx={{ mt: 8, mb: 4 }}>
       <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 4 }}>
         My Profile
       </Typography>
