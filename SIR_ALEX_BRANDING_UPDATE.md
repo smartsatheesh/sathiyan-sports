@@ -2,11 +2,7 @@
 
 ## ✅ **COMPLETED CHANGES**
 
-### 🖼️ **Logo & Branding Updates**
-1. **Logo Changed**: Updated from `logo2.jpeg` to `sir-alex-anime.png`
-   - Desktop navbar logo
-   - Mobile drawer logo
-   - Favicon in layout.tsx
+
 
 2. **Brand Name**: Changed from "Sathiyan Sports" to "Sir Alex Sports"
    - Navbar text
