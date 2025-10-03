@@ -7,7 +7,7 @@ import Navbar from "./components/Navbar";
 
 export const metadata: Metadata = {
   title: "Sathiyan Sports",
-  description: "Multi-sport slot booking app",
+  description: "Multi-sport training and coaching platform inspired by legendary coaching excellence",
 };
 
 export default function RootLayout({

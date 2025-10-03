@@ -104,9 +104,11 @@ const Navbar = () => {
                 alt="Sathiyan Sports Logo"
                 className="navbar-logo-img"
               />
-              <Typography 
-                variant="h6" 
+              <Typography
                 className="navbar-logo-text"
+                variant="h5"
+                noWrap
+                component="span"
               >
                 SATHIYAN SPORTS
               </Typography>

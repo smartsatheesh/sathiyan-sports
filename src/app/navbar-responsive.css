@@ -10,7 +10,7 @@
   right: 0 !important;
   z-index: 1300 !important;
   width: 100% !important;
-  background-color: #00ACC1 !important;
+  background-color: var(--primary-teal) !important;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
   height: 64px !important;
   max-height: 64px !important;
@@ -168,13 +168,13 @@
 
 .navbar-drawer-logo-text {
   font-weight: 700 !important;
-  color: #00ACC1 !important;
+  color: var(--primary-teal) !important;
 }
 
 .navbar-drawer-user-info {
   margin-bottom: 16px !important;
   padding: 16px !important;
-  background-color: #00ACC1 !important;
+  background-color: var(--primary-teal) !important;
   border-radius: 8px !important;
 }
 
