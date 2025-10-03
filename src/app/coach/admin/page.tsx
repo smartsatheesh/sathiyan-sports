@@ -111,23 +111,45 @@ const CoachAdminPage = () => {
   return (
     <div style={{ 
       minHeight: '100vh', 
-      background: '#f8fafc',
-      padding: '2rem 1rem'
+      background: 'var(--primary-gradient)',
+      padding: '2rem 1rem',
+      marginTop: '64px'
     }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{ 
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: 'rgba(255, 255, 255, 0.15)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
           padding: '2rem',
           borderRadius: '1rem',
           marginBottom: '2rem',
           color: 'white',
-          textAlign: 'center'
+          textAlign: 'center',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
         }}>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
-            🤖 Coach Admin Dashboard
-          </h1>
-          <p>Manage AI-powered coaching data and analytics</p>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            gap: '1rem', 
+            marginBottom: '1rem' 
+          }}>
+            <img 
+              src="/sir-alex-anime.png" 
+              alt="Sir Alex Ferguson Sports" 
+              style={{ 
+                height: '60px', 
+                width: '60px', 
+                borderRadius: '12px', 
+                border: '3px solid rgba(255,255,255,0.3)'
+              }} 
+            />
+            <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', margin: 0 }}>
+              Sir Alex Sports Coach Admin Dashboard
+            </h1>
+          </div>
+          <p>Legendary Coaching Excellence • AI-powered coaching data and analytics</p>
         </div>
 
         {/* Tabs */}
