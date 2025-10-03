@@ -372,18 +372,45 @@ export default function AdminDashboard() {
         </Alert>
       )}
 
-      <Typography
-        variant="h3"
-        align="center"
-        gutterBottom
-        sx={{
-          fontWeight: 800,
-          color: "primary.main",
-          mb: 4,
-        }}
-      >
-        Admin Dashboard
-      </Typography>
+      {/* Sir Alex Sports Header */}
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        mb: 4,
+        background: 'var(--primary-gradient)',
+        borderRadius: '20px',
+        padding: '2rem',
+        color: 'white',
+        boxShadow: '0 4px 16px var(--shadow-color)'
+      }}>
+        <img 
+          src="/sir-alex-anime.png" 
+          alt="Sir Alex Ferguson Sports" 
+          style={{ 
+            height: '60px', 
+            width: '60px', 
+            borderRadius: '12px', 
+            marginRight: '1rem',
+            border: '3px solid rgba(255,255,255,0.3)'
+          }} 
+        />
+        <Box>
+          <Typography
+            variant="h3"
+            sx={{
+              fontWeight: 800,
+              color: "white",
+              mb: 0.5,
+            }}
+          >
+            Sathiyan Sports Admin
+          </Typography>
+          <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.9)', fontStyle: 'italic' }}>
+            Coaching Excellence Dashboard
+          </Typography>
+        </Box>
+      </Box>
 
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>

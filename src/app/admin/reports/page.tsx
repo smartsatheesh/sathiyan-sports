@@ -822,9 +822,16 @@ const AdminReportsPage = () => {
       <div className={styles.wrapper}>
         {/* Header */}
         <div className={styles.header}>
-          <div className={styles.headerIcon}>📊</div>
-          <h1 className={styles.title}>Admin Dashboard</h1>
-          <p className={styles.subtitle}>Coach Performance & Athlete Progress Reports</p>
+          <div className={styles.headerIconContainer}>
+            <img 
+              src="/sir-alex-anime.png" 
+              alt="Sir Alex Ferguson Sports" 
+              className={styles.headerLogo}
+            />
+            <div className={styles.headerIcon}>📊</div>
+          </div>
+          <h1 className={styles.title}>Sathiyan Sports Admin</h1>
+          <p className={styles.subtitle}>Coaching Excellence Dashboard - Performance & Progress Reports</p>
         </div>
 
         {/* Controls */}

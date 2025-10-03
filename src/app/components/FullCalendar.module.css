@@ -567,21 +567,21 @@
 }
 
 .motivationCard {
-  background: linear-gradient(45deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.2));
+  background: var(--teal-gradient-subtle);
   border-radius: 12px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  border: 1px solid var(--primary-teal-lighter);
 }
 
 .motivationCard h4 {
-  color: #fbbf24;
+  color: var(--primary-teal-dark);
   margin-bottom: 1rem;
   font-size: 1.2rem;
 }
 
 .motivationCard p {
-  color: white;
+  color: var(--primary-teal-dark);
   font-style: italic;
   font-size: 1.1rem;
   line-height: 1.5;
@@ -1015,23 +1015,23 @@
 }
 
 .motivationSection {
-  background: linear-gradient(45deg, #fef3c7, #fde68a);
+  background: var(--teal-gradient-subtle);
   padding: 1.5rem;
   border-radius: 16px;
   margin: 1.5rem 0;
-  border: 1px solid #f59e0b;
+  border: 1px solid var(--primary-teal-lighter);
 }
 
 .motivationSection h5 {
   font-size: 1.1rem;
   font-weight: 700;
   margin: 0 0 0.5rem 0;
-  color: #92400e;
+  color: var(--primary-teal-dark);
 }
 
 .motivationSection p {
   margin: 0;
-  color: #78350f;
+  color: var(--primary-teal-dark);
   font-style: italic;
   line-height: 1.5;
 }
