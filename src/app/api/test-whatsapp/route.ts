@@ -1,11 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/lib/authConfig";
 import unifiedWhatsAppService from "../../services/UnifiedWhatsAppService";
 
 /**
  * Test WhatsApp notification endpoint
  * Use this to test WhatsApp integration
+ * ADMIN ONLY - Disabled in production
  */
 export async function POST(req: NextRequest) {
+  // Disable in production environment
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { message: "Test routes are disabled in production", success: false },
+      { status: 403 }
+    );
+  }
+
+  // Check admin authentication
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user || session.user.role !== 'admin') {
+    return NextResponse.json(
+      { message: "Admin access required", success: false },
+      { status: 401 }
+    );
+  }
+
   try {
     const body = await req.json();
     const { 

@@ -1,7 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/lib/authConfig";
 import whatsAppCloudService from '@/app/services/WhatsAppCloudService';
 
 export async function GET(request: NextRequest) {
+  // Disable in production environment
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { message: "Test routes are disabled in production", success: false },
+      { status: 403 }
+    );
+  }
+
+  // Check admin authentication
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user || session.user.role !== 'admin') {
+    return NextResponse.json(
+      { message: "Admin access required", success: false },
+      { status: 401 }
+    );
+  }
+
   try {
     console.log('🧪 Testing WhatsApp Cloud API...');
     
@@ -63,6 +83,24 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Disable in production environment
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { message: "Test routes are disabled in production", success: false },
+      { status: 403 }
+    );
+  }
+
+  // Check admin authentication
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user || session.user.role !== 'admin') {
+    return NextResponse.json(
+      { message: "Admin access required", success: false },
+      { status: 401 }
+    );
+  }
+
   try {
     const { mobile, testType = 'template' } = await request.json();
 

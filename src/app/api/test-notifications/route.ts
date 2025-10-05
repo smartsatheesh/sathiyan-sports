@@ -1,8 +1,28 @@
 // Test Notifications API Route
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/lib/authConfig";
 import { NotificationService } from '@/app/services/notificationService';
 
 export async function POST(request: NextRequest) {
+  // Disable in production environment
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { message: "Test routes are disabled in production", success: false },
+      { status: 403 }
+    );
+  }
+
+  // Check admin authentication
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user || session.user.role !== 'admin') {
+    return NextResponse.json(
+      { message: "Admin access required", success: false },
+      { status: 401 }
+    );
+  }
+
   try {
     const { testType, user } = await request.json();
 
