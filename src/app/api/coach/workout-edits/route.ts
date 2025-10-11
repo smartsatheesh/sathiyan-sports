@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../lib/authConfig';
-import { getCoachUsersCollection, getGeneratedPlansCollection } from '../../../lib/mongodb-coach';
+import { getCoachUsersCollection, getGeneratedPlansCollection } from '../../../server/mongodb';
 import { ObjectId } from 'mongodb';
 
 export async function POST(request: NextRequest) {

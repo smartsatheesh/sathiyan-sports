@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import connectDB from "../../../server/Mongo";
+import { connectToMongoose } from "@/app/server/mongodb";
 import Booking from "../../../models/Booking";
 // import { NotificationService } from "../../../services/notificationService";
 import { format } from "date-fns";
@@ -9,7 +9,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    await connectDB();
+    await connectToMongoose();
     
     const bookingId = params.id;
     const body = await req.json();
@@ -134,7 +134,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    await connectDB();
+    await connectToMongoose();
     
     const bookingId = params.id;
     const booking = await (Booking.findById as any)(bookingId);

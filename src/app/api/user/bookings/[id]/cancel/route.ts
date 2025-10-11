@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/lib/authConfig";
-import connectDB from "@/app/server/Mongo";
+import { connectToMongoose } from "@/app/server/mongodb";
 import Booking from "@/app/models/Booking";
 
 export async function PUT(
@@ -17,7 +17,7 @@ export async function PUT(
 
     const bookingId = params.id;
 
-    await connectDB();
+    await connectToMongoose();
 
     // Find the booking and verify ownership
     const booking = await (Booking.findOne as any)({

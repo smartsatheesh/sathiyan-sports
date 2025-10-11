@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import connectDB from "../../server/Mongo";
+import { connectToMongoose } from "@/app/server/mongodb";
 import Booking from "../../models/Booking";
 import { format, startOfDay, endOfDay } from "date-fns";
 // COMMENTED OUT: Notification services (Twilio/Firebase)
@@ -9,7 +9,7 @@ import { format, startOfDay, endOfDay } from "date-fns";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    await connectDB();
+    await connectToMongoose();
 
     const {
       sport,
@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
 // GET - Fetch booked slots for a specific date and sport
 export async function GET(req: NextRequest) {
   try {
-    await connectDB();
+    await connectToMongoose();
 
     const { searchParams } = new URL(req.url);
     const sport = searchParams.get("sport");

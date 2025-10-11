@@ -1,11 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
-import connectDB from "../../../server/Mongo";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../../../lib/authConfig';
+import { connectToMongoose } from '@/app/server/mongodb';
 import Contact from "../../../models/Contact";
 
 // GET - Fetch all contacts (for admin)
 export async function GET(req: NextRequest) {
   try {
-    await connectDB();
+    await connectToMongoose();
 
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get("page") || "1");
@@ -60,7 +62,7 @@ export async function GET(req: NextRequest) {
 // PUT - Update contact status
 export async function PUT(req: NextRequest) {
   try {
-    await connectDB();
+    await connectToMongoose();
 
     const body = await req.json();
     const { contactId, status } = body;

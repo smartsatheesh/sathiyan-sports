@@ -5,7 +5,7 @@ import {
   getCoachUsersCollection, 
   getGeneratedPlansCollection, 
   getCoachSessionsCollection
-} from '../../../lib/mongodb-coach';
+} from '../../../server/mongodb';
 
 export async function GET(request: NextRequest) {
   try {

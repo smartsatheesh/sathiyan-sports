@@ -1,14 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../lib/authConfig';
-import { 
-  getCoachUsersCollection, 
-  getGeneratedPlansCollection, 
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/lib/authConfig";
+import { CoachUser } from '../../../models/CoachUser';
+import { GeneratedPlan } from '../../../models/GeneratedPlan';
+import { CoachSession } from '../../../models/CoachSession';
+import {
+  getCoachUsersCollection,
+  getGeneratedPlansCollection,
   getCoachSessionsCollection,
-  type CoachUser,
-  type GeneratedPlan,
-  type CoachSession
-} from '../../../lib/mongodb-coach';
+} from '../../../server/mongodb';
 
 export async function POST(request: NextRequest) {
   try {

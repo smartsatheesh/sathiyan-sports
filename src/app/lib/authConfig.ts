@@ -3,7 +3,7 @@ import GoogleProvider from 'next-auth/providers/google';
 import FacebookProvider from 'next-auth/providers/facebook';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
-import connectDB from '@/app/server/Mongo';
+import { connectToMongoose } from '@/app/server/mongodb';
 import User from '@/app/models/User';
 import { JWT } from 'next-auth/jwt';
 import { Session } from 'next-auth';
@@ -76,7 +76,7 @@ export const authOptions: AuthOptions = {
 
         try {
           console.log('🔌 Connecting to database...');
-          await connectDB();
+          await connectToMongoose();
           
           console.log('🔍 Looking for user with mobile:', credentials.mobile);
           // Find user by mobile number
@@ -126,7 +126,7 @@ export const authOptions: AuthOptions = {
   callbacks: {
     async signIn({ user, account, profile }: { user: NextAuthUser; account: Account | null; profile?: Profile }) {
       try {
-        await connectDB();
+        await connectToMongoose();
         
         // Handle OAuth providers (Google/Facebook) only if they exist
         if (account?.provider === 'google' || account?.provider === 'facebook') {

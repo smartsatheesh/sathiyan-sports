@@ -126,7 +126,6 @@ export default function Home() {
   const [slideDirection, setSlideDirection] = useState("right");
   const [shouldLoad3D, setShouldLoad3D] = useState(false);
   const [shouldLoadCarousel3D, setShouldLoadCarousel3D] = useState(false);
-  const [disable3D, setDisable3D] = useState(false);
   const prevSection = useRef("home");
   const carouselRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
@@ -153,15 +152,6 @@ export default function Home() {
 
   // Progressive loading strategy
   useEffect(() => {
-    // Check for reduced motion preference or low-end device
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const isLowEndDevice = navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4;
-    
-    if (prefersReducedMotion || isLowEndDevice) {
-      setDisable3D(true);
-      return;
-    }
-
     // Load main 3D scene after a short delay to prioritize initial content
     const timer1 = setTimeout(() => {
       setShouldLoad3D(true);
@@ -227,16 +217,16 @@ export default function Home() {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    opacity: !disable3D && shouldLoad3D ? 1 : 0,
+                    opacity: shouldLoad3D ? 1 : 0,
                     transition: 'opacity 0.8s ease-in-out',
                     zIndex: 1
                   }}
                 >
-                  {!disable3D && shouldLoad3D && <ThreeJSSportsScene />}
+                  {shouldLoad3D && <ThreeJSSportsScene />}
                 </Box>
                 
                 {/* Loading indicator */}
-                {!disable3D && !shouldLoad3D && (
+                {!shouldLoad3D && (
                   <Box
                     sx={{
                       position: 'absolute',
@@ -267,67 +257,6 @@ export default function Home() {
                     textAlign: 'center'
                   }}
                 >
-                  {/* Performance toggle */}
-                  <Box sx={{ position: 'absolute', top: -16, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    {!disable3D ? (
-                      <Tooltip title="Disable 3D for faster loading" placement="left">
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => setDisable3D(true)}
-                          sx={{
-                            fontSize: '0.7rem',
-                            py: 0.5,
-                            px: 1,
-                            backgroundColor: alpha('#ffffff', 0.9),
-                            borderColor: alpha('#000000', 0.3),
-                            color: '#666',
-                            '&:hover': {
-                              backgroundColor: '#ffffff',
-                              borderColor: '#000000'
-                            }
-                          }}
-                        >
-                          Fast Mode
-                        </Button>
-                      </Tooltip>
-                    ) : (
-                      <Tooltip title="Enable 3D animations and interactive experience" placement="left">
-                        <Button
-                          size="small"
-                          variant="contained"
-                          onClick={() => {
-                            setDisable3D(false);
-                            // Reset the loading states to trigger fresh load
-                            setShouldLoad3D(false);
-                            setShouldLoadCarousel3D(false);
-                            
-                            // Then start loading after a small delay
-                            setTimeout(() => {
-                              setShouldLoad3D(true);
-                              setShouldLoadCarousel3D(true);
-                            }, 100);
-                          }}
-                          sx={{
-                            fontSize: '0.7rem',
-                            py: 0.5,
-                            px: 1,
-                            background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                            color: 'white',
-                            '&:hover': {
-                              background: `linear-gradient(45deg, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
-                              transform: 'translateY(-1px)',
-                              boxShadow: theme.shadows[4]
-                            },
-                            transition: 'all 0.3s ease'
-                          }}
-                        >
-                          ✨ Animation Mode
-                        </Button>
-                      </Tooltip>
-                    )}
-                  </Box>
-
                   <Typography
                     variant="h3"
                     sx={{
@@ -462,9 +391,9 @@ export default function Home() {
                   position: 'relative'
                 }}
               >
-                {!disable3D && shouldLoadCarousel3D ? (
+                {shouldLoadCarousel3D ? (
                   <CarouselBackground3D />
-                ) : !disable3D ? (
+                ) : (
                   <Box
                     sx={{
                       height: "400px",
@@ -481,7 +410,7 @@ export default function Home() {
                       </Typography>
                     </Box>
                   </Box>
-                ) : null}
+                )}
                 <Carousel />
               </Paper>
             </Container>

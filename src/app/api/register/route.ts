@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import connectDB from "@/app/server/Mongo";
+import { connectToMongoose } from "@/app/server/mongodb";
 import User from "@/app/models/User";
 import emailService from "@/app/lib/emailService";
 
 export async function POST(req: Request) {
   try {
-    await connectDB();
+    await connectToMongoose();
     const body = await req.json();
 
     // Validate required fields

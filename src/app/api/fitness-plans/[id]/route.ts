@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/app/server/Mongo';
+import { connectToMongoose } from '@/app/server/mongodb';
 import FitnessEnrollment from '@/app/models/FitnessEnrollment';
 
 // GET - Fetch enrollment details by ID
@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    await connectDB();
+    await connectToMongoose();
     
     const enrollmentId = params.id;
     const enrollment = await (FitnessEnrollment.findOne as any)({ enrollmentId });
@@ -40,7 +40,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    await connectDB();
+    await connectToMongoose();
     
     const enrollmentId = params.id;
     const body = await request.json();
@@ -117,7 +117,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    await connectDB();
+    await connectToMongoose();
     
     const enrollmentId = params.id;
     const enrollment = await (FitnessEnrollment.findOne as any)({ enrollmentId });

@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../lib/authConfig';
-import { 
-  getCoachUsersCollection, 
-  getGeneratedPlansCollection, 
-  getCoachSessionsCollection
-} from '../../../lib/mongodb-coach';
+import { CoachUser } from '../../../models/CoachUser';
+import { GeneratedPlan } from '../../../models/GeneratedPlan';
+import {
+  getCoachUsersCollection,
+  getGeneratedPlansCollection,
+  getCoachSessionsCollection,
+} from '../../../server/mongodb';
 
 export async function GET(request: NextRequest) {
   try {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import connectDB from "@/app/server/Mongo";
+import { connectToMongoose } from "@/app/server/mongodb";
 import User from "@/app/models/User";
 import crypto from "crypto";
 import emailService from "@/app/lib/emailService";
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await connectDB();
+    await connectToMongoose();
 
     const user = await (User.findOne as any)({ email });
 

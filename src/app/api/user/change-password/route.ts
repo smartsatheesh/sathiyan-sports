@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/lib/authConfig";
-import connectDB from "@/app/server/Mongo";
+import { connectToMongoose } from "@/app/server/mongodb";
 import User from "@/app/models/User";
 import bcrypt from "bcryptjs";
 
@@ -30,7 +30,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    await connectDB();
+    await connectToMongoose();
 
     const user = await (User.findById as any)(session.user.id);
 

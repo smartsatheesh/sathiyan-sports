@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/lib/authConfig";
-import connectDB from "@/app/server/Mongo";
+import { connectToMongoose } from "@/app/server/mongodb";
 import User from "@/app/models/User";
 
 export async function GET(request: NextRequest) {
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
+    await connectToMongoose();
 
     const user = await (User.findById as any)(session.user.id).select(
       "-password -__v"
@@ -81,7 +81,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    await connectDB();
+    await connectToMongoose();
 
     // Check if email or mobile already exists (excluding current user)
     const existingUser = await (User.findOne as any)({

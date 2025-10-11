@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/app/server/Mongo';
+import { connectToMongoose } from '@/app/server/mongodb';
 import User from '@/app/models/User';
 import bcrypt from 'bcryptjs';
 import whatsAppCloudService from '@/app/services/WhatsAppCloudService';
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     const formattedMobile = mobile.replace(/[+\s-]/g, '');
 
-    await connectDB();
+    await connectToMongoose();
 
     // Find user with valid reset token
     const user = await (User as any).findOne({

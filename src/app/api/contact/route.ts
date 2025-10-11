@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import connectDB from "../../server/Mongo";
+import { connectToMongoose } from "@/app/server/mongodb";
 import Contact from "../../models/Contact";
 
 // POST - Create a new contact submission
 export async function POST(req: NextRequest) {
   try {
     console.log("Contact API: Starting connection to database...");
-    await connectDB();
+    await connectToMongoose();
     console.log("Contact API: Database connected successfully");
 
     const body = await req.json();
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 // GET - Fetch all contact submissions (for admin)
 export async function GET(req: NextRequest) {
   try {
-    await connectDB();
+    await connectToMongoose();
 
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get("page") || "1");

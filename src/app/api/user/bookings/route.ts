@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/lib/authConfig";
-import connectDB from "@/app/server/Mongo";
+import { connectToMongoose } from "@/app/server/mongodb";
 import Booking from "@/app/models/Booking";
 
 // Force dynamic rendering for this route
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    await connectDB();
+    await connectToMongoose();
 
     // Find bookings for the current user
     // Assuming the Booking model has a userId field

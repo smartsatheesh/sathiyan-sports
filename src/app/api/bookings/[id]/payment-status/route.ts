@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import connectDB from "../../../../server/Mongo";
+import { NextRequest, NextResponse } from 'next/server';
+import { connectToMongoose } from "@/app/server/mongodb";
 import Booking from "../../../../models/Booking";
 import unifiedWhatsAppService from "../../../../services/UnifiedWhatsAppService";
 
@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    await connectDB();
+    await connectToMongoose();
     
     const bookingId = params.id;
     const booking = await (Booking.findById as any)(bookingId);
@@ -48,7 +48,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    await connectDB();
+    await connectToMongoose();
     
     const bookingId = params.id;
     const body = await req.json();

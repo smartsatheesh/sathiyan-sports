@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/app/server/Mongo';
-import User from '@/app/models/User';
+import { NextRequest, NextResponse } from "next/server";
+import { connectToMongoose } from "@/app/server/mongodb";
+import User from "@/app/models/User";
 import otpService from '@/app/services/OTPService';
 
 export async function POST(request: NextRequest) {
@@ -24,9 +24,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await connectDB();
+    await connectToMongoose();
 
-    // Check if user exists
+    // Check if user exists with this mobile number
     const user = await (User as any).findOne({ mobile: formattedMobile });
     if (!user) {
       return NextResponse.json(

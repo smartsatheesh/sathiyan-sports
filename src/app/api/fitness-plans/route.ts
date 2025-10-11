@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/app/server/Mongo';
+import { connectToMongoose } from '@/app/server/mongodb';
 import FitnessEnrollment from '@/app/models/FitnessEnrollment';
 
 // In a real application, you would have a FitnessPlan model
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Connect to database
-    await connectDB();
+    await connectToMongoose();
 
     // Find the plan details (in a real app, this would be from a Plans collection)
     const planData = {

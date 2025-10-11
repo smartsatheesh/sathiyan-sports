@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/app/server/Mongo';
+import { connectToMongoose } from '@/app/server/mongodb';
 import Booking from '@/app/models/Booking';
 import whatsAppCloudService from '@/app/services/WhatsAppCloudService';
 
 export async function POST(request: NextRequest) {
   try {
-    await connectDB();
+    await connectToMongoose();
     
     const body = await request.json();
     const { 

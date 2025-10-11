@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
-import connectDB from "../../../server/Mongo";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../../../lib/authConfig';
+import { connectToMongoose } from '@/app/server/mongodb';
 import User from "../../../models/User";
 
 // Force dynamic rendering for this route
@@ -8,7 +10,7 @@ export const dynamic = 'force-dynamic';
 // GET - Fetch all users (for admin)
 export async function GET(req: NextRequest) {
   try {
-    await connectDB();
+    await connectToMongoose();
 
     // Extract search params directly from NextRequest
     const page = parseInt(req.nextUrl.searchParams.get("page") || "1");

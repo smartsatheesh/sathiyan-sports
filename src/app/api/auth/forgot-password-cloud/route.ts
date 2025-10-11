@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/app/server/Mongo';
+import { NextRequest, NextResponse } from "next/server";
+import { connectToMongoose } from "@/app/server/mongodb";
 import User from '@/app/models/User';
 import otpService from '@/app/services/OTPService';
 import whatsAppCloudService from '@/app/services/WhatsAppCloudService';
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await connectDB();
+    await connectToMongoose();
 
     // Check if user exists with this mobile number
     const user = await (User as any).findOne({ mobile: formattedMobile });
@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
 
     const formattedMobile = mobile.replace(/[+\s-]/g, '');
     
-    await connectDB();
+    await connectToMongoose();
 
     // Check if user exists
     const user = await (User as any).findOne({ mobile: formattedMobile });
