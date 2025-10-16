@@ -44,7 +44,7 @@ const Navbar = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("lg")); // Changed from "md" to "lg" for better mobile detection
+  const isMobile = useMediaQuery(theme.breakpoints.down("xl")); // Changed to xl for better detection
   const { data: session, status } = useSession();
 
   const toggleDrawer = () => {
@@ -95,86 +95,109 @@ const Navbar = () => {
         <Toolbar 
           disableGutters
           className="navbar-toolbar"
+          sx={{
+            minHeight: 64,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            width: '100%',
+            px: { xs: 2, sm: 3 },
+          }}
         >
-          {/* Logo Section */}
+          {/* Logo Section - Always visible */}
           <Link href="/" className="navbar-logo-section">
-            <div className="navbar-logo-section">
+            <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <img
                 src="/logo2.jpeg"
                 alt="Sathiyan Sports Logo"
                 className="navbar-logo-img"
+                style={{
+                  height: isMobile ? '32px' : '40px',
+                  width: isMobile ? '32px' : '40px',
+                  borderRadius: '8px',
+                  marginRight: isMobile ? '8px' : '12px'
+                }}
               />
               <Typography
                 className="navbar-logo-text"
-                variant="h5"
+                variant={isMobile ? "h6" : "h5"}
                 noWrap
                 component="span"
+                sx={{
+                  fontWeight: 700,
+                  color: 'white',
+                  fontSize: isMobile ? '1.1rem' : '1.25rem',
+                  whiteSpace: 'nowrap'
+                }}
               >
                 SATHIYAN SPORTS
               </Typography>
-            </div>
+            </Box>
           </Link>
 
-          <div className="navbar-desktop-menu">
-            {publicNavItems.map((item) => (
-              <Link key={item.label} href={item.href} passHref>
+          {/* Desktop Menu - Hidden on mobile */}
+          {!isMobile && (
+            <Box className="navbar-desktop-menu" sx={{ flexGrow: 1, ml: 4, display: 'flex' }}>
+              {publicNavItems.map((item) => (
+                <Link key={item.label} href={item.href} passHref>
+                  <Button sx={{ color: "#fff", ml: 2 }}>
+                    {item.label}
+                  </Button>
+                </Link>
+              ))}
+              
+              {/* Book Slot - Protected */}
+              <Link href="/bookslot" passHref>
                 <Button sx={{ color: "#fff", ml: 2 }}>
-                  {item.label}
+                  Book Slot
                 </Button>
               </Link>
-            ))}
-            
-            {/* Book Slot - Protected */}
-            <Link href="/bookslot" passHref>
-              <Button sx={{ color: "#fff", ml: 2 }}>
-                Book Slot
-              </Button>
-            </Link>
-            
-            {/* The Coach - AI Powered - Admin/Coach only */}
-            {hasCoachAccess && (
-              <Link href="/coach" passHref>
-                <Button 
-                  sx={{ 
-                    color: "#fff", 
-                    ml: 2,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1
-                  }}
-                  startIcon={
-                    <img 
-                      src="/sir-alex-anime.png" 
-                      alt="Sir Alex" 
-                      style={{ 
-                        width: "20px", 
-                        height: "20px", 
-                        borderRadius: "4px" 
-                      }} 
-                    />
-                  }
-                >
-                  The Coach
-                </Button>
-              </Link>
-            )}
-            
-            {/* S3 Fitness Plans */}
-            <Link href="/s3" passHref>
+              
+              {/* The Coach - AI Powered - Admin/Coach only */}
+              {hasCoachAccess && (
+                <Link href="/coach" passHref>
+                  <Button 
+                    sx={{ 
+                      color: "#fff", 
+                      ml: 2,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1
+                    }}
+                    startIcon={
+                      <img 
+                        src="/sir-alex-anime.png" 
+                        alt="Sir Alex" 
+                        style={{ 
+                          width: "20px", 
+                          height: "20px", 
+                          borderRadius: "4px" 
+                        }} 
+                      />
+                    }
+                  >
+                    The Coach
+                  </Button>
+                </Link>
+              )}
+              
+              {/* S3 Fitness Plans */}
+              <Link href="/s3" passHref>
                 <Button sx={{ color: "#fff", ml: 2 }} startIcon={<i className="fa-solid fa-cube"></i>}>
                 💪 S³ Fitness Plans
                 </Button>
-            </Link>
-
-            {/* Admin Dashboard - Admin only */}
-            {isAdmin && (
-              <Link href="/admin" passHref>
-                <Button sx={{ color: "#fff", ml: 2 }}>
-                  🛠️ Admin
-                </Button>
               </Link>
-            )}
-          </div>
+
+              {/* Admin Dashboard - Admin only */}
+              {isAdmin && (
+                <Link href="/admin" passHref>
+                  <Button sx={{ color: "#fff", ml: 2 }}>
+                    🛠️ Admin
+                  </Button>
+                </Link>
+              )}
+            </Box>
+          )}
 
           {/* Authentication Section */}
           <div className="navbar-auth-section">

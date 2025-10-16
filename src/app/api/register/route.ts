@@ -33,6 +33,14 @@ export async function POST(req: Request) {
       }
     }
 
+    // Court selection is only required for Shuttle Badminton
+    if (body.preferredSport === "Shuttle Badminton" && !body.selectedCourt) {
+      return NextResponse.json(
+        { success: false, message: "Court selection is required for Shuttle Badminton" },
+        { status: 400 }
+      );
+    }
+
     // Password validation
     if (body.password !== body.confirmPassword) {
       return NextResponse.json(
@@ -46,6 +54,66 @@ export async function POST(req: Request) {
         { success: false, message: "Password must be at least 6 characters long" },
         { status: 400 }
       );
+    }
+
+    // Validate court selection and check availability only for Shuttle Badminton
+    if (body.preferredSport === "Shuttle Badminton") {
+      const validCourts = ["S1", "S2", "S3"];
+      if (!validCourts.includes(body.selectedCourt)) {
+        return NextResponse.json(
+          { success: false, message: "Invalid court selection. Please choose S1, S2, or S3" },
+          { status: 400 }
+        );
+      }
+
+      // Check court availability for the selected time slot
+      const COURT_CAPACITY = 4;
+      const usersInSlot = await (User.find as any)({
+        preferredTimeSlot: body.preferredTimeSlot,
+        selectedCourt: body.selectedCourt,
+        status: "verified",
+        paymentStatus: "completed",
+      });
+
+      if (usersInSlot.length >= COURT_CAPACITY) {
+        // Check other available courts
+        const allCourtsInSlot = await (User.find as any)({
+          preferredTimeSlot: body.preferredTimeSlot,
+          status: "verified",
+          paymentStatus: "completed",
+        });
+
+        const courtBookings: { [key: string]: number } = { S1: 0, S2: 0, S3: 0 };
+        allCourtsInSlot.forEach((user: any) => {
+          if (user.selectedCourt && validCourts.includes(user.selectedCourt)) {
+            courtBookings[user.selectedCourt]++;
+          }
+        });
+
+        const availableCourts = validCourts.filter(court => courtBookings[court] < COURT_CAPACITY);
+        
+        if (availableCourts.length > 0) {
+          return NextResponse.json(
+            { 
+              success: false, 
+              message: `Court ${body.selectedCourt} is fully booked for ${body.preferredTimeSlot}. Available courts: ${availableCourts.join(', ')}`,
+              availableCourts,
+              suggestedCourts: availableCourts
+            },
+            { status: 400 }
+          );
+        } else {
+          return NextResponse.json(
+            { 
+              success: false, 
+              message: `All courts are fully booked for ${body.preferredTimeSlot}. Please choose a different time slot.`,
+              availableCourts: [],
+              suggestedCourts: []
+            },
+            { status: 400 }
+          );
+        }
+      }
     }
 
     // Check if user already exists by email or mobile
@@ -76,6 +144,7 @@ export async function POST(req: Request) {
       gender: body.gender,
       preferredSport: body.preferredSport,
       preferredTimeSlot: body.preferredTimeSlot,
+      ...(body.preferredSport === "Shuttle Badminton" && { selectedCourt: body.selectedCourt }),
       subscriptionType: body.subscriptionType,
       subscriptionAmount: body.subscriptionAmount,
       subscriptionEndDate: body.subscriptionEndDate,

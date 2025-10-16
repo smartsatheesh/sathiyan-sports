@@ -401,6 +401,102 @@ We hope to serve you again soon! 🙏`;
   }
 
   /**
+   * Send billing reminder notification
+   */
+  async sendBillingReminder(
+    to: string,
+    billingData: {
+      userName: string;
+      amount: number;
+      currency: string;
+      nextBillingDate: string;
+      daysUntilBilling: number;
+      cycleType: string;
+      planName: string;
+    }
+  ): Promise<boolean> {
+    try {
+      if (!this.config.accessToken || !this.config.phoneNumberId) {
+        console.error('❌ WhatsApp Cloud API not configured for billing reminder');
+        return false;
+      }
+
+      const formattedPhone = this.formatPhoneNumber(to);
+      const isOverdue = billingData.daysUntilBilling < 0;
+      const isToday = billingData.daysUntilBilling === 0;
+
+      let urgencyEmoji = '📅';
+      let urgencyText = `Your payment is due in ${billingData.daysUntilBilling} days`;
+
+      if (isOverdue) {
+        urgencyEmoji = '🚨';
+        urgencyText = `Your payment is ${Math.abs(billingData.daysUntilBilling)} days overdue`;
+      } else if (isToday) {
+        urgencyEmoji = '💳';
+        urgencyText = 'Your payment is due today';
+      } else if (billingData.daysUntilBilling <= 3) {
+        urgencyEmoji = '⏰';
+        urgencyText = `Your payment is due in ${billingData.daysUntilBilling} days`;
+      }
+
+      const message = `🏸 *Sathiyan Sports* - Payment Reminder
+
+Hello ${billingData.userName}! 👋
+
+${urgencyEmoji} *${urgencyText}*
+
+💳 *Payment Details:*
+• Plan: ${billingData.planName}
+• Amount: ${billingData.currency} ${billingData.amount.toLocaleString()}
+• Due Date: ${billingData.nextBillingDate}
+
+${isOverdue ? '🚨 *URGENT:* Please make your payment immediately to avoid service interruption.' : 
+  isToday ? '⚡ *Payment Due Today:* Please complete your payment to continue enjoying our services.' :
+  '✨ Complete your payment to continue your badminton journey with us!'}
+
+🔗 Make Payment: ${process.env.NEXT_PUBLIC_BASE_URL}/my-bookings
+
+Need help? Reply to this message or call +91 98765 43210
+
+Thank you for choosing Sathiyan Sports! 🙏`;
+
+      const messagePayload = {
+        messaging_product: 'whatsapp',
+        to: formattedPhone,
+        type: 'text',
+        text: {
+          body: message
+        }
+      };
+
+      console.log(`📱 Sending billing reminder to: ${formattedPhone}`);
+
+      const response = await fetch(`${this.baseUrl}/${this.config.phoneNumberId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.config.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messagePayload)
+      });
+
+      const responseData = await response.json();
+
+      if (response.ok) {
+        console.log('✅ Billing reminder sent successfully:', responseData.messages?.[0]?.id);
+        return true;
+      } else {
+        console.error('❌ Failed to send billing reminder:', responseData);
+        return false;
+      }
+
+    } catch (error) {
+      console.error('❌ Error sending billing reminder:', error);
+      return false;
+    }
+  }
+
+  /**
    * Test the WhatsApp Cloud API connection
    */
   async testConnection(): Promise<{

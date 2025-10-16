@@ -78,6 +78,7 @@ export default function RegisterPage() {
     gender: "",
     preferredSport: "",
     preferredTimeSlot: "",
+    selectedCourt: "",
     subscriptionType: "",
     role: "customer", // Default role
   });
@@ -86,6 +87,9 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [courtAvailability, setCourtAvailability] = useState<any>(null);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [availabilityMessage, setAvailabilityMessage] = useState("");
 
   // Calculate subscription end date based on type
   const calculateEndDate = (type: string) => {
@@ -99,6 +103,41 @@ export default function RegisterPage() {
         return addYears(startDate, 1);
       default:
         return startDate;
+    }
+  };
+
+  // Check court availability when time slot or court selection changes
+  const checkAvailability = async (timeSlot: string, court?: string) => {
+    if (!timeSlot) return;
+    
+    setCheckingAvailability(true);
+    setAvailabilityMessage("");
+    
+    try {
+      const response = await fetch("/api/check-court-availability", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          timeSlot,
+          requestedCourt: court,
+        }),
+      });
+
+      const data = await response.json();
+      setCourtAvailability(data);
+      
+      if (data.success) {
+        setAvailabilityMessage(data.message);
+      } else {
+        setAvailabilityMessage(data.message);
+      }
+    } catch (error) {
+      console.error("Error checking availability:", error);
+      setAvailabilityMessage("Error checking court availability. Please try again.");
+    } finally {
+      setCheckingAvailability(false);
     }
   };
 
@@ -129,6 +168,13 @@ export default function RegisterPage() {
 
     if (!formData.gender || !formData.preferredSport || !formData.preferredTimeSlot || !formData.subscriptionType) {
       setError("Please complete all required selections");
+      setLoading(false);
+      return;
+    }
+
+    // Court selection is only required for Shuttle Badminton
+    if (formData.preferredSport === "Shuttle Badminton" && !formData.selectedCourt) {
+      setError("Please select a court for Shuttle Badminton");
       setLoading(false);
       return;
     }
@@ -168,9 +214,12 @@ export default function RegisterPage() {
         gender: "",
         preferredSport: "",
         preferredTimeSlot: "",
+        selectedCourt: "",
         subscriptionType: "",
         role: "customer",
       });
+      setCourtAvailability(null);
+      setAvailabilityMessage("");
     } catch (err: any) {
       setError(err.message || "Something went wrong");
     } finally {
@@ -224,6 +273,14 @@ export default function RegisterPage() {
             onChange={(e) =>
               setFormData({ ...formData, email: e.target.value })
             }
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Email color="primary" />
+                </InputAdornment>
+              ),
+            }}
+            placeholder="Enter your email address"
           />
           <TextField
             margin="normal"
@@ -335,9 +392,18 @@ export default function RegisterPage() {
             <InputLabel>Preferred Sport</InputLabel>
             <Select
               value={formData.preferredSport}
-              onChange={(e) =>
-                setFormData({ ...formData, preferredSport: e.target.value })
-              }
+              onChange={(e) => {
+                const newSport = e.target.value;
+                setFormData({ 
+                  ...formData, 
+                  preferredSport: newSport,
+                  // Clear court selection if not Shuttle Badminton
+                  selectedCourt: newSport === "Shuttle Badminton" ? formData.selectedCourt : ""
+                });
+                // Clear availability status when sport changes
+                setAvailabilityMessage("");
+                setCourtAvailability(null);
+              }}
               required
             >
               <MenuItem value="Cricket">Cricket</MenuItem>
@@ -351,9 +417,14 @@ export default function RegisterPage() {
             <InputLabel>Preferred Time Slot</InputLabel>
             <Select
               value={formData.preferredTimeSlot}
-              onChange={(e) =>
-                setFormData({ ...formData, preferredTimeSlot: e.target.value })
-              }
+              onChange={(e) => {
+                const newTimeSlot = e.target.value;
+                setFormData({ ...formData, preferredTimeSlot: newTimeSlot });
+                // Check availability when time slot changes
+                if (newTimeSlot) {
+                  checkAvailability(newTimeSlot, formData.selectedCourt);
+                }
+              }}
               required
             >
               {TIME_SLOTS.map((slot) => (
@@ -363,6 +434,76 @@ export default function RegisterPage() {
               ))}
             </Select>
           </FormControl>
+
+          {/* Court Selection - Only for Shuttle Badminton */}
+          {formData.preferredSport === "Shuttle Badminton" && (
+            <>
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Select Court *</InputLabel>
+                <Select
+                  value={formData.selectedCourt}
+                  onChange={(e) => {
+                    const newCourt = e.target.value;
+                    setFormData({ ...formData, selectedCourt: newCourt });
+                    // Check availability when court changes
+                    if (formData.preferredTimeSlot && newCourt) {
+                      checkAvailability(formData.preferredTimeSlot, newCourt);
+                    }
+                  }}
+                  required
+                  disabled={!formData.preferredTimeSlot}
+                >
+                  <MenuItem value="S1">Court S1</MenuItem>
+                  <MenuItem value="S2">Court S2</MenuItem>
+                  <MenuItem value="S3">Court S3</MenuItem>
+                </Select>
+                {!formData.preferredTimeSlot && (
+                  <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
+                    Please select a time slot first
+                  </Typography>
+                )}
+              </FormControl>
+
+              {/* Court Availability Status */}
+              {(checkingAvailability || availabilityMessage) && (
+                <Box sx={{ mt: 2, p: 2, borderRadius: 1, backgroundColor: 'grey.50' }}>
+                  {checkingAvailability ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CircularProgress size={16} />
+                      <Typography variant="body2">Checking court availability...</Typography>
+                    </Box>
+                  ) : (
+                    <Alert 
+                      severity={courtAvailability?.canBook ? "success" : "warning"} 
+                      sx={{ mb: 1 }}
+                    >
+                      {availabilityMessage}
+                    </Alert>
+                  )}
+                  
+                  {courtAvailability?.availableCourts && (
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="caption" fontWeight="bold">Court Status:</Typography>
+                      {courtAvailability.availableCourts.map((court: any) => (
+                        <Box key={court.court} sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                          <Typography variant="caption">
+                            Court {court.court}:
+                          </Typography>
+                          <Typography 
+                            variant="caption" 
+                            color={court.available ? "success.main" : "error.main"}
+                          >
+                            {court.currentBookings}/{court.maxCapacity} booked
+                            {court.available ? " ✓" : " (Full)"}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              )}
+            </>
+          )}
 
           {/* Subscription Type */}
           <FormControl component="fieldset" margin="normal">

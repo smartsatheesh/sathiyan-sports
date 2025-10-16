@@ -57,6 +57,13 @@ const userSchema = new mongoose.Schema({
   preferredTimeSlot: {
     type: String,
   },
+  selectedCourt: {
+    type: String,
+    enum: ["S1", "S2", "S3"],
+    required: function() {
+      return this.preferredSport === "Shuttle Badminton";
+    },
+  },
   subscriptionType: {
     type: String,
     enum: ["monthly", "quarterly", "yearly"],
