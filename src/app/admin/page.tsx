@@ -79,11 +79,31 @@ interface User {
   createdAt: string;
 }
 
+interface FitnessEnrollment {
+  _id: string;
+  enrollmentId: string;
+  planName: string;
+  planCategory: 'strength' | 'speed' | 'stamina';
+  planLevel: 'beginner' | 'intermediate' | 'advanced';
+  userName: string;
+  userEmail: string;
+  userPhone: string;
+  enrollmentDate: string;
+  status: 'pending' | 'active' | 'completed' | 'cancelled';
+  paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded';
+  totalAmount: number;
+  progressPercentage: number;
+  currentWeek: number;
+}
+
 interface Stats {
   totalBookings: number;
   todaysBookings: number;
   totalRevenue: number;
   totalUsers: number;
+  totalFitnessEnrollments: number;
+  activeFitnessEnrollments: number;
+  totalFitnessRevenue: number;
 }
 
 function TabPanel(props: TabPanelProps) {
@@ -102,11 +122,15 @@ export default function AdminDashboard() {
   const [tabValue, setTabValue] = useState(0);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [fitnessEnrollments, setFitnessEnrollments] = useState<FitnessEnrollment[]>([]);
   const [stats, setStats] = useState<Stats>({
     totalBookings: 0,
     todaysBookings: 0,
     totalRevenue: 0,
     totalUsers: 0,
+    totalFitnessEnrollments: 0,
+    activeFitnessEnrollments: 0,
+    totalFitnessRevenue: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,6 +141,17 @@ export default function AdminDashboard() {
     paymentStatus: ''
   });
   const [alert, setAlert] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
+  
+  // Pagination states
+  const [bookingsPage, setBookingsPage] = useState(1);
+  const [usersPage, setUsersPage] = useState(1);
+  const [fitnessEnrollmentsPage, setFitnessEnrollmentsPage] = useState(1);
+  const [loadingMoreBookings, setLoadingMoreBookings] = useState(false);
+  const [loadingMoreUsers, setLoadingMoreUsers] = useState(false);
+  const [loadingMoreFitnessEnrollments, setLoadingMoreFitnessEnrollments] = useState(false);
+  const [hasMoreBookings, setHasMoreBookings] = useState(true);
+  const [hasMoreUsers, setHasMoreUsers] = useState(true);
+  const [hasMoreFitnessEnrollments, setHasMoreFitnessEnrollments] = useState(true);
 
   // Authentication check
   useEffect(() => {
@@ -140,47 +175,154 @@ export default function AdminDashboard() {
     setError(null);
     
     try {
-      // Fetch bookings
-      const bookingsResponse = await fetch('/api/admin/bookings');
-      const bookingsData = await bookingsResponse.json();
+      // Fetch dashboard stats and recent data
+      const statsResponse = await fetch('/api/admin/dashboard-stats');
+      const statsData = await statsResponse.json();
       
-      if (bookingsData.success) {
-        setBookings(bookingsData.bookings);
+      if (statsData.success) {
+        // Set the stats from the dedicated endpoint
+        setStats(statsData.stats);
+        
+        // Set recent bookings, users, and fitness enrollments for display
+        setBookings(statsData.recentBookings || []);
+        setUsers(statsData.recentUsers || []);
+        setFitnessEnrollments(statsData.recentFitnessEnrollments || []);
       } else {
-        throw new Error('Failed to fetch bookings');
+        throw new Error(statsData.message || 'Failed to fetch dashboard data');
       }
-
-      // Fetch users
-      const usersResponse = await fetch('/api/admin/users');
-      const usersData = await usersResponse.json();
-      
-      if (usersData.success) {
-        setUsers(usersData.users);
-      } else {
-        console.log('Failed to fetch users:', usersData.message);
-      }
-
-      // Calculate stats after both bookings and users are fetched
-      const today = new Date().toDateString();
-      const todaysBookings = bookingsData.bookings.filter(
-        (booking: Booking) => new Date(booking.date).toDateString() === today
-      ).length;
-
-      const totalRevenue = bookingsData.bookings
-        .filter((booking: Booking) => booking.paymentStatus === 'completed')
-        .reduce((sum: number, booking: Booking) => sum + booking.totalAmount, 0);
-
-      setStats({
-        totalBookings: bookingsData.bookings.length,
-        todaysBookings,
-        totalRevenue,
-        totalUsers: usersData.success ? usersData.users.length : 0,
-      });
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
+      console.error('Dashboard fetch error:', err);
+      
+      // Fallback: try the old method with high limits
+      try {
+        console.log('Attempting fallback data fetch...');
+        
+        // Fetch ALL bookings for stats (use high limit to get all records)
+        const bookingsResponse = await fetch('/api/admin/bookings?limit=1000');
+        const bookingsData = await bookingsResponse.json();
+        
+        // Fetch ALL users for stats (use high limit to get all records)
+        const usersResponse = await fetch('/api/admin/users?limit=1000');
+        const usersData = await usersResponse.json();
+        
+        if (bookingsData.success && usersData.success) {
+          setBookings(bookingsData.bookings);
+          setUsers(usersData.users);
+
+          // Calculate stats after both bookings and users are fetched
+          const today = new Date().toDateString();
+          const todaysBookings = bookingsData.bookings.filter(
+            (booking: Booking) => new Date(booking.date).toDateString() === today
+          ).length;
+
+          const totalRevenue = bookingsData.bookings
+            .filter((booking: Booking) => booking.paymentStatus === 'completed')
+            .reduce((sum: number, booking: Booking) => sum + booking.totalAmount, 0);
+
+          setStats({
+            totalBookings: bookingsData.bookings.length,
+            todaysBookings,
+            totalRevenue,
+            totalUsers: usersData.users.length,
+            totalFitnessEnrollments: 0,
+            activeFitnessEnrollments: 0,
+            totalFitnessRevenue: 0,
+          });
+          
+          setError(null); // Clear error if fallback succeeds
+        }
+      } catch (fallbackErr) {
+        console.error('Fallback fetch also failed:', fallbackErr);
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Function to load more bookings
+  const loadMoreBookings = async () => {
+    if (loadingMoreBookings || !hasMoreBookings) return;
+    
+    setLoadingMoreBookings(true);
+    try {
+      const nextPage = bookingsPage + 1;
+      const response = await fetch(`/api/admin/bookings?page=${nextPage}&limit=10`);
+      const data = await response.json();
+      
+      if (data.success && data.bookings.length > 0) {
+        setBookings(prev => [...prev, ...data.bookings]);
+        setBookingsPage(nextPage);
+        
+        // Check if there are more pages
+        if (nextPage >= data.pagination.pages) {
+          setHasMoreBookings(false);
+        }
+      } else {
+        setHasMoreBookings(false);
+      }
+    } catch (error) {
+      console.error('Error loading more bookings:', error);
+    } finally {
+      setLoadingMoreBookings(false);
+    }
+  };
+
+  // Function to load more users
+  const loadMoreUsers = async () => {
+    if (loadingMoreUsers || !hasMoreUsers) return;
+    
+    setLoadingMoreUsers(true);
+    try {
+      const nextPage = usersPage + 1;
+      const response = await fetch(`/api/admin/users?page=${nextPage}&limit=10`);
+      const data = await response.json();
+      
+      if (data.success && data.users.length > 0) {
+        setUsers(prev => [...prev, ...data.users]);
+        setUsersPage(nextPage);
+        
+        // Check if there are more pages
+        if (nextPage >= data.pagination.pages) {
+          setHasMoreUsers(false);
+        }
+      } else {
+        setHasMoreUsers(false);
+      }
+    } catch (error) {
+      console.error('Error loading more users:', error);
+    } finally {
+      setLoadingMoreUsers(false);
+    }
+  };
+
+  // Function to load more fitness enrollments
+  const loadMoreFitnessEnrollments = async () => {
+    if (loadingMoreFitnessEnrollments || !hasMoreFitnessEnrollments) return;
+    
+    setLoadingMoreFitnessEnrollments(true);
+    try {
+      const nextPage = fitnessEnrollmentsPage + 1;
+      const response = await fetch(`/api/admin/fitness-enrollments?page=${nextPage}&limit=10`);
+      const data = await response.json();
+      
+      if (data.success && data.enrollments && data.enrollments.length > 0) {
+        setFitnessEnrollments(prev => [...prev, ...data.enrollments]);
+        setFitnessEnrollmentsPage(nextPage);
+        
+        // Check if there are more pages
+        if (nextPage >= data.pagination.pages) {
+          setHasMoreFitnessEnrollments(false);
+        }
+      } else {
+        setHasMoreFitnessEnrollments(false);
+      }
+    } catch (error) {
+      console.error('Error loading more fitness enrollments:', error);
+      setHasMoreFitnessEnrollments(false);
+    } finally {
+      setLoadingMoreFitnessEnrollments(false);
     }
   };
 
@@ -435,6 +577,21 @@ export default function AdminDashboard() {
             value: stats.totalUsers,
             color: "info.main",
           },
+          {
+            title: "Fitness Enrollments",
+            value: stats.totalFitnessEnrollments,
+            color: "secondary.main",
+          },
+          {
+            title: "Active Fitness Plans",
+            value: stats.activeFitnessEnrollments,
+            color: "success.main",
+          },
+          {
+            title: "Fitness Revenue",
+            value: `$${stats.totalFitnessRevenue.toFixed(2)}`,
+            color: "warning.main",
+          },
         ].map((stat, index) => (
           <Grid item xs={12} sm={6} md={3} key={index}>
             <Card
@@ -535,6 +692,7 @@ export default function AdminDashboard() {
         >
           <Tab label="Recent Bookings" />
           <Tab label="Users" />
+          <Tab label="Fitness Enrollments" />
           <Tab label="Settings" />
         </Tabs>
 
@@ -610,6 +768,28 @@ export default function AdminDashboard() {
               </TableBody>
             </Table>
           </TableContainer>
+          
+          {/* Load More Bookings Button */}
+          {hasMoreBookings && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Button
+                variant="outlined"
+                onClick={loadMoreBookings}
+                disabled={loadingMoreBookings}
+                startIcon={loadingMoreBookings ? <CircularProgress size={20} /> : null}
+              >
+                {loadingMoreBookings ? 'Loading...' : 'Load More Bookings'}
+              </Button>
+            </Box>
+          )}
+          
+          {!hasMoreBookings && bookings.length > 10 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Typography variant="body2" color="textSecondary">
+                All bookings loaded ({bookings.length} total)
+              </Typography>
+            </Box>
+          )}
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
@@ -704,9 +884,155 @@ export default function AdminDashboard() {
               </TableBody>
             </Table>
           </TableContainer>
+          
+          {/* Load More Users Button */}
+          {hasMoreUsers && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Button
+                variant="outlined"
+                onClick={loadMoreUsers}
+                disabled={loadingMoreUsers}
+                startIcon={loadingMoreUsers ? <CircularProgress size={20} /> : null}
+              >
+                {loadingMoreUsers ? 'Loading...' : 'Load More Users'}
+              </Button>
+            </Box>
+          )}
+          
+          {!hasMoreUsers && users.length > 10 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Typography variant="body2" color="textSecondary">
+                All users loaded ({users.length} total)
+              </Typography>
+            </Box>
+          )}
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Enrollment ID</TableCell>
+                  <TableCell>User</TableCell>
+                  <TableCell>Plan</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell>Level</TableCell>
+                  <TableCell>Amount</TableCell>
+                  <TableCell>Progress</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Payment</TableCell>
+                  <TableCell>Date</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {fitnessEnrollments.map((enrollment) => (
+                  <TableRow key={enrollment._id}>
+                    <TableCell>{enrollment.enrollmentId.slice(-8)}</TableCell>
+                    <TableCell>
+                      <Box>
+                        <Typography variant="body2" fontWeight="bold">
+                          {enrollment.userName}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary">
+                          {enrollment.userEmail}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>{enrollment.planName}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={enrollment.planCategory}
+                        color={
+                          enrollment.planCategory === 'strength' ? 'primary' :
+                          enrollment.planCategory === 'speed' ? 'success' : 'warning'
+                        }
+                        size="small"
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={enrollment.planLevel}
+                        color={
+                          enrollment.planLevel === 'beginner' ? 'success' :
+                          enrollment.planLevel === 'intermediate' ? 'warning' : 'error'
+                        }
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>${enrollment.totalAmount}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CircularProgress
+                          variant="determinate"
+                          value={enrollment.progressPercentage}
+                          size={24}
+                          color={enrollment.progressPercentage > 75 ? 'success' : 'primary'}
+                        />
+                        <Typography variant="caption">
+                          {enrollment.progressPercentage}% (Week {enrollment.currentWeek})
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={enrollment.status}
+                        color={getStatusColor(enrollment.status) as any}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={enrollment.paymentStatus}
+                        color={getStatusColor(enrollment.paymentStatus) as any}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {format(new Date(enrollment.enrollmentDate), "dd/MM/yyyy")}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          
+          {/* Load More Fitness Enrollments Button */}
+          {hasMoreFitnessEnrollments && fitnessEnrollments.length >= 10 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Button 
+                variant="outlined" 
+                onClick={loadMoreFitnessEnrollments}
+                disabled={loadingMoreFitnessEnrollments}
+              >
+                {loadingMoreFitnessEnrollments ? 'Loading...' : 'Load More Fitness Enrollments'}
+              </Button>
+            </Box>
+          )}
+          
+          {!hasMoreFitnessEnrollments && fitnessEnrollments.length > 10 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Typography variant="body2" color="textSecondary">
+                All fitness enrollments loaded ({fitnessEnrollments.length} total)
+              </Typography>
+            </Box>
+          )}
+          
+          {fitnessEnrollments.length === 0 && (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <FitnessCenter sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" color="textSecondary">
+                No fitness enrollments found
+              </Typography>
+              <Typography variant="body2" color="textSecondary">
+                Fitness enrollments will appear here once users start enrolling in plans.
+              </Typography>
+            </Box>
+          )}
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={3}>
           <Typography>Settings content goes here</Typography>
         </TabPanel>
       </Paper>
