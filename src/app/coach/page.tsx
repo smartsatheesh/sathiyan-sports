@@ -28,7 +28,7 @@ interface BMI {
 }
 
 // Main navigation tabs
-type TabType = 'generate' | 'calendar';
+type TabType = 'generate' | 'calendar' | 'fitness';
 
 const CoachPage: React.FC = () => {
   const { data: session, status } = useSession();
@@ -53,6 +53,13 @@ const CoachPage: React.FC = () => {
   const [error, setError] = useState('');
   const [bmi, setBmi] = useState<BMI | null>(null);
   const [sessionSteps, setSessionSteps] = useState<Array<{ step: number; completedAt: Date; data: any }>>([]);
+
+  // Fitness enrollment state
+  const [fitnessEnrollments, setFitnessEnrollments] = useState<any[]>([]);
+  const [selectedEnrollment, setSelectedEnrollment] = useState<any>(null);
+  const [fitnessPlans, setFitnessPlans] = useState<any[]>([]);
+  const [loadingFitness, setLoadingFitness] = useState(false);
+  const [fitnessError, setFitnessError] = useState('');
 
   // Auth check
   useEffect(() => {
@@ -507,6 +514,108 @@ const CoachPage: React.FC = () => {
     }
   };
 
+  // Fitness enrollment functions
+  const fetchFitnessEnrollments = async () => {
+    setLoadingFitness(true);
+    setFitnessError('');
+    
+    try {
+      const response = await fetch('/api/admin/fitness-enrollments');
+      const data = await response.json();
+      
+      if (data.success) {
+        setFitnessEnrollments(data.enrollments || []);
+      } else {
+        setFitnessError(data.message || 'Failed to fetch fitness enrollments');
+      }
+    } catch (error) {
+      setFitnessError('Error fetching fitness enrollments');
+      console.error('Error:', error);
+    } finally {
+      setLoadingFitness(false);
+    }
+  };
+
+  const generateFitnessPlan = async (enrollment: any) => {
+    setLoadingFitness(true);
+    setFitnessError('');
+    
+    try {
+      const response = await fetch('/api/fitness-plans/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          enrollmentId: enrollment.enrollmentId,
+          fitnessGoal: enrollment.planCategory, // strength, speed, stamina
+          fitnessLevel: enrollment.planLevel,   // beginner, intermediate, advanced
+          daysPerWeek: 5, // default
+          timePerSession: 60, // default 60 minutes
+          userEmail: enrollment.userEmail,
+          userName: enrollment.userName
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update the enrollment with generated plan
+        const updatedEnrollments = fitnessEnrollments.map(e => 
+          e.enrollmentId === enrollment.enrollmentId 
+            ? { ...e, planGenerated: true, generatedPlan: data.plan }
+            : e
+        );
+        setFitnessEnrollments(updatedEnrollments);
+        
+        // Show success notification
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: linear-gradient(45deg, #10b981, #059669);
+          color: white;
+          padding: 1rem 1.5rem;
+          border-radius: 0.5rem;
+          box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+          z-index: 9999;
+          font-weight: 500;
+          max-width: 300px;
+        `;
+        notification.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.2rem;">💪</span>
+            <div>
+              <div style="font-weight: 600;">Fitness Plan Generated!</div>
+              <div style="font-size: 0.875rem; opacity: 0.9;">Plan created for ${enrollment.userName}</div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+          document.body.removeChild(notification);
+        }, 4000);
+        
+      } else {
+        setFitnessError(data.message || 'Failed to generate fitness plan');
+      }
+    } catch (error) {
+      setFitnessError('Error generating fitness plan');
+      console.error('Error:', error);
+    } finally {
+      setLoadingFitness(false);
+    }
+  };
+
+  // Fetch fitness enrollments when fitness tab is active
+  useEffect(() => {
+    if (activeTab === 'fitness') {
+      fetchFitnessEnrollments();
+    }
+  }, [activeTab]);
+
   if (status === 'loading') {
     return (
       <div className={styles.coachContainer}>
@@ -635,6 +744,27 @@ const CoachPage: React.FC = () => {
             }}
           >
             🏆 Generate Sathiyan Plan
+          </button>
+          <button
+            onClick={() => setActiveTab('fitness')}
+            className={`${styles.tabButton} ${activeTab === 'fitness' ? styles.activeTab : ''}`}
+            style={{
+              flex: 1,
+              padding: '12px 20px',
+              border: 'none',
+              borderRadius: '8px',
+              background: activeTab === 'fitness' ? '#3b82f6' : 'transparent',
+              color: activeTab === 'fitness' ? 'white' : '#64748b',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+          >
+            💪 Fitness Enrollments
           </button>
           <button
             onClick={() => setActiveTab('calendar')}
@@ -1171,6 +1301,240 @@ const CoachPage: React.FC = () => {
                 Click on any day to see workout details or edit your training plan.
               </p>
               <FullCalendar />
+            </div>
+          </div>
+        )}
+
+        {/* Fitness Enrollments Tab */}
+        {activeTab === 'fitness' && (
+          <div style={{ marginTop: '1rem' }}>
+            <div style={{ 
+              background: 'white', 
+              borderRadius: '12px', 
+              padding: '1.5rem',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
+              marginBottom: '2rem'
+            }}>
+              <h2 style={{ 
+                margin: '0 0 1rem 0', 
+                color: '#1f2937',
+                fontSize: '1.5rem',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                💪 Fitness Enrollments & Plan Generation
+              </h2>
+              <p style={{ 
+                color: '#6b7280', 
+                marginBottom: '1.5rem',
+                lineHeight: '1.6'
+              }}>
+                Manage fitness enrollments and generate personalized workout plans for users. 
+                View enrollment details and create custom fitness programs based on user goals.
+              </p>
+
+              {fitnessError && (
+                <div style={{
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  marginBottom: '1rem',
+                  color: '#dc2626'
+                }}>
+                  {fitnessError}
+                </div>
+              )}
+
+              {loadingFitness ? (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  padding: '2rem',
+                  color: '#6b7280'
+                }}>
+                  <div className={styles.spinner}></div>
+                  <span style={{ marginLeft: '10px' }}>Loading fitness enrollments...</span>
+                </div>
+              ) : (
+                <div>
+                  {fitnessEnrollments.length === 0 ? (
+                    <div style={{
+                      textAlign: 'center',
+                      padding: '3rem',
+                      color: '#6b7280',
+                      background: '#f9fafb',
+                      borderRadius: '8px',
+                      border: '2px dashed #d1d5db'
+                    }}>
+                      <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💪</div>
+                      <h3 style={{ margin: '0 0 0.5rem 0', color: '#374151' }}>No Fitness Enrollments Found</h3>
+                      <p style={{ margin: 0 }}>Fitness enrollments will appear here when users enroll in fitness plans.</p>
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: 'grid',
+                      gap: '1rem',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))'
+                    }}>
+                      {fitnessEnrollments.map((enrollment) => (
+                        <div key={enrollment.enrollmentId} style={{
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '12px',
+                          padding: '1.5rem',
+                          transition: 'all 0.3s ease',
+                          cursor: 'pointer'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.1)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            marginBottom: '1rem'
+                          }}>
+                            <div>
+                              <h3 style={{
+                                margin: '0 0 0.5rem 0',
+                                color: '#1f2937',
+                                fontSize: '1.125rem',
+                                fontWeight: '600'
+                              }}>
+                                {enrollment.userName}
+                              </h3>
+                              <p style={{
+                                margin: 0,
+                                color: '#6b7280',
+                                fontSize: '0.875rem'
+                              }}>
+                                {enrollment.userEmail}
+                              </p>
+                            </div>
+                            <div style={{
+                              background: enrollment.planCategory === 'strength' ? '#dbeafe' : 
+                                         enrollment.planCategory === 'speed' ? '#d1fae5' : '#fef3c7',
+                              color: enrollment.planCategory === 'strength' ? '#1d4ed8' : 
+                                     enrollment.planCategory === 'speed' ? '#065f46' : '#92400e',
+                              padding: '4px 8px',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                              fontWeight: '600',
+                              textTransform: 'uppercase'
+                            }}>
+                              {enrollment.planCategory}
+                            </div>
+                          </div>
+
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: '1rem',
+                            marginBottom: '1rem',
+                            fontSize: '0.875rem'
+                          }}>
+                            <div>
+                              <span style={{ color: '#6b7280' }}>Plan:</span>
+                              <br />
+                              <span style={{ color: '#1f2937', fontWeight: '500' }}>{enrollment.planName}</span>
+                            </div>
+                            <div>
+                              <span style={{ color: '#6b7280' }}>Level:</span>
+                              <br />
+                              <span style={{ color: '#1f2937', fontWeight: '500' }}>{enrollment.planLevel}</span>
+                            </div>
+                            <div>
+                              <span style={{ color: '#6b7280' }}>Status:</span>
+                              <br />
+                              <span style={{ 
+                                color: enrollment.status === 'active' ? '#059669' : '#dc2626',
+                                fontWeight: '500'
+                              }}>
+                                {enrollment.status}
+                              </span>
+                            </div>
+                            <div>
+                              <span style={{ color: '#6b7280' }}>Progress:</span>
+                              <br />
+                              <span style={{ color: '#1f2937', fontWeight: '500' }}>
+                                {enrollment.progressPercentage || 0}% (Week {enrollment.currentWeek || 1})
+                              </span>
+                            </div>
+                          </div>
+
+                          <div style={{
+                            display: 'flex',
+                            gap: '0.5rem',
+                            marginTop: '1rem'
+                          }}>
+                            <button
+                              onClick={() => generateFitnessPlan(enrollment)}
+                              disabled={loadingFitness}
+                              style={{
+                                flex: 1,
+                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '10px 16px',
+                                fontSize: '0.875rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.4)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = 'none';
+                              }}
+                            >
+                              🔄 Generate Plan
+                            </button>
+                            <button
+                              onClick={() => setSelectedEnrollment(enrollment)}
+                              style={{
+                                background: '#f3f4f6',
+                                color: '#374151',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '10px 16px',
+                                fontSize: '0.875rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = '#e5e7eb';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = '#f3f4f6';
+                              }}
+                            >
+                              👁️ View Details
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

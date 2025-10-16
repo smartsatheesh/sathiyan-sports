@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   Container,
   Paper,
@@ -637,9 +638,27 @@ export default function AdminDashboard() {
             onClick={() => router.push('/coach/admin')}
           >
             <CardContent sx={{ textAlign: "center" }}>
-              <Typography sx={{ fontSize: "2rem", mb: 1 }}>
-                🤖
-              </Typography>
+              <Box sx={{ 
+                display: "flex", 
+                justifyContent: "center", 
+                mb: 1,
+                "& img": {
+                  borderRadius: "50%",
+                  border: "3px solid rgba(255, 255, 255, 0.3)",
+                  transition: "transform 0.2s ease",
+                }
+              }}>
+                <Image
+                  src="/sir-alex-anime.png"
+                  alt="Sir Alex Ferguson - Coach Admin"
+                  width={60}
+                  height={60}
+                  style={{
+                    borderRadius: "50%",
+                    objectFit: "cover"
+                  }}
+                />
+              </Box>
               <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
                 Coach Admin
               </Typography>
