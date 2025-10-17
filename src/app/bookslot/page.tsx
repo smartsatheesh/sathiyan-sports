@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
@@ -20,13 +20,7 @@ import {
   Alert,
   CircularProgress,
   FormControl,
-  FormLabel,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
   Divider,
-  Tabs,
-  Tab,
   Select,
   MenuItem,
   InputLabel,
@@ -35,12 +29,7 @@ import {
   StepLabel,
   List,
   ListItem,
-  ListItemIcon,
-  ListItemText,
-  IconButton,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
+  
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers";
@@ -101,12 +90,12 @@ const sports: Array<{
   {
     id: 3,
     name: "Shuttle Badminton",
-    basePrice: 699,
-    weekendPrice: 999,
+    basePrice: 299,
+    weekendPrice: 399,
     icon: "🏸",
     color: "#ff9800",
     description: "Indoor badminton courts with wooden flooring",
-    features: ["4 courts available", "Professional nets", "Rackets available"]
+    features: ["3 courts available", "Professional nets", "Rackets available"]
   },
   {
     id: 4,
@@ -115,9 +104,9 @@ const sports: Array<{
     weekendPrice: 2500,
     icon: "🎉",
     color: "#9c27b0",
-    description: "Premium venue for corporate events, weddings, and celebrations",
+    description: "Premium venue for corporate events, birthday parties, and celebrations",
     features: [
-      "Spacious hall for 200+ guests",
+      "Spacious hall for 500+ guests",
       "Audio/Visual equipment",
       "Catering facilities",
       "Parking space",
@@ -238,6 +227,7 @@ export default function BookSlot() {
   const [selectedCourt, setSelectedCourt] = useState<string>(""); // Court selection for Shuttle Badminton
   const [timeSlots, setTimeSlots] = useState<Array<{time: string; available: boolean; hours?: number}>>(generateTimeSlots(false, null));
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [registeredSlots, setRegisteredSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [customerInfo, setCustomerInfo] = useState({
@@ -259,6 +249,51 @@ export default function BookSlot() {
   const [upiTransactionId, setUpiTransactionId] = useState('');
   const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
   const [paymentTimer, setPaymentTimer] = useState(300); // 5 minutes
+
+  // Ref for date-time selection area to enable auto-scroll
+  const dateTimeSelectionRef = useRef<HTMLDivElement>(null);
+  const [isScrollHighlighted, setIsScrollHighlighted] = useState(false);
+
+  // Function to handle sport selection and auto-scroll to date selection
+  const handleSportSelection = (sportName: "Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events") => {
+    setSelectedSport(sportName);
+    
+    // Auto-scroll to date selection after a brief delay to allow rendering
+    setTimeout(() => {
+      if (dateTimeSelectionRef.current) {
+        // Add highlight animation
+        setIsScrollHighlighted(true);
+        
+        // Check if it's mobile device for better scroll behavior
+        const isMobile = window.innerWidth <= 768;
+        
+        if (isMobile) {
+          // For mobile, use a more aggressive scroll with offset
+          const element = dateTimeSelectionRef.current;
+          const elementRect = element.getBoundingClientRect();
+          const absoluteElementTop = elementRect.top + window.pageYOffset;
+          const middle = absoluteElementTop - (window.innerHeight / 4); // Scroll to show element in upper portion
+          
+          window.scrollTo({
+            top: middle,
+            behavior: 'smooth'
+          });
+        } else {
+          // For desktop, use standard scrollIntoView
+          dateTimeSelectionRef.current.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+            inline: 'nearest'
+          });
+        }
+        
+        // Remove highlight after animation
+        setTimeout(() => {
+          setIsScrollHighlighted(false);
+        }, 2000);
+      }
+    }, 400); // Increased delay to 400ms for better mobile performance
+  };
   const [timerActive, setTimerActive] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [showQR, setShowQR] = useState(false);
@@ -335,6 +370,7 @@ export default function BookSlot() {
             if (selectedSport === "Shuttle Badminton" && selectedCourt && data.courtBookings) {
               const courtSpecificSlots = data.courtBookings[selectedCourt] || [];
               setBookedSlots(courtSpecificSlots);
+              setRegisteredSlots(data.registeredSlots?.[selectedCourt] || []);
               
               // Update time slots availability for specific court with past time filtering
               // Since we're in Shuttle Badminton block, isEvent is always false
@@ -346,6 +382,7 @@ export default function BookSlot() {
             } else {
               // For other sports or general booking data
               setBookedSlots(data.bookedSlots || []);
+              setRegisteredSlots(data.registeredSlots || []);
               const isEvent = selectedSport === "Functions and Events";
               const updatedSlots = generateTimeSlots(isEvent, selectedDate).map(slot => ({
                 ...slot,
@@ -1426,7 +1463,7 @@ export default function BookSlot() {
                     className={`sport-card ${
                       selectedSport === sport.name ? "selected" : ""
                     }`}
-                    onClick={() => setSelectedSport(sport.name)}
+                    onClick={() => handleSportSelection(sport.name)}
                     style={{ borderColor: sport.color }}
                   >
                     <div className="sport-icon" style={{ fontSize: "2.5rem" }}>
@@ -1460,7 +1497,19 @@ export default function BookSlot() {
 
             {/* Right Side - Date and Time Selection */}
             {selectedSport && (
-              <Paper elevation={3} className="book-slot-container">
+              <Paper 
+                elevation={3} 
+                className="book-slot-container" 
+                ref={dateTimeSelectionRef}
+                sx={{
+                  transition: 'all 0.5s ease',
+                  ...(isScrollHighlighted && {
+                    boxShadow: '0 0 20px 4px rgba(33, 150, 243, 0.3)',
+                    border: '2px solid #2196F3',
+                    transform: 'scale(1.02)'
+                  })
+                }}
+              >
                 <div className="date-time-selection">
                   <h3>Select Date and Time</h3>
                   
@@ -1556,6 +1605,7 @@ export default function BookSlot() {
                           {timeSlots.map((slot, index) => {
                             const isSelected = selectedTimeSlots.includes(slot.time);
                             const isBooked = !slot.available;
+                            const isRegistered = registeredSlots.includes(slot.time);
                             
                             return (
                               <Grid item xs={6} sm={4} md={3} lg={2.4} key={index}>
@@ -1569,9 +1619,11 @@ export default function BookSlot() {
                                     borderRadius: '8px',
                                     background: isSelected 
                                       ? 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)'
-                                      : isBooked 
-                                        ? 'linear-gradient(135deg, #f44336 0%, #ef5350 100%)'
-                                        : 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)',
+                                      : isRegistered
+                                        ? 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)' // Orange for registered
+                                        : isBooked 
+                                          ? 'linear-gradient(135deg, #f44336 0%, #ef5350 100%)' // Red for booked
+                                          : 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)', // Green for available
                                     '&:hover': slot.available ? {
                                       transform: isSelected ? 'scale(1.02)' : 'scale(1.01)',
                                       boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
@@ -1593,6 +1645,8 @@ export default function BookSlot() {
                                     <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
                                       {isSelected ? (
                                         <CheckCircle sx={{ fontSize: 14, color: 'white' }} />
+                                      ) : isRegistered ? (
+                                        <Typography sx={{ fontSize: '10px' }}>👑</Typography>
                                       ) : isBooked ? (
                                         <Typography sx={{ fontSize: '10px' }}>🔒</Typography>
                                       ) : (
@@ -1643,6 +1697,15 @@ export default function BookSlot() {
                               borderRadius: '50%' 
                             }} />
                             <Typography variant="caption" color="text.secondary" fontSize="0.7rem">Selected</Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Box sx={{ 
+                              width: 12, 
+                              height: 12, 
+                              background: 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)', 
+                              borderRadius: '50%' 
+                            }} />
+                            <Typography variant="caption" color="text.secondary" fontSize="0.7rem">Reserved</Typography>
                           </Box>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <Box sx={{ 

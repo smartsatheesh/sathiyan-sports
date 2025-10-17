@@ -32,6 +32,8 @@ import {
   FormControl,
   InputLabel,
   Avatar,
+  TextField,
+  Divider,
 } from "@mui/material";
 import { format } from "date-fns";
 import {
@@ -43,6 +45,9 @@ import {
   Refresh,
   Visibility,
   Security,
+  Edit,
+  Delete,
+  Add,
 } from "@mui/icons-material";
 
 interface TabPanelProps {
@@ -73,6 +78,8 @@ interface User {
   phone: string;
   mobile: string;
   preferredSport: string;
+  selectedCourt?: string; // For Shuttle Badminton court selection
+  registeredSlots?: string[]; // User's registered time slots
   subscriptionType: string;
   paymentStatus: string;
   status: string;
@@ -142,6 +149,31 @@ export default function AdminDashboard() {
     paymentStatus: ''
   });
   const [alert, setAlert] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
+  
+  // Edit and Delete states
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
+  const [editingType, setEditingType] = useState<'booking' | 'user' | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  
+  // User Edit and Delete states
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
+  const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
+  const [updateUserStatus, setUpdateUserStatus] = useState({
+    status: '',
+    paymentStatus: ''
+  });
+  
+  // Registered Slots Management states
+  const [slotsDialogOpen, setSlotsDialogOpen] = useState(false);
+  const [userRegisteredSlots, setUserRegisteredSlots] = useState<any[]>([]);
+  const [newSlot, setNewSlot] = useState({
+    timeSlot: '',
+    dayOfWeek: '',
+    court: ''
+  });
   
   // Pagination states
   const [bookingsPage, setBookingsPage] = useState(1);
@@ -475,6 +507,306 @@ export default function AdminDashboard() {
     }
   };
 
+  // Edit handlers
+  const handleEditBooking = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setUpdateStatus({
+      bookingStatus: booking.bookingStatus || 'pending',
+      paymentStatus: booking.paymentStatus || 'pending'
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    setUpdateUserStatus({
+      status: user.status || 'pending',
+      paymentStatus: user.paymentStatus || 'pending'
+    });
+    setEditUserDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingItem || !editingType) return;
+
+    try {
+      const endpoint = editingType === 'booking' ? '/api/admin/bookings' : '/api/admin/users';
+      const response = await fetch(`${endpoint}/${editingItem._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editingItem),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        if (editingType === 'booking') {
+          setBookings(prev => prev.map(b => b._id === editingItem._id ? editingItem : b));
+        } else {
+          setUsers(prev => prev.map(u => u._id === editingItem._id ? editingItem : u));
+        }
+        
+        setAlert({ 
+          type: 'success', 
+          message: `${editingType.charAt(0).toUpperCase() + editingType.slice(1)} updated successfully!` 
+        });
+        setEditDialogOpen(false);
+        setEditingItem(null);
+        setEditingType(null);
+      } else {
+        throw new Error(data.message || 'Failed to update');
+      }
+    } catch (err) {
+      setAlert({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : 'Failed to update' 
+      });
+    }
+    
+    // Clear alert after 3 seconds
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  // Delete handlers
+  const handleDeleteBooking = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteUser = (user: User) => {
+    setSelectedUser(user);
+    setDeleteUserDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!editingItem || !editingType) return;
+
+    try {
+      const endpoint = editingType === 'booking' ? '/api/admin/bookings' : '/api/admin/users';
+      const response = await fetch(`${endpoint}/${editingItem._id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        if (editingType === 'booking') {
+          setBookings(prev => prev.filter(b => b._id !== editingItem._id));
+        } else {
+          setUsers(prev => prev.filter(u => u._id !== editingItem._id));
+        }
+        
+        setAlert({ 
+          type: 'success', 
+          message: `${editingType.charAt(0).toUpperCase() + editingType.slice(1)} deleted successfully!` 
+        });
+        setDeleteDialogOpen(false);
+        setEditingItem(null);
+        setEditingType(null);
+        setDeleteConfirmText('');
+      } else {
+        throw new Error(data.message || 'Failed to delete');
+      }
+    } catch (err) {
+      setAlert({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : 'Failed to delete' 
+      });
+    }
+    
+    // Clear alert after 3 seconds
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  // Specific dialog handlers for new UI
+  const confirmDeleteBooking = async () => {
+    if (!selectedBooking) return;
+    
+    try {
+      const response = await fetch(`/api/admin/bookings/${selectedBooking._id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setBookings(prev => prev.filter(b => b._id !== selectedBooking._id));
+        setAlert({ 
+          type: 'success', 
+          message: 'Booking deleted successfully!' 
+        });
+        setDeleteDialogOpen(false);
+        setSelectedBooking(null);
+      } else {
+        throw new Error(data.message || 'Failed to delete booking');
+      }
+    } catch (err) {
+      setAlert({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : 'Failed to delete booking' 
+      });
+    }
+    
+    // Clear alert after 3 seconds
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!selectedUser) return;
+    
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser._id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setUsers(prev => prev.filter(u => u._id !== selectedUser._id));
+        setAlert({ 
+          type: 'success', 
+          message: 'User deleted successfully!' 
+        });
+        setDeleteUserDialogOpen(false);
+        setSelectedUser(null);
+      } else {
+        throw new Error(data.message || 'Failed to delete user');
+      }
+    } catch (err) {
+      setAlert({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : 'Failed to delete user' 
+      });
+    }
+    
+    // Clear alert after 3 seconds
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  const handleUserUpdate = async () => {
+    if (!selectedUser) return;
+
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...selectedUser,
+          status: updateUserStatus.status,
+          paymentStatus: updateUserStatus.paymentStatus,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setUsers(prev => prev.map(u => 
+          u._id === selectedUser._id 
+            ? { ...u, status: updateUserStatus.status, paymentStatus: updateUserStatus.paymentStatus }
+            : u
+        ));
+        setAlert({ 
+          type: 'success', 
+          message: 'User updated successfully!' 
+        });
+        setEditUserDialogOpen(false);
+        setSelectedUser(null);
+      } else {
+        throw new Error(data.message || 'Failed to update user');
+      }
+    } catch (err) {
+      setAlert({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : 'Failed to update user' 
+      });
+    }
+    
+    // Clear alert after 3 seconds
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  const handleManageSlots = async (user: User) => {
+    setSelectedUser(user);
+    setSlotsDialogOpen(true);
+    
+    try {
+      const response = await fetch(`/api/admin/users/${user._id}/registered-slots`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setUserRegisteredSlots(data.registeredSlots);
+      }
+    } catch (error) {
+      console.error('Error fetching user slots:', error);
+      setAlert({ type: 'error', message: 'Failed to fetch user slots' });
+    }
+  };
+
+  const handleAddSlot = async () => {
+    if (!selectedUser || !newSlot.timeSlot || !newSlot.dayOfWeek) return;
+
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser._id}/registered-slots`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          timeSlot: newSlot.timeSlot,
+          dayOfWeek: newSlot.dayOfWeek,
+          court: newSlot.court || selectedUser.selectedCourt,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setUserRegisteredSlots(data.registeredSlots);
+        setNewSlot({ timeSlot: '', dayOfWeek: '', court: '' });
+        setAlert({ type: 'success', message: 'Slot added successfully!' });
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (err) {
+      setAlert({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : 'Failed to add slot' 
+      });
+    }
+    
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  const handleRemoveSlot = async (slotId: string) => {
+    if (!selectedUser) return;
+
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser._id}/registered-slots?slotId=${slotId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setUserRegisteredSlots(data.registeredSlots);
+        setAlert({ type: 'success', message: 'Slot removed successfully!' });
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (err) {
+      setAlert({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : 'Failed to remove slot' 
+      });
+    }
+    
+    setTimeout(() => setAlert(null), 3000);
+  };
+
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
@@ -722,28 +1054,44 @@ export default function AdminDashboard() {
                 <TableRow>
                   <TableCell>Booking ID</TableCell>
                   <TableCell>User</TableCell>
-                  <TableCell>Sport</TableCell>
+                  <TableCell>Sport/Court</TableCell>
                   <TableCell>Date</TableCell>
-                  <TableCell>Time</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Action</TableCell>
+                  <TableCell>Time Slots</TableCell>
+                  <TableCell>Payment Status</TableCell>
+                  <TableCell>Booking Status</TableCell>
+                  <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {bookings.map((booking) => (
                   <TableRow key={booking._id}>
                     <TableCell>{booking._id.slice(-8)}</TableCell>
-                    <TableCell>{booking.customerName}</TableCell>
-                    <TableCell>{booking.sport}</TableCell>
                     <TableCell>
-                      {booking.sport === "Shuttle Badminton" && booking.court ? (
-                        <Chip label={`Court ${booking.court}`} size="small" color="primary" />
-                      ) : (
-                        <span>-</span>
-                      )}
+                      <Box>
+                        <Typography variant="body2" fontWeight="bold">
+                          {booking.customerName}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary">
+                          {booking.customerEmail}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Box>
+                        <Typography variant="body2">{booking.sport}</Typography>
+                        {booking.sport === "Shuttle Badminton" && booking.court && (
+                          <Chip label={`Court ${booking.court}`} size="small" color="primary" />
+                        )}
+                      </Box>
                     </TableCell>
                     <TableCell>{format(new Date(booking.date), 'MMM dd, yyyy')}</TableCell>
-                    <TableCell>{booking.timeSlots.join(', ')}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {booking.timeSlots.map((slot, index) => (
+                          <Chip key={index} label={slot} size="small" variant="outlined" />
+                        ))}
+                      </Box>
+                    </TableCell>
                     <TableCell>
                       <Chip
                         label={booking.paymentStatus}
@@ -759,7 +1107,37 @@ export default function AdminDashboard() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column' }}>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="primary"
+                          onClick={() => handleViewBooking(booking)}
+                          startIcon={<Visibility />}
+                          sx={{ fontSize: '0.7rem', py: 0.5 }}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="secondary"
+                          onClick={() => handleEditBooking(booking)}
+                          startIcon={<Edit />}
+                          sx={{ fontSize: '0.7rem', py: 0.5 }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          onClick={() => handleDeleteBooking(booking)}
+                          startIcon={<Delete />}
+                          sx={{ fontSize: '0.7rem', py: 0.5 }}
+                        >
+                          Delete
+                        </Button>
                         {(booking.bookingStatus === 'pending' || booking.paymentStatus === 'pending_verification') && (
                           <Button 
                             size="small" 
@@ -771,15 +1149,6 @@ export default function AdminDashboard() {
                             ✅ Approve
                           </Button>
                         )}
-                        <Button 
-                          size="small" 
-                          color="primary"
-                          variant="outlined"
-                          onClick={() => handleViewBooking(booking)}
-                          sx={{ fontSize: '0.7rem', py: 0.5 }}
-                        >
-                          👁️ View
-                        </Button>
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -821,6 +1190,8 @@ export default function AdminDashboard() {
                   <TableCell>Email</TableCell>
                   <TableCell>Phone</TableCell>
                   <TableCell>Preferred Sport</TableCell>
+                  <TableCell>Registered Slots</TableCell>
+                  <TableCell>Selected Court</TableCell>
                   <TableCell>Subscription</TableCell>
                   <TableCell>User Status</TableCell>
                   <TableCell>Payment Status</TableCell>
@@ -835,6 +1206,24 @@ export default function AdminDashboard() {
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{user.phone || user.mobile}</TableCell>
                     <TableCell>{user.preferredSport || 'N/A'}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        {user.registeredSlots && user.registeredSlots.length > 0 ? (
+                          user.registeredSlots.map((slot, index) => (
+                            <Chip key={index} label={slot} size="small" variant="outlined" />
+                          ))
+                        ) : (
+                          <Typography variant="body2" color="textSecondary">No slots</Typography>
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      {user.selectedCourt ? (
+                        <Chip label={user.selectedCourt} size="small" color="primary" variant="outlined" />
+                      ) : (
+                        <Typography variant="body2" color="textSecondary">No court</Typography>
+                      )}
+                    </TableCell>
                     <TableCell>{user.subscriptionType || 'N/A'}</TableCell>
                     <TableCell>
                       <Chip
@@ -852,6 +1241,39 @@ export default function AdminDashboard() {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="secondary"
+                          onClick={() => handleEditUser(user)}
+                          startIcon={<Edit />}
+                          sx={{ fontSize: '0.7rem', py: 0.5 }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          onClick={() => handleDeleteUser(user)}
+                          startIcon={<Delete />}
+                          sx={{ fontSize: '0.7rem', py: 0.5 }}
+                        >
+                          Delete
+                        </Button>
+                        {user.preferredSport === "Shuttle Badminton" && 
+                         ["monthly", "yearly"].includes(user.subscriptionType) && 
+                         user.status === "verified" && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="primary"
+                            onClick={() => handleManageSlots(user)}
+                            sx={{ fontSize: '0.7rem', py: 0.5 }}
+                          >
+                            👑 Slots
+                          </Button>
+                        )}
                         {(!user.status || user.status === 'pending') && (
                           <>
                             <Button
@@ -1158,6 +1580,365 @@ export default function AdminDashboard() {
           <Button onClick={handleBookingUpdate} variant="contained" color="primary">
             Update Booking
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Booking Dialog */}
+      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit Booking</DialogTitle>
+        <DialogContent>
+          {selectedBooking && (
+            <Box sx={{ pt: 2 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Customer Name"
+                    value={selectedBooking.customerName}
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Customer Email"
+                    value={selectedBooking.customerEmail}
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Customer Phone"
+                    value={selectedBooking.customerPhone}
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Sport"
+                    value={selectedBooking.sport}
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Date"
+                    value={format(new Date(selectedBooking.date), 'yyyy-MM-dd')}
+                    type="date"
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Total Amount"
+                    value={selectedBooking.totalAmount}
+                    type="number"
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Payment Status</InputLabel>
+                    <Select
+                      value={updateStatus.paymentStatus}
+                      onChange={(e) => setUpdateStatus(prev => ({ ...prev, paymentStatus: e.target.value }))}
+                    >
+                      <MenuItem value="pending">Pending</MenuItem>
+                      <MenuItem value="confirmed">Confirmed</MenuItem>
+                      <MenuItem value="failed">Failed</MenuItem>
+                      <MenuItem value="refunded">Refunded</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Booking Status</InputLabel>
+                    <Select
+                      value={updateStatus.bookingStatus}
+                      onChange={(e) => setUpdateStatus(prev => ({ ...prev, bookingStatus: e.target.value }))}
+                    >
+                      <MenuItem value="pending">Pending</MenuItem>
+                      <MenuItem value="confirmed">Confirmed</MenuItem>
+                      <MenuItem value="cancelled">Cancelled</MenuItem>
+                      <MenuItem value="completed">Completed</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleBookingUpdate} variant="contained" color="primary">
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Booking Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete this booking? This action cannot be undone.
+          </Typography>
+          {selectedBooking && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+              <Typography variant="subtitle2">Booking Details:</Typography>
+              <Typography variant="body2">Customer: {selectedBooking.customerName}</Typography>
+              <Typography variant="body2">Sport: {selectedBooking.sport}</Typography>
+              <Typography variant="body2">Date: {format(new Date(selectedBooking.date), 'MMMM dd, yyyy')}</Typography>
+              <Typography variant="body2">Amount: ${selectedBooking.totalAmount}</Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={confirmDeleteBooking} variant="contained" color="error">
+            Delete Booking
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={editUserDialogOpen} onClose={() => setEditUserDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit User</DialogTitle>
+        <DialogContent>
+          {selectedUser && (
+            <Box sx={{ pt: 2 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Name"
+                    value={selectedUser.name}
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Email"
+                    value={selectedUser.email}
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Phone"
+                    value={selectedUser.phone || selectedUser.mobile}
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Preferred Sport"
+                    value={selectedUser.preferredSport || ''}
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>User Status</InputLabel>
+                    <Select
+                      value={updateUserStatus.status}
+                      onChange={(e) => setUpdateUserStatus(prev => ({ ...prev, status: e.target.value }))}
+                    >
+                      <MenuItem value="pending">Pending</MenuItem>
+                      <MenuItem value="verified">Verified</MenuItem>
+                      <MenuItem value="suspended">Suspended</MenuItem>
+                      <MenuItem value="rejected">Rejected</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Payment Status</InputLabel>
+                    <Select
+                      value={updateUserStatus.paymentStatus}
+                      onChange={(e) => setUpdateUserStatus(prev => ({ ...prev, paymentStatus: e.target.value }))}
+                    >
+                      <MenuItem value="pending">Pending</MenuItem>
+                      <MenuItem value="confirmed">Confirmed</MenuItem>
+                      <MenuItem value="failed">Failed</MenuItem>
+                      <MenuItem value="refunded">Refunded</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Subscription Type"
+                    value={selectedUser.subscriptionType || ''}
+                    disabled
+                  />
+                </Grid>
+                {selectedUser.registeredSlots && selectedUser.registeredSlots.length > 0 && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" gutterBottom>Registered Slots:</Typography>
+                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                      {selectedUser.registeredSlots.map((slot, index) => (
+                        <Chip key={index} label={slot} size="small" variant="outlined" />
+                      ))}
+                    </Box>
+                  </Grid>
+                )}
+                {selectedUser.selectedCourt && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" gutterBottom>Selected Court:</Typography>
+                    <Chip label={selectedUser.selectedCourt} size="small" color="primary" variant="outlined" />
+                  </Grid>
+                )}
+              </Grid>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditUserDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleUserUpdate} variant="contained" color="primary">
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete User Confirmation Dialog */}
+      <Dialog open={deleteUserDialogOpen} onClose={() => setDeleteUserDialogOpen(false)}>
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete this user? This action cannot be undone and will also delete all associated bookings.
+          </Typography>
+          {selectedUser && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+              <Typography variant="subtitle2">User Details:</Typography>
+              <Typography variant="body2">Name: {selectedUser.name}</Typography>
+              <Typography variant="body2">Email: {selectedUser.email}</Typography>
+              <Typography variant="body2">Phone: {selectedUser.phone || selectedUser.mobile}</Typography>
+              <Typography variant="body2">Status: {selectedUser.status || 'pending'}</Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteUserDialogOpen(false)}>Cancel</Button>
+          <Button onClick={confirmDeleteUser} variant="contained" color="error">
+            Delete User
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Manage Registered Slots Dialog */}
+      <Dialog open={slotsDialogOpen} onClose={() => setSlotsDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Manage Registered Slots - {selectedUser?.name}</DialogTitle>
+        <DialogContent>
+          {selectedUser && (
+            <Box sx={{ pt: 2 }}>
+              <Typography variant="h6" gutterBottom>Current Registered Slots</Typography>
+              {userRegisteredSlots.length > 0 ? (
+                <Box sx={{ mb: 3 }}>
+                  {userRegisteredSlots.map((slot, index) => (
+                    <Box key={slot._id || index} sx={{ display: 'flex', alignItems: 'center', mb: 1, p: 1, bgcolor: 'grey.100', borderRadius: 1 }}>
+                      <Typography sx={{ flex: 1 }}>
+                        {slot.dayOfWeek?.charAt(0).toUpperCase() + slot.dayOfWeek?.slice(1)} - {slot.timeSlot} 
+                        {slot.court && ` (Court: ${slot.court})`}
+                      </Typography>
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={() => handleRemoveSlot(slot._id)}
+                        sx={{ ml: 1 }}
+                      >
+                        Remove
+                      </Button>
+                    </Box>
+                  ))}
+                </Box>
+              ) : (
+                <Typography color="textSecondary" sx={{ mb: 3 }}>No registered slots</Typography>
+              )}
+
+              <Divider sx={{ my: 2 }} />
+
+              <Typography variant="h6" gutterBottom>Add New Slot</Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Day of Week</InputLabel>
+                    <Select
+                      value={newSlot.dayOfWeek}
+                      onChange={(e) => setNewSlot(prev => ({ ...prev, dayOfWeek: e.target.value }))}
+                    >
+                      <MenuItem value="monday">Monday</MenuItem>
+                      <MenuItem value="tuesday">Tuesday</MenuItem>
+                      <MenuItem value="wednesday">Wednesday</MenuItem>
+                      <MenuItem value="thursday">Thursday</MenuItem>
+                      <MenuItem value="friday">Friday</MenuItem>
+                      <MenuItem value="saturday">Saturday</MenuItem>
+                      <MenuItem value="sunday">Sunday</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Time Slot</InputLabel>
+                    <Select
+                      value={newSlot.timeSlot}
+                      onChange={(e) => setNewSlot(prev => ({ ...prev, timeSlot: e.target.value }))}
+                    >
+                      <MenuItem value="05:00 - 06:00">05:00 - 06:00</MenuItem>
+                      <MenuItem value="06:00 - 07:00">06:00 - 07:00</MenuItem>
+                      <MenuItem value="07:00 - 08:00">07:00 - 08:00</MenuItem>
+                      <MenuItem value="08:00 - 09:00">08:00 - 09:00</MenuItem>
+                      <MenuItem value="09:00 - 10:00">09:00 - 10:00</MenuItem>
+                      <MenuItem value="10:00 - 11:00">10:00 - 11:00</MenuItem>
+                      <MenuItem value="11:00 - 12:00">11:00 - 12:00</MenuItem>
+                      <MenuItem value="12:00 - 13:00">12:00 - 13:00</MenuItem>
+                      <MenuItem value="13:00 - 14:00">13:00 - 14:00</MenuItem>
+                      <MenuItem value="14:00 - 15:00">14:00 - 15:00</MenuItem>
+                      <MenuItem value="15:00 - 16:00">15:00 - 16:00</MenuItem>
+                      <MenuItem value="16:00 - 17:00">16:00 - 17:00</MenuItem>
+                      <MenuItem value="17:00 - 18:00">17:00 - 18:00</MenuItem>
+                      <MenuItem value="18:00 - 19:00">18:00 - 19:00</MenuItem>
+                      <MenuItem value="19:00 - 20:00">19:00 - 20:00</MenuItem>
+                      <MenuItem value="20:00 - 21:00">20:00 - 21:00</MenuItem>
+                      <MenuItem value="21:00 - 22:00">21:00 - 22:00</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <FormControl fullWidth>
+                    <InputLabel>Court</InputLabel>
+                    <Select
+                      value={newSlot.court || selectedUser.selectedCourt || ''}
+                      onChange={(e) => setNewSlot(prev => ({ ...prev, court: e.target.value }))}
+                    >
+                      <MenuItem value="S1">S1</MenuItem>
+                      <MenuItem value="S2">S2</MenuItem>
+                      <MenuItem value="S3">S3</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <Button
+                    variant="contained"
+                    onClick={handleAddSlot}
+                    disabled={!newSlot.timeSlot || !newSlot.dayOfWeek}
+                  >
+                    Add Slot
+                  </Button>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSlotsDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Container>

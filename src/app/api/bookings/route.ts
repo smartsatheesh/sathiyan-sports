@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToMongoose } from "@/app/server/mongodb";
 import Booking from "../../models/Booking";
+import User from "../../models/User";
 import { format, startOfDay, endOfDay } from "date-fns";
 // COMMENTED OUT: Notification services (Twilio/Firebase)
 // import { NotificationService } from "../../services/notificationService";
@@ -75,6 +76,55 @@ export async function POST(req: NextRequest) {
         },
         { status: 409 }
       );
+    }
+
+    // Check for registered slots conflict (monthly/yearly subscribers)
+    if (sport === "Shuttle Badminton") {
+      const dayOfWeek = format(bookingDate, "EEEE").toLowerCase();
+      
+      let registeredUsersQuery: any = {
+        preferredSport: sport,
+        status: "verified",
+        paymentStatus: { $in: ["completed", "confirmed"] },
+        subscriptionType: { $in: ["monthly", "yearly"] },
+        isActive: true,
+        subscriptionEndDate: { $gte: bookingDate },
+        "registeredSlots.dayOfWeek": dayOfWeek,
+      };
+
+      if (court) {
+        registeredUsersQuery["registeredSlots.court"] = court;
+      }
+
+      const registeredUsers = await (User.find as any)(registeredUsersQuery).select("registeredSlots selectedCourt");
+
+      // Extract registered time slots for the booking date
+      const registeredTimeSlots: string[] = [];
+      registeredUsers.forEach(user => {
+        user.registeredSlots.forEach((slot: any) => {
+          if (slot.dayOfWeek === dayOfWeek) {
+            const slotCourt = slot.court || user.selectedCourt || 'S1';
+            if (!court || slotCourt === court) {
+              registeredTimeSlots.push(slot.timeSlot);
+            }
+          }
+        });
+      });
+
+      // Check if any requested time slots conflict with registered slots
+      const conflictingRegisteredSlots = timeSlots.filter((slot: string) => registeredTimeSlots.includes(slot));
+      
+      if (conflictingRegisteredSlots.length > 0) {
+        return NextResponse.json(
+          { 
+            message: "Some time slots are reserved for registered members", 
+            success: false,
+            conflictingSlots: conflictingRegisteredSlots,
+            type: "registered_conflict"
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // Create the booking
@@ -165,6 +215,7 @@ export async function GET(req: NextRequest) {
     }
 
     const queryDate = new Date(date);
+    const dayOfWeek = format(queryDate, "EEEE").toLowerCase(); // Get day of week for registered slots
     
     // Build query for finding bookings
     let bookingQuery: any = {
@@ -185,6 +236,63 @@ export async function GET(req: NextRequest) {
 
     const bookings = await (Booking.find as any)(bookingQuery).select("timeSlots court");
 
+    // Fetch registered slots for monthly/yearly verified users
+    let registeredSlots: string[] = [];
+    let registeredCourtSlots: { [key: string]: string[] } = {
+      S1: [],
+      S2: [],
+      S3: []
+    };
+
+    if (sport === "Shuttle Badminton") {
+      // Build query for finding registered users
+      let userQuery: any = {
+        preferredSport: sport,
+        status: "verified", // Only verified users
+        paymentStatus: { $in: ["completed", "confirmed"] }, // Only users with confirmed payments
+        subscriptionType: { $in: ["monthly", "yearly"] }, // Only monthly/yearly subscribers
+        isActive: true,
+        // Check if subscription is still valid
+        subscriptionEndDate: { $gte: queryDate },
+        "registeredSlots.dayOfWeek": dayOfWeek,
+      };
+
+      // If court is specified, filter by court
+      if (court) {
+        userQuery["registeredSlots.court"] = court;
+      }
+
+      const registeredUsers = await (User.find as any)(userQuery).select("registeredSlots preferredSport subscriptionType selectedCourt");
+
+      // Extract registered slots for the specific day
+      registeredUsers.forEach(user => {
+        user.registeredSlots.forEach((slot: any) => {
+          if (slot.dayOfWeek === dayOfWeek) {
+            const slotCourt = slot.court || user.selectedCourt || 'S1';
+            
+            if (court) {
+              // If specific court requested, only return slots for that court
+              if (slotCourt === court) {
+                registeredSlots.push(slot.timeSlot);
+              }
+            } else {
+              // Return all slots organized by court
+              if (registeredCourtSlots[slotCourt]) {
+                registeredCourtSlots[slotCourt].push(slot.timeSlot);
+              }
+              registeredSlots.push(slot.timeSlot);
+            }
+          }
+        });
+      });
+
+      // Remove duplicates
+      registeredSlots = [...new Set(registeredSlots)];
+      Object.keys(registeredCourtSlots).forEach(courtKey => {
+        registeredCourtSlots[courtKey] = [...new Set(registeredCourtSlots[courtKey])];
+      });
+    }
+
     // For Shuttle Badminton without specific court, return court-specific data
     if (sport === "Shuttle Badminton" && !court) {
       const courtBookings: { [key: string]: string[] } = {
@@ -201,23 +309,35 @@ export async function GET(req: NextRequest) {
       });
 
       // Remove duplicates for each court
-      Object.keys(courtBookings).forEach(court => {
-        courtBookings[court] = [...new Set(courtBookings[court])];
+      Object.keys(courtBookings).forEach(courtKey => {
+        courtBookings[courtKey] = [...new Set(courtBookings[courtKey])];
+      });
+
+      // Merge registered slots with booked slots for each court
+      Object.keys(courtBookings).forEach(courtKey => {
+        if (registeredCourtSlots[courtKey]) {
+          courtBookings[courtKey] = [...new Set([...courtBookings[courtKey], ...registeredCourtSlots[courtKey]])];
+        }
       });
 
       return NextResponse.json({
         success: true,
         courtBookings,
         bookedSlots: [], // Keep for backward compatibility
+        registeredSlots: registeredCourtSlots,
       });
     }
 
     // Extract all booked time slots (for other sports or specific court)
     const bookedSlots = bookings.flatMap(booking => booking.timeSlots);
+    
+    // Merge booked slots with registered slots
+    const allBlockedSlots = [...new Set([...bookedSlots, ...registeredSlots])];
 
     return NextResponse.json({
       success: true,
-      bookedSlots: [...new Set(bookedSlots)], // Remove duplicates
+      bookedSlots: allBlockedSlots, // Now includes both booked and registered slots
+      registeredSlots: registeredSlots, // Separate array for registered slots info
     });
   } catch (error) {
     console.error("Error fetching booked slots:", error);

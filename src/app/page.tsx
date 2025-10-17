@@ -9,8 +9,6 @@ import {
   Paper,
   Card,
   CardContent,
-  Divider,
-  TextField,
   Grid,
   Chip,
   Stack,
@@ -76,7 +74,7 @@ const CarouselBackground3D = dynamic(() => import("./components/CarouselBackgrou
   )
 });
 
-const sectionKeys = ["home", "about", "contact"];
+
 
 // Sports data for the landing page
 const sportsData = [
@@ -122,33 +120,10 @@ const statsData = [
 ];
 
 export default function Home() {
-  const [activeSection, setActiveSection] = useState("home");
-  const [slideDirection, setSlideDirection] = useState("right");
   const [shouldLoad3D, setShouldLoad3D] = useState(false);
   const [shouldLoadCarousel3D, setShouldLoadCarousel3D] = useState(false);
-  const prevSection = useRef("home");
   const carouselRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
-
-  // Listen for hash changes and update section
-  useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace("#", "") || "home";
-      if (sectionKeys.includes(hash)) {
-        setSlideDirection(
-          sectionKeys.indexOf(hash) > sectionKeys.indexOf(prevSection.current)
-            ? "right"
-            : "left"
-        );
-        setActiveSection(hash);
-        prevSection.current = hash;
-      }
-    };
-
-    handleHashChange(); // On mount, set section based on hash
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
-  }, []);
 
   // Progressive loading strategy
   useEffect(() => {
@@ -195,8 +170,7 @@ export default function Home() {
         }}
       >
         {/* Home Section - Full Screen 3D Hero + Original Content */}
-        {activeSection === "home" && (
-          <Box>
+        <Box>
             {/* Full Screen 3D Hero Section */}
             <Box sx={{ height: "100vh", width: "100vw", position: "relative" }}>
               <Box sx={{ 
@@ -486,215 +460,8 @@ export default function Home() {
             {/* Testimonials Section */}
             <TestimonialsSection />
           </Box>
-        )}
 
-        {/* About Section */}
-        {activeSection === "about" && (
-          <Container
-            id="about"
-            maxWidth="lg"
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: "80vh",
-              py: 8
-            }}
-          >
-            <Typography
-              variant="h2"
-              textAlign="center"
-              sx={{
-                mb: 6,
-                fontWeight: 700,
-                color: theme.palette.primary.main
-              }}
-            >
-              About Sathiyan Sports
-            </Typography>
-            
-            <Grid container spacing={4}>
-              <Grid item xs={12} md={6}>
-                <Card
-                  elevation={6}
-                  sx={{
-                    height: '100%',
-                    borderRadius: 4,
-                    background: `linear-gradient(135deg, ${alpha('#ffffff', 0.9)}, ${alpha(theme.palette.primary.light, 0.05)})`,
-                    border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
-                  }}
-                >
-                  <CardContent sx={{ p: 4 }}>
-                    <Typography
-                      variant="h4"
-                      color="primary"
-                      gutterBottom
-                      sx={{ fontWeight: 700, display: 'flex', alignItems: 'center' }}
-                    >
-                      🎯 Our Vision
-                    </Typography>
-                    <Typography variant="body1" sx={{ lineHeight: 1.7 }}>
-                      To inspire and empower people of all ages to lead active,
-                      healthy lives by offering top-quality sports facilities,
-                      inclusive programs, and strong community engagement. We envision
-                      a future where sports becomes a way of life for everyone.
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <Card
-                  elevation={6}
-                  sx={{
-                    height: '100%',
-                    borderRadius: 4,
-                    background: `linear-gradient(135deg, ${alpha('#ffffff', 0.9)}, ${alpha(theme.palette.secondary.light, 0.05)})`,
-                    border: `1px solid ${alpha(theme.palette.secondary.main, 0.1)}`
-                  }}
-                >
-                  <CardContent sx={{ p: 4 }}>
-                    <Typography
-                      variant="h4"
-                      color="secondary"
-                      gutterBottom
-                      sx={{ fontWeight: 700, display: 'flex', alignItems: 'center' }}
-                    >
-                      🚀 Our Mission
-                    </Typography>
-                    <Typography variant="body1" sx={{ lineHeight: 1.7 }}>
-                      To create safe, accessible, and professional multi-sport
-                      environments—including football turfs, cricket nets, indoor
-                      courts, and ball badminton arenas—where individuals can train,
-                      play, and grow together in a supportive community.
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </Container>
-        )}
 
-        {/* Contact Section */}
-        {activeSection === "contact" && (
-          <Container
-            id="contact"
-            maxWidth="md"
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: "80vh",
-              py: 8
-            }}
-          >
-            <Paper
-              elevation={8}
-              sx={{
-                p: { xs: 4, md: 6 },
-                textAlign: "center",
-                borderRadius: 4,
-                width: "100%",
-                maxWidth: "600px",
-                background: `linear-gradient(135deg, ${alpha('#ffffff', 0.95)}, ${alpha(theme.palette.primary.light, 0.05)})`,
-                backdropFilter: 'blur(10px)',
-                border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
-              }}
-            >
-              <Typography
-                variant="h3"
-                color="primary"
-                gutterBottom
-                sx={{
-                  fontWeight: 800,
-                  letterSpacing: 1,
-                  fontSize: { xs: "2rem", md: "2.5rem" },
-                  mb: 4
-                }}
-              >
-                Contact Us
-              </Typography>
-              <Box
-                component="form"
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 3,
-                  width: "100%",
-                  maxWidth: "450px",
-                  mx: "auto"
-                }}
-                noValidate
-                autoComplete="off"
-              >
-                <TextField
-                  label="Name"
-                  variant="outlined"
-                  fullWidth
-                  required
-                  sx={{
-                    bgcolor: "background.paper",
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: 2,
-                    },
-                  }}
-                />
-                <TextField
-                  label="Email"
-                  variant="outlined"
-                  fullWidth
-                  required
-                  type="email"
-                  sx={{
-                    bgcolor: "background.paper",
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: 2,
-                    },
-                  }}
-                />
-                <TextField
-                  label="Message"
-                  variant="outlined"
-                  fullWidth
-                  required
-                  multiline
-                  rows={4}
-                  sx={{
-                    bgcolor: "background.paper",
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: 2,
-                    },
-                  }}
-                />
-                <Button
-                  variant="contained"
-                  color="primary"
-                  size="large"
-                  sx={{
-                    mt: 3,
-                    py: 1.5,
-                    px: 6,
-                    fontSize: { xs: "1rem", md: "1.1rem" },
-                    fontWeight: 700,
-                    borderRadius: 2,
-                    width: "200px",
-                    alignSelf: "center",
-                    background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                    '&:hover': {
-                      transform: 'translateY(-2px)',
-                      boxShadow: theme.shadows[8]
-                    },
-                    transition: 'all 0.3s ease'
-                  }}
-                >
-                  Send Message
-                </Button>
-              </Box>
-            </Paper>
-          </Container>
-        )}
       </Box>
       
       {/* Footer */}

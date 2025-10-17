@@ -94,6 +94,28 @@ const userSchema = new mongoose.Schema({
   subscriptionEndDate: {
     type: Date,
   },
+  registeredSlots: [{
+    timeSlot: {
+      type: String,
+      required: true,
+    },
+    dayOfWeek: {
+      type: String,
+      enum: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"],
+      required: true,
+    },
+    court: {
+      type: String,
+      enum: ["S1", "S2", "S3"],
+      required: function() {
+        return this.parent().preferredSport === "Shuttle Badminton";
+      },
+    },
+    registeredAt: {
+      type: Date,
+      default: Date.now,
+    },
+  }],
   lastLogin: {
     type: Date,
   },
