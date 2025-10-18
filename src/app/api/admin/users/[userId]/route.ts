@@ -57,6 +57,45 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
     // Remove sensitive fields that shouldn't be updated via this endpoint
     const { password, _id, __v, ...updateData } = body;
 
+    // Get current user data to check for changes that require validation
+    const currentUser = await (User.findById as any)(userId);
+    if (!currentUser) {
+      return NextResponse.json(
+        { message: "User not found", success: false },
+        { status: 404 }
+      );
+    }
+
+    // Check if critical fields are being changed (sport, subscription type, court)
+    const criticalFieldsChanged = 
+      updateData.preferredSport !== currentUser.preferredSport ||
+      updateData.subscriptionType !== currentUser.subscriptionType ||
+      updateData.selectedCourt !== currentUser.selectedCourt;
+
+    // If critical fields are being changed, check for existing bookings
+    if (criticalFieldsChanged) {
+      const existingBookings = await (Booking.find as any)({
+        $or: [
+          { customerEmail: currentUser.email },
+          { customerPhone: currentUser.phone || currentUser.mobile }
+        ],
+        bookingStatus: { $in: ['pending', 'confirmed'] }
+      });
+
+      if (existingBookings.length > 0) {
+        return NextResponse.json({
+          message: "Cannot modify user details as they have existing bookings. Please cancel or complete their bookings first.",
+          success: false,
+          existingBookings: existingBookings.length
+        }, { status: 400 });
+      }
+    }
+
+    // Clean up selectedCourt - remove if empty string or if sport is not Shuttle Badminton
+    if (updateData.selectedCourt === '' || updateData.preferredSport !== 'Shuttle Badminton') {
+      delete updateData.selectedCourt;
+    }
+
     const user = await (User.findByIdAndUpdate as any)(
       userId,
       { ...updateData, updatedAt: new Date() },

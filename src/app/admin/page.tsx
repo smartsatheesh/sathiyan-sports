@@ -56,6 +56,9 @@ import {
   Edit,
   Delete,
   Add,
+  Block,
+  CheckCircle,
+  Cancel,
 } from "@mui/icons-material";
 
 interface TabPanelProps {
@@ -204,6 +207,33 @@ export default function AdminDashboard() {
   const [hasMoreUsers, setHasMoreUsers] = useState(true);
   const [hasMoreFitnessEnrollments, setHasMoreFitnessEnrollments] = useState(true);
 
+  // Function to populate registered slots for users
+  const populateRegisteredSlots = async (usersArray: User[]) => {
+    console.log('Populating registered slots for', usersArray.length, 'users');
+    const usersWithSlots = await Promise.all(
+      usersArray.map(async (user) => {
+        // Only fetch slots for Shuttle Badminton users with monthly/yearly subscriptions
+        if (user.preferredSport === "Shuttle Badminton" && 
+            ["monthly", "yearly"].includes(user.subscriptionType)) {
+          try {
+            console.log(`Fetching slots for user ${user._id} - ${user.name}`);
+            const response = await fetch(`/api/admin/users/${user._id}/registered-slots`);
+            const data = await response.json();
+            console.log(`Slots response for ${user.name}:`, data);
+            if (data.success) {
+              return { ...user, registeredSlots: data.registeredSlots };
+            }
+          } catch (error) {
+            console.error(`Error fetching slots for user ${user._id}:`, error);
+          }
+        }
+        return user;
+      })
+    );
+    console.log('Users with slots populated:', usersWithSlots.map(u => ({ name: u.name, slots: u.registeredSlots?.length || 0 })));
+    return usersWithSlots;
+  };
+
   // Authentication check
   useEffect(() => {
     if (status === "loading") return; // Still loading
@@ -260,7 +290,10 @@ export default function AdminDashboard() {
         
         if (bookingsData.success && usersData.success) {
           setBookings(bookingsData.bookings);
-          setUsers(usersData.users);
+          
+          // Populate registered slots for users
+          const usersWithSlots = await populateRegisteredSlots(usersData.users);
+          setUsers(usersWithSlots);
 
           // Calculate stats after both bookings and users are fetched
           const today = new Date().toDateString();
@@ -331,7 +364,9 @@ export default function AdminDashboard() {
       const data = await response.json();
       
       if (data.success && data.users.length > 0) {
-        setUsers(prev => [...prev, ...data.users]);
+        // Populate registered slots for the new users
+        const usersWithSlots = await populateRegisteredSlots(data.users);
+        setUsers(prev => [...prev, ...usersWithSlots]);
         setUsersPage(nextPage);
         
         // Check if there are more pages
@@ -527,6 +562,7 @@ export default function AdminDashboard() {
 
   // Edit handlers
   const handleEditBooking = (booking: Booking) => {
+    console.log('Opening edit dialog for booking:', booking);
     setSelectedBooking(booking);
     setUpdateStatus({
       bookingStatus: booking.bookingStatus || 'pending',
@@ -735,6 +771,9 @@ export default function AdminDashboard() {
   const handleUserUpdate = async () => {
     if (!selectedUser) return;
 
+    console.log('Starting user update for:', selectedUser._id);
+    console.log('Form data:', editUserFormData);
+
     try {
       const response = await fetch(`/api/admin/users/${selectedUser._id}`, {
         method: 'PUT',
@@ -756,7 +795,9 @@ export default function AdminDashboard() {
         }),
       });
 
+      console.log('Response status:', response.status);
       const data = await response.json();
+      console.log('Response data:', data);
 
       if (data.success) {
         setUsers(prev => prev.map(u => 
@@ -1140,43 +1181,82 @@ export default function AdminDashboard() {
         </Tabs>
 
         <TabPanel value={tabValue} index={0}>
-          <TableContainer>
+          <TableContainer sx={{ 
+            overflowX: 'auto',
+            '& .MuiTable-root': {
+              minWidth: { xs: '800px', md: 'auto' }
+            }
+          }}>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Booking ID</TableCell>
-                  <TableCell>User</TableCell>
-                  <TableCell>Sport/Court</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Time Slots</TableCell>
-                  <TableCell>Payment Status</TableCell>
-                  <TableCell>Booking Status</TableCell>
-                  <TableCell>Actions</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Booking ID</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>User</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Sport/Court</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Date</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Time Slots</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Payment Status</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Booking Status</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {bookings.map((booking) => (
-                  <TableRow key={booking._id}>
-                    <TableCell>{booking._id.slice(-8)}</TableCell>
+                {bookings.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                      <Typography variant="body2" color="textSecondary">
+                        No bookings found
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  bookings.map((booking) => (
+                    <TableRow key={booking._id}>
+                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      {booking._id.slice(-8)}
+                    </TableCell>
                     <TableCell>
                       <Box>
-                        <Typography variant="body2" fontWeight="bold">
+                        <Typography 
+                          variant="body2" 
+                          fontWeight="bold"
+                          sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
+                        >
                           {booking.customerName}
                         </Typography>
-                        <Typography variant="caption" color="textSecondary">
+                        <Typography 
+                          variant="caption" 
+                          color="textSecondary"
+                          sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}
+                        >
                           {booking.customerEmail}
                         </Typography>
                       </Box>
                     </TableCell>
                     <TableCell>
                       <Box>
-                        <Typography variant="body2">{booking.sport}</Typography>
+                        <Typography 
+                          variant="body2"
+                          sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
+                        >
+                          {booking.sport}
+                        </Typography>
                         {booking.sport === "Shuttle Badminton" && booking.court && (
-                          <Chip label={`Court ${booking.court}`} size="small" color="primary" />
+                          <Chip 
+                            label={`Court ${booking.court}`} 
+                            size="small" 
+                            color="primary"
+                            sx={{ 
+                              fontSize: { xs: '0.6rem', sm: '0.75rem' },
+                              height: { xs: '18px', sm: '24px' }
+                            }}
+                          />
                         )}
                       </Box>
                     </TableCell>
-                    <TableCell>{format(new Date(booking.date), 'MMM dd, yyyy')}</TableCell>
+                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      {format(new Date(booking.date), 'MMM dd, yyyy')}
+                    </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                         {booking.timeSlots.map((slot, index) => (
@@ -1206,9 +1286,16 @@ export default function AdminDashboard() {
                           color="primary"
                           onClick={() => handleViewBooking(booking)}
                           startIcon={<Visibility />}
-                          sx={{ fontSize: '0.7rem', py: 0.5 }}
+                          sx={{ 
+                            fontSize: '0.7rem', 
+                            py: 0.5,
+                            minWidth: { xs: 'auto', sm: 'auto' },
+                            '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                          }}
                         >
-                          View
+                          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                            View
+                          </Box>
                         </Button>
                         <Button
                           size="small"
@@ -1216,9 +1303,16 @@ export default function AdminDashboard() {
                           color="secondary"
                           onClick={() => handleEditBooking(booking)}
                           startIcon={<Edit />}
-                          sx={{ fontSize: '0.7rem', py: 0.5 }}
+                          sx={{ 
+                            fontSize: '0.7rem', 
+                            py: 0.5,
+                            minWidth: { xs: 'auto', sm: 'auto' },
+                            '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                          }}
                         >
-                          Edit
+                          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                            Edit
+                          </Box>
                         </Button>
                         <Button
                           size="small"
@@ -1226,9 +1320,16 @@ export default function AdminDashboard() {
                           color="error"
                           onClick={() => handleDeleteBooking(booking)}
                           startIcon={<Delete />}
-                          sx={{ fontSize: '0.7rem', py: 0.5 }}
+                          sx={{ 
+                            fontSize: '0.7rem', 
+                            py: 0.5,
+                            minWidth: { xs: 'auto', sm: 'auto' },
+                            '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                          }}
                         >
-                          Delete
+                          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                            Delete
+                          </Box>
                         </Button>
                         {(booking.bookingStatus === 'pending' || booking.paymentStatus === 'pending_verification') && (
                           <Button 
@@ -1236,15 +1337,24 @@ export default function AdminDashboard() {
                             color="success"
                             variant="contained"
                             onClick={() => handleQuickApprove(booking)}
-                            sx={{ fontSize: '0.7rem', py: 0.5 }}
+                            startIcon={<CheckCircle />}
+                            sx={{ 
+                              fontSize: '0.7rem', 
+                              py: 0.5,
+                              minWidth: { xs: 'auto', sm: 'auto' },
+                              '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                            }}
                           >
-                            ✅ Approve
+                            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                              Approve
+                            </Box>
                           </Button>
                         )}
                       </Box>
                     </TableCell>
                   </TableRow>
-                ))}
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
@@ -1273,33 +1383,53 @@ export default function AdminDashboard() {
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
-          <TableContainer>
+          <TableContainer sx={{ 
+            overflowX: 'auto',
+            '& .MuiTable-root': {
+              minWidth: { xs: '1000px', md: 'auto' }
+            }
+          }}>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>User ID</TableCell>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Phone</TableCell>
-                  <TableCell>Preferred Sport</TableCell>
-                  <TableCell>Registered Slots</TableCell>
-                  <TableCell>Selected Court</TableCell>
-                  <TableCell>Subscription</TableCell>
-                  <TableCell>User Status</TableCell>
-                  <TableCell>Payment Status</TableCell>
-                  <TableCell>Actions</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>User ID</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Name</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Email</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Phone</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Preferred Sport</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Registered Slots</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Selected Court</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Subscription</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>User Status</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Payment Status</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {users.map((user) => (
                   <TableRow key={user._id}>
-                    <TableCell>{user._id.slice(-8)}</TableCell>
-                    <TableCell>{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.phone || user.mobile}</TableCell>
-                    <TableCell>{user.preferredSport || 'N/A'}</TableCell>
+                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      {user._id.slice(-8)}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      {user.name}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      {user.email}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      {user.phone || user.mobile}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      {user.preferredSport || 'N/A'}
+                    </TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        gap: 0.5, 
+                        flexWrap: 'wrap',
+                        maxWidth: { xs: '120px', sm: '200px', md: '300px' }
+                      }}>
                         {user.registeredSlots && user.registeredSlots.length > 0 ? (
                           user.registeredSlots.map((slot, index) => (
                             <Chip 
@@ -1307,14 +1437,27 @@ export default function AdminDashboard() {
                               label={
                                 typeof slot === 'string' 
                                   ? slot 
-                                  : `${(slot as any).dayOfWeek || ''} ${(slot as any).timeSlot || ''} (${(slot as any).court || ''})`
+                                  : `${(slot as any).timeSlot || ''} - ${(slot as any).court || ''}`
                               } 
                               size="small" 
-                              variant="outlined" 
+                              variant="outlined"
+                              sx={{
+                                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                height: { xs: '20px', sm: '24px' },
+                                '& .MuiChip-label': {
+                                  px: { xs: 0.5, sm: 1 }
+                                }
+                              }}
                             />
                           ))
                         ) : (
-                          <Typography variant="body2" color="textSecondary">No slots</Typography>
+                          <Typography 
+                            variant="body2" 
+                            color="textSecondary"
+                            sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
+                          >
+                            No slots
+                          </Typography>
                         )}
                       </Box>
                     </TableCell>
@@ -1348,9 +1491,16 @@ export default function AdminDashboard() {
                           color="secondary"
                           onClick={() => handleEditUser(user)}
                           startIcon={<Edit />}
-                          sx={{ fontSize: '0.7rem', py: 0.5 }}
+                          sx={{ 
+                            fontSize: '0.7rem', 
+                            py: 0.5,
+                            minWidth: { xs: 'auto', sm: 'auto' },
+                            '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                          }}
                         >
-                          Edit
+                          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                            Edit
+                          </Box>
                         </Button>
                         <Button
                           size="small"
@@ -1358,9 +1508,16 @@ export default function AdminDashboard() {
                           color="error"
                           onClick={() => handleDeleteUser(user)}
                           startIcon={<Delete />}
-                          sx={{ fontSize: '0.7rem', py: 0.5 }}
+                          sx={{ 
+                            fontSize: '0.7rem', 
+                            py: 0.5,
+                            minWidth: { xs: 'auto', sm: 'auto' },
+                            '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                          }}
                         >
-                          Delete
+                          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                            Delete
+                          </Box>
                         </Button>
                         {(!user.status || user.status === 'pending') && (
                           <>
@@ -1369,18 +1526,36 @@ export default function AdminDashboard() {
                               variant="contained"
                               color="success"
                               onClick={() => handleUserVerification(user._id, 'verify')}
-                              sx={{ fontSize: '0.7rem', py: 0.5, minWidth: 'auto', px: 1 }}
+                              startIcon={<CheckCircle />}
+                              sx={{ 
+                                fontSize: '0.7rem', 
+                                py: 0.5, 
+                                minWidth: { xs: 'auto', sm: 'auto' },
+                                px: { xs: 1, sm: 1 },
+                                '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                              }}
                             >
-                              ✓ Verify
+                              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                                Verify
+                              </Box>
                             </Button>
                             <Button
                               size="small"
                               variant="outlined"
                               color="error"
                               onClick={() => handleUserVerification(user._id, 'reject')}
-                              sx={{ fontSize: '0.7rem', py: 0.5, minWidth: 'auto', px: 1 }}
+                              startIcon={<Cancel />}
+                              sx={{ 
+                                fontSize: '0.7rem', 
+                                py: 0.5, 
+                                minWidth: { xs: 'auto', sm: 'auto' },
+                                px: { xs: 1, sm: 1 },
+                                '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                              }}
                             >
-                              ✗ Reject
+                              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                                Reject
+                              </Box>
                             </Button>
                           </>
                         )}
@@ -1390,9 +1565,18 @@ export default function AdminDashboard() {
                             variant="outlined"
                             color="warning"
                             onClick={() => handleUserVerification(user._id, 'suspend')}
-                            sx={{ fontSize: '0.7rem', py: 0.5, minWidth: 'auto', px: 1 }}
+                            startIcon={<Block />}
+                            sx={{ 
+                              fontSize: '0.7rem', 
+                              py: 0.5, 
+                              minWidth: { xs: 'auto', sm: 'auto' },
+                              px: { xs: 1, sm: 1 },
+                              '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                            }}
                           >
-                            ⏸ Suspend
+                            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                              Suspend
+                            </Box>
                           </Button>
                         )}
                         {(user.status === 'rejected' || user.status === 'suspended') && (
@@ -1401,9 +1585,18 @@ export default function AdminDashboard() {
                             variant="contained"
                             color="primary"
                             onClick={() => handleUserVerification(user._id, 'verify')}
-                            sx={{ fontSize: '0.7rem', py: 0.5, minWidth: 'auto', px: 1 }}
+                            startIcon={<Refresh />}
+                            sx={{ 
+                              fontSize: '0.7rem', 
+                              py: 0.5, 
+                              minWidth: { xs: 'auto', sm: 'auto' },
+                              px: { xs: 1, sm: 1 },
+                              '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                            }}
                           >
-                            🔄 Reactivate
+                            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                              Reactivate
+                            </Box>
                           </Button>
                         )}
                       </Box>
@@ -1675,14 +1868,14 @@ export default function AdminDashboard() {
       <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>Edit Booking</DialogTitle>
         <DialogContent>
-          {selectedBooking && (
+          {selectedBooking ? (
             <Box sx={{ pt: 2 }}>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Customer Name"
-                    value={selectedBooking.customerName}
+                    value={selectedBooking.customerName || ''}
                     disabled
                   />
                 </Grid>
@@ -1690,7 +1883,7 @@ export default function AdminDashboard() {
                   <TextField
                     fullWidth
                     label="Customer Email"
-                    value={selectedBooking.customerEmail}
+                    value={selectedBooking.customerEmail || ''}
                     disabled
                   />
                 </Grid>
@@ -1698,7 +1891,7 @@ export default function AdminDashboard() {
                   <TextField
                     fullWidth
                     label="Customer Phone"
-                    value={selectedBooking.customerPhone}
+                    value={selectedBooking.customerPhone || ''}
                     disabled
                   />
                 </Grid>
@@ -1706,7 +1899,7 @@ export default function AdminDashboard() {
                   <TextField
                     fullWidth
                     label="Sport"
-                    value={selectedBooking.sport}
+                    value={selectedBooking.sport || ''}
                     disabled
                   />
                 </Grid>
@@ -1714,7 +1907,7 @@ export default function AdminDashboard() {
                   <TextField
                     fullWidth
                     label="Date"
-                    value={format(new Date(selectedBooking.date), 'yyyy-MM-dd')}
+                    value={selectedBooking.date ? format(new Date(selectedBooking.date), 'yyyy-MM-dd') : ''}
                     type="date"
                     disabled
                   />
@@ -1723,7 +1916,7 @@ export default function AdminDashboard() {
                   <TextField
                     fullWidth
                     label="Total Amount"
-                    value={selectedBooking.totalAmount}
+                    value={selectedBooking.totalAmount || 0}
                     type="number"
                     disabled
                   />
@@ -1760,6 +1953,10 @@ export default function AdminDashboard() {
                   </FormControl>
                 </Grid>
               </Grid>
+            </Box>
+          ) : (
+            <Box sx={{ pt: 2, textAlign: 'center' }}>
+              <Typography>No booking selected</Typography>
             </Box>
           )}
         </DialogContent>
@@ -1974,152 +2171,31 @@ export default function AdminDashboard() {
                 </FormControl>
               </Grid>
 
-              {/* Registered Slots Management for eligible users */}
-              {selectedUser && selectedUser.preferredSport === "Shuttle Badminton" && 
-               ["monthly", "yearly"].includes(selectedUser.subscriptionType) && (
+              {/* Registered Slots Display */}
+              {editUserFormData.preferredSport === "Shuttle Badminton" && 
+               ["monthly", "yearly"].includes(editUserFormData.subscriptionType) && (
                 <Grid item xs={12}>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="h6" gutterBottom color="primary">Registered Slots Management</Typography>
-                  
-                  {/* Current Registered Slots */}
-                  <Typography variant="subtitle2" gutterBottom>Current Registered Slots</Typography>
-                  {userRegisteredSlots.length > 0 ? (
-                    <Box sx={{ mb: 3 }}>
-                      {userRegisteredSlots.map((slot, index) => (
-                        <Box key={slot._id || index} sx={{ display: 'flex', alignItems: 'center', mb: 1, p: 1, bgcolor: 'grey.100', borderRadius: 1 }}>
-                          <Typography sx={{ flex: 1 }}>
-                            {slot.dayOfWeek?.charAt(0).toUpperCase() + slot.dayOfWeek?.slice(1)} - {slot.timeSlot} 
-                            {slot.court && ` (Court: ${slot.court})`}
-                          </Typography>
-                          <Button
+                  <Box sx={{ mt: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                    <Typography variant="h6" gutterBottom>
+                      Registered Slots
+                    </Typography>
+                    {userRegisteredSlots.length > 0 ? (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {userRegisteredSlots.map((slot, index) => (
+                          <Chip
+                            key={index}
+                            label={`${slot.timeSlot} - Court ${slot.court}`}
+                            color="primary"
                             size="small"
-                            color="error"
-                            onClick={() => handleRemoveSlot(slot._id)}
-                            sx={{ ml: 1 }}
-                          >
-                            Remove
-                          </Button>
-                        </Box>
-                      ))}
-                    </Box>
-                  ) : (
-                    <Typography color="textSecondary" sx={{ mb: 3 }}>No registered slots</Typography>
-                  )}
-
-                  {/* Add New Slot */}
-                  <Typography variant="subtitle2" gutterBottom>Add New Slots</Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
-                      <FormControl component="fieldset" sx={{ width: '100%' }}>
-                        <FormLabel component="legend">Days of Week (Select Multiple)</FormLabel>
-                        <Box sx={{ mb: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => setNewSlot(prev => ({ 
-                              ...prev, 
-                              daysOfWeek: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] 
-                            }))}
-                          >
-                            All
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => setNewSlot(prev => ({ ...prev, daysOfWeek: [] }))}
-                          >
-                            Clear
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => setNewSlot(prev => ({ 
-                              ...prev, 
-                              daysOfWeek: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] 
-                            }))}
-                          >
-                            Weekdays
-                          </Button>
-                        </Box>
-                        <FormGroup row>
-                          {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => (
-                            <FormControlLabel
-                              key={day}
-                              control={
-                                <Checkbox
-                                  checked={newSlot.daysOfWeek.includes(day)}
-                                  onChange={(e) => {
-                                    const isChecked = e.target.checked;
-                                    setNewSlot(prev => ({
-                                      ...prev,
-                                      daysOfWeek: isChecked 
-                                        ? [...prev.daysOfWeek, day]
-                                        : prev.daysOfWeek.filter(d => d !== day)
-                                    }));
-                                  }}
-                                  size="small"
-                                />
-                              }
-                              label={day.charAt(0).toUpperCase() + day.slice(1)}
-                              sx={{ mr: 1, mb: 0.5 }}
-                            />
-                          ))}
-                        </FormGroup>
-                        <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
-                          Selected: {newSlot.daysOfWeek.length} day{newSlot.daysOfWeek.length !== 1 ? 's' : ''}
-                        </Typography>
-                      </FormControl>
-                    </Grid>
-                    <Grid item xs={12} sm={3}>
-                      <FormControl fullWidth>
-                        <InputLabel>Time Slot</InputLabel>
-                        <Select
-                          value={newSlot.timeSlot}
-                          onChange={(e) => setNewSlot(prev => ({ ...prev, timeSlot: e.target.value }))}
-                        >
-                          <MenuItem value="05:00 - 06:00">05:00 - 06:00</MenuItem>
-                          <MenuItem value="06:00 - 07:00">06:00 - 07:00</MenuItem>
-                          <MenuItem value="07:00 - 08:00">07:00 - 08:00</MenuItem>
-                          <MenuItem value="08:00 - 09:00">08:00 - 09:00</MenuItem>
-                          <MenuItem value="09:00 - 10:00">09:00 - 10:00</MenuItem>
-                          <MenuItem value="10:00 - 11:00">10:00 - 11:00</MenuItem>
-                          <MenuItem value="11:00 - 12:00">11:00 - 12:00</MenuItem>
-                          <MenuItem value="12:00 - 13:00">12:00 - 13:00</MenuItem>
-                          <MenuItem value="13:00 - 14:00">13:00 - 14:00</MenuItem>
-                          <MenuItem value="14:00 - 15:00">14:00 - 15:00</MenuItem>
-                          <MenuItem value="15:00 - 16:00">15:00 - 17:00</MenuItem>
-                          <MenuItem value="17:00 - 18:00">17:00 - 18:00</MenuItem>
-                          <MenuItem value="18:00 - 19:00">18:00 - 19:00</MenuItem>
-                          <MenuItem value="19:00 - 20:00">19:00 - 20:00</MenuItem>
-                          <MenuItem value="20:00 - 21:00">20:00 - 21:00</MenuItem>
-                          <MenuItem value="21:00 - 22:00">21:00 - 22:00</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    <Grid item xs={12} sm={3}>
-                      <FormControl fullWidth>
-                        <InputLabel>Court</InputLabel>
-                        <Select
-                          value={newSlot.court || selectedUser.selectedCourt || ''}
-                          onChange={(e) => setNewSlot(prev => ({ ...prev, court: e.target.value }))}
-                        >
-                          <MenuItem value="S1">S1</MenuItem>
-                          <MenuItem value="S2">S2</MenuItem>
-                          <MenuItem value="S3">S3</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Button
-                        variant="contained"
-                        onClick={handleAddSlot}
-                        disabled={!newSlot.timeSlot || newSlot.daysOfWeek.length === 0}
-                        color="primary"
-                      >
-                        Add Slot{newSlot.daysOfWeek.length > 1 ? 's' : ''} ({newSlot.daysOfWeek.length} day{newSlot.daysOfWeek.length !== 1 ? 's' : ''})
-                      </Button>
-                    </Grid>
-                  </Grid>
+                          />
+                        ))}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No registered slots found
+                      </Typography>
+                    )}
+                  </Box>
                 </Grid>
               )}
             </Grid>
