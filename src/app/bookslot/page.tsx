@@ -228,6 +228,7 @@ export default function BookSlot() {
   const [timeSlots, setTimeSlots] = useState<Array<{time: string; available: boolean; hours?: number}>>(generateTimeSlots(false, null));
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [registeredSlots, setRegisteredSlots] = useState<string[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null); // User data for subscription checking
   const [loading, setLoading] = useState(false);
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [customerInfo, setCustomerInfo] = useState({
@@ -253,10 +254,12 @@ export default function BookSlot() {
   // Ref for date-time selection area to enable auto-scroll
   const dateTimeSelectionRef = useRef<HTMLDivElement>(null);
   const [isScrollHighlighted, setIsScrollHighlighted] = useState(false);
+  const [isScrollingToDate, setIsScrollingToDate] = useState(false);
 
   // Function to handle sport selection and auto-scroll to date selection
   const handleSportSelection = (sportName: "Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events") => {
     setSelectedSport(sportName);
+    setIsScrollingToDate(true); // Show loading state
     
     // Auto-scroll to date selection after a brief delay to allow rendering
     setTimeout(() => {
@@ -264,20 +267,56 @@ export default function BookSlot() {
         // Add highlight animation
         setIsScrollHighlighted(true);
         
-        // Check if it's mobile device for better scroll behavior
-        const isMobile = window.innerWidth <= 768;
+        // Enhanced mobile detection - multiple checks for better accuracy
+        const isMobile = window.innerWidth <= 768 || 
+                         window.innerHeight <= 1024 || 
+                         /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                         'ontouchstart' in window || 
+                         navigator.maxTouchPoints > 0;
         
         if (isMobile) {
-          // For mobile, use a more aggressive scroll with offset
+          // For mobile devices - enhanced scroll behavior
           const element = dateTimeSelectionRef.current;
           const elementRect = element.getBoundingClientRect();
           const absoluteElementTop = elementRect.top + window.pageYOffset;
-          const middle = absoluteElementTop - (window.innerHeight / 4); // Scroll to show element in upper portion
           
+          // Calculate better scroll position for mobile - account for mobile browsers' varying UI heights
+          const viewportHeight = window.innerHeight;
+          const headerOffset = 100; // Account for header and some spacing
+          const targetPosition = Math.max(0, absoluteElementTop - headerOffset);
+          
+          // Primary scroll method
           window.scrollTo({
-            top: middle,
+            top: targetPosition,
             behavior: 'smooth'
           });
+          
+          // Enhanced fallback for problematic mobile browsers
+          setTimeout(() => {
+            const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+            if (Math.abs(currentScroll - targetPosition) > 100) {
+              // Try alternative scroll method
+              try {
+                element.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'start',
+                  inline: 'nearest'
+                });
+              } catch (error) {
+                // Final fallback - instant scroll
+                window.scrollTo(0, targetPosition);
+              }
+            }
+          }, 800);
+          
+          // Additional iOS Safari specific fix
+          if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+            setTimeout(() => {
+              window.scrollBy(0, 1); // Force iOS Safari to recognize scroll position
+              window.scrollBy(0, -1);
+            }, 1200);
+          }
+          
         } else {
           // For desktop, use standard scrollIntoView
           dateTimeSelectionRef.current.scrollIntoView({
@@ -290,9 +329,12 @@ export default function BookSlot() {
         // Remove highlight after animation
         setTimeout(() => {
           setIsScrollHighlighted(false);
-        }, 2000);
+          setIsScrollingToDate(false); // Remove loading state
+        }, 2500);
+      } else {
+        setIsScrollingToDate(false); // Remove loading state if ref not found
       }
-    }, 400); // Increased delay to 400ms for better mobile performance
+    }, 600); // Slightly longer delay for mobile rendering completion
   };
   const [timerActive, setTimerActive] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
@@ -343,6 +385,26 @@ export default function BookSlot() {
         phone: session.user.mobile || prev.phone,
       }));
     }
+  }, [session]);
+
+  // Fetch current user data for subscription checking
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      if (session?.user) {
+        try {
+          const response = await fetch('/api/user/profile');
+          if (response.ok) {
+            const data = await response.json();
+            setCurrentUser(data.user);
+          }
+        } catch (error) {
+          console.log('Could not fetch user data:', error);
+          // Non-critical error, don't show alert
+        }
+      }
+    };
+
+    fetchCurrentUser();
   }, [session]);
 
   // Fetch booked slots when sport, date, or court change
@@ -1511,6 +1573,29 @@ export default function BookSlot() {
                 }}
               >
                 <div className="date-time-selection">
+                  {isScrollingToDate && (
+                    <Box 
+                      sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        mb: 2, 
+                        p: 1, 
+                        bgcolor: 'primary.light', 
+                        borderRadius: 1,
+                        animation: 'pulse 1.5s ease-in-out infinite',
+                        '@keyframes pulse': {
+                          '0%': { opacity: 0.7 },
+                          '50%': { opacity: 1 },
+                          '100%': { opacity: 0.7 }
+                        }
+                      }}
+                    >
+                      <Typography variant="body2" color="primary.contrastText" sx={{ fontWeight: 'bold' }}>
+                        📅 Now select your date and time below
+                      </Typography>
+                    </Box>
+                  )}
                   <h3>Select Date and Time</h3>
                   
                   <div className="date-picker-container">
@@ -1607,30 +1692,38 @@ export default function BookSlot() {
                             const isBooked = !slot.available;
                             const isRegistered = registeredSlots.includes(slot.time);
                             
+                            // Check if user is yearly Shuttle Badminton subscriber who should be blocked from registered slots
+                            const isYearlyBadmintonUser = currentUser?.preferredSport === "Shuttle Badminton" && 
+                                                         currentUser?.subscriptionType === "yearly";
+                            const isBlockedRegisteredSlot = isRegistered && isYearlyBadmintonUser;
+                            const isClickable = slot.available && !isBlockedRegisteredSlot;
+                            
                             return (
                               <Grid item xs={6} sm={4} md={3} lg={2.4} key={index}>
                                 <Card
-                                  elevation={isSelected ? 6 : isBooked ? 1 : 2}
+                                  elevation={isSelected ? 6 : (isBooked || isBlockedRegisteredSlot) ? 1 : 2}
                                   sx={{
-                                    cursor: slot.available ? 'pointer' : 'not-allowed',
+                                    cursor: isClickable ? 'pointer' : 'not-allowed',
                                     transition: 'all 0.2s ease-in-out',
                                     transform: isSelected ? 'scale(1.02)' : 'scale(1)',
                                     height: '48px',
                                     borderRadius: '8px',
                                     background: isSelected 
                                       ? 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)'
-                                      : isRegistered
-                                        ? 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)' // Orange for registered
-                                        : isBooked 
-                                          ? 'linear-gradient(135deg, #f44336 0%, #ef5350 100%)' // Red for booked
-                                          : 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)', // Green for available
-                                    '&:hover': slot.available ? {
+                                      : isBlockedRegisteredSlot
+                                        ? 'linear-gradient(135deg, #e91e63 0%, #f06292 100%)' // Pink/Purple for blocked registered
+                                        : isRegistered
+                                          ? 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)' // Orange for registered but not blocked
+                                          : isBooked 
+                                            ? 'linear-gradient(135deg, #f44336 0%, #ef5350 100%)' // Red for booked
+                                            : 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)', // Green for available
+                                    '&:hover': isClickable ? {
                                       transform: isSelected ? 'scale(1.02)' : 'scale(1.01)',
                                       boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                                     } : {},
                                     border: isSelected ? '2px solid #fff' : 'none',
                                   }}
-                                  onClick={() => slot.available && handleTimeSlotToggle(slot.time)}
+                                  onClick={() => isClickable && handleTimeSlotToggle(slot.time)}
                                 >
                                   <CardContent sx={{ 
                                     display: 'flex',
@@ -1645,6 +1738,8 @@ export default function BookSlot() {
                                     <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
                                       {isSelected ? (
                                         <CheckCircle sx={{ fontSize: 14, color: 'white' }} />
+                                      ) : isBlockedRegisteredSlot ? (
+                                        <Typography sx={{ fontSize: '10px' }}>🚫</Typography>
                                       ) : isRegistered ? (
                                         <Typography sx={{ fontSize: '10px' }}>👑</Typography>
                                       ) : isBooked ? (
@@ -1707,6 +1802,18 @@ export default function BookSlot() {
                             }} />
                             <Typography variant="caption" color="text.secondary" fontSize="0.7rem">Reserved</Typography>
                           </Box>
+                          {currentUser?.preferredSport === "Shuttle Badminton" && 
+                           currentUser?.subscriptionType === "yearly" && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Box sx={{ 
+                                width: 12, 
+                                height: 12, 
+                                background: 'linear-gradient(135deg, #e91e63 0%, #f06292 100%)', 
+                                borderRadius: '50%' 
+                              }} />
+                              <Typography variant="caption" color="text.secondary" fontSize="0.7rem">Blocked</Typography>
+                            </Box>
+                          )}
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <Box sx={{ 
                               width: 12, 

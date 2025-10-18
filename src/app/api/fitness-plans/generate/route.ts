@@ -39,14 +39,18 @@ export async function POST(request: NextRequest) {
     if (!validGoals.includes(fitnessGoal)) {
       return NextResponse.json({
         success: false,
-        message: 'Invalid fitness goal. Must be one of: ' + validGoals.join(', ')
+        message: `Invalid fitness goal: "${fitnessGoal}". Must be one of: ${validGoals.join(', ')}`,
+        receivedValue: fitnessGoal,
+        expectedValues: validGoals
       }, { status: 400 });
     }
 
     if (!validLevels.includes(fitnessLevel)) {
       return NextResponse.json({
         success: false,
-        message: 'Invalid fitness level. Must be one of: ' + validLevels.join(', ')
+        message: `Invalid fitness level: "${fitnessLevel}". Must be one of: ${validLevels.join(', ')}`,
+        receivedValue: fitnessLevel,
+        expectedValues: validLevels
       }, { status: 400 });
     }
 

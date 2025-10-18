@@ -536,11 +536,34 @@ const CoachPage: React.FC = () => {
     }
   };
 
+  // Helper function to map plan category to fitness goal
+  const mapCategoryToFitnessGoal = (category: string): string => {
+    const categoryToGoalMapping: { [key: string]: string } = {
+      'strength': 'Muscle Gain',
+      'speed': 'Endurance', 
+      'stamina': 'Endurance'
+    };
+    return categoryToGoalMapping[category.toLowerCase()] || 'General Fitness';
+  };
+
+  // Helper function to capitalize fitness level
+  const capitalizeFitnessLevel = (level: string): string => {
+    return level.charAt(0).toUpperCase() + level.slice(1).toLowerCase();
+  };
+
   const generateFitnessPlan = async (enrollment: any) => {
     setLoadingFitness(true);
     setFitnessError('');
     
     try {
+      const fitnessGoal = mapCategoryToFitnessGoal(enrollment.planCategory);
+      const fitnessLevel = capitalizeFitnessLevel(enrollment.planLevel);
+      
+      console.log(`Generating plan for ${enrollment.userName}:`, {
+        original: { category: enrollment.planCategory, level: enrollment.planLevel },
+        mapped: { fitnessGoal, fitnessLevel }
+      });
+
       const response = await fetch('/api/fitness-plans/generate', {
         method: 'POST',
         headers: {
@@ -548,8 +571,8 @@ const CoachPage: React.FC = () => {
         },
         body: JSON.stringify({
           enrollmentId: enrollment.enrollmentId,
-          fitnessGoal: enrollment.planCategory, // strength, speed, stamina
-          fitnessLevel: enrollment.planLevel,   // beginner, intermediate, advanced
+          fitnessGoal,
+          fitnessLevel,
           daysPerWeek: 5, // default
           timePerSession: 60, // default 60 minutes
           userEmail: enrollment.userEmail,
@@ -599,11 +622,44 @@ const CoachPage: React.FC = () => {
         }, 4000);
         
       } else {
-        setFitnessError(data.message || 'Failed to generate fitness plan');
+        const errorMessage = data.message || 'Failed to generate fitness plan';
+        console.error('Fitness plan generation failed:', data);
+        setFitnessError(errorMessage);
+        
+        // Show error notification with details
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: linear-gradient(45deg, #ef4444, #dc2626);
+          color: white;
+          padding: 1rem 1.5rem;
+          border-radius: 0.5rem;
+          box-shadow: 0 10px 25px rgba(239, 68, 68, 0.3);
+          z-index: 9999;
+          font-weight: 500;
+          max-width: 350px;
+        `;
+        notification.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.2rem;">⚠️</span>
+            <div>
+              <div style="font-weight: 600;">Generation Failed</div>
+              <div style="font-size: 0.875rem; opacity: 0.9;">${errorMessage}</div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+          document.body.removeChild(notification);
+        }, 6000);
       }
     } catch (error) {
-      setFitnessError('Error generating fitness plan');
-      console.error('Error:', error);
+      const errorMessage = 'Network error - unable to generate fitness plan';
+      setFitnessError(errorMessage);
+      console.error('Error generating fitness plan:', error);
     } finally {
       setLoadingFitness(false);
     }

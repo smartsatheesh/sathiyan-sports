@@ -34,6 +34,14 @@ import {
   Avatar,
   TextField,
   Divider,
+  Radio,
+  RadioGroup,
+  FormLabel,
+  FormControlLabel,
+  ToggleButton,
+  ToggleButtonGroup,
+  Checkbox,
+  FormGroup,
 } from "@mui/material";
 import { format } from "date-fns";
 import {
@@ -77,7 +85,9 @@ interface User {
   email: string;
   phone: string;
   mobile: string;
+  gender?: string;
   preferredSport: string;
+  preferredTimeSlot?: string;
   selectedCourt?: string; // For Shuttle Badminton court selection
   registeredSlots?: string[]; // User's registered time slots
   subscriptionType: string;
@@ -161,7 +171,15 @@ export default function AdminDashboard() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
-  const [updateUserStatus, setUpdateUserStatus] = useState({
+  const [editUserFormData, setEditUserFormData] = useState({
+    name: '',
+    email: '',
+    mobile: '',
+    gender: '',
+    preferredSport: '',
+    preferredTimeSlot: '',
+    selectedCourt: '',
+    subscriptionType: '',
     status: '',
     paymentStatus: ''
   });
@@ -171,7 +189,7 @@ export default function AdminDashboard() {
   const [userRegisteredSlots, setUserRegisteredSlots] = useState<any[]>([]);
   const [newSlot, setNewSlot] = useState({
     timeSlot: '',
-    dayOfWeek: '',
+    daysOfWeek: [] as string[], // Changed to support multiple days
     court: ''
   });
   
@@ -517,12 +535,38 @@ export default function AdminDashboard() {
     setEditDialogOpen(true);
   };
 
-  const handleEditUser = (user: User) => {
+  const handleEditUser = async (user: User) => {
     setSelectedUser(user);
-    setUpdateUserStatus({
+    setEditUserFormData({
+      name: user.name || '',
+      email: user.email || '',
+      mobile: user.phone || user.mobile || '',
+      gender: user.gender || '',
+      preferredSport: user.preferredSport || '',
+      preferredTimeSlot: user.preferredTimeSlot || '',
+      selectedCourt: user.selectedCourt || '',
+      subscriptionType: user.subscriptionType || '',
       status: user.status || 'pending',
       paymentStatus: user.paymentStatus || 'pending'
     });
+    
+    // Load registered slots if the user is eligible for slots
+    if (user.preferredSport === "Shuttle Badminton" && 
+        ["monthly", "yearly"].includes(user.subscriptionType)) {
+      try {
+        const response = await fetch(`/api/admin/users/${user._id}/registered-slots`);
+        const data = await response.json();
+        if (data.success) {
+          setUserRegisteredSlots(data.registeredSlots);
+        }
+      } catch (error) {
+        console.error('Error fetching user slots:', error);
+        setUserRegisteredSlots([]);
+      }
+    } else {
+      setUserRegisteredSlots([]);
+    }
+    
     setEditUserDialogOpen(true);
   };
 
@@ -659,20 +703,23 @@ export default function AdminDashboard() {
     try {
       const response = await fetch(`/api/admin/users/${selectedUser._id}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       const data = await response.json();
 
-      if (data.success) {
+      if (response.ok && data.success) {
         setUsers(prev => prev.filter(u => u._id !== selectedUser._id));
         setAlert({ 
           type: 'success', 
-          message: 'User deleted successfully!' 
+          message: data.message || 'User deleted successfully!' 
         });
         setDeleteUserDialogOpen(false);
         setSelectedUser(null);
       } else {
-        throw new Error(data.message || 'Failed to delete user');
+        throw new Error(data.message || `Failed to delete user (${response.status})`);
       }
     } catch (err) {
       setAlert({ 
@@ -695,9 +742,17 @@ export default function AdminDashboard() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...selectedUser,
-          status: updateUserStatus.status,
-          paymentStatus: updateUserStatus.paymentStatus,
+          name: editUserFormData.name,
+          email: editUserFormData.email,
+          mobile: editUserFormData.mobile,
+          phone: editUserFormData.mobile, // Also update phone field for consistency
+          gender: editUserFormData.gender,
+          preferredSport: editUserFormData.preferredSport,
+          preferredTimeSlot: editUserFormData.preferredTimeSlot,
+          selectedCourt: editUserFormData.selectedCourt,
+          subscriptionType: editUserFormData.subscriptionType,
+          status: editUserFormData.status,
+          paymentStatus: editUserFormData.paymentStatus,
         }),
       });
 
@@ -706,7 +761,20 @@ export default function AdminDashboard() {
       if (data.success) {
         setUsers(prev => prev.map(u => 
           u._id === selectedUser._id 
-            ? { ...u, status: updateUserStatus.status, paymentStatus: updateUserStatus.paymentStatus }
+            ? { 
+                ...u, 
+                name: editUserFormData.name,
+                email: editUserFormData.email,
+                mobile: editUserFormData.mobile,
+                phone: editUserFormData.mobile,
+                gender: editUserFormData.gender,
+                preferredSport: editUserFormData.preferredSport,
+                preferredTimeSlot: editUserFormData.preferredTimeSlot,
+                selectedCourt: editUserFormData.selectedCourt,
+                subscriptionType: editUserFormData.subscriptionType,
+                status: editUserFormData.status,
+                paymentStatus: editUserFormData.paymentStatus
+              }
             : u
         ));
         setAlert({ 
@@ -747,18 +815,23 @@ export default function AdminDashboard() {
   };
 
   const handleAddSlot = async () => {
-    if (!selectedUser || !newSlot.timeSlot || !newSlot.dayOfWeek) return;
+    if (!selectedUser || !newSlot.timeSlot || newSlot.daysOfWeek.length === 0) return;
 
     try {
+      // Add slots for multiple days
+      const slotsToAdd = newSlot.daysOfWeek.map(day => ({
+        timeSlot: newSlot.timeSlot,
+        dayOfWeek: day,
+        court: newSlot.court || selectedUser.selectedCourt,
+      }));
+
       const response = await fetch(`/api/admin/users/${selectedUser._id}/registered-slots`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          timeSlot: newSlot.timeSlot,
-          dayOfWeek: newSlot.dayOfWeek,
-          court: newSlot.court || selectedUser.selectedCourt,
+          slots: slotsToAdd // Send multiple slots
         }),
       });
 
@@ -766,8 +839,19 @@ export default function AdminDashboard() {
 
       if (data.success) {
         setUserRegisteredSlots(data.registeredSlots);
-        setNewSlot({ timeSlot: '', dayOfWeek: '', court: '' });
-        setAlert({ type: 'success', message: 'Slot added successfully!' });
+        // CRITICAL: Update the main users state to reflect changes in the table
+        setUsers(prev => prev.map(u => 
+          u._id === selectedUser._id 
+            ? { ...u, registeredSlots: data.registeredSlots.map((slot: any) => 
+                `${slot.dayOfWeek?.charAt(0).toUpperCase() + slot.dayOfWeek?.slice(1)} - ${slot.timeSlot}${slot.court ? ` (${slot.court})` : ''}`
+              )}
+            : u
+        ));
+        setNewSlot({ timeSlot: '', daysOfWeek: [], court: '' });
+        setAlert({ 
+          type: 'success', 
+          message: `${slotsToAdd.length} slot${slotsToAdd.length > 1 ? 's' : ''} added successfully!` 
+        });
       } else {
         throw new Error(data.message);
       }
@@ -793,6 +877,14 @@ export default function AdminDashboard() {
 
       if (data.success) {
         setUserRegisteredSlots(data.registeredSlots);
+        // CRITICAL: Update the main users state to reflect changes in the table
+        setUsers(prev => prev.map(u => 
+          u._id === selectedUser._id 
+            ? { ...u, registeredSlots: data.registeredSlots.map((slot: any) => 
+                `${slot.dayOfWeek?.charAt(0).toUpperCase() + slot.dayOfWeek?.slice(1)} - ${slot.timeSlot}${slot.court ? ` (${slot.court})` : ''}`
+              )}
+            : u
+        ));
         setAlert({ type: 'success', message: 'Slot removed successfully!' });
       } else {
         throw new Error(data.message);
@@ -1261,19 +1353,6 @@ export default function AdminDashboard() {
                         >
                           Delete
                         </Button>
-                        {user.preferredSport === "Shuttle Badminton" && 
-                         ["monthly", "yearly"].includes(user.subscriptionType) && 
-                         user.status === "verified" && (
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            color="primary"
-                            onClick={() => handleManageSlots(user)}
-                            sx={{ fontSize: '0.7rem', py: 0.5 }}
-                          >
-                            👑 Slots
-                          </Button>
-                        )}
                         {(!user.status || user.status === 'pending') && (
                           <>
                             <Button
@@ -1648,9 +1727,12 @@ export default function AdminDashboard() {
                       onChange={(e) => setUpdateStatus(prev => ({ ...prev, paymentStatus: e.target.value }))}
                     >
                       <MenuItem value="pending">Pending</MenuItem>
-                      <MenuItem value="confirmed">Confirmed</MenuItem>
+                      <MenuItem value="pending_verification">Pending Verification</MenuItem>
+                      <MenuItem value="paid">Paid</MenuItem>
                       <MenuItem value="failed">Failed</MenuItem>
                       <MenuItem value="refunded">Refunded</MenuItem>
+                      <MenuItem value="cancelled">Cancelled</MenuItem>
+                      <MenuItem value="expired">Expired</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -1709,96 +1791,330 @@ export default function AdminDashboard() {
       <Dialog open={editUserDialogOpen} onClose={() => setEditUserDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>Edit User</DialogTitle>
         <DialogContent>
-          {selectedUser && (
-            <Box sx={{ pt: 2 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Name"
-                    value={selectedUser.name}
-                    disabled
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Email"
-                    value={selectedUser.email}
-                    disabled
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Phone"
-                    value={selectedUser.phone || selectedUser.mobile}
-                    disabled
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Preferred Sport"
-                    value={selectedUser.preferredSport || ''}
-                    disabled
-                  />
-                </Grid>
+          <Box sx={{ pt: 2 }}>
+            <Grid container spacing={2}>
+              {/* Name */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Name"
+                  value={editUserFormData.name}
+                  onChange={(e) => setEditUserFormData(prev => ({ ...prev, name: e.target.value }))}
+                  required
+                />
+              </Grid>
+
+              {/* Email */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Email"
+                  type="email"
+                  value={editUserFormData.email}
+                  onChange={(e) => setEditUserFormData(prev => ({ ...prev, email: e.target.value }))}
+                  required
+                />
+              </Grid>
+
+              {/* Mobile */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Mobile Number"
+                  value={editUserFormData.mobile}
+                  onChange={(e) => setEditUserFormData(prev => ({ ...prev, mobile: e.target.value }))}
+                  required
+                />
+              </Grid>
+
+              {/* Gender */}
+              <Grid item xs={12} sm={6}>
+                <FormControl component="fieldset" sx={{ width: '100%' }}>
+                  <FormLabel component="legend">Gender</FormLabel>
+                  <Box sx={{ mt: 1 }}>
+                    <ToggleButtonGroup
+                      value={editUserFormData.gender}
+                      exclusive
+                      onChange={(e, value) => {
+                        if (value !== null) {
+                          setEditUserFormData(prev => ({ ...prev, gender: value }));
+                        }
+                      }}
+                      size="small"
+                    >
+                      <ToggleButton value="male">Male</ToggleButton>
+                      <ToggleButton value="female">Female</ToggleButton>
+                      <ToggleButton value="other">Other</ToggleButton>
+                    </ToggleButtonGroup>
+                  </Box>
+                </FormControl>
+              </Grid>
+
+              {/* Preferred Sport */}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Preferred Sport</InputLabel>
+                  <Select
+                    value={editUserFormData.preferredSport}
+                    onChange={(e) => {
+                      const newSport = e.target.value;
+                      setEditUserFormData(prev => ({ 
+                        ...prev, 
+                        preferredSport: newSport,
+                        // Clear court selection if not Shuttle Badminton
+                        selectedCourt: newSport === "Shuttle Badminton" ? prev.selectedCourt : ""
+                      }));
+                    }}
+                  >
+                    <MenuItem value="Cricket">Cricket</MenuItem>
+                    <MenuItem value="Football">Football</MenuItem>
+                    <MenuItem value="Shuttle Badminton">Shuttle Badminton</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Preferred Time Slot */}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Preferred Time Slot</InputLabel>
+                  <Select
+                    value={editUserFormData.preferredTimeSlot}
+                    onChange={(e) => setEditUserFormData(prev => ({ ...prev, preferredTimeSlot: e.target.value }))}
+                  >
+                    <MenuItem value="6:00 AM - 7:00 AM">6:00 AM - 7:00 AM</MenuItem>
+                    <MenuItem value="7:00 AM - 8:00 AM">7:00 AM - 8:00 AM</MenuItem>
+                    <MenuItem value="8:00 AM - 9:00 AM">8:00 AM - 9:00 AM</MenuItem>
+                    <MenuItem value="9:00 AM - 10:00 AM">9:00 AM - 10:00 AM</MenuItem>
+                    <MenuItem value="10:00 AM - 11:00 AM">10:00 AM - 11:00 AM</MenuItem>
+                    <MenuItem value="11:00 AM - 12:00 PM">11:00 AM - 12:00 PM</MenuItem>
+                    <MenuItem value="12:00 PM - 1:00 PM">12:00 PM - 1:00 PM</MenuItem>
+                    <MenuItem value="1:00 PM - 2:00 PM">1:00 PM - 2:00 PM</MenuItem>
+                    <MenuItem value="2:00 PM - 3:00 PM">2:00 PM - 3:00 PM</MenuItem>
+                    <MenuItem value="3:00 PM - 4:00 PM">3:00 PM - 4:00 PM</MenuItem>
+                    <MenuItem value="4:00 PM - 5:00 PM">4:00 PM - 5:00 PM</MenuItem>
+                    <MenuItem value="5:00 PM - 6:00 PM">5:00 PM - 6:00 PM</MenuItem>
+                    <MenuItem value="6:00 PM - 7:00 PM">6:00 PM - 7:00 PM</MenuItem>
+                    <MenuItem value="7:00 PM - 8:00 PM">7:00 PM - 8:00 PM</MenuItem>
+                    <MenuItem value="8:00 PM - 9:00 PM">8:00 PM - 9:00 PM</MenuItem>
+                    <MenuItem value="9:00 PM - 10:00 PM">9:00 PM - 10:00 PM</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Selected Court (only for Shuttle Badminton) */}
+              {editUserFormData.preferredSport === "Shuttle Badminton" && (
                 <Grid item xs={12} sm={6}>
                   <FormControl fullWidth>
-                    <InputLabel>User Status</InputLabel>
+                    <InputLabel>Selected Court</InputLabel>
                     <Select
-                      value={updateUserStatus.status}
-                      onChange={(e) => setUpdateUserStatus(prev => ({ ...prev, status: e.target.value }))}
+                      value={editUserFormData.selectedCourt}
+                      onChange={(e) => setEditUserFormData(prev => ({ ...prev, selectedCourt: e.target.value }))}
                     >
-                      <MenuItem value="pending">Pending</MenuItem>
-                      <MenuItem value="verified">Verified</MenuItem>
-                      <MenuItem value="suspended">Suspended</MenuItem>
-                      <MenuItem value="rejected">Rejected</MenuItem>
+                      <MenuItem value="S1">Court S1</MenuItem>
+                      <MenuItem value="S2">Court S2</MenuItem>
+                      <MenuItem value="S3">Court S3</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Payment Status</InputLabel>
-                    <Select
-                      value={updateUserStatus.paymentStatus}
-                      onChange={(e) => setUpdateUserStatus(prev => ({ ...prev, paymentStatus: e.target.value }))}
-                    >
-                      <MenuItem value="pending">Pending</MenuItem>
-                      <MenuItem value="confirmed">Confirmed</MenuItem>
-                      <MenuItem value="failed">Failed</MenuItem>
-                      <MenuItem value="refunded">Refunded</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
+              )}
+
+              {/* Subscription Type */}
+              <Grid item xs={12} sm={6}>
+                <FormControl component="fieldset" sx={{ width: '100%' }}>
+                  <FormLabel component="legend">Subscription Type</FormLabel>
+                  <RadioGroup
+                    value={editUserFormData.subscriptionType}
+                    onChange={(e) => setEditUserFormData(prev => ({ ...prev, subscriptionType: e.target.value }))}
+                    row
+                  >
+                    <FormControlLabel value="monthly" control={<Radio />} label="Monthly" />
+                    <FormControlLabel value="quarterly" control={<Radio />} label="Quarterly" />
+                    <FormControlLabel value="yearly" control={<Radio />} label="Yearly" />
+                  </RadioGroup>
+                </FormControl>
+              </Grid>
+
+              {/* User Status */}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>User Status</InputLabel>
+                  <Select
+                    value={editUserFormData.status}
+                    onChange={(e) => setEditUserFormData(prev => ({ ...prev, status: e.target.value }))}
+                  >
+                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="verified">Verified</MenuItem>
+                    <MenuItem value="suspended">Suspended</MenuItem>
+                    <MenuItem value="rejected">Rejected</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Payment Status */}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Payment Status</InputLabel>
+                  <Select
+                    value={editUserFormData.paymentStatus}
+                    onChange={(e) => setEditUserFormData(prev => ({ ...prev, paymentStatus: e.target.value }))}
+                  >
+                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="completed">Completed</MenuItem>
+                    <MenuItem value="failed">Failed</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Registered Slots Management for eligible users */}
+              {selectedUser && selectedUser.preferredSport === "Shuttle Badminton" && 
+               ["monthly", "yearly"].includes(selectedUser.subscriptionType) && (
                 <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Subscription Type"
-                    value={selectedUser.subscriptionType || ''}
-                    disabled
-                  />
-                </Grid>
-                {selectedUser.registeredSlots && selectedUser.registeredSlots.length > 0 && (
-                  <Grid item xs={12}>
-                    <Typography variant="subtitle2" gutterBottom>Registered Slots:</Typography>
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                      {selectedUser.registeredSlots.map((slot, index) => (
-                        <Chip key={index} label={slot} size="small" variant="outlined" />
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="h6" gutterBottom color="primary">Registered Slots Management</Typography>
+                  
+                  {/* Current Registered Slots */}
+                  <Typography variant="subtitle2" gutterBottom>Current Registered Slots</Typography>
+                  {userRegisteredSlots.length > 0 ? (
+                    <Box sx={{ mb: 3 }}>
+                      {userRegisteredSlots.map((slot, index) => (
+                        <Box key={slot._id || index} sx={{ display: 'flex', alignItems: 'center', mb: 1, p: 1, bgcolor: 'grey.100', borderRadius: 1 }}>
+                          <Typography sx={{ flex: 1 }}>
+                            {slot.dayOfWeek?.charAt(0).toUpperCase() + slot.dayOfWeek?.slice(1)} - {slot.timeSlot} 
+                            {slot.court && ` (Court: ${slot.court})`}
+                          </Typography>
+                          <Button
+                            size="small"
+                            color="error"
+                            onClick={() => handleRemoveSlot(slot._id)}
+                            sx={{ ml: 1 }}
+                          >
+                            Remove
+                          </Button>
+                        </Box>
                       ))}
                     </Box>
+                  ) : (
+                    <Typography color="textSecondary" sx={{ mb: 3 }}>No registered slots</Typography>
+                  )}
+
+                  {/* Add New Slot */}
+                  <Typography variant="subtitle2" gutterBottom>Add New Slots</Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <FormControl component="fieldset" sx={{ width: '100%' }}>
+                        <FormLabel component="legend">Days of Week (Select Multiple)</FormLabel>
+                        <Box sx={{ mb: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => setNewSlot(prev => ({ 
+                              ...prev, 
+                              daysOfWeek: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] 
+                            }))}
+                          >
+                            All
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => setNewSlot(prev => ({ ...prev, daysOfWeek: [] }))}
+                          >
+                            Clear
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => setNewSlot(prev => ({ 
+                              ...prev, 
+                              daysOfWeek: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] 
+                            }))}
+                          >
+                            Weekdays
+                          </Button>
+                        </Box>
+                        <FormGroup row>
+                          {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => (
+                            <FormControlLabel
+                              key={day}
+                              control={
+                                <Checkbox
+                                  checked={newSlot.daysOfWeek.includes(day)}
+                                  onChange={(e) => {
+                                    const isChecked = e.target.checked;
+                                    setNewSlot(prev => ({
+                                      ...prev,
+                                      daysOfWeek: isChecked 
+                                        ? [...prev.daysOfWeek, day]
+                                        : prev.daysOfWeek.filter(d => d !== day)
+                                    }));
+                                  }}
+                                  size="small"
+                                />
+                              }
+                              label={day.charAt(0).toUpperCase() + day.slice(1)}
+                              sx={{ mr: 1, mb: 0.5 }}
+                            />
+                          ))}
+                        </FormGroup>
+                        <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
+                          Selected: {newSlot.daysOfWeek.length} day{newSlot.daysOfWeek.length !== 1 ? 's' : ''}
+                        </Typography>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} sm={3}>
+                      <FormControl fullWidth>
+                        <InputLabel>Time Slot</InputLabel>
+                        <Select
+                          value={newSlot.timeSlot}
+                          onChange={(e) => setNewSlot(prev => ({ ...prev, timeSlot: e.target.value }))}
+                        >
+                          <MenuItem value="05:00 - 06:00">05:00 - 06:00</MenuItem>
+                          <MenuItem value="06:00 - 07:00">06:00 - 07:00</MenuItem>
+                          <MenuItem value="07:00 - 08:00">07:00 - 08:00</MenuItem>
+                          <MenuItem value="08:00 - 09:00">08:00 - 09:00</MenuItem>
+                          <MenuItem value="09:00 - 10:00">09:00 - 10:00</MenuItem>
+                          <MenuItem value="10:00 - 11:00">10:00 - 11:00</MenuItem>
+                          <MenuItem value="11:00 - 12:00">11:00 - 12:00</MenuItem>
+                          <MenuItem value="12:00 - 13:00">12:00 - 13:00</MenuItem>
+                          <MenuItem value="13:00 - 14:00">13:00 - 14:00</MenuItem>
+                          <MenuItem value="14:00 - 15:00">14:00 - 15:00</MenuItem>
+                          <MenuItem value="15:00 - 16:00">15:00 - 17:00</MenuItem>
+                          <MenuItem value="17:00 - 18:00">17:00 - 18:00</MenuItem>
+                          <MenuItem value="18:00 - 19:00">18:00 - 19:00</MenuItem>
+                          <MenuItem value="19:00 - 20:00">19:00 - 20:00</MenuItem>
+                          <MenuItem value="20:00 - 21:00">20:00 - 21:00</MenuItem>
+                          <MenuItem value="21:00 - 22:00">21:00 - 22:00</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} sm={3}>
+                      <FormControl fullWidth>
+                        <InputLabel>Court</InputLabel>
+                        <Select
+                          value={newSlot.court || selectedUser.selectedCourt || ''}
+                          onChange={(e) => setNewSlot(prev => ({ ...prev, court: e.target.value }))}
+                        >
+                          <MenuItem value="S1">S1</MenuItem>
+                          <MenuItem value="S2">S2</MenuItem>
+                          <MenuItem value="S3">S3</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Button
+                        variant="contained"
+                        onClick={handleAddSlot}
+                        disabled={!newSlot.timeSlot || newSlot.daysOfWeek.length === 0}
+                        color="primary"
+                      >
+                        Add Slot{newSlot.daysOfWeek.length > 1 ? 's' : ''} ({newSlot.daysOfWeek.length} day{newSlot.daysOfWeek.length !== 1 ? 's' : ''})
+                      </Button>
+                    </Grid>
                   </Grid>
-                )}
-                {selectedUser.selectedCourt && (
-                  <Grid item xs={12}>
-                    <Typography variant="subtitle2" gutterBottom>Selected Court:</Typography>
-                    <Chip label={selectedUser.selectedCourt} size="small" color="primary" variant="outlined" />
-                  </Grid>
-                )}
-              </Grid>
-            </Box>
-          )}
+                </Grid>
+              )}
+            </Grid>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditUserDialogOpen(false)}>Cancel</Button>
@@ -1830,115 +2146,6 @@ export default function AdminDashboard() {
           <Button onClick={confirmDeleteUser} variant="contained" color="error">
             Delete User
           </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Manage Registered Slots Dialog */}
-      <Dialog open={slotsDialogOpen} onClose={() => setSlotsDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Manage Registered Slots - {selectedUser?.name}</DialogTitle>
-        <DialogContent>
-          {selectedUser && (
-            <Box sx={{ pt: 2 }}>
-              <Typography variant="h6" gutterBottom>Current Registered Slots</Typography>
-              {userRegisteredSlots.length > 0 ? (
-                <Box sx={{ mb: 3 }}>
-                  {userRegisteredSlots.map((slot, index) => (
-                    <Box key={slot._id || index} sx={{ display: 'flex', alignItems: 'center', mb: 1, p: 1, bgcolor: 'grey.100', borderRadius: 1 }}>
-                      <Typography sx={{ flex: 1 }}>
-                        {slot.dayOfWeek?.charAt(0).toUpperCase() + slot.dayOfWeek?.slice(1)} - {slot.timeSlot} 
-                        {slot.court && ` (Court: ${slot.court})`}
-                      </Typography>
-                      <Button
-                        size="small"
-                        color="error"
-                        onClick={() => handleRemoveSlot(slot._id)}
-                        sx={{ ml: 1 }}
-                      >
-                        Remove
-                      </Button>
-                    </Box>
-                  ))}
-                </Box>
-              ) : (
-                <Typography color="textSecondary" sx={{ mb: 3 }}>No registered slots</Typography>
-              )}
-
-              <Divider sx={{ my: 2 }} />
-
-              <Typography variant="h6" gutterBottom>Add New Slot</Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
-                  <FormControl fullWidth>
-                    <InputLabel>Day of Week</InputLabel>
-                    <Select
-                      value={newSlot.dayOfWeek}
-                      onChange={(e) => setNewSlot(prev => ({ ...prev, dayOfWeek: e.target.value }))}
-                    >
-                      <MenuItem value="monday">Monday</MenuItem>
-                      <MenuItem value="tuesday">Tuesday</MenuItem>
-                      <MenuItem value="wednesday">Wednesday</MenuItem>
-                      <MenuItem value="thursday">Thursday</MenuItem>
-                      <MenuItem value="friday">Friday</MenuItem>
-                      <MenuItem value="saturday">Saturday</MenuItem>
-                      <MenuItem value="sunday">Sunday</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <FormControl fullWidth>
-                    <InputLabel>Time Slot</InputLabel>
-                    <Select
-                      value={newSlot.timeSlot}
-                      onChange={(e) => setNewSlot(prev => ({ ...prev, timeSlot: e.target.value }))}
-                    >
-                      <MenuItem value="05:00 - 06:00">05:00 - 06:00</MenuItem>
-                      <MenuItem value="06:00 - 07:00">06:00 - 07:00</MenuItem>
-                      <MenuItem value="07:00 - 08:00">07:00 - 08:00</MenuItem>
-                      <MenuItem value="08:00 - 09:00">08:00 - 09:00</MenuItem>
-                      <MenuItem value="09:00 - 10:00">09:00 - 10:00</MenuItem>
-                      <MenuItem value="10:00 - 11:00">10:00 - 11:00</MenuItem>
-                      <MenuItem value="11:00 - 12:00">11:00 - 12:00</MenuItem>
-                      <MenuItem value="12:00 - 13:00">12:00 - 13:00</MenuItem>
-                      <MenuItem value="13:00 - 14:00">13:00 - 14:00</MenuItem>
-                      <MenuItem value="14:00 - 15:00">14:00 - 15:00</MenuItem>
-                      <MenuItem value="15:00 - 16:00">15:00 - 16:00</MenuItem>
-                      <MenuItem value="16:00 - 17:00">16:00 - 17:00</MenuItem>
-                      <MenuItem value="17:00 - 18:00">17:00 - 18:00</MenuItem>
-                      <MenuItem value="18:00 - 19:00">18:00 - 19:00</MenuItem>
-                      <MenuItem value="19:00 - 20:00">19:00 - 20:00</MenuItem>
-                      <MenuItem value="20:00 - 21:00">20:00 - 21:00</MenuItem>
-                      <MenuItem value="21:00 - 22:00">21:00 - 22:00</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <FormControl fullWidth>
-                    <InputLabel>Court</InputLabel>
-                    <Select
-                      value={newSlot.court || selectedUser.selectedCourt || ''}
-                      onChange={(e) => setNewSlot(prev => ({ ...prev, court: e.target.value }))}
-                    >
-                      <MenuItem value="S1">S1</MenuItem>
-                      <MenuItem value="S2">S2</MenuItem>
-                      <MenuItem value="S3">S3</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12}>
-                  <Button
-                    variant="contained"
-                    onClick={handleAddSlot}
-                    disabled={!newSlot.timeSlot || !newSlot.dayOfWeek}
-                  >
-                    Add Slot
-                  </Button>
-                </Grid>
-              </Grid>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSlotsDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Container>

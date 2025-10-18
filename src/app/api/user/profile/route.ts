@@ -34,6 +34,11 @@ export async function GET(request: NextRequest) {
         emailVerified: user.emailVerified || false,
         mobileVerified: user.mobileVerified || false,
         createdAt: user.createdAt,
+        preferredSport: user.preferredSport,
+        subscriptionType: user.subscriptionType,
+        selectedCourt: user.selectedCourt,
+        status: user.status,
+        paymentStatus: user.paymentStatus,
       },
     });
   } catch (error) {
