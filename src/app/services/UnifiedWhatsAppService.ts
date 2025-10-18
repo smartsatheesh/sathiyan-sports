@@ -148,7 +148,7 @@ class UnifiedWhatsAppService {
    * Send custom message using the configured method
    */
   async sendCustomMessage(phoneNumber: string, message: string): Promise<boolean> {
-    console.log(`� Sending custom message via ${this.method} method to ${phoneNumber}`);
+    console.log(`📱 Sending custom message via ${this.method} method to ${phoneNumber}`);
 
     switch (this.method) {
       case 'cloud':

@@ -136,7 +136,7 @@ async function sendWhatsAppNotifications(booking: any) {
       customerPhone: booking.customerPhone
     });
 
-    console.log(`� WhatsApp notifications - Customer: ${customerSuccess ? '✅' : '❌'}, Admin: ${adminSuccess ? '✅' : '❌'}`);
+    console.log(`📱 WhatsApp notifications - Customer: ${customerSuccess ? '✅' : '❌'}, Admin: ${adminSuccess ? '✅' : '❌'}`);
 
   } catch (error) {
     console.warn('Failed to send WhatsApp notifications:', error);

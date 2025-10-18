@@ -176,7 +176,7 @@ class BillingSchedulerService {
    */
   async manualTriggerReminders(): Promise<{success: boolean, message: string}> {
     try {
-      console.log('� Manual trigger for billing reminders...');
+      console.log('🔔 Manual trigger for billing reminders...');
       await this.processDailyReminders();
       return {
         success: true,

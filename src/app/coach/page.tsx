@@ -1235,7 +1235,7 @@ const CoachPage: React.FC = () => {
                     <h3>🏆 Sathiyan Sports AI Coach Ready</h3>
                     <p>Your personalized training plan will include:</p>
                     <ul className={styles.featureList}>
-                      <li>� 12-week progressive training schedule</li>
+                      <li>• 12-week progressive training schedule</li>
                       <li>🎯 Sport-specific skill development</li>
                       <li>🥗 Nutrition guidance and meal timing</li>
                       <li>📊 Progress tracking milestones</li>

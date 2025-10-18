@@ -16,6 +16,9 @@ import {
   alpha,
   CircularProgress,
   Tooltip,
+  Fade,
+  Zoom,
+  Slide,
 } from "@mui/material";
 import {
   SportsSoccer,
@@ -27,6 +30,9 @@ import {
   EmojiEvents,
   Schedule,
   SportsCricket,
+  Groups,
+  EventAvailable,
+  FitnessCenter,
 } from "@mui/icons-material";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -34,6 +40,8 @@ import Footer from "./components/Footer";
 import TestimonialsSection from "./components/TestimonialsSection";
 import FeaturesSection from "./components/FeaturesSection";
 import StaticHeroBackground from "./components/StaticHeroBackground";
+import AnimatedSportsBackground from "./components/AnimatedSportsBackground";
+import ScrollSportsBackground from "./components/ScrollSportsBackground";
 
 const Carousel = dynamic(() => import("./components/Slider"), { ssr: false });
 const ThreeJSSportsScene = dynamic(() => import("./components/ThreeJSSportsScene"), { 
@@ -112,18 +120,101 @@ const sportsData = [
   }
 ];
 
-const statsData = [
-  { number: "19+", label: "Happy Customers", icon: <EmojiEvents /> },
-  { number: "0+", label: "Events Hosted", icon: <Event /> },
-  { number: "24/7", label: "Available Hours", icon: <Schedule /> },
-  { number: "5/5", label: "Customer Rating", icon: <Star /> }
+// Animated taglines that pop and hide
+const animatedTaglines = [
+  "Where Passion Meets Purpose & Performance",
+  "Your Journey to Excellence Starts Here",
+  "Unleash Your Sporting Potential",
+  "Where Champions Are Made",
+  "Excellence in Every Game",
 ];
 
 export default function Home() {
   const [shouldLoad3D, setShouldLoad3D] = useState(false);
   const [shouldLoadCarousel3D, setShouldLoadCarousel3D] = useState(false);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalBookings: 0,
+    totalEvents: 0,
+    totalFitnessEnrollments: 0,
+    averageRating: 4.8,
+  });
+  const [currentTaglineIndex, setCurrentTaglineIndex] = useState(0);
+  const [showTagline, setShowTagline] = useState(true);
   const carouselRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
+
+  // Intersection Observer Hook for scroll animations
+  const useIntersectionObserver = (options = {}) => {
+    const [isIntersecting, setIsIntersecting] = useState(false);
+    const [hasIntersected, setHasIntersected] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+      const element = ref.current;
+      if (!element) return;
+
+      const observer = new IntersectionObserver(([entry]) => {
+        setIsIntersecting(entry.isIntersecting);
+        if (entry.isIntersecting) {
+          setHasIntersected(true);
+        }
+      }, {
+        threshold: 0.1,
+        rootMargin: '50px 0px -50px 0px',
+        ...options
+      });
+
+      observer.observe(element);
+      return () => observer.unobserve(element);
+    }, []);
+
+    return { ref, isIntersecting, hasIntersected };
+  };
+
+  // Sports facilities section visibility
+  const sportsFacilitiesSection = useIntersectionObserver();
+  const [visibleCards, setVisibleCards] = useState<number[]>([]);
+  
+  // Explore facilities section visibility
+  const exploreFacilitiesSection = useIntersectionObserver();
+
+  // Fetch dynamic stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await fetch('/api/public-stats');
+        const data = await response.json();
+        if (data.success) {
+          setStats(data.stats);
+        }
+      } catch (error) {
+        console.log('Could not fetch stats, using fallbacks');
+      }
+    };
+    fetchStats();
+  }, []);
+
+  // Animated tagline rotation
+  useEffect(() => {
+    const taglineInterval = setInterval(() => {
+      setShowTagline(false);
+      setTimeout(() => {
+        setCurrentTaglineIndex((prev) => (prev + 1) % animatedTaglines.length);
+        setShowTagline(true);
+      }, 500);
+    }, 4000);
+
+    return () => clearInterval(taglineInterval);
+  }, []);
+
+  // Dynamic stats data based on API response
+  const statsData = [
+    { number: stats.totalUsers.toLocaleString() + "+", label: "Happy Members", icon: <Groups /> },
+    { number: stats.totalEvents.toLocaleString() + "+", label: "Events Hosted", icon: <EventAvailable /> },
+    { number: "24/7", label: "Available Hours", icon: <Schedule /> },
+    { number: stats.averageRating + "/5", label: "Customer Rating", icon: <Star /> }
+  ];
 
   // Progressive loading strategy
   useEffect(() => {
@@ -154,15 +245,33 @@ export default function Home() {
       }
     );
 
-    if (carouselRef.current) {
-      observer.observe(carouselRef.current);
+    if (exploreFacilitiesSection.ref.current) {
+      observer.observe(exploreFacilitiesSection.ref.current);
     }
 
     return () => observer.disconnect();
   }, []);
 
+  // Handle staggered card animations when sports section comes into view
+  useEffect(() => {
+    if (sportsFacilitiesSection.isIntersecting && visibleCards.length === 0) {
+      // Stagger the card animations
+      sportsData.forEach((_, index) => {
+        setTimeout(() => {
+          setVisibleCards(prev => [...prev, index]);
+        }, index * 150); // 150ms delay between each card
+      });
+    } else if (!sportsFacilitiesSection.isIntersecting && sportsFacilitiesSection.hasIntersected) {
+      // Reset animations when scrolling away (optional - you can remove this if you want them to stay visible)
+      setVisibleCards([]);
+    }
+  }, [sportsFacilitiesSection.isIntersecting, sportsFacilitiesSection.hasIntersected, visibleCards.length]);
+
   return (
     <>
+      {/* Scroll-triggered sports background */}
+      <ScrollSportsBackground />
+      
       <Box
         sx={{
           minHeight: "100vh",
@@ -182,6 +291,9 @@ export default function Home() {
               }}>
                 {/* Static background loads immediately */}
                 <StaticHeroBackground />
+                
+                {/* Animated Sports Background */}
+                <AnimatedSportsBackground />
                 
                 {/* 3D Scene with smooth transition */}
                 <Box
@@ -224,41 +336,82 @@ export default function Home() {
                 <Box
                   sx={{
                     position: 'absolute',
-                    top: 32,
-                    left: 32,
-                    right: 32,
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
                     zIndex: 10,
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    width: { xs: '100%', md: '90%' },
+                    height: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: { xs: '20px', md: '40px' },
+                    overflow: 'visible'
                   }}
                 >
-                  <Typography
-                    variant="h3"
-                    sx={{
-                      fontWeight: 800,
-                      background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                      backgroundClip: 'text',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      mb: 2,
-                      textShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                    }}
-                  >
-                    Welcome to Sathiyan MultiSport Club 
-                  </Typography>
-                  <Typography
-                    variant="h4"
-                    sx={{
-                      fontWeight: 400,
-                      background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                      backgroundClip: 'text',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      mb: 2,
-                      textShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                    }}
-                  >
-                    Where Passion Meets Purpose & Performance
-                  </Typography>
+                  <Zoom in={true} timeout={1000}>
+                    <Typography
+                      variant="h2"
+                      className="animated-welcome military-green-3d"
+                      sx={{
+                        fontWeight: 900,
+                        mb: 3,
+                        fontSize: { xs: '2.2rem', md: '3.8rem', lg: '4.2rem' },
+                        lineHeight: 1.2,
+                        textAlign: 'center',
+                        fontFamily: '"Orbitron", "Roboto", "Arial Black", sans-serif',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        position: 'relative',
+                        maxWidth: '100%',
+                        margin: '0 auto',
+                        width: 'fit-content',
+                        padding: '10px 20px',
+                        display: 'block',
+                        '&::before': {
+                          content: '""',
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          background: 'linear-gradient(45deg, rgba(34, 139, 34, 0.2), rgba(0, 100, 0, 0.15), rgba(85, 107, 47, 0.1))',
+                          borderRadius: '20px',
+                          filter: 'blur(30px)',
+                          zIndex: -1,
+                          animation: 'pulse 3s ease-in-out infinite'
+                        },
+                        '&:hover': {
+                          transform: 'scale(1.03) rotateX(5deg)',
+                          transition: 'transform 0.4s ease'
+                        }
+                      }}
+                    >
+                      WELCOME TO SATHIYAN MULTISPORT CLUB
+                    </Typography>
+                  </Zoom>
+                  
+                  <Box sx={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 4 }}>
+                    <Fade in={showTagline} timeout={500}>
+                      <Typography
+                        variant="h4"
+                        sx={{
+                          fontWeight: 800,
+                          background: `linear-gradient(45deg, #1565C0, #E65100)`,
+                          backgroundClip: 'text',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          fontSize: { xs: '1.5rem', md: '2rem' },
+                          textAlign: 'center',
+                          letterSpacing: '0.02em'
+                        }}
+                      >
+                        {animatedTaglines[currentTaglineIndex]}
+                      </Typography>
+                    </Fade>
+                  </Box>
                   
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'center' }}>
                     <Button
@@ -325,17 +478,42 @@ export default function Home() {
                   <Grid container spacing={3}>
                     {statsData.map((stat, index) => (
                       <Grid item xs={6} sm={3} key={index}>
-                        <Box sx={{ textAlign: 'center', color: 'white' }}>
-                          <Box sx={{ color: theme.palette.primary.light, mb: 1 }}>
-                            {stat.icon}
+                        <Zoom in={true} timeout={1000 + (index * 200)}>
+                          <Box sx={{ 
+                            textAlign: 'center', 
+                            color: 'white',
+                            '&:hover': {
+                              transform: 'scale(1.05)',
+                              transition: 'transform 0.3s ease'
+                            }
+                          }}>
+                            <Box sx={{ 
+                              color: theme.palette.primary.light, 
+                              mb: 1,
+                              fontSize: '2rem',
+                              animation: 'pulse 2s infinite'
+                            }}>
+                              {stat.icon}
+                            </Box>
+                            <Typography 
+                              variant="h5" 
+                              fontWeight="bold"
+                              sx={{
+                                background: `linear-gradient(45deg, ${theme.palette.primary.light}, ${theme.palette.secondary.light})`,
+                                backgroundClip: 'text',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                                fontSize: { xs: '1.2rem', md: '1.5rem' }
+                              }}
+                            >
+                              {stat.number}
+                            </Typography>
+                            <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 500 }}>
+                              {stat.label}
+                            </Typography>
                           </Box>
-                          <Typography variant="h6" fontWeight="bold">
-                            {stat.number}
-                          </Typography>
-                          <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                            {stat.label}
-                          </Typography>
-                        </Box>
+                        </Zoom>
                       </Grid>
                     ))}
                   </Grid>
@@ -344,111 +522,181 @@ export default function Home() {
             </Box>
 
             {/* Image Carousel Section - Moved after 3D animation */}
-            <Container maxWidth="lg" sx={{ py: 8 }} ref={carouselRef}>
-              <Typography
-                variant="h3"
-                textAlign="center"
-                sx={{
-                  mb: 6,
-                  fontWeight: 700,
-                  color: theme.palette.primary.main
-                }}
-              >
-                Explore Our Facilities
-              </Typography>
-              <Paper
-                elevation={8}
-                sx={{
-                  borderRadius: 4,
-                  overflow: 'hidden',
-                  boxShadow: theme.shadows[12],
-                  position: 'relative'
-                }}
-              >
-                {shouldLoadCarousel3D ? (
-                  <CarouselBackground3D />
-                ) : (
-                  <Box
-                    sx={{
-                      height: "400px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "linear-gradient(45deg, #f5f5f5, #e0e0e0)"
-                    }}
-                  >
-                    <Box sx={{ textAlign: "center" }}>
-                      <CircularProgress size={40} />
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        Loading 3D Background...
-                      </Typography>
-                    </Box>
-                  </Box>
-                )}
+            <Container maxWidth="lg" sx={{ py: 8 }} ref={exploreFacilitiesSection.ref}>
+              <Zoom in={exploreFacilitiesSection.hasIntersected} timeout={600}>
+                <Typography
+                  variant="h3"
+                  textAlign="center"
+                  sx={{
+                    mb: 6,
+                    fontWeight: 700,
+                    color: theme.palette.primary.main,
+                    transform: exploreFacilitiesSection.hasIntersected ? 'translateY(0)' : 'translateY(30px)',
+                    opacity: exploreFacilitiesSection.hasIntersected ? 1 : 0,
+                    transition: 'all 0.6s ease-out'
+                  }}
+                >
+                  Explore Our Facilities
+                </Typography>
+              </Zoom>
+              <Fade in={exploreFacilitiesSection.hasIntersected} timeout={800} style={{ transitionDelay: '300ms' }}>
+                <Paper
+                  elevation={8}
+                  sx={{
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                    boxShadow: theme.shadows[12],
+                    position: 'relative',
+                    transform: exploreFacilitiesSection.hasIntersected ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.95)',
+                    opacity: exploreFacilitiesSection.hasIntersected ? 1 : 0,
+                    transition: 'all 0.8s ease-out 0.3s'
+                  }}
+                >
+                {shouldLoadCarousel3D && <CarouselBackground3D />}
                 <Carousel />
               </Paper>
+              </Fade>
             </Container>
 
             {/* Sports Cards Section */}
-            <Container maxWidth="lg" sx={{ py: 8 }}>
-              <Typography
-                variant="h3"
-                textAlign="center"
-                sx={{
-                  mb: 6,
-                  fontWeight: 700,
-                  color: theme.palette.primary.main
-                }}
-              >
-                Our Sports Facilities
-              </Typography>
+            <Container maxWidth="lg" sx={{ py: 8 }} ref={sportsFacilitiesSection.ref}>
+              <Zoom in={sportsFacilitiesSection.hasIntersected} timeout={600}>
+                <Typography
+                  variant="h3"
+                  textAlign="center"
+                  sx={{
+                    mb: 6,
+                    fontWeight: 700,
+                    color: theme.palette.primary.main,
+                    transform: sportsFacilitiesSection.hasIntersected ? 'translateY(0)' : 'translateY(30px)',
+                    opacity: sportsFacilitiesSection.hasIntersected ? 1 : 0,
+                    transition: 'all 0.6s ease-out'
+                  }}
+                >
+                  Our Sports Facilities
+                </Typography>
+              </Zoom>
               
               <Grid container spacing={4}>
                 {sportsData.map((sport, index) => (
                   <Grid item xs={12} sm={6} md={3} key={index}>
-                    <Card
-                      sx={{
-                        height: '100%',
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                          transform: 'translateY(-8px)',
-                          boxShadow: theme.shadows[12]
-                        },
-                        background: `linear-gradient(135deg, ${alpha('#ffffff', 0.9)}, ${alpha(theme.palette.primary.light, 0.05)})`,
-                        backdropFilter: 'blur(10px)',
-                        border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
+                    <Slide 
+                      in={visibleCards.includes(index)} 
+                      direction="up" 
+                      timeout={600}
+                      style={{
+                        transitionDelay: visibleCards.includes(index) ? `${index * 100}ms` : '0ms'
                       }}
                     >
-                      <CardContent sx={{ p: 3, textAlign: 'center' }}>
-                        <Box sx={{ mb: 2 }}>
-                          {sport.icon()}
-                        </Box>
-                        <Typography variant="h6" fontWeight="bold" gutterBottom>
-                          {sport.name}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                          {sport.description}
-                        </Typography>
-                        
-                        <Box sx={{ mb: 2 }}>
-                          <Typography variant="h6" color="primary" fontWeight="bold">
-                            {sport.price}
+                      <Card
+                        sx={{
+                          height: '100%',
+                          transition: 'all 0.3s ease',
+                          cursor: 'pointer',
+                          transform: visibleCards.includes(index) ? 'translateY(0) scale(1)' : 'translateY(50px) scale(0.9)',
+                          opacity: visibleCards.includes(index) ? 1 : 0,
+                          '&:hover': {
+                            transform: 'translateY(-12px) scale(1.02)',
+                            boxShadow: `0 15px 35px ${alpha(theme.palette.primary.main, 0.3)}`,
+                            '& .sport-icon': {
+                              transform: 'scale(1.2) rotate(10deg)',
+                            }
+                          },
+                          background: `linear-gradient(135deg, ${alpha('#ffffff', 0.95)}, ${alpha(theme.palette.primary.light, 0.08)})`,
+                          backdropFilter: 'blur(15px)',
+                          border: `2px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                          borderRadius: 3,
+                          overflow: 'hidden',
+                          position: 'relative',
+                          '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: '4px',
+                            background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                            opacity: visibleCards.includes(index) ? 1 : 0,
+                            transition: 'opacity 0.6s ease'
+                          },
+                          '&::after': {
+                            content: '""',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: `radial-gradient(circle at center, ${alpha(theme.palette.primary.main, 0.05)}, transparent 70%)`,
+                            opacity: visibleCards.includes(index) ? 1 : 0,
+                            transition: 'opacity 1s ease 0.3s',
+                            pointerEvents: 'none'
+                          }
+                        }}
+                      >
+                        <CardContent sx={{ p: 3, textAlign: 'center' }}>
+                          <Box 
+                            className="sport-icon"
+                            sx={{ 
+                              mb: 2, 
+                              transition: 'transform 0.3s ease',
+                              '& > svg': {
+                                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
+                              }
+                            }}
+                          >
+                            {sport.icon()}
+                          </Box>
+                          <Typography variant="h6" fontWeight="bold" gutterBottom>
+                            {sport.name}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            Weekends: {sport.weekendPrice}
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.6 }}>
+                            {sport.description}
                           </Typography>
-                        </Box>
+                          
+                          <Box sx={{ mb: 2 }}>
+                            <Typography 
+                              variant="h6" 
+                              sx={{
+                                background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                                backgroundClip: 'text',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              {sport.price}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Weekends: {sport.weekendPrice}
+                            </Typography>
+                          </Box>
 
-                        <Stack spacing={0.5}>
-                          {sport.features.map((feature, idx) => (
-                            <Box key={idx} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <CheckCircle sx={{ fontSize: 16, color: 'success.main', mr: 1 }} />
-                              <Typography variant="caption">{feature}</Typography>
-                            </Box>
-                          ))}
-                        </Stack>
-                      </CardContent>
-                    </Card>
+                          <Stack spacing={0.5}>
+                            {sport.features.map((feature, idx) => (
+                              <Fade 
+                                in={visibleCards.includes(index)} 
+                                timeout={800 + (idx * 150)}
+                                style={{
+                                  transitionDelay: visibleCards.includes(index) ? `${(index * 100) + (idx * 100)}ms` : '0ms'
+                                }}
+                                key={idx}
+                              >
+                                <Box sx={{ 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'center',
+                                  transform: visibleCards.includes(index) ? 'translateX(0)' : 'translateX(-20px)',
+                                  transition: `all 0.4s ease ${(index * 100) + (idx * 100)}ms`
+                                }}>
+                                  <CheckCircle sx={{ fontSize: 16, color: 'success.main', mr: 1 }} />
+                                  <Typography variant="caption" sx={{ fontWeight: 500 }}>{feature}</Typography>
+                                </Box>
+                              </Fade>
+                            ))}
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </Slide>
                   </Grid>
                 ))}
               </Grid>

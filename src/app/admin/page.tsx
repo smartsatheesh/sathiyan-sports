@@ -1302,7 +1302,16 @@ export default function AdminDashboard() {
                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                         {user.registeredSlots && user.registeredSlots.length > 0 ? (
                           user.registeredSlots.map((slot, index) => (
-                            <Chip key={index} label={slot} size="small" variant="outlined" />
+                            <Chip 
+                              key={index} 
+                              label={
+                                typeof slot === 'string' 
+                                  ? slot 
+                                  : `${(slot as any).dayOfWeek || ''} ${(slot as any).timeSlot || ''} (${(slot as any).court || ''})`
+                              } 
+                              size="small" 
+                              variant="outlined" 
+                            />
                           ))
                         ) : (
                           <Typography variant="body2" color="textSecondary">No slots</Typography>

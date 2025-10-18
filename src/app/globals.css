@@ -1,3 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;800;900&display=swap');
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -46,6 +49,288 @@
   --primary-color: var(--primary-teal);
   --primary-dark: var(--primary-teal-dark);
   --primary-light: var(--primary-teal-pale);
+}
+
+/* Animations for landing page */
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes militaryGreenShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  20% {
+    background-position: 50% 0%;
+  }
+  40% {
+    background-position: 100% 50%;
+  }
+  60% {
+    background-position: 50% 100%;
+  }
+  80% {
+    background-position: 0% 100%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes battleGreenShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 100% 0%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  75% {
+    background-position: 0% 100%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes battleGreenPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+@keyframes tactical3D {
+  0% {
+    transform: perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1);
+  }
+  25% {
+    transform: perspective(1000px) rotateX(2deg) rotateY(1deg) scale(1.01);
+  }
+  50% {
+    transform: perspective(1000px) rotateX(-1deg) rotateY(-2deg) scale(1.02);
+  }
+  75% {
+    transform: perspective(1000px) rotateX(1deg) rotateY(2deg) scale(1.01);
+  }
+  100% {
+    transform: perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1);
+  }
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 100% 0%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  75% {
+    background-position: 0% 100%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes textGlow {
+  0%, 100% {
+    text-shadow: 
+      0 0 5px rgba(255, 107, 53, 0.4), 
+      0 0 10px rgba(247, 147, 30, 0.3), 
+      0 0 15px rgba(255, 215, 0, 0.2),
+      0 0 20px rgba(255, 64, 129, 0.1);
+  }
+  50% {
+    text-shadow: 
+      0 0 10px rgba(255, 107, 53, 0.8), 
+      0 0 20px rgba(247, 147, 30, 0.6), 
+      0 0 30px rgba(255, 215, 0, 0.4),
+      0 0 40px rgba(255, 64, 129, 0.2);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) translateY(-50px);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05) translateY(0);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes letterSpacing {
+  0%, 100% {
+    letter-spacing: 0.05em;
+  }
+  50% {
+    letter-spacing: 0.15em;
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.slide-in-left {
+  animation: slideInLeft 0.6s ease-out;
+}
+
+.slide-in-right {
+  animation: slideInRight 0.6s ease-out;
+}
+
+.military-green-3d {
+  background: linear-gradient(45deg, #228b22, #ffd700, #32cd32, #ff8c00, #00ff00, #ffaa00);
+  background-size: 400% 400%;
+  animation: militaryGreenShift 5s ease-in-out infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 
+    1px 1px 0px rgba(0, 0, 0, 0.3),
+    2px 2px 0px rgba(0, 0, 0, 0.2),
+    3px 3px 0px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.military-green-3d::before {
+  content: "";
+  position: absolute;
+  left: -50px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 35px;
+  background: linear-gradient(135deg, #ffd700 0%, #ff8c00 50%, #b8860b 100%);
+  border-radius: 50% 50% 20% 20%;
+  box-shadow: 
+    inset 2px 2px 0px rgba(255, 255, 255, 0.3),
+    2px 4px 8px rgba(0, 0, 0, 0.3),
+    0 0 15px rgba(255, 215, 0, 0.4);
+}
+
+.military-green-3d::before::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 8px;
+  background: linear-gradient(135deg, #b8860b, #8b6914);
+  border-radius: 0 0 10px 10px;
+}
+
+.military-green-3d::after {
+  content: "";
+  position: absolute;
+  right: -50px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 35px;
+  background: linear-gradient(135deg, #ffd700 0%, #ff8c00 50%, #b8860b 100%);
+  border-radius: 50% 50% 20% 20%;
+  box-shadow: 
+    inset 2px 2px 0px rgba(255, 255, 255, 0.3),
+    2px 4px 8px rgba(0, 0, 0, 0.3),
+    0 0 15px rgba(255, 215, 0, 0.4);
+}
+
+.battle-green-gradient {
+  background: linear-gradient(45deg, #228b22, #006400, #556b2f, #32cd32, #2e8b57, #228b22);
+  background-size: 400% 400%;
+  animation: battleGreenShift 5s ease-in-out infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.dark-gradient-shift {
+  background: linear-gradient(45deg, #2d2d2d, #4a4a4a, #1e1e1e, #3c3c3c, #5a5a5a, #2d2d2d);
+  background-size: 400% 400%;
+  animation: darkGradientShift 6s ease-in-out infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.animated-welcome {
+  animation: 
+    bounceIn 1.8s ease-out,
+    battleGreenPulse 4s ease-in-out infinite 1.8s,
+    tactical3D 12s ease-in-out infinite 4s,
+    letterSpacing 10s ease-in-out infinite 6s;
+}
+
+.gradient-shift {
+  background: linear-gradient(45deg, #ff6b35, #f7931e, #ffd700, #ff4081, #9c27b0, #ff6b35);
+  background-size: 400% 400%;
+  animation: gradientShift 5s ease-in-out infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-glow {
+  animation: textGlow 2s ease-in-out infinite;
 }
 .css-1cl7zdz {
   max-width: 50% !important;

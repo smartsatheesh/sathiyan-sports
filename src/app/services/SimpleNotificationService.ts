@@ -203,7 +203,7 @@ Thank you! 🙏`;
 
       const customerUrl = `https://wa.me/${data.phoneNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(customerMessage)}`;
       
-      console.log('� WhatsApp URLs Generated:');
+      console.log('📱 WhatsApp URLs Generated:');
       console.log(`   🔗 Customer URL: ${customerUrl}`);
       
       // Admin notification URL
