@@ -23,7 +23,7 @@ const features = [
   {
     icon: <Security sx={{ fontSize: 48 }} />,
     title: "Secure Facility",
-    description: "CCTV monitoring and security personnel ensure a safe environment"
+    description: "We provide secure locker facilities to keep your belongings, shoes, and sports gear safely stored. CCTV monitoring and security personnel ensure a safe environment for all visitors."
   },
   {
     icon: <SportsHandball sx={{ fontSize: 48 }} />,

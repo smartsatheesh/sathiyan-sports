@@ -45,7 +45,7 @@ const Footer = () => {
   ];
 
   const sports = [
-    { name: 'Cricket', icon: <SportsSoccer /> },
+    { name: 'Cricket', icon: '🏏' },
     { name: 'Football', icon: <SportsSoccer /> },
     { name: 'Badminton', icon: <SportsTennis /> },
     { name: 'Functions & Events', icon: <FitnessCenter /> }
@@ -80,7 +80,7 @@ const Footer = () => {
       <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
         <Grid container spacing={4}>
           {/* Company Info */}
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={3}>
             <Box sx={{ mb: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <Box
@@ -148,7 +148,7 @@ const Footer = () => {
           </Grid>
 
           {/* Sports Available */}
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={2}>
             <Typography variant="h6" gutterBottom fontWeight="bold">
               Sports Available
             </Typography>
@@ -164,37 +164,84 @@ const Footer = () => {
             </Stack>
           </Grid>
 
-          {/* Social Media & Hours */}
-          <Grid item xs={12} md={3}>
+          {/* Connect With Us - Single Row with Social Media & WhatsApp */}
+          <Grid item xs={12} md={5}>
             <Typography variant="h6" gutterBottom fontWeight="bold">
               Connect With Us
             </Typography>
             
-            {/* Social Media */}
-            <Box sx={{ mb: 3 }}>
-              <Stack direction="row" spacing={1}>
-                {socialMedia.map((social) => (
-                  <IconButton
-                    key={social.label}
-                    component="a"
-                    href={social.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    sx={{
-                      color: 'white',
-                      backgroundColor: alpha('#ffffff', 0.1),
-                      '&:hover': {
-                        backgroundColor: alpha('#ffffff', 0.2),
-                        transform: 'translateY(-2px)'
-                      },
-                      transition: 'all 0.3s ease'
+            {/* Single Row Layout: Social Media + WhatsApp QR */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 3 }}>
+              {/* Social Media Icons */}
+              <Box>
+                <Stack direction="row" spacing={1}>
+                  {socialMedia.map((social) => (
+                    <IconButton
+                      key={social.label}
+                      component="a"
+                      href={social.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{
+                        color: 'white',
+                        backgroundColor: alpha('#ffffff', 0.1),
+                        '&:hover': {
+                          backgroundColor: alpha('#ffffff', 0.2),
+                          transform: 'translateY(-2px)'
+                        },
+                        transition: 'all 0.3s ease'
+                      }}
+                      aria-label={social.label}
+                    >
+                      {social.icon}
+                    </IconButton>
+                  ))}
+                </Stack>
+              </Box>
+
+              {/* WhatsApp QR in Same Row */}
+              <Box
+                component="a"
+                href="https://chat.whatsapp.com/LosEvhkOJui4hrMUh4mUFV"
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  display: 'block',
+                  textDecoration: 'none',
+                  '&:hover': {
+                    transform: 'scale(1.05)',
+                    transition: 'transform 0.3s ease'
+                  }
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 80,
+                    height: 80,
+                    backgroundColor: 'white',
+                    borderRadius: 2,
+                    p: 0.5,
+                    border: '2px solid #25D366',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <img
+                    src="/WhatsAppQR.jpeg"
+                    alt="Join WhatsApp Community"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                      borderRadius: '4px'
                     }}
-                    aria-label={social.label}
-                  >
-                    {social.icon}
-                  </IconButton>
-                ))}
-              </Stack>
+                  />
+                </Box>
+                <Typography variant="caption" sx={{ color: 'white', mt: 0.5, display: 'block', textAlign: 'center', fontSize: '0.7rem' }}>
+                  Scan to Join
+                </Typography>
+              </Box>
             </Box>
 
             {/* Opening Hours */}
@@ -210,6 +257,7 @@ const Footer = () => {
               </Typography>
             </Stack>
           </Grid>
+
         </Grid>
 
         <Divider sx={{ my: 4, borderColor: alpha('#ffffff', 0.2) }} />

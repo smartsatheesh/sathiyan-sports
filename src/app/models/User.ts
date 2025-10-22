@@ -66,7 +66,7 @@ const userSchema = new mongoose.Schema({
   },
   subscriptionType: {
     type: String,
-    enum: ["monthly", "quarterly", "yearly"],
+    enum: ["monthly", "quarterly", "half yearly", "yearly"],
   },
   subscriptionAmount: {
     type: Number,

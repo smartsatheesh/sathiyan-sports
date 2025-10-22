@@ -5,6 +5,14 @@ import User from "@/app/models/User";
 const COURT_CAPACITY = 4; // Maximum 4 users per court per time slot
 const COURTS = ["S1", "S2", "S3"];
 
+// Utility function to normalize time slot formats
+function normalizeTimeSlot(timeSlot: string): string {
+  if (!timeSlot) return timeSlot;
+  
+  // Convert "5:00 AM - 6:00 AM" to "05:00 AM - 06:00 AM" format
+  return timeSlot.replace(/\b(\d):/g, '0$1:');
+}
+
 export async function POST(req: NextRequest) {
   try {
     await connectToMongoose();
@@ -17,9 +25,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get all verified users with the same time slot
+    // Normalize the requested time slot
+    const normalizedTimeSlot = normalizeTimeSlot(timeSlot);
+    console.log('🔍 Checking availability for:', timeSlot, '-> normalized:', normalizedTimeSlot, 'court:', requestedCourt);
+
+    // Get all verified users with the same time slot from preferredTimeSlot
     const usersInSlot = await (User.find as any)({
-      preferredTimeSlot: timeSlot,
+      status: "verified",
+      paymentStatus: "completed",
+    });
+
+    // Also get all users with registered slots for this time slot
+    const usersWithRegisteredSlots = await (User.find as any)({
+      "registeredSlots.timeSlot": { $exists: true },
       status: "verified",
       paymentStatus: "completed",
     });
@@ -31,13 +49,35 @@ export async function POST(req: NextRequest) {
       S3: 0,
     };
 
+    // Count from preferredTimeSlot users
     usersInSlot.forEach((user: any) => {
-      if (user.selectedCourt && COURTS.includes(user.selectedCourt)) {
-        courtBookings[user.selectedCourt]++;
+      if (user.preferredTimeSlot && user.selectedCourt && COURTS.includes(user.selectedCourt)) {
+        const normalizedUserTimeSlot = normalizeTimeSlot(user.preferredTimeSlot);
+        if (normalizedUserTimeSlot === normalizedTimeSlot) {
+          console.log('📅 PreferredTimeSlot match:', user.name, normalizedUserTimeSlot, 'court:', user.selectedCourt);
+          courtBookings[user.selectedCourt]++;
+        }
       }
     });
 
-    // Create availability data
+    // Count from registered slots (this is the critical part that was missing)
+    usersWithRegisteredSlots.forEach((user: any) => {
+      if (user.registeredSlots && Array.isArray(user.registeredSlots)) {
+        user.registeredSlots.forEach((slot: any) => {
+          if (slot.timeSlot && slot.court && COURTS.includes(slot.court)) {
+            const normalizedSlotTimeSlot = normalizeTimeSlot(slot.timeSlot);
+            if (normalizedSlotTimeSlot === normalizedTimeSlot) {
+              console.log('🎯 RegisteredSlot match found!', user.name, slot.timeSlot, '-> normalized:', normalizedSlotTimeSlot, 'court:', slot.court);
+              courtBookings[slot.court]++;
+            }
+          }
+        });
+      }
+    });
+
+    console.log('📊 Final court bookings:', courtBookings);
+
+    // Create availability data with conflict details
     const availableCourts = COURTS.map(court => ({
       court,
       available: courtBookings[court] < COURT_CAPACITY,
@@ -64,18 +104,18 @@ export async function POST(req: NextRequest) {
       
       if (requestedCourtData?.available) {
         result.canBook = true;
-        result.message = `Court ${requestedCourt} is available for ${timeSlot}`;
+        result.message = `✅ Court ${requestedCourt} is available for ${timeSlot} (${requestedCourtData.currentBookings}/${COURT_CAPACITY} slots occupied)`;
         result.suggestedCourts = [requestedCourt];
       } else {
         const otherAvailable = freeCourts.filter(court => court !== requestedCourt);
         
         if (otherAvailable.length > 0) {
           result.canBook = false;
-          result.message = `Court ${requestedCourt} is fully booked for ${timeSlot}. Available courts: ${otherAvailable.join(', ')}`;
+          result.message = `❌ Court ${requestedCourt} is not available for ${timeSlot} (${requestedCourtData?.currentBookings}/${COURT_CAPACITY} slots occupied - FULL). Available courts: ${otherAvailable.join(', ')}`;
           result.suggestedCourts = otherAvailable;
         } else {
           result.canBook = false;
-          result.message = `Court ${requestedCourt} and all other courts are fully booked for ${timeSlot}. Please choose a different time slot.`;
+          result.message = `❌ Court ${requestedCourt} is not available for ${timeSlot} (${requestedCourtData?.currentBookings}/${COURT_CAPACITY} slots occupied - FULL). All courts are occupied for this time slot.`;
           result.suggestedCourts = [];
         }
       }
@@ -83,11 +123,15 @@ export async function POST(req: NextRequest) {
       // General availability check
       if (freeCourts.length > 0) {
         result.canBook = true;
-        result.message = `Available courts for ${timeSlot}: ${freeCourts.join(', ')}`;
+        const courtDetails = freeCourts.map(court => {
+          const courtData = availableCourts.find(c => c.court === court);
+          return `${court} (${courtData?.currentBookings}/${COURT_CAPACITY})`;
+        }).join(', ');
+        result.message = `✅ Available courts for ${timeSlot}: ${courtDetails}`;
         result.suggestedCourts = freeCourts;
       } else {
         result.canBook = false;
-        result.message = `All courts are fully booked for ${timeSlot}. Please choose a different time slot.`;
+        result.message = `❌ All courts are at full capacity (4/4 slots occupied) for ${timeSlot}. Please choose a different time slot.`;
         result.suggestedCourts = [];
       }
     }

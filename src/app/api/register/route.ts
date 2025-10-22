@@ -4,27 +4,41 @@ import { connectToMongoose } from "@/app/server/mongodb";
 import User from "@/app/models/User";
 import emailService from "@/app/lib/emailService";
 
+// Utility function to normalize time slot formats
+function normalizeTimeSlot(timeSlot: string): string {
+  if (!timeSlot) return timeSlot;
+  
+  // Convert "5:00 AM - 6:00 AM" to "05:00 AM - 06:00 AM" format
+  return timeSlot.replace(/\b(\d):/g, '0$1:');
+}
+
 export async function POST(req: Request) {
   try {
     await connectToMongoose();
     const body = await req.json();
+    
+    console.log('📝 Registration attempt:', {
+      name: body.name,
+      email: body.email,
+      sport: body.preferredSport,
+      timeSlot: body.preferredTimeSlot,
+      court: body.selectedCourt
+    });
 
     // Validate required fields
     const requiredFields = [
       "name",
       "email",
       "mobile",
-      "password",
-      "confirmPassword",
       "gender",
       "preferredSport",
-      "preferredTimeSlot",
       "subscriptionType",
-      "subscriptionAmount",
-      "subscriptionEndDate",
     ];
-
-    for (const field of requiredFields) {
+    
+    // Add conditional required fields
+    if (body.preferredSport === "Shuttle Badminton") {
+      requiredFields.push("selectedCourt", "preferredTimeSlot");
+    }    for (const field of requiredFields) {
       if (!body[field]) {
         return NextResponse.json(
           { success: false, message: `${field} is required` },
@@ -66,53 +80,67 @@ export async function POST(req: Request) {
         );
       }
 
-      // Check court availability for the selected time slot
-      const COURT_CAPACITY = 4;
-      const usersInSlot = await (User.find as any)({
-        preferredTimeSlot: body.preferredTimeSlot,
-        selectedCourt: body.selectedCourt,
-        status: "verified",
-        paymentStatus: "completed",
-      });
+      // Check slot availability for Shuttle Badminton registrations
+      if (body.preferredTimeSlot) {
+        const normalizedRequestedSlot = normalizeTimeSlot(body.preferredTimeSlot);
+        console.log('🔍 Registration: Checking slot capacity for:', body.preferredTimeSlot, '-> normalized:', normalizedRequestedSlot, 'court:', body.selectedCourt);
 
-      if (usersInSlot.length >= COURT_CAPACITY) {
-        // Check other available courts
-        const allCourtsInSlot = await (User.find as any)({
-          preferredTimeSlot: body.preferredTimeSlot,
+        // Count existing users with the same slot and court (capacity check only)
+        let totalUsersInSlot = 0;
+
+        // Count users with preferredTimeSlot (legacy users)
+        const existingUsersWithSlot = await (User.find as any)({
+          preferredTimeSlot: { $exists: true },
+          selectedCourt: body.selectedCourt,
           status: "verified",
           paymentStatus: "completed",
+          preferredSport: "Shuttle Badminton"
         });
 
-        const courtBookings: { [key: string]: number } = { S1: 0, S2: 0, S3: 0 };
-        allCourtsInSlot.forEach((user: any) => {
-          if (user.selectedCourt && validCourts.includes(user.selectedCourt)) {
-            courtBookings[user.selectedCourt]++;
+        existingUsersWithSlot.forEach((user: any) => {
+          if (user.preferredTimeSlot) {
+            const normalizedExistingSlot = normalizeTimeSlot(user.preferredTimeSlot);
+            if (normalizedExistingSlot === normalizedRequestedSlot) {
+              totalUsersInSlot++;
+            }
           }
         });
 
-        const availableCourts = validCourts.filter(court => courtBookings[court] < COURT_CAPACITY);
-        
-        if (availableCourts.length > 0) {
+        // Count users with registered slots
+        const usersWithRegisteredSlots = await (User.find as any)({
+          "registeredSlots.timeSlot": { $exists: true },
+          status: "verified", 
+          paymentStatus: "completed",
+          preferredSport: "Shuttle Badminton"
+        });
+
+        usersWithRegisteredSlots.forEach((user: any) => {
+          if (user.registeredSlots && Array.isArray(user.registeredSlots)) {
+            user.registeredSlots.forEach((slot: any) => {
+              if (slot.timeSlot && slot.court === body.selectedCourt) {
+                const normalizedSlotTimeSlot = normalizeTimeSlot(slot.timeSlot);
+                if (normalizedSlotTimeSlot === normalizedRequestedSlot) {
+                  totalUsersInSlot++;
+                }
+              }
+            });
+          }
+        });
+
+        // Check if adding this user would exceed the 4-user capacity
+        if (totalUsersInSlot >= 4) {
+          console.log('❌ Registration: Court capacity exceeded -', totalUsersInSlot, 'users already in slot');
           return NextResponse.json(
             { 
               success: false, 
-              message: `Court ${body.selectedCourt} is fully booked for ${body.preferredTimeSlot}. Available courts: ${availableCourts.join(', ')}`,
-              availableCourts,
-              suggestedCourts: availableCourts
-            },
-            { status: 400 }
-          );
-        } else {
-          return NextResponse.json(
-            { 
-              success: false, 
-              message: `All courts are fully booked for ${body.preferredTimeSlot}. Please choose a different time slot.`,
-              availableCourts: [],
-              suggestedCourts: []
+              message: `Court ${body.selectedCourt} is at full capacity (${totalUsersInSlot}/4 users) for ${body.preferredTimeSlot}. Please choose a different court or time slot.`,
+              capacityExceeded: true
             },
             { status: 400 }
           );
         }
+
+        console.log('✅ Registration: Capacity available -', totalUsersInSlot, 'users in slot, proceeding with registration');
       }
     }
 
@@ -143,8 +171,10 @@ export async function POST(req: Request) {
       password: hashedPassword,
       gender: body.gender,
       preferredSport: body.preferredSport,
-      preferredTimeSlot: body.preferredTimeSlot,
-      ...(body.preferredSport === "Shuttle Badminton" && { selectedCourt: body.selectedCourt }),
+      ...(body.preferredSport === "Shuttle Badminton" && { 
+        selectedCourt: body.selectedCourt,
+        preferredTimeSlot: body.preferredTimeSlot 
+      }),
       subscriptionType: body.subscriptionType,
       subscriptionAmount: body.subscriptionAmount,
       subscriptionEndDate: body.subscriptionEndDate,

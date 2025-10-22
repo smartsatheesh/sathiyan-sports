@@ -6,6 +6,14 @@ import { format, startOfDay, endOfDay } from "date-fns";
 // COMMENTED OUT: Notification services (Twilio/Firebase)
 // import { NotificationService } from "../../services/notificationService";
 
+// Utility function to normalize time slot formats
+function normalizeTimeSlot(timeSlot: string): string {
+  if (!timeSlot) return timeSlot;
+  
+  // Convert "5:00 AM - 6:00 AM" to "05:00 AM - 06:00 AM" format
+  return timeSlot.replace(/\b(\d):/g, '0$1:');
+}
+
 // POST - Create a new booking
 export async function POST(req: NextRequest) {
   try {
@@ -64,6 +72,46 @@ export async function POST(req: NextRequest) {
 
     const existingBookings = await (Booking.find as any)(existingBookingsQuery);
 
+    // For Shuttle Badminton, check capacity limit (4 users per court per slot)
+    if (sport === "Shuttle Badminton" && court) {
+      for (const requestedSlot of timeSlots) {
+        // Count existing bookings for this specific slot and court
+        const slotBookingsCount = existingBookings.filter(booking => 
+          booking.timeSlots.includes(requestedSlot) && booking.court === court
+        ).length;
+
+        // Count registered users for this slot and court
+        const registeredUsersQuery = {
+          preferredSport: sport,
+          status: "verified",
+          paymentStatus: { $in: ["completed", "confirmed"] },
+          subscriptionType: { $in: ["monthly", "quarterly", "half yearly", "yearly"] },
+          isActive: true,
+          subscriptionEndDate: { $gte: bookingDate },
+          $or: [
+            { "registeredSlots.timeSlot": normalizeTimeSlot(requestedSlot), "registeredSlots.court": court },
+            { preferredTimeSlot: normalizeTimeSlot(requestedSlot), selectedCourt: court }
+          ]
+        };
+
+        const registeredUsersCount = await (User.countDocuments as any)(registeredUsersQuery);
+        
+        const totalBookings = slotBookingsCount + registeredUsersCount;
+        
+        if (totalBookings >= 4) {
+          return NextResponse.json(
+            { 
+              message: `Court ${court} is at full capacity (4/4 users) for ${requestedSlot}. Please choose a different court or time slot.`,
+              success: false,
+              conflictingSlots: [requestedSlot],
+              type: "capacity_full"
+            },
+            { status: 409 }
+          );
+        }
+      }
+    }
+
     if (existingBookings.length > 0) {
       const bookedSlots = existingBookings.flatMap(booking => booking.timeSlots);
       const conflictingSlots = timeSlots.filter((slot: string) => bookedSlots.includes(slot));
@@ -78,18 +126,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check for registered slots conflict (monthly/yearly subscribers)
+    // Check for registered slots conflict (monthly/quarterly/half yearly/yearly subscribers)
     if (sport === "Shuttle Badminton") {
-      const dayOfWeek = format(bookingDate, "EEEE").toLowerCase();
-      
       let registeredUsersQuery: any = {
         preferredSport: sport,
         status: "verified",
         paymentStatus: { $in: ["completed", "confirmed"] },
-        subscriptionType: { $in: ["monthly", "yearly"] },
+        subscriptionType: { $in: ["monthly", "quarterly", "half yearly", "yearly"] },
         isActive: true,
         subscriptionEndDate: { $gte: bookingDate },
-        "registeredSlots.dayOfWeek": dayOfWeek,
+        "registeredSlots.0": { $exists: true }, // Has at least one registered slot
       };
 
       if (court) {
@@ -102,17 +148,20 @@ export async function POST(req: NextRequest) {
       const registeredTimeSlots: string[] = [];
       registeredUsers.forEach(user => {
         user.registeredSlots.forEach((slot: any) => {
-          if (slot.dayOfWeek === dayOfWeek) {
-            const slotCourt = slot.court || user.selectedCourt || 'S1';
-            if (!court || slotCourt === court) {
-              registeredTimeSlots.push(slot.timeSlot);
-            }
+          const slotCourt = slot.court || user.selectedCourt || 'S1';
+          if (!court || slotCourt === court) {
+            registeredTimeSlots.push(normalizeTimeSlot(slot.timeSlot));
           }
         });
       });
 
+      // Normalize the requested time slots for comparison
+      const normalizedRequestedSlots = timeSlots.map((slot: string) => normalizeTimeSlot(slot));
+
       // Check if any requested time slots conflict with registered slots
-      const conflictingRegisteredSlots = timeSlots.filter((slot: string) => registeredTimeSlots.includes(slot));
+      const conflictingRegisteredSlots = normalizedRequestedSlots.filter((normalizedSlot: string) => 
+        registeredTimeSlots.includes(normalizedSlot)
+      );
       
       if (conflictingRegisteredSlots.length > 0) {
         return NextResponse.json(
@@ -215,7 +264,6 @@ export async function GET(req: NextRequest) {
     }
 
     const queryDate = new Date(date);
-    const dayOfWeek = format(queryDate, "EEEE").toLowerCase(); // Get day of week for registered slots
     
     // Build query for finding bookings
     let bookingQuery: any = {
@@ -236,7 +284,7 @@ export async function GET(req: NextRequest) {
 
     const bookings = await (Booking.find as any)(bookingQuery).select("timeSlots court");
 
-    // Fetch registered slots for monthly/yearly verified users
+    // Fetch registered slots for monthly/quarterly/half yearly/yearly verified users
     let registeredSlots: string[] = [];
     let registeredCourtSlots: { [key: string]: string[] } = {
       S1: [],
@@ -250,11 +298,11 @@ export async function GET(req: NextRequest) {
         preferredSport: sport,
         status: "verified", // Only verified users
         paymentStatus: { $in: ["completed", "confirmed"] }, // Only users with confirmed payments
-        subscriptionType: { $in: ["monthly", "yearly"] }, // Only monthly/yearly subscribers
+        subscriptionType: { $in: ["monthly", "quarterly", "half yearly", "yearly"] }, // All subscription types
         isActive: true,
         // Check if subscription is still valid
         subscriptionEndDate: { $gte: queryDate },
-        "registeredSlots.dayOfWeek": dayOfWeek,
+        "registeredSlots.0": { $exists: true }, // Has at least one registered slot
       };
 
       // If court is specified, filter by court
@@ -267,21 +315,19 @@ export async function GET(req: NextRequest) {
       // Extract registered slots for the specific day
       registeredUsers.forEach(user => {
         user.registeredSlots.forEach((slot: any) => {
-          if (slot.dayOfWeek === dayOfWeek) {
-            const slotCourt = slot.court || user.selectedCourt || 'S1';
-            
-            if (court) {
-              // If specific court requested, only return slots for that court
-              if (slotCourt === court) {
-                registeredSlots.push(slot.timeSlot);
-              }
-            } else {
-              // Return all slots organized by court
-              if (registeredCourtSlots[slotCourt]) {
-                registeredCourtSlots[slotCourt].push(slot.timeSlot);
-              }
-              registeredSlots.push(slot.timeSlot);
+          const slotCourt = slot.court || user.selectedCourt || 'S1';
+          
+          if (court) {
+            // If specific court requested, only return slots for that court
+            if (slotCourt === court) {
+              registeredSlots.push(normalizeTimeSlot(slot.timeSlot));
             }
+          } else {
+            // Return all slots organized by court
+            if (registeredCourtSlots[slotCourt]) {
+              registeredCourtSlots[slotCourt].push(normalizeTimeSlot(slot.timeSlot));
+            }
+            registeredSlots.push(normalizeTimeSlot(slot.timeSlot));
           }
         });
       });

@@ -413,19 +413,30 @@ export default function Home() {
                     </Fade>
                   </Box>
                   
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'center' }}>
+                  <Stack 
+                    direction={{ xs: 'column', sm: 'row' }} 
+                    spacing={2} 
+                    sx={{ 
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      width: '100%',
+                      maxWidth: '500px',
+                      mx: 'auto'
+                    }}
+                  >
                     <Button
                       component={Link}
                       href="/register"
                       variant="contained"
                       size="large"
                       sx={{
-                        px: 4,
+                        px: { xs: 3, sm: 4 },
                         py: 1.5,
-                        fontSize: '1.1rem',
+                        fontSize: { xs: '1rem', sm: '1.1rem' },
                         fontWeight: 'bold',
                         background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
                         boxShadow: theme.shadows[8],
+                        minWidth: { xs: '140px', sm: '160px' },
                         '&:hover': {
                           transform: 'translateY(-2px)',
                           boxShadow: theme.shadows[12]
@@ -441,13 +452,14 @@ export default function Home() {
                       variant="outlined"
                       size="large"
                       sx={{
-                        px: 4,
+                        px: { xs: 3, sm: 4 },
                         py: 1.5,
-                        fontSize: '1.1rem',
+                        fontSize: { xs: '1rem', sm: '1.1rem' },
                         fontWeight: 'bold',
                         borderWidth: 2,
                         backgroundColor: alpha('#ffffff', 0.9),
                         backdropFilter: 'blur(10px)',
+                        minWidth: { xs: '140px', sm: '160px' },
                         '&:hover': {
                           borderWidth: 2,
                           transform: 'translateY(-2px)',

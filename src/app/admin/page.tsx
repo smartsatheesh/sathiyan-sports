@@ -61,6 +61,34 @@ import {
   Cancel,
 } from "@mui/icons-material";
 
+// Time slots constant to match registration page format
+const TIME_SLOTS = [
+  "12:00 AM - 01:00 AM",
+  "01:00 AM - 02:00 AM",
+  "02:00 AM - 03:00 AM",
+  "03:00 AM - 04:00 AM",
+  "04:00 AM - 05:00 AM",
+  "05:00 AM - 06:00 AM",
+  "06:00 AM - 07:00 AM",
+  "07:00 AM - 08:00 AM",
+  "08:00 AM - 09:00 AM",
+  "09:00 AM - 10:00 AM",
+  "10:00 AM - 11:00 AM",
+  "11:00 AM - 12:00 PM",
+  "12:00 PM - 01:00 PM",
+  "01:00 PM - 02:00 PM",
+  "02:00 PM - 03:00 PM",
+  "03:00 PM - 04:00 PM",
+  "04:00 PM - 05:00 PM",
+  "05:00 PM - 06:00 PM",
+  "06:00 PM - 07:00 PM",
+  "07:00 PM - 08:00 PM",
+  "08:00 PM - 09:00 PM",
+  "09:00 PM - 10:00 PM",
+  "10:00 PM - 11:00 PM",
+  "11:00 PM - 12:00 AM",
+];
+
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
@@ -180,7 +208,6 @@ export default function AdminDashboard() {
     mobile: '',
     gender: '',
     preferredSport: '',
-    preferredTimeSlot: '',
     selectedCourt: '',
     subscriptionType: '',
     status: '',
@@ -192,7 +219,6 @@ export default function AdminDashboard() {
   const [userRegisteredSlots, setUserRegisteredSlots] = useState<any[]>([]);
   const [newSlot, setNewSlot] = useState({
     timeSlot: '',
-    daysOfWeek: [] as string[], // Changed to support multiple days
     court: ''
   });
   
@@ -212,20 +238,25 @@ export default function AdminDashboard() {
     console.log('Populating registered slots for', usersArray.length, 'users');
     const usersWithSlots = await Promise.all(
       usersArray.map(async (user) => {
-        // Only fetch slots for Shuttle Badminton users with monthly/yearly subscriptions
+        // Only fetch slots for Shuttle Badminton users with all subscription types
         if (user.preferredSport === "Shuttle Badminton" && 
-            ["monthly", "yearly"].includes(user.subscriptionType)) {
+            ["monthly", "quarterly", "half yearly", "yearly"].includes(user.subscriptionType)) {
           try {
-            console.log(`Fetching slots for user ${user._id} - ${user.name}`);
+            console.log(`🔍 Fetching slots for user ${user._id} - ${user.name} (${user.subscriptionType}, ${user.status}, ${user.paymentStatus})`);
             const response = await fetch(`/api/admin/users/${user._id}/registered-slots`);
             const data = await response.json();
-            console.log(`Slots response for ${user.name}:`, data);
+            console.log(`📊 Slots response for ${user.name}:`, data);
             if (data.success) {
+              console.log(`✅ User ${user.name} registered slots:`, data.registeredSlots);
               return { ...user, registeredSlots: data.registeredSlots };
+            } else {
+              console.log(`❌ Failed to get slots for ${user.name}:`, data.message);
             }
           } catch (error) {
-            console.error(`Error fetching slots for user ${user._id}:`, error);
+            console.error(`💥 Error fetching slots for user ${user._id}:`, error);
           }
+        } else {
+          console.log(`⏭️  Skipping ${user.name} - Sport: ${user.preferredSport}, Subscription: ${user.subscriptionType}`);
         }
         return user;
       })
@@ -264,10 +295,13 @@ export default function AdminDashboard() {
         // Set the stats from the dedicated endpoint
         setStats(statsData.stats);
         
-        // Set recent bookings, users, and fitness enrollments for display
+        // Set recent bookings and fitness enrollments for display
         setBookings(statsData.recentBookings || []);
-        setUsers(statsData.recentUsers || []);
         setFitnessEnrollments(statsData.recentFitnessEnrollments || []);
+        
+        // Populate registered slots for users before setting them
+        const usersWithSlots = await populateRegisteredSlots(statsData.recentUsers || []);
+        setUsers(usersWithSlots);
       } else {
         throw new Error(statsData.message || 'Failed to fetch dashboard data');
       }
@@ -579,7 +613,6 @@ export default function AdminDashboard() {
       mobile: user.phone || user.mobile || '',
       gender: user.gender || '',
       preferredSport: user.preferredSport || '',
-      preferredTimeSlot: user.preferredTimeSlot || '',
       selectedCourt: user.selectedCourt || '',
       subscriptionType: user.subscriptionType || '',
       status: user.status || 'pending',
@@ -588,19 +621,33 @@ export default function AdminDashboard() {
     
     // Load registered slots if the user is eligible for slots
     if (user.preferredSport === "Shuttle Badminton" && 
-        ["monthly", "yearly"].includes(user.subscriptionType)) {
+        ["monthly", "quarterly", "half yearly", "yearly"].includes(user.subscriptionType)) {
       try {
+        console.log('Loading registered slots for user:', user.name, user._id);
         const response = await fetch(`/api/admin/users/${user._id}/registered-slots`);
         const data = await response.json();
+        console.log('Registered slots response:', data);
         if (data.success) {
           setUserRegisteredSlots(data.registeredSlots);
+          console.log('Set registered slots:', data.registeredSlots);
+        } else {
+          console.error('Failed to load registered slots:', data.message);
+          setUserRegisteredSlots([]);
         }
       } catch (error) {
         console.error('Error fetching user slots:', error);
         setUserRegisteredSlots([]);
       }
+      
+      // Set default values for new slot based on user's registration data
+      setNewSlot({
+        timeSlot: user.preferredTimeSlot || '', // Pre-populate with user's registered time slot
+        court: user.selectedCourt || 'S1'
+      });
     } else {
+      console.log('User not eligible for slots:', user.preferredSport, user.subscriptionType);
       setUserRegisteredSlots([]);
+      setNewSlot({ timeSlot: '', court: '' });
     }
     
     setEditUserDialogOpen(true);
@@ -787,7 +834,6 @@ export default function AdminDashboard() {
           phone: editUserFormData.mobile, // Also update phone field for consistency
           gender: editUserFormData.gender,
           preferredSport: editUserFormData.preferredSport,
-          preferredTimeSlot: editUserFormData.preferredTimeSlot,
           selectedCourt: editUserFormData.selectedCourt,
           subscriptionType: editUserFormData.subscriptionType,
           status: editUserFormData.status,
@@ -810,7 +856,6 @@ export default function AdminDashboard() {
                 phone: editUserFormData.mobile,
                 gender: editUserFormData.gender,
                 preferredSport: editUserFormData.preferredSport,
-                preferredTimeSlot: editUserFormData.preferredTimeSlot,
                 selectedCourt: editUserFormData.selectedCourt,
                 subscriptionType: editUserFormData.subscriptionType,
                 status: editUserFormData.status,
@@ -822,6 +867,26 @@ export default function AdminDashboard() {
           type: 'success', 
           message: 'User updated successfully!' 
         });
+        
+        // Refresh registered slots for the updated user if they were verified
+        if (editUserFormData.status === 'verified' && editUserFormData.paymentStatus === 'completed') {
+          try {
+            const slotsResponse = await fetch(`/api/admin/users/${selectedUser._id}/registered-slots`);
+            const slotsData = await slotsResponse.json();
+            if (slotsData.success) {
+              setUserRegisteredSlots(slotsData.registeredSlots);
+              // Also update the users array with new registered slots
+              setUsers(prev => prev.map(u => 
+                u._id === selectedUser._id 
+                  ? { ...u, registeredSlots: slotsData.registeredSlots }
+                  : u
+              ));
+            }
+          } catch (error) {
+            console.log('Error refreshing registered slots:', error);
+          }
+        }
+        
         setEditUserDialogOpen(false);
         setSelectedUser(null);
       } else {
@@ -856,15 +921,53 @@ export default function AdminDashboard() {
   };
 
   const handleAddSlot = async () => {
-    if (!selectedUser || !newSlot.timeSlot || newSlot.daysOfWeek.length === 0) return;
+    if (!selectedUser || !newSlot.timeSlot) return;
 
     try {
-      // Add slots for multiple days
-      const slotsToAdd = newSlot.daysOfWeek.map(day => ({
+      // First check for conflicts before adding the slot
+      const slotToAdd = {
         timeSlot: newSlot.timeSlot,
-        dayOfWeek: day,
         court: newSlot.court || selectedUser.selectedCourt,
-      }));
+      };
+
+      // Check if the user already has this exact slot registered (prevent duplicates for same user)
+      const hasExistingSlot = userRegisteredSlots.some(slot => 
+        slot.timeSlot === slotToAdd.timeSlot && slot.court === slotToAdd.court
+      );
+
+      if (hasExistingSlot) {
+        setAlert({ 
+          type: 'error', 
+          message: `User already has this slot registered: ${slotToAdd.timeSlot} - Court ${slotToAdd.court}` 
+        });
+        setTimeout(() => setAlert(null), 5000);
+        return;
+      }
+
+      // Check court capacity (4-user limit) before adding slot
+      const availabilityResponse = await fetch('/api/check-court-availability', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sport: 'Shuttle Badminton',
+          court: slotToAdd.court,
+          timeSlot: slotToAdd.timeSlot,
+          checkRegisteredSlots: true
+        }),
+      });
+
+      const availabilityData = await availabilityResponse.json();
+
+      if (!availabilityData.success || !availabilityData.available) {
+        setAlert({ 
+          type: 'error', 
+          message: availabilityData.message || `Court ${slotToAdd.court} is at full capacity for ${slotToAdd.timeSlot}` 
+        });
+        setTimeout(() => setAlert(null), 5000);
+        return;
+      }
 
       const response = await fetch(`/api/admin/users/${selectedUser._id}/registered-slots`, {
         method: 'POST',
@@ -872,7 +975,7 @@ export default function AdminDashboard() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          slots: slotsToAdd // Send multiple slots
+          slots: [slotToAdd] // Send single slot in array format
         }),
       });
 
@@ -884,14 +987,14 @@ export default function AdminDashboard() {
         setUsers(prev => prev.map(u => 
           u._id === selectedUser._id 
             ? { ...u, registeredSlots: data.registeredSlots.map((slot: any) => 
-                `${slot.dayOfWeek?.charAt(0).toUpperCase() + slot.dayOfWeek?.slice(1)} - ${slot.timeSlot}${slot.court ? ` (${slot.court})` : ''}`
+                `${slot.timeSlot}${slot.court ? ` (${slot.court})` : ''}`
               )}
             : u
         ));
-        setNewSlot({ timeSlot: '', daysOfWeek: [], court: '' });
+        setNewSlot({ timeSlot: '', court: '' });
         setAlert({ 
           type: 'success', 
-          message: `${slotsToAdd.length} slot${slotsToAdd.length > 1 ? 's' : ''} added successfully!` 
+          message: 'Slot added successfully!' 
         });
       } else {
         throw new Error(data.message);
@@ -922,7 +1025,7 @@ export default function AdminDashboard() {
         setUsers(prev => prev.map(u => 
           u._id === selectedUser._id 
             ? { ...u, registeredSlots: data.registeredSlots.map((slot: any) => 
-                `${slot.dayOfWeek?.charAt(0).toUpperCase() + slot.dayOfWeek?.slice(1)} - ${slot.timeSlot}${slot.court ? ` (${slot.court})` : ''}`
+                `${slot.timeSlot}${slot.court ? ` (${slot.court})` : ''}`
               )}
             : u
         ));
@@ -2079,48 +2182,18 @@ export default function AdminDashboard() {
                 </FormControl>
               </Grid>
 
-              {/* Preferred Time Slot */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Preferred Time Slot</InputLabel>
-                  <Select
-                    value={editUserFormData.preferredTimeSlot}
-                    onChange={(e) => setEditUserFormData(prev => ({ ...prev, preferredTimeSlot: e.target.value }))}
-                  >
-                    <MenuItem value="6:00 AM - 7:00 AM">6:00 AM - 7:00 AM</MenuItem>
-                    <MenuItem value="7:00 AM - 8:00 AM">7:00 AM - 8:00 AM</MenuItem>
-                    <MenuItem value="8:00 AM - 9:00 AM">8:00 AM - 9:00 AM</MenuItem>
-                    <MenuItem value="9:00 AM - 10:00 AM">9:00 AM - 10:00 AM</MenuItem>
-                    <MenuItem value="10:00 AM - 11:00 AM">10:00 AM - 11:00 AM</MenuItem>
-                    <MenuItem value="11:00 AM - 12:00 PM">11:00 AM - 12:00 PM</MenuItem>
-                    <MenuItem value="12:00 PM - 1:00 PM">12:00 PM - 1:00 PM</MenuItem>
-                    <MenuItem value="1:00 PM - 2:00 PM">1:00 PM - 2:00 PM</MenuItem>
-                    <MenuItem value="2:00 PM - 3:00 PM">2:00 PM - 3:00 PM</MenuItem>
-                    <MenuItem value="3:00 PM - 4:00 PM">3:00 PM - 4:00 PM</MenuItem>
-                    <MenuItem value="4:00 PM - 5:00 PM">4:00 PM - 5:00 PM</MenuItem>
-                    <MenuItem value="5:00 PM - 6:00 PM">5:00 PM - 6:00 PM</MenuItem>
-                    <MenuItem value="6:00 PM - 7:00 PM">6:00 PM - 7:00 PM</MenuItem>
-                    <MenuItem value="7:00 PM - 8:00 PM">7:00 PM - 8:00 PM</MenuItem>
-                    <MenuItem value="8:00 PM - 9:00 PM">8:00 PM - 9:00 PM</MenuItem>
-                    <MenuItem value="9:00 PM - 10:00 PM">9:00 PM - 10:00 PM</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* Selected Court (only for Shuttle Badminton) */}
+              {/* Selected Court (read-only for Shuttle Badminton) */}
               {editUserFormData.preferredSport === "Shuttle Badminton" && (
                 <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Selected Court</InputLabel>
-                    <Select
-                      value={editUserFormData.selectedCourt}
-                      onChange={(e) => setEditUserFormData(prev => ({ ...prev, selectedCourt: e.target.value }))}
-                    >
-                      <MenuItem value="S1">Court S1</MenuItem>
-                      <MenuItem value="S2">Court S2</MenuItem>
-                      <MenuItem value="S3">Court S3</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <TextField
+                    fullWidth
+                    label="Registered Court"
+                    value={editUserFormData.selectedCourt ? `Court ${editUserFormData.selectedCourt}` : 'No court selected'}
+                    InputProps={{
+                      readOnly: true,
+                    }}
+                    helperText="Court assignment is managed in the Registered Slots section below"
+                  />
                 </Grid>
               )}
 
@@ -2135,6 +2208,7 @@ export default function AdminDashboard() {
                   >
                     <FormControlLabel value="monthly" control={<Radio />} label="Monthly" />
                     <FormControlLabel value="quarterly" control={<Radio />} label="Quarterly" />
+                    <FormControlLabel value="half yearly" control={<Radio />} label="Half Yearly" />
                     <FormControlLabel value="yearly" control={<Radio />} label="Yearly" />
                   </RadioGroup>
                 </FormControl>
@@ -2171,29 +2245,129 @@ export default function AdminDashboard() {
                 </FormControl>
               </Grid>
 
-              {/* Registered Slots Display */}
-              {editUserFormData.preferredSport === "Shuttle Badminton" && 
-               ["monthly", "yearly"].includes(editUserFormData.subscriptionType) && (
+              {/* Registered Slots Management */}
+              {editUserFormData.preferredSport === "Shuttle Badminton" && (
                 <Grid item xs={12}>
                   <Box sx={{ mt: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                    <Typography variant="h6" gutterBottom>
-                      Registered Slots
+                    <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      🏸 Registered Slots Management
                     </Typography>
-                    {userRegisteredSlots.length > 0 ? (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        {userRegisteredSlots.map((slot, index) => (
-                          <Chip
-                            key={index}
-                            label={`${slot.timeSlot} - Court ${slot.court}`}
-                            color="primary"
+                    
+                    {/* Show eligibility status */}
+                    {!["monthly", "quarterly", "half yearly", "yearly"].includes(editUserFormData.subscriptionType) && (
+                      <Alert severity="info" sx={{ mb: 2 }}>
+                        Registered slots are only available for Monthly, Quarterly, Half Yearly and Yearly subscriptions. Current subscription: {editUserFormData.subscriptionType || 'None'}
+                      </Alert>
+                    )}
+                    
+                    {["monthly", "quarterly", "half yearly", "yearly"].includes(editUserFormData.subscriptionType) && 
+                     editUserFormData.status !== "verified" && (
+                      <Alert severity="warning" sx={{ mb: 2 }}>
+                        User must be verified to manage registered slots. Current status: {editUserFormData.status}
+                      </Alert>
+                    )}
+                    
+                    {["monthly", "quarterly", "half yearly", "yearly"].includes(editUserFormData.subscriptionType) && 
+                     editUserFormData.status === "verified" && 
+                     editUserFormData.paymentStatus !== "completed" && (
+                      <Alert severity="warning" sx={{ mb: 2 }}>
+                        Payment must be completed to manage registered slots. Current payment status: {editUserFormData.paymentStatus}
+                      </Alert>
+                    )}
+                    
+                    {/* Slot Management Interface - Only show if user is eligible */}
+                    {["monthly", "quarterly", "half yearly", "yearly"].includes(editUserFormData.subscriptionType) && 
+                     editUserFormData.status === "verified" && 
+                     editUserFormData.paymentStatus === "completed" ? (
+                      <>
+                        {/* Current Registered Slots */}
+                        <Box sx={{ mb: 3 }}>
+                          <Typography variant="subtitle2" gutterBottom>
+                            Current Registered Slots:
+                          </Typography>
+                          {userRegisteredSlots.length > 0 ? (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                              {userRegisteredSlots.map((slot, index) => (
+                                <Chip
+                                  key={slot._id || index}
+                                  label={`${slot.timeSlot}${slot.court ? ` - Court ${slot.court}` : ''}`}
+                                  color="primary"
+                                  size="small"
+                                  onDelete={() => handleRemoveSlot(slot._id)}
+                                  deleteIcon={<Box component="span" sx={{ fontSize: '16px' }}>❌</Box>}
+                                />
+                              ))}
+                            </Box>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                              No registered slots found
+                            </Typography>
+                          )}
+                        </Box>
+
+                        {/* Add New Slot Interface */}
+                        <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                          <Typography variant="subtitle2" gutterBottom>
+                            Add New Slot:
+                          </Typography>
+                          <Alert severity="info" sx={{ mb: 2, fontSize: '0.875rem' }}>
+                            ℹ️ Each court has a maximum capacity of 4 users per time slot. The system will check availability before adding slots.
+                          </Alert>
+                      <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} sm={5}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Time Slot</InputLabel>
+                            <Select
+                              value={newSlot.timeSlot}
+                              onChange={(e) => setNewSlot(prev => ({ ...prev, timeSlot: e.target.value }))}
+                              label="Time Slot"
+                            >
+                              {TIME_SLOTS.map((slot) => (
+                                <MenuItem key={slot} value={slot}>
+                                  {slot}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Court</InputLabel>
+                            <Select
+                              value={newSlot.court}
+                              onChange={(e) => setNewSlot(prev => ({ ...prev, court: e.target.value }))}
+                              label="Court"
+                            >
+                              <MenuItem value="S1">Court S1</MenuItem>
+                              <MenuItem value="S2">Court S2</MenuItem>
+                              <MenuItem value="S3">Court S3</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={12} sm={3}>
+                          <Button
+                            variant="contained"
+                            onClick={handleAddSlot}
+                            disabled={!newSlot.timeSlot}
+                            fullWidth
                             size="small"
-                          />
-                        ))}
-                      </Box>
+                            sx={{ 
+                              bgcolor: '#4caf50',
+                              '&:hover': { bgcolor: '#45a049' }
+                            }}
+                          >
+                            Add Slot
+                          </Button>
+                        </Grid>
+                      </Grid>
+                    </Box>
+                      </>
                     ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        No registered slots found
-                      </Typography>
+                      <Box sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 1, textAlign: 'center' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Complete user verification and payment to manage registered slots
+                        </Typography>
+                      </Box>
                     )}
                   </Box>
                 </Grid>

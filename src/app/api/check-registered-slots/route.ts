@@ -30,18 +30,17 @@ export async function GET(req: NextRequest) {
     }
 
     const queryDate = new Date(date);
-    const dayOfWeek = format(queryDate, "EEEE").toLowerCase(); // Get day of week (e.g., "monday")
     
     // Build query for finding registered users
     let userQuery: any = {
       preferredSport: sport,
       status: "verified", // Only verified users
       paymentStatus: { $in: ["completed", "confirmed"] }, // Only users with confirmed payments
-      subscriptionType: { $in: ["monthly", "yearly"] }, // Only monthly/yearly subscribers
+      subscriptionType: { $in: ["monthly", "quarterly", "half yearly", "yearly"] }, // All subscription types
       isActive: true,
       // Check if subscription is still valid
       subscriptionEndDate: { $gte: queryDate },
-      "registeredSlots.dayOfWeek": dayOfWeek,
+      "registeredSlots.0": { $exists: true }, // Has at least one registered slot
     };
 
     // If court is specified, filter by court
@@ -61,21 +60,19 @@ export async function GET(req: NextRequest) {
 
     registeredUsers.forEach(user => {
       user.registeredSlots.forEach((slot: any) => {
-        if (slot.dayOfWeek === dayOfWeek) {
-          const slotCourt = slot.court || user.selectedCourt || 'S1';
-          
-          // If specific court requested, only return slots for that court
-          if (court) {
-            if (slotCourt === court) {
-              registeredSlots.push(slot.timeSlot);
-            }
-          } else {
-            // Return all slots organized by court
-            if (courtRegistrations[slotCourt]) {
-              courtRegistrations[slotCourt].push(slot.timeSlot);
-            }
+        const slotCourt = slot.court || user.selectedCourt || 'S1';
+        
+        // If specific court requested, only return slots for that court
+        if (court) {
+          if (slotCourt === court) {
             registeredSlots.push(slot.timeSlot);
           }
+        } else {
+          // Return all slots organized by court
+          if (courtRegistrations[slotCourt]) {
+            courtRegistrations[slotCourt].push(slot.timeSlot);
+          }
+          registeredSlots.push(slot.timeSlot);
         }
       });
     });
@@ -90,7 +87,7 @@ export async function GET(req: NextRequest) {
       success: true,
       registeredSlots: uniqueRegisteredSlots,
       courtRegistrations,
-      dayOfWeek,
+      date: date,
     });
   } catch (error) {
     console.error("Error fetching registered slots:", error);

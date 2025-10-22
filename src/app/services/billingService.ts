@@ -27,6 +27,9 @@ export class BillingService {
         case 'quarterly':
           nextDate.setMonth(nextDate.getMonth() + 3);
           break;
+        case 'half yearly':
+          nextDate.setMonth(nextDate.getMonth() + 6);
+          break;
         case 'yearly':
           nextDate.setFullYear(nextDate.getFullYear() + 1);
           break;
@@ -43,7 +46,7 @@ export class BillingService {
     userId: string;
     userEmail: string;
     userName: string;
-    cycleType: 'monthly' | 'quarterly' | 'yearly';
+    cycleType: 'monthly' | 'quarterly' | 'half yearly' | 'yearly';
     billingDate: number;
     currentAmount: number;
     currency?: string;

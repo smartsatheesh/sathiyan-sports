@@ -38,6 +38,7 @@ import Link from "next/link";
 const SUBSCRIPTION_PRICES = {
   monthly: 1200,
   quarterly: 3000,
+  "half yearly": 5500,
   yearly: 10000,
 };
 
@@ -99,6 +100,8 @@ export default function RegisterPage() {
         return addMonths(startDate, 1);
       case "quarterly":
         return addMonths(startDate, 3);
+      case "half yearly":
+        return addMonths(startDate, 6);
       case "yearly":
         return addYears(startDate, 1);
       default:
@@ -175,6 +178,13 @@ export default function RegisterPage() {
     // Court selection is only required for Shuttle Badminton
     if (formData.preferredSport === "Shuttle Badminton" && !formData.selectedCourt) {
       setError("Please select a court for Shuttle Badminton");
+      setLoading(false);
+      return;
+    }
+
+    // Check court availability before submission for Shuttle Badminton
+    if (formData.preferredSport === "Shuttle Badminton" && courtAvailability && !courtAvailability.canBook) {
+      setError("Selected court is not available for the chosen time slot. Please select a different court or time slot.");
       setLoading(false);
       return;
     }
@@ -525,6 +535,11 @@ export default function RegisterPage() {
                 label="Quarterly"
               />
               <FormControlLabel
+                value="half yearly"
+                control={<Radio />}
+                label="Half Yearly"
+              />
+              <FormControlLabel
                 value="yearly"
                 control={<Radio />}
                 label="Yearly"
@@ -537,10 +552,24 @@ export default function RegisterPage() {
             fullWidth
             variant="contained"
             sx={{ mt: 3, mb: 2 }}
-            disabled={loading}
+            disabled={
+              loading || 
+              (formData.preferredSport === "Shuttle Badminton" && 
+               courtAvailability && 
+               !courtAvailability.canBook)
+            }
           >
             {loading ? <CircularProgress size={24} /> : "Register"}
           </Button>
+
+          {/* Show helper message when registration is disabled due to conflicts */}
+          {formData.preferredSport === "Shuttle Badminton" && 
+           courtAvailability && 
+           !courtAvailability.canBook && (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              Registration disabled: Please select an available court and time slot combination
+            </Alert>
+          )}
 
           <Box sx={{ textAlign: 'center', mt: 2 }}>
             <Typography variant="body2">

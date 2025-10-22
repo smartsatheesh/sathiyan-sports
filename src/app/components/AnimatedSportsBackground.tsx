@@ -40,9 +40,9 @@ const AnimatedSportsBackground: React.FC = () => {
   const [elements, setElements] = useState<SportsElement[]>([]);
 
   const sportsEmojis = [
-    '⚽', '🏸', '🏏', '�', '🏀', '🎾', '�', '🏓',
+    '⚽', '🏸', '🏏', '🏀', '�', '�', '⚾', '�',
     '🥅', '🏆', '🥇', '🎖️', '🏅', '⚡', '💪', '🔥'
-  ];
+  ].filter(emoji => emoji && emoji !== '�' && emoji !== '?' && emoji.length > 0);
 
   const animationTypes: Array<'float' | 'slideLeft' | 'slideRight' | 'bounce'> = 
     ['float', 'slideLeft', 'slideRight', 'bounce'];

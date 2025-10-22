@@ -96,6 +96,31 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
       delete updateData.selectedCourt;
     }
 
+    // Check if user is being verified and payment is completed - populate registered slots
+    const shouldPopulateSlots = 
+      updateData.status === 'verified' && 
+      (updateData.paymentStatus === 'completed' || currentUser.paymentStatus === 'completed') &&
+      currentUser.status !== 'verified' && // Only populate if status is changing to verified
+      currentUser.preferredTimeSlot;
+
+    if (shouldPopulateSlots) {
+      // Parse preferredTimeSlot (e.g., "6:00 AM - 7:00 AM - S1")
+      const timeSlotParts = currentUser.preferredTimeSlot.split(' - ');
+      if (timeSlotParts.length >= 2) {
+        const timeSlot = `${timeSlotParts[0]} - ${timeSlotParts[1]}`;
+        const court = timeSlotParts[2] || currentUser.selectedCourt;
+        
+        // Create registered slots for all weekdays
+        const weekDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+        updateData.registeredSlots = weekDays.map(day => ({
+          timeSlot,
+          dayOfWeek: day,
+          court: currentUser.preferredSport === 'Shuttle Badminton' ? court : undefined,
+          registeredAt: new Date()
+        }));
+      }
+    }
+
     const user = await (User.findByIdAndUpdate as any)(
       userId,
       { ...updateData, updatedAt: new Date() },

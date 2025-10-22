@@ -52,10 +52,10 @@ export async function POST(req: NextRequest, { params }: { params: { userId: str
 
     const { userId } = params;
     const body = await req.json();
-    const { timeSlot, dayOfWeek, court, slots } = body;
+    const { timeSlot, court, slots } = body;
 
     // Handle both single slot and multiple slots
-    const slotsToAdd = slots || [{ timeSlot, dayOfWeek, court }];
+    const slotsToAdd = slots || [{ timeSlot, court }];
 
     if (!userId || slotsToAdd.length === 0) {
       return NextResponse.json(
@@ -66,9 +66,9 @@ export async function POST(req: NextRequest, { params }: { params: { userId: str
 
     // Validate all slots have required fields
     for (const slot of slotsToAdd) {
-      if (!slot.timeSlot || !slot.dayOfWeek) {
+      if (!slot.timeSlot) {
         return NextResponse.json(
-          { message: "All slots must have timeSlot and dayOfWeek", success: false },
+          { message: "All slots must have timeSlot", success: false },
           { status: 400 }
         );
       }
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest, { params }: { params: { userId: str
     }
 
     // Check if user is eligible for registered slots
-    if (!["monthly", "yearly"].includes(user.subscriptionType) || 
+    if (!["monthly", "quarterly", "half yearly", "yearly"].includes(user.subscriptionType) || 
         user.status !== "verified" || 
         !["completed"].includes(user.paymentStatus)) {
       return NextResponse.json(
@@ -98,22 +98,20 @@ export async function POST(req: NextRequest, { params }: { params: { userId: str
     const duplicateSlots = [];
 
     for (const slotData of slotsToAdd) {
-      const { timeSlot, dayOfWeek, court } = slotData;
+      const { timeSlot, court } = slotData;
       
       // Check if slot already exists
       const existingSlot = user.registeredSlots.find((slot: any) => 
         slot.timeSlot === timeSlot && 
-        slot.dayOfWeek === dayOfWeek.toLowerCase() && 
         (!court || slot.court === court)
       );
 
       if (existingSlot) {
-        duplicateSlots.push(`${dayOfWeek} - ${timeSlot}`);
+        duplicateSlots.push(`${timeSlot}`);
       } else {
         // Add the new registered slot
         const newSlot = {
           timeSlot,
-          dayOfWeek: dayOfWeek.toLowerCase(),
           court: court || user.selectedCourt,
           registeredAt: new Date(),
         };

@@ -63,7 +63,7 @@ interface BillingCycle {
   userId: string;
   userEmail: string;
   userName: string;
-  cycleType: 'monthly' | 'quarterly' | 'yearly';
+  cycleType: 'monthly' | 'quarterly' | 'half yearly' | 'yearly';
   billingDate: number;
   currentAmount: number;
   currency: string;
@@ -136,7 +136,7 @@ const BillingCycleAdmin: React.FC = () => {
     userId: '',
     userEmail: '',
     userName: '',
-    cycleType: 'monthly' as 'monthly' | 'quarterly' | 'yearly',
+    cycleType: 'monthly' as 'monthly' | 'quarterly' | 'half yearly' | 'yearly',
     billingDate: 1,
     currentAmount: 0,
     currency: 'INR',
@@ -413,6 +413,7 @@ const BillingCycleAdmin: React.FC = () => {
     switch (type) {
       case 'monthly': return 'primary';
       case 'quarterly': return 'secondary';
+      case 'half yearly': return 'warning';
       case 'yearly': return 'info';
       default: return 'default';
     }
@@ -598,6 +599,7 @@ const BillingCycleAdmin: React.FC = () => {
                 <MenuItem value="">All</MenuItem>
                 <MenuItem value="monthly">Monthly</MenuItem>
                 <MenuItem value="quarterly">Quarterly</MenuItem>
+                <MenuItem value="half yearly">Half Yearly</MenuItem>
                 <MenuItem value="yearly">Yearly</MenuItem>
               </Select>
             </FormControl>
@@ -1127,6 +1129,7 @@ const BillingCycleAdmin: React.FC = () => {
                 >
                   <MenuItem value="monthly">Monthly</MenuItem>
                   <MenuItem value="quarterly">Quarterly</MenuItem>
+                  <MenuItem value="half yearly">Half Yearly</MenuItem>
                   <MenuItem value="yearly">Yearly</MenuItem>
                 </Select>
               </FormControl>

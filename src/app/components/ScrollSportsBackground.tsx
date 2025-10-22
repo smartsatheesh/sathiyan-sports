@@ -86,11 +86,11 @@ const ScrollSportsBackground: React.FC = () => {
   const [scrollElements, setScrollElements] = useState<ScrollSportsElement[]>([]);
   const [scrollY, setScrollY] = useState(0);
 
-  // Ball and bat focused sports emojis
+  // Ball and bat focused sports emojis - filtered to remove unparseable characters
   const ballBatEmojis = [
-    '⚽', '🏀', '�', '🎾', '🏸', '🏏', '🏓', '⚾', 
-    '🏑', '🥎', '🏸', '�', '🏏', '🥍', '🏓', '⚽'
-  ];
+    '⚽', '🏀', '🎾', '🏸', '🏏', '🏓', '⚾', 
+    '🏑', '🥎', '🏸', '🏏', '🥍', '🏓', '⚽'
+  ].filter(emoji => emoji && emoji !== '�' && emoji !== '?' && emoji.length > 0);
 
   const animationTypes: Array<'floatUp' | 'floatUpLeft' | 'floatUpRight' | 'spinFloat'> = 
     ['floatUp', 'floatUpLeft', 'floatUpRight', 'spinFloat'];

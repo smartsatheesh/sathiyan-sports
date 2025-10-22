@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate cycle type
-    if (!['monthly', 'quarterly', 'yearly'].includes(cycleType)) {
+    if (!['monthly', 'quarterly', 'half yearly', 'yearly'].includes(cycleType)) {
       return NextResponse.json({
         success: false,
         message: 'Invalid cycle type'
