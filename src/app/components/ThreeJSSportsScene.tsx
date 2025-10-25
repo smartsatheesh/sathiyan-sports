@@ -83,8 +83,12 @@ export default function ThreeJSSportsScene() {
           <pointLight position={[-10, -10, -10]} intensity={0.4} />
           <spotLight position={[0, 15, 0]} intensity={0.8} angle={0.3} penumbra={1} />
 
-          {/* Environment for reflections */}
-          <Environment preset="studio" />
+          {/* Environment for reflections - with fallback */}
+          <Environment background={false} preset="sunset" />
+          
+          {/* Fallback lighting if environment fails */}
+          <hemisphereLight intensity={0.15} />
+          <pointLight position={[0, 10, 0]} intensity={0.25} />
 
           {/* Sports Equipment - Repositioned for better animations */}
           {/* Football - Moved further left with smaller, subtle animation */}

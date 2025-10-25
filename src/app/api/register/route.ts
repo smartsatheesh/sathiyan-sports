@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { connectToMongoose } from "@/app/server/mongodb";
-import User from "@/app/models/User";
+import User, { generateNextChampId } from "@/app/models/User";
 import emailService from "@/app/lib/emailService";
 
 // Utility function to normalize time slot formats
@@ -88,20 +88,21 @@ export async function POST(req: Request) {
         // Count existing users with the same slot and court (capacity check only)
         let totalUsersInSlot = 0;
 
-        // Count users with preferredTimeSlot (legacy users)
+        // Count users with preferredTimeSlot (including pending users for real-time capacity checking)
         const existingUsersWithSlot = await (User.find as any)({
           preferredTimeSlot: { $exists: true },
           selectedCourt: body.selectedCourt,
-          status: "verified",
-          paymentStatus: "completed",
+          status: { $in: ['pending', 'verified'] }, // Include pending users
           preferredSport: "Shuttle Badminton"
         });
 
         existingUsersWithSlot.forEach((user: any) => {
           if (user.preferredTimeSlot) {
             const normalizedExistingSlot = normalizeTimeSlot(user.preferredTimeSlot);
+            console.log(`🔍 Checking user ${user.name} (${user.champId}): slot "${user.preferredTimeSlot}" -> normalized "${normalizedExistingSlot}"`);
             if (normalizedExistingSlot === normalizedRequestedSlot) {
               totalUsersInSlot++;
+              console.log(`✅ Match found! Total users in slot: ${totalUsersInSlot}`);
             }
           }
         });
@@ -126,6 +127,8 @@ export async function POST(req: Request) {
             });
           }
         });
+
+        console.log(`📊 Final count for ${body.selectedCourt} at ${normalizedRequestedSlot}: ${totalUsersInSlot}/4 users`);
 
         // Check if adding this user would exceed the 4-user capacity
         if (totalUsersInSlot >= 4) {
@@ -163,8 +166,12 @@ export async function POST(req: Request) {
     // Hash password
     const hashedPassword = await bcrypt.hash(body.password, 12);
 
+    // Generate unique ChampID for new registration
+    const champId = await generateNextChampId();
+
     // Create new user with authentication fields
     const userData = {
+      champId,
       name: body.name,
       email: body.email,
       mobile: body.mobile,
@@ -199,6 +206,7 @@ export async function POST(req: Request) {
         message: "Registration successful! Welcome to Sathiyan Sports.",
         user: {
           id: user._id,
+          champId: user.champId,
           name: user.name,
           email: user.email,
           mobile: user.mobile,

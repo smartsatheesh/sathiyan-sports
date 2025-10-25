@@ -82,7 +82,6 @@ interface Booking {
 
 interface User {
   _id: string;
-  champId?: string;
   name: string;
   email: string;
   phone: string;
@@ -551,7 +550,6 @@ export default function AdminDashboard() {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Champ ID</TableCell>
                   <TableCell>Name</TableCell>
                   <TableCell>Email</TableCell>
                   <TableCell>Mobile</TableCell>
@@ -567,14 +565,6 @@ export default function AdminDashboard() {
               <TableBody>
                 {users.map((user) => (
                   <TableRow key={user._id}>
-                    <TableCell>
-                      <Chip 
-                        label={user.champId || 'Legacy User'} 
-                        size="small" 
-                        color={user.champId ? "primary" : "default"}
-                        variant="outlined"
-                      />
-                    </TableCell>
                     <TableCell>{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{user.mobile || user.phone}</TableCell>

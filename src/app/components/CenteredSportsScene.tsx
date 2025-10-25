@@ -99,8 +99,12 @@ export default function CenteredSportsScene() {
             castShadow
           />
 
-          {/* Environment for reflections */}
-          <Environment preset="studio" />
+          {/* Environment for reflections - with fallback */}
+          <Environment background={false} preset="sunset" />
+          
+          {/* Fallback lighting if environment fails */}
+          <hemisphereLight intensity={0.15} />
+          <pointLight position={[0, 8, 0]} intensity={0.25} />
 
           {/* Sports Equipment - Better positioning for bat visibility */}
           {/* Football - Left side */}

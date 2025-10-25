@@ -52,8 +52,12 @@ export default function CarouselBackground3D() {
           <ambientLight intensity={0.3} />
           <directionalLight position={[5, 5, 5]} intensity={0.5} />
 
-          {/* Environment for reflections */}
-          <Environment preset="dawn" />
+          {/* Environment for reflections - with fallback */}
+          <Environment background={false} preset="dawn" />
+          
+          {/* Fallback lighting if environment fails */}
+          <hemisphereLight intensity={0.2} />
+          <pointLight position={[0, 10, 0]} intensity={0.3} />
 
           {/* Subtle Sports Models in Background */}
           <MinimalSportModel 

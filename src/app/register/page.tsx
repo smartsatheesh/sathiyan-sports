@@ -34,12 +34,20 @@ import {
 } from "@mui/icons-material";
 import { addMonths, addYears } from "date-fns";
 import Link from "next/link";
+import RegistrationSuccessPopup from "../components/RegistrationSuccessPopup";
 
 const SUBSCRIPTION_PRICES = {
-  monthly: 1200,
-  quarterly: 3000,
-  "half yearly": 5500,
-  yearly: 10000,
+  monthly: 1199,
+  quarterly: 3399,
+  "half yearly": 6299,
+  yearly: 11499,
+};
+
+const WOMEN_SUBSCRIPTION_PRICES = {
+  monthly: 799,
+  quarterly: 2099,
+  "half yearly": 4099,
+  yearly: 8399,
 };
 
 const TIME_SLOTS = [
@@ -87,7 +95,9 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{[key: string]: string}>({});
   const [success, setSuccess] = useState("");
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [courtAvailability, setCourtAvailability] = useState<any>(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [availabilityMessage, setAvailabilityMessage] = useState("");
@@ -144,53 +154,151 @@ export default function RegisterPage() {
     }
   };
 
+  // Utility function to scroll to error field
+  const scrollToField = (fieldName: string) => {
+    const element = document.querySelector(`[name="${fieldName}"]`) || 
+                    document.querySelector(`[data-field="${fieldName}"]`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  // Field validation function
+  const validateField = (fieldName: string, value: string) => {
+    const newFieldErrors = { ...fieldErrors };
+    
+    switch (fieldName) {
+      case 'name':
+        if (!value.trim()) {
+          newFieldErrors.name = 'Name is required';
+        } else {
+          delete newFieldErrors.name;
+        }
+        break;
+      case 'email':
+        if (!value.trim()) {
+          newFieldErrors.email = 'Email is required';
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          newFieldErrors.email = 'Please enter a valid email address';
+        } else {
+          delete newFieldErrors.email;
+        }
+        break;
+      case 'mobile':
+        if (!value.trim()) {
+          newFieldErrors.mobile = 'Mobile number is required';
+        } else if (!/^\d{10}$/.test(value.replace(/\D/g, ''))) {
+          newFieldErrors.mobile = 'Please enter a valid 10-digit mobile number';
+        } else {
+          delete newFieldErrors.mobile;
+        }
+        break;
+      case 'password':
+        if (!value) {
+          newFieldErrors.password = 'Password is required';
+        } else if (value.length < 6) {
+          newFieldErrors.password = 'Password must be at least 6 characters long';
+        } else {
+          delete newFieldErrors.password;
+          // Also validate confirm password if it exists
+          if (formData.confirmPassword && formData.confirmPassword !== value) {
+            newFieldErrors.confirmPassword = 'Passwords do not match';
+          } else if (formData.confirmPassword) {
+            delete newFieldErrors.confirmPassword;
+          }
+        }
+        break;
+      case 'confirmPassword':
+        if (!value) {
+          newFieldErrors.confirmPassword = 'Please confirm your password';
+        } else if (value !== formData.password) {
+          newFieldErrors.confirmPassword = 'Passwords do not match';
+        } else {
+          delete newFieldErrors.confirmPassword;
+        }
+        break;
+    }
+    
+    setFieldErrors(newFieldErrors);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
     setSuccess("");
+    setFieldErrors({});
 
-    // Client-side validation
-    if (!formData.name || !formData.email || !formData.mobile || !formData.password || !formData.confirmPassword) {
-      setError("All required fields must be filled");
-      setLoading(false);
-      return;
+    // Client-side validation with field-specific errors
+    const errors: {[key: string]: string} = {};
+    
+    if (!formData.name.trim()) {
+      errors.name = 'Name is required';
+    }
+    
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+    
+    if (!formData.mobile.trim()) {
+      errors.mobile = 'Mobile number is required';
+    } else if (!/^\d{10}$/.test(formData.mobile.replace(/\D/g, ''))) {
+      errors.mobile = 'Please enter a valid 10-digit mobile number';
+    }
+    
+    if (!formData.password) {
+      errors.password = 'Password is required';
+    } else if (formData.password.length < 6) {
+      errors.password = 'Password must be at least 6 characters long';
+    }
+    
+    if (!formData.confirmPassword) {
+      errors.confirmPassword = 'Please confirm your password';
+    } else if (formData.password !== formData.confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match';
     }
 
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
-      setLoading(false);
-      return;
+    if (!formData.gender) {
+      errors.gender = 'Please select your gender';
     }
-
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters long");
-      setLoading(false);
-      return;
+    
+    if (!formData.preferredSport) {
+      errors.preferredSport = 'Please select your preferred sport';
     }
-
-    if (!formData.gender || !formData.preferredSport || !formData.preferredTimeSlot || !formData.subscriptionType) {
-      setError("Please complete all required selections");
-      setLoading(false);
-      return;
+    
+    if (!formData.preferredTimeSlot) {
+      errors.preferredTimeSlot = 'Please select your preferred time slot';
+    }
+    
+    if (!formData.subscriptionType) {
+      errors.subscriptionType = 'Please select a subscription type';
     }
 
     // Court selection is only required for Shuttle Badminton
     if (formData.preferredSport === "Shuttle Badminton" && !formData.selectedCourt) {
-      setError("Please select a court for Shuttle Badminton");
-      setLoading(false);
-      return;
+      errors.selectedCourt = 'Please select a court for Shuttle Badminton';
     }
 
     // Check court availability before submission for Shuttle Badminton
     if (formData.preferredSport === "Shuttle Badminton" && courtAvailability && !courtAvailability.canBook) {
-      setError("Selected court is not available for the chosen time slot. Please select a different court or time slot.");
+      errors.selectedCourt = 'Selected court is not available for the chosen time slot. Please select a different court or time slot.';
+    }
+
+    // If there are field errors, set them and scroll to first error
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       setLoading(false);
+      // Scroll to first error field
+      const firstErrorField = Object.keys(errors)[0];
+      setTimeout(() => scrollToField(firstErrorField), 100);
       return;
     }
 
+    const subscriptionPrices = formData.gender === 'female' ? WOMEN_SUBSCRIPTION_PRICES : SUBSCRIPTION_PRICES;
     const subscriptionAmount =
-      SUBSCRIPTION_PRICES[
+      subscriptionPrices[
         formData.subscriptionType as keyof typeof SUBSCRIPTION_PRICES
       ];
     const subscriptionEndDate = calculateEndDate(formData.subscriptionType);
@@ -214,7 +322,9 @@ export default function RegisterPage() {
         throw new Error(data.message || "Registration failed");
       }
 
-      setSuccess("Registration successful! Welcome to Sathiyan Sports. You can now login with your mobile number and password.");
+      const champIdMessage = data.user?.champId ? ` Your Champion ID is: ${data.user.champId}` : '';
+      setSuccess(`Registration successful! Welcome to Sathiyan Sports.${champIdMessage} You can now login with your mobile number and password.`);
+      setShowSuccessPopup(true);
       setFormData({
         name: "",
         email: "",
@@ -270,19 +380,30 @@ export default function RegisterPage() {
             required
             fullWidth
             label="Name"
+            name="name"
             value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            onChange={(e) => {
+              setFormData({ ...formData, name: e.target.value });
+              validateField('name', e.target.value);
+            }}
+            error={!!fieldErrors.name}
+            helperText={fieldErrors.name}
           />
+          
           <TextField
             margin="normal"
             required
             fullWidth
             label="Email"
             type="email"
+            name="email"
             value={formData.email}
-            onChange={(e) =>
-              setFormData({ ...formData, email: e.target.value })
-            }
+            onChange={(e) => {
+              setFormData({ ...formData, email: e.target.value });
+              validateField('email', e.target.value);
+            }}
+            error={!!fieldErrors.email}
+            helperText={fieldErrors.email}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -292,15 +413,20 @@ export default function RegisterPage() {
             }}
             placeholder="Enter your email address"
           />
+          
           <TextField
             margin="normal"
             required
             fullWidth
             label="Mobile Number"
+            name="mobile"
             value={formData.mobile}
-            onChange={(e) =>
-              setFormData({ ...formData, mobile: e.target.value })
-            }
+            onChange={(e) => {
+              setFormData({ ...formData, mobile: e.target.value });
+              validateField('mobile', e.target.value);
+            }}
+            error={!!fieldErrors.mobile}
+            helperText={fieldErrors.mobile}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -308,20 +434,23 @@ export default function RegisterPage() {
                 </InputAdornment>
               ),
             }}
-            placeholder="Enter your mobile number"
-            helperText="This will be your username for login"
+            placeholder="Enter your 10-digit mobile number"
           />
-
+          
           <TextField
             margin="normal"
             required
             fullWidth
             label="Password"
-            type={showPassword ? 'text' : 'password'}
+            type={showPassword ? "text" : "password"}
+            name="password"
             value={formData.password}
-            onChange={(e) =>
-              setFormData({ ...formData, password: e.target.value })
-            }
+            onChange={(e) => {
+              setFormData({ ...formData, password: e.target.value });
+              validateField('password', e.target.value);
+            }}
+            error={!!fieldErrors.password}
+            helperText={fieldErrors.password}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -339,20 +468,23 @@ export default function RegisterPage() {
                 </InputAdornment>
               ),
             }}
-            placeholder="Create a strong password"
-            helperText="Minimum 6 characters required"
+            placeholder="Enter your password (min 6 characters)"
           />
-
+          
           <TextField
             margin="normal"
             required
             fullWidth
             label="Confirm Password"
-            type={showConfirmPassword ? 'text' : 'password'}
+            type={showConfirmPassword ? "text" : "password"}
+            name="confirmPassword"
             value={formData.confirmPassword}
-            onChange={(e) =>
-              setFormData({ ...formData, confirmPassword: e.target.value })
-            }
+            onChange={(e) => {
+              setFormData({ ...formData, confirmPassword: e.target.value });
+              validateField('confirmPassword', e.target.value);
+            }}
+            error={!!fieldErrors.confirmPassword}
+            helperText={fieldErrors.confirmPassword}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -370,72 +502,78 @@ export default function RegisterPage() {
                 </InputAdornment>
               ),
             }}
-            placeholder="Re-enter your password"
-            error={formData.password !== formData.confirmPassword && formData.confirmPassword !== ''}
-            helperText={
-              formData.password !== formData.confirmPassword && formData.confirmPassword !== ''
-                ? 'Passwords do not match'
-                : 'Must match the password above'
-            }
+            placeholder="Confirm your password"
           />
 
-          <Box sx={{ my: 2 }}>
-            <Typography variant="subtitle1" gutterBottom>
-              Gender*
-            </Typography>
-            <ToggleButtonGroup
+          {/* Gender Selection */}
+          <FormControl fullWidth margin="normal" required error={!!fieldErrors.gender}>
+            <FormLabel component="legend" data-field="gender">Gender</FormLabel>
+            <RadioGroup
+              row
               value={formData.gender}
-              exclusive
-              onChange={(e, value) =>
-                setFormData({ ...formData, gender: value })
-              }
-              fullWidth
+              onChange={(e) => {
+                setFormData({ ...formData, gender: e.target.value });
+                if (fieldErrors.gender) {
+                  const newErrors = { ...fieldErrors };
+                  delete newErrors.gender;
+                  setFieldErrors(newErrors);
+                }
+              }}
             >
-              <ToggleButton value="male">Male</ToggleButton>
-              <ToggleButton value="female">Female</ToggleButton>
-              <ToggleButton value="other">Other</ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
+              <FormControlLabel value="male" control={<Radio />} label="Male" />
+              <FormControlLabel value="female" control={<Radio />} label="Female" />
+              <FormControlLabel value="other" control={<Radio />} label="Other" />
+            </RadioGroup>
+            {fieldErrors.gender && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                {fieldErrors.gender}
+              </Typography>
+            )}
+          </FormControl>
 
-          {/* Preferred Sport */}
-          <FormControl fullWidth margin="normal">
-            <InputLabel>Preferred Sport</InputLabel>
+          {/* Sport Selection */}
+          <FormControl fullWidth margin="normal" required error={!!fieldErrors.preferredSport}>
+            <InputLabel data-field="preferredSport">Preferred Sport</InputLabel>
             <Select
               value={formData.preferredSport}
+              label="Preferred Sport"
               onChange={(e) => {
-                const newSport = e.target.value;
-                setFormData({ 
-                  ...formData, 
-                  preferredSport: newSport,
-                  // Clear court selection if not Shuttle Badminton
-                  selectedCourt: newSport === "Shuttle Badminton" ? formData.selectedCourt : ""
-                });
-                // Clear availability status when sport changes
-                setAvailabilityMessage("");
+                setFormData({ ...formData, preferredSport: e.target.value });
                 setCourtAvailability(null);
+                if (fieldErrors.preferredSport) {
+                  const newErrors = { ...fieldErrors };
+                  delete newErrors.preferredSport;
+                  setFieldErrors(newErrors);
+                }
               }}
-              required
             >
               <MenuItem value="Cricket">Cricket</MenuItem>
               <MenuItem value="Football">Football</MenuItem>
               <MenuItem value="Shuttle Badminton">Shuttle Badminton</MenuItem>
+              <MenuItem value="Functions and Events">Functions and Events</MenuItem>
             </Select>
+            {fieldErrors.preferredSport && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                {fieldErrors.preferredSport}
+              </Typography>
+            )}
           </FormControl>
 
-          {/* Preferred Time Slot */}
-          <FormControl fullWidth margin="normal">
-            <InputLabel>Preferred Time Slot</InputLabel>
+          {/* Time Slot Selection */}
+          <FormControl fullWidth margin="normal" required error={!!fieldErrors.preferredTimeSlot}>
+            <InputLabel data-field="preferredTimeSlot">Preferred Time Slot</InputLabel>
             <Select
               value={formData.preferredTimeSlot}
+              label="Preferred Time Slot"
               onChange={(e) => {
-                const newTimeSlot = e.target.value;
-                setFormData({ ...formData, preferredTimeSlot: newTimeSlot });
-                // Check availability when time slot changes
-                if (newTimeSlot) {
-                  checkAvailability(newTimeSlot, formData.selectedCourt);
+                setFormData({ ...formData, preferredTimeSlot: e.target.value });
+                setCourtAvailability(null);
+                if (fieldErrors.preferredTimeSlot) {
+                  const newErrors = { ...fieldErrors };
+                  delete newErrors.preferredTimeSlot;
+                  setFieldErrors(newErrors);
                 }
               }}
-              required
             >
               {TIME_SLOTS.map((slot) => (
                 <MenuItem key={slot} value={slot}>
@@ -443,53 +581,42 @@ export default function RegisterPage() {
                 </MenuItem>
               ))}
             </Select>
+            {fieldErrors.preferredTimeSlot && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                {fieldErrors.preferredTimeSlot}
+              </Typography>
+            )}
           </FormControl>
 
-          {/* Court Selection - Only for Shuttle Badminton */}
-          {formData.preferredSport === "Shuttle Badminton" && (
+          {/* Court Availability Check for Shuttle Badminton */}
+          {formData.preferredSport === "Shuttle Badminton" && formData.preferredTimeSlot && (
             <>
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Select Court *</InputLabel>
-                <Select
-                  value={formData.selectedCourt}
-                  onChange={(e) => {
-                    const newCourt = e.target.value;
-                    setFormData({ ...formData, selectedCourt: newCourt });
-                    // Check availability when court changes
-                    if (formData.preferredTimeSlot && newCourt) {
-                      checkAvailability(formData.preferredTimeSlot, newCourt);
-                    }
-                  }}
-                  required
-                  disabled={!formData.preferredTimeSlot}
+              <Box sx={{ mt: 2, mb: 2 }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => checkAvailability(formData.preferredTimeSlot)}
+                  disabled={checkingAvailability || !formData.preferredTimeSlot}
+                  sx={{ mr: 2 }}
                 >
-                  <MenuItem value="S1">Court S1</MenuItem>
-                  <MenuItem value="S2">Court S2</MenuItem>
-                  <MenuItem value="S3">Court S3</MenuItem>
-                </Select>
-                {!formData.preferredTimeSlot && (
-                  <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
-                    Please select a time slot first
-                  </Typography>
-                )}
-              </FormControl>
-
-              {/* Court Availability Status */}
-              {(checkingAvailability || availabilityMessage) && (
-                <Box sx={{ mt: 2, p: 2, borderRadius: 1, backgroundColor: 'grey.50' }}>
                   {checkingAvailability ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <CircularProgress size={16} />
-                      <Typography variant="body2">Checking court availability...</Typography>
-                    </Box>
+                    <>
+                      <CircularProgress size={20} sx={{ mr: 1 }} />
+                      Checking...
+                    </>
                   ) : (
-                    <Alert 
-                      severity={courtAvailability?.canBook ? "success" : "warning"} 
-                      sx={{ mb: 1 }}
-                    >
-                      {availabilityMessage}
-                    </Alert>
+                    "Check Court Availability"
                   )}
+                </Button>
+              </Box>
+
+              {availabilityMessage && (
+                <Box sx={{ mb: 2 }}>
+                  <Alert 
+                    severity={courtAvailability?.canBook ? "success" : "warning"} 
+                    sx={{ mb: 1 }}
+                  >
+                    {availabilityMessage}
+                  </Alert>
                   
                   {courtAvailability?.availableCourts && (
                     <Box sx={{ mt: 1 }}>
@@ -512,39 +639,71 @@ export default function RegisterPage() {
                   )}
                 </Box>
               )}
+
+              {courtAvailability?.suggestedCourts && courtAvailability.suggestedCourts.length > 0 && (
+                <FormControl fullWidth margin="normal" required error={!!fieldErrors.selectedCourt}>
+                  <InputLabel data-field="selectedCourt">Select Court</InputLabel>
+                  <Select
+                    value={formData.selectedCourt}
+                    label="Select Court"
+                    onChange={(e) => {
+                      setFormData({ ...formData, selectedCourt: e.target.value });
+                      if (fieldErrors.selectedCourt) {
+                        const newErrors = { ...fieldErrors };
+                        delete newErrors.selectedCourt;
+                        setFieldErrors(newErrors);
+                      }
+                    }}
+                  >
+                    {courtAvailability.suggestedCourts.map((court: string) => (
+                      <MenuItem key={court} value={court}>
+                        Court {court}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {fieldErrors.selectedCourt && (
+                    <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                      {fieldErrors.selectedCourt}
+                    </Typography>
+                  )}
+                </FormControl>
+              )}
             </>
           )}
 
-          {/* Subscription Type */}
-          <FormControl component="fieldset" margin="normal">
-            <FormLabel component="legend">Subscription Type</FormLabel>
-            <RadioGroup
+          {/* Subscription Type Selection */}
+          <FormControl fullWidth margin="normal" required error={!!fieldErrors.subscriptionType}>
+            <InputLabel data-field="subscriptionType">Subscription Type</InputLabel>
+            <Select
               value={formData.subscriptionType}
-              onChange={(e) =>
-                setFormData({ ...formData, subscriptionType: e.target.value })
-              }
+              label="Subscription Type"
+              onChange={(e) => {
+                setFormData({ ...formData, subscriptionType: e.target.value });
+                if (fieldErrors.subscriptionType) {
+                  const newErrors = { ...fieldErrors };
+                  delete newErrors.subscriptionType;
+                  setFieldErrors(newErrors);
+                }
+              }}
             >
-              <FormControlLabel
-                value="monthly"
-                control={<Radio />}
-                label="Monthly"
-              />
-              <FormControlLabel
-                value="quarterly"
-                control={<Radio />}
-                label="Quarterly"
-              />
-              <FormControlLabel
-                value="half yearly"
-                control={<Radio />}
-                label="Half Yearly"
-              />
-              <FormControlLabel
-                value="yearly"
-                control={<Radio />}
-                label="Yearly"
-              />
-            </RadioGroup>
+              <MenuItem value="monthly">
+                Monthly - ₹{formData.gender === 'female' ? WOMEN_SUBSCRIPTION_PRICES.monthly : SUBSCRIPTION_PRICES.monthly}
+              </MenuItem>
+              <MenuItem value="quarterly">
+                Quarterly - ₹{formData.gender === 'female' ? WOMEN_SUBSCRIPTION_PRICES.quarterly : SUBSCRIPTION_PRICES.quarterly}
+              </MenuItem>
+              <MenuItem value="half yearly">
+                Half Yearly - ₹{formData.gender === 'female' ? WOMEN_SUBSCRIPTION_PRICES["half yearly"] : SUBSCRIPTION_PRICES["half yearly"]}
+              </MenuItem>
+              <MenuItem value="yearly">
+                Yearly - ₹{formData.gender === 'female' ? WOMEN_SUBSCRIPTION_PRICES.yearly : SUBSCRIPTION_PRICES.yearly}
+              </MenuItem>
+            </Select>
+            {fieldErrors.subscriptionType && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                {fieldErrors.subscriptionType}
+              </Typography>
+            )}
           </FormControl>
 
           <Button
@@ -562,36 +721,32 @@ export default function RegisterPage() {
             {loading ? <CircularProgress size={24} /> : "Register"}
           </Button>
 
-          {/* Show helper message when registration is disabled due to conflicts */}
+          {/* Court availability warning */}
           {formData.preferredSport === "Shuttle Badminton" && 
            courtAvailability && 
            !courtAvailability.canBook && (
-            <Alert severity="error" sx={{ mt: 1 }}>
+            <Alert severity="warning" sx={{ mt: 2 }}>
               Registration disabled: Please select an available court and time slot combination
             </Alert>
           )}
 
-          <Box sx={{ textAlign: 'center', mt: 2 }}>
+          <Box sx={{ textAlign: "center", mt: 2 }}>
             <Typography variant="body2">
-              Already have an account?{' '}
-              <Link href="/auth/login" passHref>
-                <MuiLink 
-                  component="span" 
-                  sx={{ 
-                    color: 'primary.main', 
-                    textDecoration: 'none',
-                    '&:hover': {
-                      textDecoration: 'underline'
-                    }
-                  }}
-                >
-                  Login here
-                </MuiLink>
-              </Link>
+              Already have an account?{" "}
+              <MuiLink component={Link} href="/auth/signin" color="primary">
+                Sign in here
+              </MuiLink>
             </Typography>
           </Box>
         </Box>
       </Paper>
+
+      {/* Registration Success Popup */}
+      <RegistrationSuccessPopup
+        open={showSuccessPopup}
+        onClose={() => setShowSuccessPopup(false)}
+        userName={formData.name}
+      />
     </Container>
   );
-}
+};

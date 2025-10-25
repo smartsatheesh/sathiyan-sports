@@ -1,6 +1,11 @@
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
+  champId: {
+    type: String,
+    unique: true,
+    sparse: true, // Allow null for existing users
+  },
   name: {
     type: String,
     required: [true, "Name is required"],
@@ -8,12 +13,12 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: [true, "Email is required"],
-    unique: true,
+    // Removed unique constraint to allow siblings to share email
   },
   mobile: {
     type: String,
     required: [true, "Mobile number is required"],
-    unique: true,
+    // Removed unique constraint to allow same mobile for multiple kids
   },
   phone: {
     type: String,
@@ -94,28 +99,6 @@ const userSchema = new mongoose.Schema({
   subscriptionEndDate: {
     type: Date,
   },
-  registeredSlots: [{
-    timeSlot: {
-      type: String,
-      required: true,
-    },
-    dayOfWeek: {
-      type: String,
-      enum: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"],
-      required: true,
-    },
-    court: {
-      type: String,
-      enum: ["S1", "S2", "S3"],
-      required: function() {
-        return this.parent().preferredSport === "Shuttle Badminton";
-      },
-    },
-    registeredAt: {
-      type: Date,
-      default: Date.now,
-    },
-  }],
   lastLogin: {
     type: Date,
   },
@@ -140,8 +123,9 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-// Add index for role only (email and mobile already indexed via unique: true)
+// Add indexes for performance (only champId has unique constraint now)
 userSchema.index({ role: 1 });
+userSchema.index({ champId: 1 });
 
 // Update timestamp on save
 userSchema.pre('save', function(next) {
@@ -150,4 +134,27 @@ userSchema.pre('save', function(next) {
 });
 
 const User = mongoose.models.User || mongoose.model("User", userSchema);
+
+// Utility function to generate next ChampID (separate from schema)
+export async function generateNextChampId(): Promise<string> {
+  try {
+    const lastUser = await (User as any).findOne(
+      { champId: { $regex: /^S259\d+$/ } },
+      {},
+      { sort: { champId: -1 } }
+    );
+    
+    if (!lastUser || !lastUser.champId) {
+      return 'S25911'; // Starting ChampID
+    }
+    
+    const lastNumber = parseInt(lastUser.champId.substring(1)); // Remove 'S' prefix
+    const nextNumber = lastNumber + 1;
+    return `S${nextNumber}`;
+  } catch (error) {
+    console.error('Error generating ChampID:', error);
+    return 'S25911'; // Fallback to starting ID
+  }
+}
+
 export default User;

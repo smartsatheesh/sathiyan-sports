@@ -1,0 +1,2547 @@
+"use client";
+import React, { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import {
+  Container,
+  Paper,
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  Box,
+  Tab,
+  Tabs,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Button,
+  Chip,
+  CircularProgress,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Avatar,
+  TextField,
+  Divider,
+  Radio,
+  RadioGroup,
+  FormLabel,
+  FormControlLabel,
+  ToggleButton,
+  ToggleButtonGroup,
+  Checkbox,
+  FormGroup,
+} from "@mui/material";
+import { format } from "date-fns";
+import {
+  Dashboard,
+  People,
+  BookOnline,
+  ContactMail,
+  FitnessCenter,
+  Refresh,
+  Visibility,
+  Security,
+  Edit,
+  Delete,
+  Add,
+  Block,
+  CheckCircle,
+  Cancel,
+  SportsTennis,
+  TrendingUp,
+  Receipt,
+} from "@mui/icons-material";
+
+// Time slots constant to match registration page format
+const TIME_SLOTS = [
+  "12:00 AM - 01:00 AM",
+  "01:00 AM - 02:00 AM",
+  "02:00 AM - 03:00 AM",
+  "03:00 AM - 04:00 AM",
+  "04:00 AM - 05:00 AM",
+  "05:00 AM - 06:00 AM",
+  "06:00 AM - 07:00 AM",
+  "07:00 AM - 08:00 AM",
+  "08:00 AM - 09:00 AM",
+  "09:00 AM - 10:00 AM",
+  "10:00 AM - 11:00 AM",
+  "11:00 AM - 12:00 PM",
+  "12:00 PM - 01:00 PM",
+  "01:00 PM - 02:00 PM",
+  "02:00 PM - 03:00 PM",
+  "03:00 PM - 04:00 PM",
+  "04:00 PM - 05:00 PM",
+  "05:00 PM - 06:00 PM",
+  "06:00 PM - 07:00 PM",
+  "07:00 PM - 08:00 PM",
+  "08:00 PM - 09:00 PM",
+  "09:00 PM - 10:00 PM",
+  "10:00 PM - 11:00 PM",
+  "11:00 PM - 12:00 AM",
+];
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+interface Booking {
+  _id: string;
+  sport: string;
+  court?: string; // Optional court selection for Shuttle Badminton
+  date: string;
+  timeSlots: string[];
+  totalAmount: number;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  paymentStatus: string;
+  bookingStatus: string;
+  createdAt: string;
+}
+
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  mobile: string;
+  gender?: string;
+  preferredSport: string;
+  preferredTimeSlot?: string;
+  selectedCourt?: string; // For Shuttle Badminton court selection
+  registeredSlots?: string[]; // User's registered time slots
+  subscriptionType: string;
+  paymentStatus: string;
+  status: string;
+  verifiedAt?: string;
+  createdAt: string;
+}
+
+interface FitnessEnrollment {
+  _id: string;
+  enrollmentId: string;
+  planName: string;
+  planCategory: 'strength' | 'speed' | 'stamina';
+  planLevel: 'beginner' | 'intermediate' | 'advanced';
+  userName: string;
+  userEmail: string;
+  userPhone: string;
+  enrollmentDate: string;
+  status: 'pending' | 'active' | 'completed' | 'cancelled';
+  paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded';
+  totalAmount: number;
+  progressPercentage: number;
+  currentWeek: number;
+}
+
+interface Stats {
+  totalBookings: number;
+  todaysBookings: number;
+  totalRevenue: number;
+  totalUsers: number;
+  totalFitnessEnrollments: number;
+  activeFitnessEnrollments: number;
+  totalFitnessRevenue: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+  return (
+    <div hidden={value !== index} {...other}>
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+    </div>
+  );
+}
+
+export default function AdminDashboard() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  
+  const [tabValue, setTabValue] = useState(0);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [fitnessEnrollments, setFitnessEnrollments] = useState<FitnessEnrollment[]>([]);
+  const [stats, setStats] = useState<Stats>({
+    totalBookings: 0,
+    todaysBookings: 0,
+    totalRevenue: 0,
+    totalUsers: 0,
+    totalFitnessEnrollments: 0,
+    activeFitnessEnrollments: 0,
+    totalFitnessRevenue: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState({
+    bookingStatus: '',
+    paymentStatus: ''
+  });
+  const [alert, setAlert] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
+  
+  // Edit and Delete states
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
+  const [editingType, setEditingType] = useState<'booking' | 'user' | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  
+  // User Edit and Delete states
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
+  const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
+  const [editUserFormData, setEditUserFormData] = useState({
+    name: '',
+    email: '',
+    mobile: '',
+    gender: '',
+    preferredSport: '',
+    selectedCourt: '',
+    subscriptionType: '',
+    status: '',
+    paymentStatus: ''
+  });
+  
+  // Registered Slots Management states
+  const [slotsDialogOpen, setSlotsDialogOpen] = useState(false);
+  const [userRegisteredSlots, setUserRegisteredSlots] = useState<any[]>([]);
+  const [newSlot, setNewSlot] = useState({
+    timeSlot: '',
+    court: ''
+  });
+  const [slotAvailability, setSlotAvailability] = useState<any>(null);
+  const [checkingSlotAvailability, setCheckingSlotAvailability] = useState(false);
+  
+  // Pagination states
+  const [bookingsPage, setBookingsPage] = useState(1);
+  const [usersPage, setUsersPage] = useState(1);
+  const [fitnessEnrollmentsPage, setFitnessEnrollmentsPage] = useState(1);
+  const [loadingMoreBookings, setLoadingMoreBookings] = useState(false);
+  const [loadingMoreUsers, setLoadingMoreUsers] = useState(false);
+  const [loadingMoreFitnessEnrollments, setLoadingMoreFitnessEnrollments] = useState(false);
+  const [hasMoreBookings, setHasMoreBookings] = useState(true);
+  const [hasMoreUsers, setHasMoreUsers] = useState(true);
+  const [hasMoreFitnessEnrollments, setHasMoreFitnessEnrollments] = useState(true);
+
+  // Function to populate registered slots for users
+  const populateRegisteredSlots = async (usersArray: User[]) => {
+    console.log('Populating registered slots for', usersArray.length, 'users');
+    const usersWithSlots = await Promise.all(
+      usersArray.map(async (user) => {
+        // Only fetch slots for Shuttle Badminton users with all subscription types
+        if (user.preferredSport === "Shuttle Badminton" && 
+            ["monthly", "quarterly", "half yearly", "yearly"].includes(user.subscriptionType)) {
+          try {
+            console.log(`🔍 Fetching slots for user ${user._id} - ${user.name} (${user.subscriptionType}, ${user.status}, ${user.paymentStatus})`);
+            const response = await fetch(`/api/admin/users/${user._id}/registered-slots`);
+            const data = await response.json();
+            console.log(`📊 Slots response for ${user.name}:`, data);
+            if (data.success) {
+              console.log(`✅ User ${user.name} registered slots:`, data.registeredSlots);
+              return { ...user, registeredSlots: data.registeredSlots };
+            } else {
+              console.log(`❌ Failed to get slots for ${user.name}:`, data.message);
+            }
+          } catch (error) {
+            console.error(`💥 Error fetching slots for user ${user._id}:`, error);
+          }
+        } else {
+          console.log(`⏭️  Skipping ${user.name} - Sport: ${user.preferredSport}, Subscription: ${user.subscriptionType}`);
+        }
+        return user;
+      })
+    );
+    console.log('Users with slots populated:', usersWithSlots.map(u => ({ name: u.name, slots: u.registeredSlots?.length || 0 })));
+    return usersWithSlots;
+  };
+
+  // Authentication check
+  useEffect(() => {
+    if (status === "loading") return; // Still loading
+    
+    if (!session) {
+      router.push("/auth/login?callbackUrl=/admin");
+      return;
+    }
+    
+    if (session.user?.role !== "admin") {
+      router.push("/"); // Redirect non-admin users to home
+      return;
+    }
+  }, [session, status, router]);
+
+  // Define fetchData function before the useEffect that uses it
+  // This function fetches admin dashboard data
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Fetch dashboard stats and recent data
+      const statsResponse = await fetch('/api/admin/dashboard-stats');
+      const statsData = await statsResponse.json();
+      
+      if (statsData.success) {
+        // Set the stats from the dedicated endpoint
+        setStats(statsData.stats);
+        
+        // Set recent bookings and fitness enrollments for display
+        setBookings(statsData.recentBookings || []);
+        setFitnessEnrollments(statsData.recentFitnessEnrollments || []);
+        
+        // Populate registered slots for users before setting them
+        const usersWithSlots = await populateRegisteredSlots(statsData.recentUsers || []);
+        setUsers(usersWithSlots);
+      } else {
+        throw new Error(statsData.message || 'Failed to fetch dashboard data');
+      }
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch data');
+      console.error('Dashboard fetch error:', err);
+      
+      // Fallback: try the old method with high limits
+      try {
+        console.log('Attempting fallback data fetch...');
+        
+        // Fetch ALL bookings for stats (use high limit to get all records)
+        const bookingsResponse = await fetch('/api/admin/bookings?limit=1000');
+        const bookingsData = await bookingsResponse.json();
+        
+        // Fetch ALL users for stats (use high limit to get all records)
+        const usersResponse = await fetch('/api/admin/users?limit=1000');
+        const usersData = await usersResponse.json();
+        
+        if (bookingsData.success && usersData.success) {
+          setBookings(bookingsData.bookings);
+          
+          // Populate registered slots for users
+          const usersWithSlots = await populateRegisteredSlots(usersData.users);
+          setUsers(usersWithSlots);
+
+          // Calculate stats after both bookings and users are fetched
+          const today = new Date().toDateString();
+          const todaysBookings = bookingsData.bookings.filter(
+            (booking: Booking) => new Date(booking.date).toDateString() === today
+          ).length;
+
+          const totalRevenue = bookingsData.bookings
+            .filter((booking: Booking) => booking.paymentStatus === 'completed')
+            .reduce((sum: number, booking: Booking) => sum + booking.totalAmount, 0);
+
+          setStats({
+            totalBookings: bookingsData.bookings.length,
+            todaysBookings,
+            totalRevenue,
+            totalUsers: usersData.users.length,
+            totalFitnessEnrollments: 0,
+            activeFitnessEnrollments: 0,
+            totalFitnessRevenue: 0,
+          });
+          
+          setError(null); // Clear error if fallback succeeds
+        }
+      } catch (fallbackErr) {
+        console.error('Fallback fetch also failed:', fallbackErr);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to load more bookings
+  const loadMoreBookings = async () => {
+    if (loadingMoreBookings || !hasMoreBookings) return;
+    
+    setLoadingMoreBookings(true);
+    try {
+      const nextPage = bookingsPage + 1;
+      const response = await fetch(`/api/admin/bookings?page=${nextPage}&limit=10`);
+      const data = await response.json();
+      
+      if (data.success && data.bookings.length > 0) {
+        setBookings(prev => [...prev, ...data.bookings]);
+        setBookingsPage(nextPage);
+        
+        // Check if there are more pages
+        if (nextPage >= data.pagination.pages) {
+          setHasMoreBookings(false);
+        }
+      } else {
+        setHasMoreBookings(false);
+      }
+    } catch (error) {
+      console.error('Error loading more bookings:', error);
+    } finally {
+      setLoadingMoreBookings(false);
+    }
+  };
+
+  // Function to load more users
+  const loadMoreUsers = async () => {
+    if (loadingMoreUsers || !hasMoreUsers) return;
+    
+    setLoadingMoreUsers(true);
+    try {
+      const nextPage = usersPage + 1;
+      const response = await fetch(`/api/admin/users?page=${nextPage}&limit=10`);
+      const data = await response.json();
+      
+      if (data.success && data.users.length > 0) {
+        // Populate registered slots for the new users
+        const usersWithSlots = await populateRegisteredSlots(data.users);
+        setUsers(prev => [...prev, ...usersWithSlots]);
+        setUsersPage(nextPage);
+        
+        // Check if there are more pages
+        if (nextPage >= data.pagination.pages) {
+          setHasMoreUsers(false);
+        }
+      } else {
+        setHasMoreUsers(false);
+      }
+    } catch (error) {
+      console.error('Error loading more users:', error);
+    } finally {
+      setLoadingMoreUsers(false);
+    }
+  };
+
+  // Function to load more fitness enrollments
+  const loadMoreFitnessEnrollments = async () => {
+    if (loadingMoreFitnessEnrollments || !hasMoreFitnessEnrollments) return;
+    
+    setLoadingMoreFitnessEnrollments(true);
+    try {
+      const nextPage = fitnessEnrollmentsPage + 1;
+      const response = await fetch(`/api/admin/fitness-enrollments?page=${nextPage}&limit=10`);
+      const data = await response.json();
+      
+      if (data.success && data.enrollments && data.enrollments.length > 0) {
+        setFitnessEnrollments(prev => [...prev, ...data.enrollments]);
+        setFitnessEnrollmentsPage(nextPage);
+        
+        // Check if there are more pages
+        if (nextPage >= data.pagination.pages) {
+          setHasMoreFitnessEnrollments(false);
+        }
+      } else {
+        setHasMoreFitnessEnrollments(false);
+      }
+    } catch (error) {
+      console.error('Error loading more fitness enrollments:', error);
+      setHasMoreFitnessEnrollments(false);
+    } finally {
+      setLoadingMoreFitnessEnrollments(false);
+    }
+  };
+
+  // Fetch data effect - now after fetchData is defined
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Show loading while checking authentication
+  if (status === "loading") {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Container>
+    );
+  }
+
+  // Show nothing while redirecting
+  if (!session || session.user?.role !== "admin") {
+    return null;
+  }
+
+  const handleBookingUpdate = async () => {
+    if (!selectedBooking) return;
+
+    try {
+      const response = await fetch('/api/admin/bookings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookingId: selectedBooking._id,
+          status: updateStatus.bookingStatus || undefined,
+          paymentStatus: updateStatus.paymentStatus || undefined,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Refresh data
+        await fetchData();
+        setDialogOpen(false);
+        setSelectedBooking(null);
+        setUpdateStatus({ bookingStatus: '', paymentStatus: '' });
+      } else {
+        throw new Error(data.message || 'Failed to update booking');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update booking');
+    }
+  };
+
+  // Quick approve function
+  const handleQuickApprove = async (booking: Booking) => {
+    try {
+      const response = await fetch('/api/admin/bookings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookingId: booking._id,
+          status: 'confirmed',
+          paymentStatus: 'paid',
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Refresh data
+        await fetchData();
+        setAlert({ type: 'success', message: `Booking ${booking._id.slice(-8)} approved successfully!` });
+      } else {
+        throw new Error(data.message || 'Failed to approve booking');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve booking');
+    }
+  };
+
+  const handleViewBooking = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setUpdateStatus({
+      bookingStatus: booking.bookingStatus,
+      paymentStatus: booking.paymentStatus
+    });
+    setDialogOpen(true);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'confirmed':
+      case 'completed':
+      case 'verified':
+        return 'success';
+      case 'pending':
+        return 'warning';
+      case 'cancelled':
+      case 'failed':
+      case 'rejected':
+        return 'error';
+      case 'suspended':
+        return 'default';
+      default:
+        return 'default';
+    }
+  };
+
+  // User verification function
+  const handleUserVerification = async (userId: string, action: 'verify' | 'reject' | 'suspend') => {
+    try {
+      const response = await fetch('/api/admin/users/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          action,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Refresh data
+        await fetchData();
+        setAlert({ 
+          type: 'success', 
+          message: `User ${action}ed successfully!` 
+        });
+        
+        // Clear alert after 3 seconds
+        setTimeout(() => setAlert(null), 3000);
+      } else {
+        throw new Error(data.message || `Failed to ${action} user`);
+      }
+    } catch (err) {
+      setAlert({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : `Failed to ${action} user` 
+      });
+      
+      // Clear alert after 5 seconds
+      setTimeout(() => setAlert(null), 5000);
+    }
+  };
+
+  // Edit handlers
+  const handleEditBooking = (booking: Booking) => {
+    console.log('Opening edit dialog for booking:', booking);
+    setSelectedBooking(booking);
+    setUpdateStatus({
+      bookingStatus: booking.bookingStatus || 'pending',
+      paymentStatus: booking.paymentStatus || 'pending'
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditUser = async (user: User) => {
+    setSelectedUser(user);
+    setEditUserFormData({
+      name: user.name || '',
+      email: user.email || '',
+      mobile: user.phone || user.mobile || '',
+      gender: user.gender || '',
+      preferredSport: user.preferredSport || '',
+      selectedCourt: user.selectedCourt || '',
+      subscriptionType: user.subscriptionType || '',
+      status: user.status || 'pending',
+      paymentStatus: user.paymentStatus || 'pending'
+    });
+    
+    // Load registered slots if the user is eligible for slots
+    if (user.preferredSport === "Shuttle Badminton" && 
+        ["monthly", "quarterly", "half yearly", "yearly"].includes(user.subscriptionType)) {
+      try {
+        console.log('Loading registered slots for user:', user.name, user._id);
+        const response = await fetch(`/api/admin/users/${user._id}/registered-slots`);
+        const data = await response.json();
+        console.log('Registered slots response:', data);
+        if (data.success) {
+          setUserRegisteredSlots(data.registeredSlots);
+          console.log('Set registered slots:', data.registeredSlots);
+        } else {
+          console.error('Failed to load registered slots:', data.message);
+          setUserRegisteredSlots([]);
+        }
+      } catch (error) {
+        console.error('Error fetching user slots:', error);
+        setUserRegisteredSlots([]);
+      }
+      
+      // Set default values for new slot based on user's registration data
+      setNewSlot({
+        timeSlot: user.preferredTimeSlot || '', // Pre-populate with user's registered time slot
+        court: user.selectedCourt || 'S1'
+      });
+    } else {
+      console.log('User not eligible for slots:', user.preferredSport, user.subscriptionType);
+      setUserRegisteredSlots([]);
+      setNewSlot({ timeSlot: '', court: '' });
+    }
+    
+    setEditUserDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingItem || !editingType) return;
+
+    try {
+      const endpoint = editingType === 'booking' ? '/api/admin/bookings' : '/api/admin/users';
+      const response = await fetch(`${endpoint}/${editingItem._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editingItem),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        if (editingType === 'booking') {
+          setBookings(prev => prev.map(b => b._id === editingItem._id ? editingItem : b));
+        } else {
+          setUsers(prev => prev.map(u => u._id === editingItem._id ? editingItem : u));
+        }
+        
+        setAlert({ 
+          type: 'success', 
+          message: `${editingType.charAt(0).toUpperCase() + editingType.slice(1)} updated successfully!` 
+        });
+        setEditDialogOpen(false);
+        setEditingItem(null);
+        setEditingType(null);
+      } else {
+        throw new Error(data.message || 'Failed to update');
+      }
+    } catch (err) {
+      setAlert({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : 'Failed to update' 
+      });
+    }
+    
+    // Clear alert after 3 seconds
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  // Delete handlers
+  const handleDeleteBooking = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteUser = (user: User) => {
+    setSelectedUser(user);
+    setDeleteUserDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!editingItem || !editingType) return;
+
+    try {
+      const endpoint = editingType === 'booking' ? '/api/admin/bookings' : '/api/admin/users';
+      const response = await fetch(`${endpoint}/${editingItem._id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        if (editingType === 'booking') {
+          setBookings(prev => prev.filter(b => b._id !== editingItem._id));
+        } else {
+          setUsers(prev => prev.filter(u => u._id !== editingItem._id));
+        }
+        
+        setAlert({ 
+          type: 'success', 
+          message: `${editingType.charAt(0).toUpperCase() + editingType.slice(1)} deleted successfully!` 
+        });
+        setDeleteDialogOpen(false);
+        setEditingItem(null);
+        setEditingType(null);
+        setDeleteConfirmText('');
+      } else {
+        throw new Error(data.message || 'Failed to delete');
+      }
+    } catch (err) {
+      setAlert({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : 'Failed to delete' 
+      });
+    }
+    
+    // Clear alert after 3 seconds
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  // Specific dialog handlers for new UI
+  const confirmDeleteBooking = async () => {
+    if (!selectedBooking) return;
+    
+    try {
+      const response = await fetch(`/api/admin/bookings/${selectedBooking._id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setBookings(prev => prev.filter(b => b._id !== selectedBooking._id));
+        setAlert({ 
+          type: 'success', 
+          message: 'Booking deleted successfully!' 
+        });
+        setDeleteDialogOpen(false);
+        setSelectedBooking(null);
+      } else {
+        throw new Error(data.message || 'Failed to delete booking');
+      }
+    } catch (err) {
+      setAlert({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : 'Failed to delete booking' 
+      });
+    }
+    
+    // Clear alert after 3 seconds
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!selectedUser) return;
+    
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setUsers(prev => prev.filter(u => u._id !== selectedUser._id));
+        setAlert({ 
+          type: 'success', 
+          message: data.message || 'User deleted successfully!' 
+        });
+        setDeleteUserDialogOpen(false);
+        setSelectedUser(null);
+      } else {
+        throw new Error(data.message || `Failed to delete user (${response.status})`);
+      }
+    } catch (err) {
+      setAlert({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : 'Failed to delete user' 
+      });
+    }
+    
+    // Clear alert after 3 seconds
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  const handleUserUpdate = async () => {
+    if (!selectedUser) return;
+
+    console.log('Starting user update for:', selectedUser._id);
+    console.log('Form data:', editUserFormData);
+
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: editUserFormData.name,
+          email: editUserFormData.email,
+          mobile: editUserFormData.mobile,
+          phone: editUserFormData.mobile, // Also update phone field for consistency
+          gender: editUserFormData.gender,
+          preferredSport: editUserFormData.preferredSport,
+          selectedCourt: editUserFormData.selectedCourt,
+          subscriptionType: editUserFormData.subscriptionType,
+          status: editUserFormData.status,
+          paymentStatus: editUserFormData.paymentStatus,
+        }),
+      });
+
+      console.log('Response status:', response.status);
+      const data = await response.json();
+      console.log('Response data:', data);
+
+      if (data.success) {
+        setUsers(prev => prev.map(u => 
+          u._id === selectedUser._id 
+            ? { 
+                ...u, 
+                name: editUserFormData.name,
+                email: editUserFormData.email,
+                mobile: editUserFormData.mobile,
+                phone: editUserFormData.mobile,
+                gender: editUserFormData.gender,
+                preferredSport: editUserFormData.preferredSport,
+                selectedCourt: editUserFormData.selectedCourt,
+                subscriptionType: editUserFormData.subscriptionType,
+                status: editUserFormData.status,
+                paymentStatus: editUserFormData.paymentStatus
+              }
+            : u
+        ));
+        setAlert({ 
+          type: 'success', 
+          message: 'User updated successfully!' 
+        });
+        
+        // Refresh registered slots for the updated user if they were verified
+        if (editUserFormData.status === 'verified' && editUserFormData.paymentStatus === 'completed') {
+          try {
+            const slotsResponse = await fetch(`/api/admin/users/${selectedUser._id}/registered-slots`);
+            const slotsData = await slotsResponse.json();
+            if (slotsData.success) {
+              setUserRegisteredSlots(slotsData.registeredSlots);
+              // Also update the users array with new registered slots
+              setUsers(prev => prev.map(u => 
+                u._id === selectedUser._id 
+                  ? { ...u, registeredSlots: slotsData.registeredSlots }
+                  : u
+              ));
+            }
+          } catch (error) {
+            console.log('Error refreshing registered slots:', error);
+          }
+        }
+        
+        setEditUserDialogOpen(false);
+        setSelectedUser(null);
+      } else {
+        throw new Error(data.message || 'Failed to update user');
+      }
+    } catch (err) {
+      setAlert({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : 'Failed to update user' 
+      });
+    }
+    
+    // Clear alert after 3 seconds
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  const handleManageSlots = async (user: User) => {
+    setSelectedUser(user);
+    setSlotsDialogOpen(true);
+    
+    try {
+      const response = await fetch(`/api/admin/users/${user._id}/registered-slots`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setUserRegisteredSlots(data.registeredSlots);
+      }
+    } catch (error) {
+      console.error('Error fetching user slots:', error);
+      setAlert({ type: 'error', message: 'Failed to fetch user slots' });
+    }
+  };
+
+  // Function to check slot availability in real-time
+  const checkSlotAvailability = async (timeSlot: string, court: string) => {
+    if (!timeSlot || !court) {
+      setSlotAvailability(null);
+      return;
+    }
+
+    setCheckingSlotAvailability(true);
+    try {
+      const response = await fetch('/api/check-court-availability', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          timeSlot: timeSlot,
+          requestedCourt: court,
+        }),
+      });
+
+      const data = await response.json();
+      setSlotAvailability(data);
+    } catch (error) {
+      console.error('Error checking slot availability:', error);
+      setSlotAvailability(null);
+    } finally {
+      setCheckingSlotAvailability(false);
+    }
+  };
+
+  const handleAddSlot = async () => {
+    if (!selectedUser || !newSlot.timeSlot) return;
+
+    try {
+      // First check for conflicts before adding the slot
+      const slotToAdd = {
+        timeSlot: newSlot.timeSlot,
+        court: newSlot.court || selectedUser.selectedCourt,
+      };
+
+      // Check if the user already has this exact slot registered (prevent duplicates for same user)
+      const hasExistingSlot = userRegisteredSlots.some(slot => 
+        slot.timeSlot === slotToAdd.timeSlot && slot.court === slotToAdd.court
+      );
+
+      if (hasExistingSlot) {
+        setAlert({ 
+          type: 'error', 
+          message: `User already has this slot registered: ${slotToAdd.timeSlot} - Court ${slotToAdd.court}` 
+        });
+        setTimeout(() => setAlert(null), 5000);
+        return;
+      }
+
+      // Check court capacity (4-user limit) before adding slot
+      const availabilityResponse = await fetch('/api/check-court-availability', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          timeSlot: slotToAdd.timeSlot,
+          requestedCourt: slotToAdd.court,
+        }),
+      });
+
+      const availabilityData = await availabilityResponse.json();
+      console.log('🔍 Admin slot availability check:', availabilityData);
+
+      if (!availabilityData.success || !availabilityData.canBook) {
+        const courtData = availabilityData.availableCourts?.find((c: any) => c.court === slotToAdd.court);
+        const bookingCount = courtData ? `${courtData.currentBookings}/${courtData.maxCapacity}` : 'unknown';
+        setAlert({ 
+          type: 'error', 
+          message: availabilityData.message || `Court ${slotToAdd.court} is at full capacity (${bookingCount}) for ${slotToAdd.timeSlot}` 
+        });
+        setTimeout(() => setAlert(null), 5000);
+        return;
+      }
+
+      const response = await fetch(`/api/admin/users/${selectedUser._id}/registered-slots`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          slots: [slotToAdd] // Send single slot in array format
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setUserRegisteredSlots(data.registeredSlots);
+        // CRITICAL: Update the main users state to reflect changes in the table
+        setUsers(prev => prev.map(u => 
+          u._id === selectedUser._id 
+            ? { ...u, registeredSlots: data.registeredSlots.map((slot: any) => 
+                `${slot.timeSlot}${slot.court ? ` (${slot.court})` : ''}`
+              )}
+            : u
+        ));
+        setNewSlot({ timeSlot: '', court: '' });
+        setAlert({ 
+          type: 'success', 
+          message: 'Slot added successfully!' 
+        });
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (err) {
+      setAlert({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : 'Failed to add slot' 
+      });
+    }
+    
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  const handleRemoveSlot = async (slotId: string) => {
+    if (!selectedUser) return;
+
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser._id}/registered-slots?slotId=${slotId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setUserRegisteredSlots(data.registeredSlots);
+        // CRITICAL: Update the main users state to reflect changes in the table
+        setUsers(prev => prev.map(u => 
+          u._id === selectedUser._id 
+            ? { ...u, registeredSlots: data.registeredSlots.map((slot: any) => 
+                `${slot.timeSlot}${slot.court ? ` (${slot.court})` : ''}`
+              )}
+            : u
+        ));
+        setAlert({ type: 'success', message: 'Slot removed successfully!' });
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (err) {
+      setAlert({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : 'Failed to remove slot' 
+      });
+    }
+    
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
+
+  if (loading) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4, mt: 8, textAlign: 'center' }}>
+        <CircularProgress size={60} />
+        <Typography sx={{ mt: 2 }}>Loading dashboard data...</Typography>
+      </Container>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4, mt: 8 }}>
+        <Alert severity="error" action={
+          <Button color="inherit" onClick={fetchData}>
+            Retry
+          </Button>
+        }>
+          {error}
+        </Alert>
+      </Container>
+    );
+  }
+
+  return (
+    <Container maxWidth="lg" sx={{ py: 4, mt: 8 }}>
+      {/* Alert Display */}
+      {alert && (
+        <Alert 
+          severity={alert.type} 
+          sx={{ mb: 3 }}
+          onClose={() => setAlert(null)}
+        >
+          {alert.message}
+        </Alert>
+      )}
+
+      {/* Sir Alex Sports Header */}
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        mb: 4,
+        background: 'var(--primary-gradient)',
+        borderRadius: '20px',
+        padding: '2rem',
+        color: 'white',
+        boxShadow: '0 4px 16px var(--shadow-color)'
+      }}>
+        <img 
+          src="/sir-alex-anime.png" 
+          alt="Sir Alex Ferguson Sports" 
+          style={{ 
+            height: '60px', 
+            width: '60px', 
+            borderRadius: '12px', 
+            marginRight: '1rem',
+            border: '3px solid rgba(255,255,255,0.3)'
+          }} 
+        />
+        <Box>
+          <Typography
+            variant="h3"
+            sx={{
+              fontWeight: 800,
+              color: "white",
+              mb: 0.5,
+            }}
+          >
+            Sathiyan Sports Admin
+          </Typography>
+          <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.9)', fontStyle: 'italic' }}>
+            Coaching Excellence Dashboard
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Quick Navigation */}
+      <Box sx={{ mb: 3 }}>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Dashboard />
+            Quick Actions
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => router.push('/admin/slots')}
+              startIcon={<SportsTennis />}
+              sx={{ minWidth: 160 }}
+            >
+              Slot Tracking
+            </Button>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={() => router.push('/admin/reports')}
+              startIcon={<TrendingUp />}
+              sx={{ minWidth: 160 }}
+            >
+              Reports
+            </Button>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={() => router.push('/admin/billing')}
+              startIcon={<Receipt />}
+              sx={{ minWidth: 160 }}
+            >
+              Billing
+            </Button>
+          </Box>
+        </Paper>
+      </Box>
+
+      {/* Stats Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {[
+          {
+            title: "Total Bookings",
+            value: stats.totalBookings,
+            color: "primary.main",
+          },
+          {
+            title: "Today's Bookings",
+            value: stats.todaysBookings,
+            color: "success.main",
+          },
+          {
+            title: "Total Revenue",
+            value: `$${stats.totalRevenue.toFixed(2)}`,
+            color: "warning.main",
+          },
+          {
+            title: "Total Users",
+            value: stats.totalUsers,
+            color: "info.main",
+          },
+          {
+            title: "Fitness Enrollments",
+            value: stats.totalFitnessEnrollments,
+            color: "secondary.main",
+          },
+          {
+            title: "Active Fitness Plans",
+            value: stats.activeFitnessEnrollments,
+            color: "success.main",
+          },
+          {
+            title: "Fitness Revenue",
+            value: `$${stats.totalFitnessRevenue.toFixed(2)}`,
+            color: "warning.main",
+          },
+        ].map((stat, index) => (
+          <Grid item xs={12} sm={6} md={3} key={index}>
+            <Card
+              sx={{
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                bgcolor: "white",
+              }}
+            >
+              <CardContent>
+                <Typography color="textSecondary" gutterBottom>
+                  {stat.title}
+                </Typography>
+                <Typography
+                  variant="h4"
+                  component="div"
+                  sx={{ color: stat.color, fontWeight: "bold" }}
+                >
+                  {stat.value}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+        
+        {/* Coach Admin Access Card */}
+        <Grid item xs={12} sm={6} md={3}>
+          <Card
+            sx={{
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              bgcolor: "linear-gradient(135deg, #00ACC1 0%, #0097A7 100%)",
+              color: "white",
+              cursor: "pointer",
+              transition: "transform 0.2s ease",
+              "&:hover": {
+                transform: "translateY(-4px)",
+                boxShadow: "0 10px 25px rgba(0, 172, 193, 0.4)"
+              }
+            }}
+            onClick={() => router.push('/coach/admin')}
+          >
+            <CardContent sx={{ textAlign: "center" }}>
+              <Box sx={{ 
+                display: "flex", 
+                justifyContent: "center", 
+                mb: 1,
+                "& img": {
+                  borderRadius: "50%",
+                  border: "3px solid rgba(255, 255, 255, 0.3)",
+                  transition: "transform 0.2s ease",
+                }
+              }}>
+                <Image
+                  src="/sir-alex-anime.png"
+                  alt="Sir Alex Ferguson - Coach Admin"
+                  width={60}
+                  height={60}
+                  style={{
+                    borderRadius: "50%",
+                    objectFit: "cover"
+                  }}
+                />
+              </Box>
+              <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
+                Coach Admin
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                AI Training Plans & Analytics
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        {/* Reports Analytics Card */}
+        <Grid item xs={12} sm={6} md={3}>
+          <Card
+            sx={{
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              bgcolor: "linear-gradient(135deg, #20b2aa 0%, #008080 100%)",
+              color: "white",
+              cursor: "pointer",
+              transition: "transform 0.2s ease",
+              "&:hover": {
+                transform: "translateY(-4px)",
+                boxShadow: "0 10px 25px rgba(32, 178, 170, 0.4)"
+              }
+            }}
+            onClick={() => router.push('/admin/reports')}
+          >
+            <CardContent sx={{ textAlign: "center" }}>
+              <Typography sx={{ fontSize: "2rem", mb: 1 }}>
+                📊
+              </Typography>
+              <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
+                Reports & Analytics
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                Coach Performance & Athlete Progress
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Main Content */}
+      <Paper elevation={3} sx={{ borderRadius: 2, bgcolor: "white" }}>
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          sx={{ borderBottom: 1, borderColor: "divider" }}
+        >
+          <Tab label="Recent Bookings" />
+          <Tab label="Users" />
+          <Tab label="Fitness Enrollments" />
+          <Tab label="Settings" />
+        </Tabs>
+
+        <TabPanel value={tabValue} index={0}>
+          <TableContainer sx={{ 
+            overflowX: 'auto',
+            '& .MuiTable-root': {
+              minWidth: { xs: '800px', md: 'auto' }
+            }
+          }}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Booking ID</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>User</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Sport/Court</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Date</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Time Slots</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Payment Status</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Booking Status</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {bookings.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                      <Typography variant="body2" color="textSecondary">
+                        No bookings found
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  bookings.map((booking) => (
+                    <TableRow key={booking._id}>
+                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      {booking._id.slice(-8)}
+                    </TableCell>
+                    <TableCell>
+                      <Box>
+                        <Typography 
+                          variant="body2" 
+                          fontWeight="bold"
+                          sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
+                        >
+                          {booking.customerName}
+                        </Typography>
+                        <Typography 
+                          variant="caption" 
+                          color="textSecondary"
+                          sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}
+                        >
+                          {booking.customerEmail}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Box>
+                        <Typography 
+                          variant="body2"
+                          sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
+                        >
+                          {booking.sport}
+                        </Typography>
+                        {booking.sport === "Shuttle Badminton" && booking.court && (
+                          <Chip 
+                            label={`Court ${booking.court}`} 
+                            size="small" 
+                            color="primary"
+                            sx={{ 
+                              fontSize: { xs: '0.6rem', sm: '0.75rem' },
+                              height: { xs: '18px', sm: '24px' }
+                            }}
+                          />
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      {format(new Date(booking.date), 'MMM dd, yyyy')}
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {booking.timeSlots.map((slot, index) => (
+                          <Chip key={index} label={slot} size="small" variant="outlined" />
+                        ))}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={booking.paymentStatus}
+                        color={getStatusColor(booking.paymentStatus) as any}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={booking.bookingStatus}
+                        color={getStatusColor(booking.bookingStatus) as any}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="primary"
+                          onClick={() => handleViewBooking(booking)}
+                          startIcon={<Visibility />}
+                          sx={{ 
+                            fontSize: '0.7rem', 
+                            py: 0.5,
+                            minWidth: { xs: 'auto', sm: 'auto' },
+                            '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                          }}
+                        >
+                          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                            View
+                          </Box>
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="secondary"
+                          onClick={() => handleEditBooking(booking)}
+                          startIcon={<Edit />}
+                          sx={{ 
+                            fontSize: '0.7rem', 
+                            py: 0.5,
+                            minWidth: { xs: 'auto', sm: 'auto' },
+                            '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                          }}
+                        >
+                          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                            Edit
+                          </Box>
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          onClick={() => handleDeleteBooking(booking)}
+                          startIcon={<Delete />}
+                          sx={{ 
+                            fontSize: '0.7rem', 
+                            py: 0.5,
+                            minWidth: { xs: 'auto', sm: 'auto' },
+                            '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                          }}
+                        >
+                          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                            Delete
+                          </Box>
+                        </Button>
+                        {(booking.bookingStatus === 'pending' || booking.paymentStatus === 'pending_verification') && (
+                          <Button 
+                            size="small" 
+                            color="success"
+                            variant="contained"
+                            onClick={() => handleQuickApprove(booking)}
+                            startIcon={<CheckCircle />}
+                            sx={{ 
+                              fontSize: '0.7rem', 
+                              py: 0.5,
+                              minWidth: { xs: 'auto', sm: 'auto' },
+                              '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                            }}
+                          >
+                            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                              Approve
+                            </Box>
+                          </Button>
+                        )}
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          
+          {/* Load More Bookings Button */}
+          {hasMoreBookings && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Button
+                variant="outlined"
+                onClick={loadMoreBookings}
+                disabled={loadingMoreBookings}
+                startIcon={loadingMoreBookings ? <CircularProgress size={20} /> : null}
+              >
+                {loadingMoreBookings ? 'Loading...' : 'Load More Bookings'}
+              </Button>
+            </Box>
+          )}
+          
+          {!hasMoreBookings && bookings.length > 10 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Typography variant="body2" color="textSecondary">
+                All bookings loaded ({bookings.length} total)
+              </Typography>
+            </Box>
+          )}
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={1}>
+          <TableContainer sx={{ 
+            overflowX: 'auto',
+            '& .MuiTable-root': {
+              minWidth: { xs: '1000px', md: 'auto' }
+            }
+          }}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>User ID</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Name</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Email</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Phone</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Preferred Sport</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Registered Slots</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Selected Court</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Subscription</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>User Status</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Payment Status</TableCell>
+                  <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user._id}>
+                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      {user._id.slice(-8)}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      {user.name}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      {user.email}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      {user.phone || user.mobile}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      {user.preferredSport || 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        gap: 0.5, 
+                        flexWrap: 'wrap',
+                        maxWidth: { xs: '120px', sm: '200px', md: '300px' }
+                      }}>
+                        {user.registeredSlots && user.registeredSlots.length > 0 ? (
+                          user.registeredSlots.map((slot, index) => (
+                            <Chip 
+                              key={index} 
+                              label={
+                                typeof slot === 'string' 
+                                  ? slot 
+                                  : `${(slot as any).timeSlot || ''} - ${(slot as any).court || ''}`
+                              } 
+                              size="small" 
+                              variant="outlined"
+                              sx={{
+                                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                height: { xs: '20px', sm: '24px' },
+                                '& .MuiChip-label': {
+                                  px: { xs: 0.5, sm: 1 }
+                                }
+                              }}
+                            />
+                          ))
+                        ) : (
+                          <Typography 
+                            variant="body2" 
+                            color="textSecondary"
+                            sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
+                          >
+                            No slots
+                          </Typography>
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      {user.selectedCourt ? (
+                        <Chip label={user.selectedCourt} size="small" color="primary" variant="outlined" />
+                      ) : (
+                        <Typography variant="body2" color="textSecondary">No court</Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>{user.subscriptionType || 'N/A'}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={user.status || 'pending'}
+                        color={getStatusColor(user.status || 'pending') as any}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={user.paymentStatus}
+                        color={getStatusColor(user.paymentStatus) as any}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="secondary"
+                          onClick={() => handleEditUser(user)}
+                          startIcon={<Edit />}
+                          sx={{ 
+                            fontSize: '0.7rem', 
+                            py: 0.5,
+                            minWidth: { xs: 'auto', sm: 'auto' },
+                            '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                          }}
+                        >
+                          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                            Edit
+                          </Box>
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          onClick={() => handleDeleteUser(user)}
+                          startIcon={<Delete />}
+                          sx={{ 
+                            fontSize: '0.7rem', 
+                            py: 0.5,
+                            minWidth: { xs: 'auto', sm: 'auto' },
+                            '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                          }}
+                        >
+                          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                            Delete
+                          </Box>
+                        </Button>
+                        {(!user.status || user.status === 'pending') && (
+                          <>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="success"
+                              onClick={() => handleUserVerification(user._id, 'verify')}
+                              startIcon={<CheckCircle />}
+                              sx={{ 
+                                fontSize: '0.7rem', 
+                                py: 0.5, 
+                                minWidth: { xs: 'auto', sm: 'auto' },
+                                px: { xs: 1, sm: 1 },
+                                '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                              }}
+                            >
+                              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                                Verify
+                              </Box>
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="error"
+                              onClick={() => handleUserVerification(user._id, 'reject')}
+                              startIcon={<Cancel />}
+                              sx={{ 
+                                fontSize: '0.7rem', 
+                                py: 0.5, 
+                                minWidth: { xs: 'auto', sm: 'auto' },
+                                px: { xs: 1, sm: 1 },
+                                '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                              }}
+                            >
+                              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                                Reject
+                              </Box>
+                            </Button>
+                          </>
+                        )}
+                        {user.status === 'verified' && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="warning"
+                            onClick={() => handleUserVerification(user._id, 'suspend')}
+                            startIcon={<Block />}
+                            sx={{ 
+                              fontSize: '0.7rem', 
+                              py: 0.5, 
+                              minWidth: { xs: 'auto', sm: 'auto' },
+                              px: { xs: 1, sm: 1 },
+                              '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                            }}
+                          >
+                            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                              Suspend
+                            </Box>
+                          </Button>
+                        )}
+                        {(user.status === 'rejected' || user.status === 'suspended') && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="primary"
+                            onClick={() => handleUserVerification(user._id, 'verify')}
+                            startIcon={<Refresh />}
+                            sx={{ 
+                              fontSize: '0.7rem', 
+                              py: 0.5, 
+                              minWidth: { xs: 'auto', sm: 'auto' },
+                              px: { xs: 1, sm: 1 },
+                              '& .MuiButton-startIcon': { margin: { xs: 0, sm: '0 4px 0 -2px' } }
+                            }}
+                          >
+                            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                              Reactivate
+                            </Box>
+                          </Button>
+                        )}
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          
+          {/* Load More Users Button */}
+          {hasMoreUsers && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Button
+                variant="outlined"
+                onClick={loadMoreUsers}
+                disabled={loadingMoreUsers}
+                startIcon={loadingMoreUsers ? <CircularProgress size={20} /> : null}
+              >
+                {loadingMoreUsers ? 'Loading...' : 'Load More Users'}
+              </Button>
+            </Box>
+          )}
+          
+          {!hasMoreUsers && users.length > 10 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Typography variant="body2" color="textSecondary">
+                All users loaded ({users.length} total)
+              </Typography>
+            </Box>
+          )}
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={2}>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Enrollment ID</TableCell>
+                  <TableCell>User</TableCell>
+                  <TableCell>Plan</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell>Level</TableCell>
+                  <TableCell>Amount</TableCell>
+                  <TableCell>Progress</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Payment</TableCell>
+                  <TableCell>Date</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {fitnessEnrollments.map((enrollment) => (
+                  <TableRow key={enrollment._id}>
+                    <TableCell>{enrollment.enrollmentId.slice(-8)}</TableCell>
+                    <TableCell>
+                      <Box>
+                        <Typography variant="body2" fontWeight="bold">
+                          {enrollment.userName}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary">
+                          {enrollment.userEmail}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>{enrollment.planName}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={enrollment.planCategory}
+                        color={
+                          enrollment.planCategory === 'strength' ? 'primary' :
+                          enrollment.planCategory === 'speed' ? 'success' : 'warning'
+                        }
+                        size="small"
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={enrollment.planLevel}
+                        color={
+                          enrollment.planLevel === 'beginner' ? 'success' :
+                          enrollment.planLevel === 'intermediate' ? 'warning' : 'error'
+                        }
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>${enrollment.totalAmount}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CircularProgress
+                          variant="determinate"
+                          value={enrollment.progressPercentage}
+                          size={24}
+                          color={enrollment.progressPercentage > 75 ? 'success' : 'primary'}
+                        />
+                        <Typography variant="caption">
+                          {enrollment.progressPercentage}% (Week {enrollment.currentWeek})
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={enrollment.status}
+                        color={getStatusColor(enrollment.status) as any}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={enrollment.paymentStatus}
+                        color={getStatusColor(enrollment.paymentStatus) as any}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {format(new Date(enrollment.enrollmentDate), "dd/MM/yyyy")}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          
+          {/* Load More Fitness Enrollments Button */}
+          {hasMoreFitnessEnrollments && fitnessEnrollments.length >= 10 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Button 
+                variant="outlined" 
+                onClick={loadMoreFitnessEnrollments}
+                disabled={loadingMoreFitnessEnrollments}
+              >
+                {loadingMoreFitnessEnrollments ? 'Loading...' : 'Load More Fitness Enrollments'}
+              </Button>
+            </Box>
+          )}
+          
+          {!hasMoreFitnessEnrollments && fitnessEnrollments.length > 10 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Typography variant="body2" color="textSecondary">
+                All fitness enrollments loaded ({fitnessEnrollments.length} total)
+              </Typography>
+            </Box>
+          )}
+          
+          {fitnessEnrollments.length === 0 && (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <FitnessCenter sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" color="textSecondary">
+                No fitness enrollments found
+              </Typography>
+              <Typography variant="body2" color="textSecondary">
+                Fitness enrollments will appear here once users start enrolling in plans.
+              </Typography>
+            </Box>
+          )}
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={3}>
+          <Typography>Settings content goes here</Typography>
+        </TabPanel>
+      </Paper>
+
+      {/* Booking Details Dialog */}
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Booking Details</DialogTitle>
+        <DialogContent>
+          {selectedBooking && (
+            <Box sx={{ mt: 2 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Booking ID
+                  </Typography>
+                  <Typography variant="body1">{selectedBooking._id}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Customer
+                  </Typography>
+                  <Typography variant="body1">{selectedBooking.customerName}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Email
+                  </Typography>
+                  <Typography variant="body1">{selectedBooking.customerEmail}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Phone
+                  </Typography>
+                  <Typography variant="body1">{selectedBooking.customerPhone}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Sport
+                  </Typography>
+                  <Typography variant="body1">{selectedBooking.sport}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Date
+                  </Typography>
+                  <Typography variant="body1">
+                    {format(new Date(selectedBooking.date), 'MMMM dd, yyyy')}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Time Slots
+                  </Typography>
+                  <Typography variant="body1">{selectedBooking.timeSlots.join(', ')}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Total Amount
+                  </Typography>
+                  <Typography variant="body1">${selectedBooking.totalAmount}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Booking Status</InputLabel>
+                    <Select
+                      value={updateStatus.bookingStatus}
+                      onChange={(e) => setUpdateStatus(prev => ({ ...prev, bookingStatus: e.target.value }))}
+                    >
+                      <MenuItem value="pending">Pending</MenuItem>
+                      <MenuItem value="confirmed">Confirmed</MenuItem>
+                      <MenuItem value="completed">Completed</MenuItem>
+                      <MenuItem value="cancelled">Cancelled</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Payment Status</InputLabel>
+                    <Select
+                      value={updateStatus.paymentStatus}
+                      onChange={(e) => setUpdateStatus(prev => ({ ...prev, paymentStatus: e.target.value }))}
+                    >
+                      <MenuItem value="pending">Pending</MenuItem>
+                      <MenuItem value="completed">Completed</MenuItem>
+                      <MenuItem value="failed">Failed</MenuItem>
+                      <MenuItem value="refunded">Refunded</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Created At
+                  </Typography>
+                  <Typography variant="body1">
+                    {format(new Date(selectedBooking.createdAt), 'MMMM dd, yyyy at h:mm a')}
+                  </Typography>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleBookingUpdate} variant="contained" color="primary">
+            Update Booking
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Booking Dialog */}
+      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit Booking</DialogTitle>
+        <DialogContent>
+          {selectedBooking ? (
+            <Box sx={{ pt: 2 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Customer Name"
+                    value={selectedBooking.customerName || ''}
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Customer Email"
+                    value={selectedBooking.customerEmail || ''}
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Customer Phone"
+                    value={selectedBooking.customerPhone || ''}
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Sport"
+                    value={selectedBooking.sport || ''}
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Date"
+                    value={selectedBooking.date ? format(new Date(selectedBooking.date), 'yyyy-MM-dd') : ''}
+                    type="date"
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Total Amount"
+                    value={selectedBooking.totalAmount || 0}
+                    type="number"
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Payment Status</InputLabel>
+                    <Select
+                      value={updateStatus.paymentStatus}
+                      onChange={(e) => setUpdateStatus(prev => ({ ...prev, paymentStatus: e.target.value }))}
+                    >
+                      <MenuItem value="pending">Pending</MenuItem>
+                      <MenuItem value="pending_verification">Pending Verification</MenuItem>
+                      <MenuItem value="paid">Paid</MenuItem>
+                      <MenuItem value="failed">Failed</MenuItem>
+                      <MenuItem value="refunded">Refunded</MenuItem>
+                      <MenuItem value="cancelled">Cancelled</MenuItem>
+                      <MenuItem value="expired">Expired</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Booking Status</InputLabel>
+                    <Select
+                      value={updateStatus.bookingStatus}
+                      onChange={(e) => setUpdateStatus(prev => ({ ...prev, bookingStatus: e.target.value }))}
+                    >
+                      <MenuItem value="pending">Pending</MenuItem>
+                      <MenuItem value="confirmed">Confirmed</MenuItem>
+                      <MenuItem value="cancelled">Cancelled</MenuItem>
+                      <MenuItem value="completed">Completed</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Box>
+          ) : (
+            <Box sx={{ pt: 2, textAlign: 'center' }}>
+              <Typography>No booking selected</Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleBookingUpdate} variant="contained" color="primary">
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Booking Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete this booking? This action cannot be undone.
+          </Typography>
+          {selectedBooking && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+              <Typography variant="subtitle2">Booking Details:</Typography>
+              <Typography variant="body2">Customer: {selectedBooking.customerName}</Typography>
+              <Typography variant="body2">Sport: {selectedBooking.sport}</Typography>
+              <Typography variant="body2">Date: {format(new Date(selectedBooking.date), 'MMMM dd, yyyy')}</Typography>
+              <Typography variant="body2">Amount: ${selectedBooking.totalAmount}</Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={confirmDeleteBooking} variant="contained" color="error">
+            Delete Booking
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={editUserDialogOpen} onClose={() => setEditUserDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit User</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <Grid container spacing={2}>
+              {/* Name */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Name"
+                  value={editUserFormData.name}
+                  onChange={(e) => setEditUserFormData(prev => ({ ...prev, name: e.target.value }))}
+                  required
+                />
+              </Grid>
+
+              {/* Email */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Email"
+                  type="email"
+                  value={editUserFormData.email}
+                  onChange={(e) => setEditUserFormData(prev => ({ ...prev, email: e.target.value }))}
+                  required
+                />
+              </Grid>
+
+              {/* Mobile */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Mobile Number"
+                  value={editUserFormData.mobile}
+                  onChange={(e) => setEditUserFormData(prev => ({ ...prev, mobile: e.target.value }))}
+                  required
+                />
+              </Grid>
+
+              {/* Gender */}
+              <Grid item xs={12} sm={6}>
+                <FormControl component="fieldset" sx={{ width: '100%' }}>
+                  <FormLabel component="legend">Gender</FormLabel>
+                  <Box sx={{ mt: 1 }}>
+                    <ToggleButtonGroup
+                      value={editUserFormData.gender}
+                      exclusive
+                      onChange={(e, value) => {
+                        if (value !== null) {
+                          setEditUserFormData(prev => ({ ...prev, gender: value }));
+                        }
+                      }}
+                      size="small"
+                    >
+                      <ToggleButton value="male">Male</ToggleButton>
+                      <ToggleButton value="female">Female</ToggleButton>
+                      <ToggleButton value="other">Other</ToggleButton>
+                    </ToggleButtonGroup>
+                  </Box>
+                </FormControl>
+              </Grid>
+
+              {/* Preferred Sport */}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Preferred Sport</InputLabel>
+                  <Select
+                    value={editUserFormData.preferredSport}
+                    onChange={(e) => {
+                      const newSport = e.target.value;
+                      setEditUserFormData(prev => ({ 
+                        ...prev, 
+                        preferredSport: newSport,
+                        // Clear court selection if not Shuttle Badminton
+                        selectedCourt: newSport === "Shuttle Badminton" ? prev.selectedCourt : ""
+                      }));
+                    }}
+                  >
+                    <MenuItem value="Cricket">Cricket</MenuItem>
+                    <MenuItem value="Football">Football</MenuItem>
+                    <MenuItem value="Shuttle Badminton">Shuttle Badminton</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Selected Court (read-only for Shuttle Badminton) */}
+              {editUserFormData.preferredSport === "Shuttle Badminton" && (
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Registered Court"
+                    value={editUserFormData.selectedCourt ? `Court ${editUserFormData.selectedCourt}` : 'No court selected'}
+                    InputProps={{
+                      readOnly: true,
+                    }}
+                    helperText="Court assignment is managed in the Registered Slots section below"
+                  />
+                </Grid>
+              )}
+
+              {/* Subscription Type */}
+              <Grid item xs={12} sm={6}>
+                <FormControl component="fieldset" sx={{ width: '100%' }}>
+                  <FormLabel component="legend">Subscription Type</FormLabel>
+                  <RadioGroup
+                    value={editUserFormData.subscriptionType}
+                    onChange={(e) => setEditUserFormData(prev => ({ ...prev, subscriptionType: e.target.value }))}
+                    row
+                  >
+                    <FormControlLabel value="monthly" control={<Radio />} label="Monthly" />
+                    <FormControlLabel value="quarterly" control={<Radio />} label="Quarterly" />
+                    <FormControlLabel value="half yearly" control={<Radio />} label="Half Yearly" />
+                    <FormControlLabel value="yearly" control={<Radio />} label="Yearly" />
+                  </RadioGroup>
+                </FormControl>
+              </Grid>
+
+              {/* User Status */}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>User Status</InputLabel>
+                  <Select
+                    value={editUserFormData.status}
+                    onChange={(e) => setEditUserFormData(prev => ({ ...prev, status: e.target.value }))}
+                  >
+                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="verified">Verified</MenuItem>
+                    <MenuItem value="suspended">Suspended</MenuItem>
+                    <MenuItem value="rejected">Rejected</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Payment Status */}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Payment Status</InputLabel>
+                  <Select
+                    value={editUserFormData.paymentStatus}
+                    onChange={(e) => setEditUserFormData(prev => ({ ...prev, paymentStatus: e.target.value }))}
+                  >
+                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="completed">Completed</MenuItem>
+                    <MenuItem value="failed">Failed</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Registered Slots Management */}
+              {editUserFormData.preferredSport === "Shuttle Badminton" && (
+                <Grid item xs={12}>
+                  <Box sx={{ mt: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                    <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      🏸 Registered Slots Management
+                    </Typography>
+                    
+                    {/* Show eligibility status */}
+                    {!["monthly", "quarterly", "half yearly", "yearly"].includes(editUserFormData.subscriptionType) && (
+                      <Alert severity="info" sx={{ mb: 2 }}>
+                        Registered slots are only available for Monthly, Quarterly, Half Yearly and Yearly subscriptions. Current subscription: {editUserFormData.subscriptionType || 'None'}
+                      </Alert>
+                    )}
+                    
+                    {["monthly", "quarterly", "half yearly", "yearly"].includes(editUserFormData.subscriptionType) && 
+                     editUserFormData.status !== "verified" && (
+                      <Alert severity="warning" sx={{ mb: 2 }}>
+                        User must be verified to manage registered slots. Current status: {editUserFormData.status}
+                      </Alert>
+                    )}
+                    
+                    {["monthly", "quarterly", "half yearly", "yearly"].includes(editUserFormData.subscriptionType) && 
+                     editUserFormData.status === "verified" && 
+                     editUserFormData.paymentStatus !== "completed" && (
+                      <Alert severity="warning" sx={{ mb: 2 }}>
+                        Payment must be completed to manage registered slots. Current payment status: {editUserFormData.paymentStatus}
+                      </Alert>
+                    )}
+                    
+                    {/* Slot Management Interface - Only show if user is eligible */}
+                    {["monthly", "quarterly", "half yearly", "yearly"].includes(editUserFormData.subscriptionType) && 
+                     editUserFormData.status === "verified" && 
+                     editUserFormData.paymentStatus === "completed" ? (
+                      <>
+                        {/* Current Registered Slots */}
+                        <Box sx={{ mb: 3 }}>
+                          <Typography variant="subtitle2" gutterBottom>
+                            Current Registered Slots:
+                          </Typography>
+                          {userRegisteredSlots.length > 0 ? (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                              {userRegisteredSlots.map((slot, index) => (
+                                <Chip
+                                  key={slot._id || index}
+                                  label={`${slot.timeSlot}${slot.court ? ` - Court ${slot.court}` : ''}`}
+                                  color="primary"
+                                  size="small"
+                                  onDelete={() => handleRemoveSlot(slot._id)}
+                                  deleteIcon={<Box component="span" sx={{ fontSize: '16px' }}>❌</Box>}
+                                />
+                              ))}
+                            </Box>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                              No registered slots found
+                            </Typography>
+                          )}
+                        </Box>
+
+                        {/* Add New Slot Interface */}
+                        <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                          <Typography variant="subtitle2" gutterBottom>
+                            Add New Slot:
+                          </Typography>
+                          <Alert severity="info" sx={{ mb: 2, fontSize: '0.875rem' }}>
+                            ℹ️ Each court has a maximum capacity of 4 users per time slot. The system will check availability in real-time.
+                          </Alert>
+                      <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} sm={5}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Time Slot</InputLabel>
+                            <Select
+                              value={newSlot.timeSlot}
+                              onChange={(e) => {
+                                const timeSlot = e.target.value;
+                                setNewSlot(prev => ({ ...prev, timeSlot }));
+                                if (timeSlot && newSlot.court) {
+                                  checkSlotAvailability(timeSlot, newSlot.court);
+                                }
+                              }}
+                              label="Time Slot"
+                            >
+                              {TIME_SLOTS.map((slot) => (
+                                <MenuItem key={slot} value={slot}>
+                                  {slot}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Court</InputLabel>
+                            <Select
+                              value={newSlot.court}
+                              onChange={(e) => {
+                                const court = e.target.value;
+                                setNewSlot(prev => ({ ...prev, court }));
+                                if (newSlot.timeSlot && court) {
+                                  checkSlotAvailability(newSlot.timeSlot, court);
+                                }
+                              }}
+                              label="Court"
+                            >
+                              <MenuItem value="S1">Court S1</MenuItem>
+                              <MenuItem value="S2">Court S2</MenuItem>
+                              <MenuItem value="S3">Court S3</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={12} sm={3}>
+                          <Button
+                            variant="contained"
+                            onClick={handleAddSlot}
+                            disabled={!newSlot.timeSlot || !newSlot.court || checkingSlotAvailability || (slotAvailability && !slotAvailability.canBook)}
+                            fullWidth
+                            size="small"
+                            sx={{ 
+                              bgcolor: (slotAvailability && !slotAvailability.canBook) ? '#f44336' : '#4caf50',
+                              '&:hover': { 
+                                bgcolor: (slotAvailability && !slotAvailability.canBook) ? '#d32f2f' : '#45a049' 
+                              }
+                            }}
+                          >
+                            {checkingSlotAvailability ? (
+                              <>
+                                <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
+                                Checking...
+                              </>
+                            ) : (
+                              'Add Slot'
+                            )}
+                          </Button>
+                        </Grid>
+                      </Grid>
+                      
+                      {/* Real-time Availability Display */}
+                      {newSlot.timeSlot && newSlot.court && slotAvailability && (
+                        <Box sx={{ mt: 2 }}>
+                          <Alert 
+                            severity={slotAvailability.canBook ? "success" : "warning"} 
+                            sx={{ fontSize: '0.875rem' }}
+                          >
+                            {slotAvailability.message}
+                          </Alert>
+                          
+                          {slotAvailability.availableCourts && (
+                            <Box sx={{ mt: 1, p: 1, bgcolor: 'white', borderRadius: 1 }}>
+                              <Typography variant="caption" fontWeight="bold">All Courts Status:</Typography>
+                              {slotAvailability.availableCourts.map((court: any) => (
+                                <Box key={court.court} sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                                  <Typography variant="caption">
+                                    Court {court.court}:
+                                  </Typography>
+                                  <Typography 
+                                    variant="caption" 
+                                    color={court.available ? "success.main" : "error.main"}
+                                    fontWeight="bold"
+                                  >
+                                    {court.currentBookings}/{court.maxCapacity} occupied
+                                    {court.available ? " ✓" : " (FULL)"}
+                                  </Typography>
+                                </Box>
+                              ))}
+                            </Box>
+                          )}
+                        </Box>
+                      )}
+                    </Box>
+                          >
+                            Add Slot
+                          </Button>
+                        </Grid>
+                      </Grid>
+                    </Box>
+                      </>
+                    ) : (
+                      <Box sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 1, textAlign: 'center' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Complete user verification and payment to manage registered slots
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                </Grid>
+              )}
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditUserDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleUserUpdate} variant="contained" color="primary">
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete User Confirmation Dialog */}
+      <Dialog open={deleteUserDialogOpen} onClose={() => setDeleteUserDialogOpen(false)}>
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete this user? This action cannot be undone and will also delete all associated bookings.
+          </Typography>
+          {selectedUser && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+              <Typography variant="subtitle2">User Details:</Typography>
+              <Typography variant="body2">Name: {selectedUser.name}</Typography>
+              <Typography variant="body2">Email: {selectedUser.email}</Typography>
+              <Typography variant="body2">Phone: {selectedUser.phone || selectedUser.mobile}</Typography>
+              <Typography variant="body2">Status: {selectedUser.status || 'pending'}</Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteUserDialogOpen(false)}>Cancel</Button>
+          <Button onClick={confirmDeleteUser} variant="contained" color="error">
+            Delete User
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
+  );
+}
