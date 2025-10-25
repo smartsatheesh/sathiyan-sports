@@ -733,7 +733,7 @@ export default function RegisterPage() {
           <Box sx={{ textAlign: "center", mt: 2 }}>
             <Typography variant="body2">
               Already have an account?{" "}
-              <MuiLink component={Link} href="/auth/signin" color="primary">
+              <MuiLink component={Link} href="/auth/login" color="primary">
                 Sign in here
               </MuiLink>
             </Typography>

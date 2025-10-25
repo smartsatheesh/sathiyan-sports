@@ -35,6 +35,7 @@ import {
   FormControlLabel,
   RadioGroup,
   Radio,
+  IconButton,
 } from "@mui/material";
 import { format } from "date-fns";
 import {
@@ -43,6 +44,7 @@ import {
   Delete,
   Refresh,
   CheckCircle,
+  Check,
 } from "@mui/icons-material";
 
 // Time slots constant to match registration page format
@@ -148,6 +150,7 @@ export default function AdminDashboard() {
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editUserFormData, setEditUserFormData] = useState({
+    champId: '',
     name: '',
     email: '',
     mobile: '',
@@ -158,6 +161,17 @@ export default function AdminDashboard() {
     subscriptionType: '',
     status: '',
     paymentStatus: ''
+  });
+
+  // ChampID validation states
+  const [champIdValidation, setChampIdValidation] = useState<{
+    isChecking: boolean;
+    isValid: boolean | null;
+    message: string;
+  }>({
+    isChecking: false,
+    isValid: null,
+    message: ''
   });
 
   // Delete User Dialog states
@@ -233,8 +247,12 @@ export default function AdminDashboard() {
   }, [session]);
 
   const handleEditUser = (user: User) => {
+    console.log('Opening edit dialog for user:', user);
+    console.log('Available TIME_SLOTS:', TIME_SLOTS);
+    
     setSelectedUser(user);
     setEditUserFormData({
+      champId: user.champId || '',
       name: user.name || '',
       email: user.email || '',
       mobile: user.phone || user.mobile || '',
@@ -246,13 +264,46 @@ export default function AdminDashboard() {
       status: user.status || 'pending',
       paymentStatus: user.paymentStatus || 'pending'
     });
+    
+    // Reset ChampID validation to valid if user already has a ChampID
+    if (user.champId) {
+      setChampIdValidation({ 
+        isChecking: false, 
+        isValid: true, 
+        message: 'Current ChampID' 
+      });
+    } else {
+      setChampIdValidation({ 
+        isChecking: false, 
+        isValid: null, 
+        message: '' 
+      });
+    }
+    
     setEditUserDialogOpen(true);
   };
 
-  const handleUserUpdate = async () => {
+    const handleUserUpdate = async () => {
     if (!selectedUser) return;
 
+    console.log('Starting user update...');
+    console.log('Edit user form data:', editUserFormData);
+    console.log('ChampID validation:', champIdValidation);
+
     try {
+      // Validate ChampID if provided and changed
+      if (editUserFormData.champId && 
+          editUserFormData.champId !== (selectedUser.champId || '') && 
+          champIdValidation.isValid !== true) {
+        console.log('ChampID validation failed');
+        setAlert({ 
+          type: "error", 
+          message: "Please provide a valid and available ChampID before saving" 
+        });
+        setTimeout(() => setAlert(null), 5000);
+        return;
+      }
+
       // Check for duplicate court bookings if this is a badminton user
       if (editUserFormData.preferredSport === 'Shuttle Badminton' && 
           editUserFormData.preferredTimeSlot && 
@@ -293,6 +344,7 @@ export default function AdminDashboard() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          champId: editUserFormData.champId || undefined, // Only include if not empty
           name: editUserFormData.name,
           email: editUserFormData.email,
           mobile: editUserFormData.mobile,
@@ -307,13 +359,16 @@ export default function AdminDashboard() {
         }),
       });
 
+      console.log('Update response status:', response.status);
       const data = await response.json();
+      console.log('Update response data:', data);
 
       if (data.success) {
         setUsers(prev => prev.map(u => 
           u._id === selectedUser._id 
             ? { 
                 ...u, 
+                champId: editUserFormData.champId,
                 name: editUserFormData.name,
                 email: editUserFormData.email,
                 mobile: editUserFormData.mobile,
@@ -379,6 +434,115 @@ export default function AdminDashboard() {
     }
 
     setTimeout(() => setAlert(null), 3000);
+  };
+
+  // ChampID validation function
+  const validateChampId = async (champId: string, currentUserId?: string) => {
+    if (!champId) {
+      setChampIdValidation({ isChecking: false, isValid: null, message: '' });
+      return;
+    }
+
+    // Validate ChampID pattern (S + 5 digits starting from 25911)
+    const champIdPattern = /^S\d{5,}$/;
+    if (!champIdPattern.test(champId)) {
+      setChampIdValidation({ 
+        isChecking: false, 
+        isValid: false, 
+        message: 'ChampID must be in format S##### (e.g., S25911)' 
+      });
+      return;
+    }
+
+    const numberPart = parseInt(champId.substring(1));
+    if (numberPart < 25911) {
+      setChampIdValidation({ 
+        isChecking: false, 
+        isValid: false, 
+        message: 'ChampID number must be 25911 or higher' 
+      });
+      return;
+    }
+
+    setChampIdValidation({ isChecking: true, isValid: null, message: 'Checking availability...' });
+
+    try {
+      const response = await fetch(`/api/admin/check-champid?champId=${encodeURIComponent(champId)}&currentUserId=${currentUserId || ''}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setChampIdValidation({
+          isChecking: false,
+          isValid: data.available,
+          message: data.available ? 'ChampID is available' : 'ChampID is already taken'
+        });
+      } else {
+        throw new Error(data.message || 'Failed to check ChampID availability');
+      }
+    } catch (error) {
+      console.error('Error validating ChampID:', error);
+      setChampIdValidation({
+        isChecking: false,
+        isValid: false,
+        message: 'Error checking ChampID availability'
+      });
+    }
+  };
+
+  // Booking management handlers
+  const handleEditBooking = (booking: Booking) => {
+    // TODO: Implement booking edit functionality
+    console.log('Edit booking:', booking);
+    setAlert({ type: "info", message: "Booking edit functionality will be implemented soon" });
+  };
+
+  const handleDeleteBooking = async (bookingId: string) => {
+    if (!confirm('Are you sure you want to delete this booking?')) return;
+    
+    try {
+      const response = await fetch(`/api/admin/bookings/${bookingId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setAlert({ type: "success", message: "Booking deleted successfully" });
+        fetchData(); // Refresh the data
+      } else {
+        throw new Error(data.message || 'Failed to delete booking');
+      }
+    } catch (error) {
+      console.error('Error deleting booking:', error);
+      setAlert({ type: "error", message: `Failed to delete booking: ${error instanceof Error ? error.message : 'Unknown error'}` });
+    }
+  };
+
+  const handleVerifyBooking = async (bookingId: string) => {
+    try {
+      const response = await fetch(`/api/admin/bookings/${bookingId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookingStatus: 'confirmed',
+          paymentStatus: 'paid' // Correct field value based on Booking model
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setAlert({ type: "success", message: "Booking verified successfully" });
+        fetchData(); // Refresh the data
+      } else {
+        throw new Error(data.message || 'Failed to verify booking');
+      }
+    } catch (error) {
+      console.error('Error verifying booking:', error);
+      setAlert({ type: "error", message: `Failed to verify booking: ${error instanceof Error ? error.message : 'Unknown error'}` });
+    }
   };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -507,6 +671,7 @@ export default function AdminDashboard() {
                   <TableCell>Status</TableCell>
                   <TableCell>Payment</TableCell>
                   <TableCell>Amount</TableCell>
+                  <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -531,6 +696,36 @@ export default function AdminDashboard() {
                       />
                     </TableCell>
                     <TableCell>₹{booking.totalAmount}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <IconButton 
+                          size="small" 
+                          color="primary"
+                          onClick={() => handleEditBooking(booking)}
+                          title="Edit Booking"
+                        >
+                          <Edit />
+                        </IconButton>
+                        <IconButton 
+                          size="small" 
+                          color="error"
+                          onClick={() => handleDeleteBooking(booking._id)}
+                          title="Delete Booking"
+                        >
+                          <Delete />
+                        </IconButton>
+                        {booking.bookingStatus === 'pending' && (
+                          <IconButton 
+                            size="small" 
+                            color="success"
+                            onClick={() => handleVerifyBooking(booking._id)}
+                            title="Verify Booking"
+                          >
+                            <Check />
+                          </IconButton>
+                        )}
+                      </Box>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -645,6 +840,35 @@ export default function AdminDashboard() {
         <DialogContent>
           <Box sx={{ pt: 2 }}>
             <Grid container spacing={2}>
+              {/* ChampID Field */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Champion ID"
+                  placeholder="S25911"
+                  value={editUserFormData.champId}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setEditUserFormData(prev => ({ ...prev, champId: value }));
+                    // Validate ChampID with debounce
+                    setTimeout(() => {
+                      validateChampId(value, selectedUser?._id);
+                    }, 300);
+                  }}
+                  helperText={
+                    champIdValidation.isChecking 
+                      ? "Checking availability..." 
+                      : champIdValidation.message || "Format: S##### (e.g., S25911)"
+                  }
+                  error={champIdValidation.isValid === false}
+                  InputProps={{
+                    style: { 
+                      color: champIdValidation.isValid === true ? '#2e7d32' : 
+                             champIdValidation.isValid === false ? '#d32f2f' : 'inherit'
+                    }
+                  }}
+                />
+              </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
@@ -713,7 +937,11 @@ export default function AdminDashboard() {
                     value={editUserFormData.preferredTimeSlot}
                     onChange={(e) => setEditUserFormData(prev => ({ ...prev, preferredTimeSlot: e.target.value }))}
                     label="Preferred Time Slot"
+                    displayEmpty
                   >
+                    <MenuItem value="">
+                      <em>Select a time slot</em>
+                    </MenuItem>
                     {TIME_SLOTS.map((slot) => (
                       <MenuItem key={slot} value={slot}>
                         {slot}

@@ -125,7 +125,7 @@ const userSchema = new mongoose.Schema({
 
 // Add indexes for performance (only champId has unique constraint now)
 userSchema.index({ role: 1 });
-userSchema.index({ champId: 1 });
+// Note: champId index is already created by the unique: true option above
 
 // Update timestamp on save
 userSchema.pre('save', function(next) {

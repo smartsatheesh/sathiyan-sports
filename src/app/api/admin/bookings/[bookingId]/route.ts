@@ -51,3 +51,56 @@ export async function DELETE(
     );
   }
 }
+
+// PATCH - Update a specific booking
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { bookingId: string } }
+) {
+  try {
+    // Check authentication and admin access
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Connect to database
+    await connectToMongoose();
+
+    const { bookingId } = params;
+    const updateData = await req.json();
+
+    // Validate bookingId
+    if (!bookingId) {
+      return NextResponse.json({ message: 'Booking ID is required' }, { status: 400 });
+    }
+
+    // Find and update the booking
+    const updatedBooking = await (Booking.findByIdAndUpdate as any)(
+      bookingId,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedBooking) {
+      return NextResponse.json({ message: 'Booking not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Booking updated successfully',
+      booking: updatedBooking
+    });
+
+  } catch (error) {
+    console.error("Error updating booking:", error);
+    return NextResponse.json(
+      { 
+        success: false,
+        message: "Error updating booking", 
+        error: error instanceof Error ? error.message : "Unknown error" 
+      },
+      { status: 500 }
+    );
+  }
+}
