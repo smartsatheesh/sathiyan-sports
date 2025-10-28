@@ -153,6 +153,15 @@ const Navbar = () => {
                 </Button>
               </Link>
               
+              {/* Pay for your health - Protected */}
+              {isAuthenticated && (
+                <Link href="/subscription" passHref>
+                  <Button sx={{ color: "#fff", ml: 2 }}>
+                    🏥 Pay for your health
+                  </Button>
+                </Link>
+              )}
+              
               {/* The Coach - AI Powered - Admin/Coach only */}
               {hasCoachAccess && (
                 <Link href="/coach" passHref>
@@ -362,6 +371,15 @@ const Navbar = () => {
                         <ListItemText primary="Book Slot" />
                       </ListItem>
                     </Link>
+                    
+                    {/* Pay for your health - Protected */}
+                    {isAuthenticated && (
+                      <Link href="/subscription" passHref>
+                        <ListItem button onClick={toggleDrawer}>
+                          <ListItemText primary="🏥 Pay for your health" />
+                        </ListItem>
+                      </Link>
+                    )}
                     
                     {/* The Coach - Admin/Coach only */}
                     {hasCoachAccess && (
