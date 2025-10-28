@@ -90,6 +90,8 @@ export default function RegisterPage() {
     selectedCourt: "",
     subscriptionType: "",
     role: "customer", // Default role
+    comments: "",
+    mode: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -337,6 +339,8 @@ export default function RegisterPage() {
         selectedCourt: "",
         subscriptionType: "",
         role: "customer",
+        comments: "",
+        mode: "",
       });
       setCourtAvailability(null);
       setAvailabilityMessage("");
@@ -403,7 +407,7 @@ export default function RegisterPage() {
               validateField('email', e.target.value);
             }}
             error={!!fieldErrors.email}
-            helperText={fieldErrors.email}
+            helperText={fieldErrors.email || "Family members can share the same email address"}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -426,7 +430,7 @@ export default function RegisterPage() {
               validateField('mobile', e.target.value);
             }}
             error={!!fieldErrors.mobile}
-            helperText={fieldErrors.mobile}
+            helperText={fieldErrors.mobile || "Family members can share the same mobile number"}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -702,6 +706,46 @@ export default function RegisterPage() {
             {fieldErrors.subscriptionType && (
               <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
                 {fieldErrors.subscriptionType}
+              </Typography>
+            )}
+          </FormControl>
+
+          {/* Comments Field */}
+          <TextField
+            fullWidth
+            margin="normal"
+            label="Comments"
+            name="comments"
+            value={formData.comments}
+            onChange={(e) => setFormData({ ...formData, comments: e.target.value })}
+            multiline
+            rows={3}
+            placeholder="Any additional comments or notes..."
+            error={!!fieldErrors.comments}
+            helperText={fieldErrors.comments}
+          />
+
+          {/* Mode Field */}
+          <FormControl fullWidth margin="normal" error={!!fieldErrors.mode}>
+            <InputLabel data-field="mode">Mode</InputLabel>
+            <Select
+              value={formData.mode}
+              label="Mode"
+              onChange={(e) => {
+                setFormData({ ...formData, mode: e.target.value });
+                if (fieldErrors.mode) {
+                  const newErrors = { ...fieldErrors };
+                  delete newErrors.mode;
+                  setFieldErrors(newErrors);
+                }
+              }}
+            >
+              <MenuItem value="fixed">Fixed</MenuItem>
+              <MenuItem value="flexible">Flexible</MenuItem>
+            </Select>
+            {fieldErrors.mode && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                {fieldErrors.mode}
               </Typography>
             )}
           </FormControl>

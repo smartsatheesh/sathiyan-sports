@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Database Migration</title>
+    <script>
+        async function runMigration() {
+            try {
+                const response = await fetch('/api/admin/migrate-indexes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                
+                if (result.success) {
+                    document.getElementById('status').innerHTML = '<h3 style="color: green;">✅ Migration Successful</h3>';
+                } else {
+                    document.getElementById('status').innerHTML = '<h3 style="color: red;">❌ Migration Failed</h3>';
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<pre style="color: red;">Error: ' + error.message + '</pre>';
+                document.getElementById('status').innerHTML = '<h3 style="color: red;">❌ Migration Failed</h3>';
+            }
+        }
+    </script>
+</head>
+<body style="font-family: Arial; padding: 20px;">
+    <h1>Database Index Migration</h1>
+    <p>This will remove unique constraints from email and mobile fields to allow family members to share contact details.</p>
+    
+    <button onclick="runMigration()" style="background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
+        Run Migration
+    </button>
+    
+    <div id="status"></div>
+    <div id="result" style="margin-top: 20px; background: #f5f5f5; padding: 15px; border-radius: 5px;"></div>
+</body>
+</html>

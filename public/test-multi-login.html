@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Multi-User Login Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .test-section { background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 10px; }
+        .user-card { background: white; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .info { color: blue; font-style: italic; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🔐 Multi-User Login Test</h1>
+    
+    <div class="test-section">
+        <h2>How Multi-User Login Works</h2>
+        <div class="info">
+            When multiple users share the same mobile number (family members), the login process works as follows:
+            <ol>
+                <li>Enter mobile number + password</li>
+                <li>If multiple users found → User selection screen appears</li>
+                <li>Select your account by clicking your card</li>
+                <li>Automatic login as selected user</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📱 Test Mobile: 9876543210</h2>
+        <p class="info">This mobile number has multiple family members registered</p>
+        
+        <button onclick="createTestFamily()">Create Test Family Users</button>
+        <button onclick="showExistingUsers()">Show Existing Users</button>
+        <button onclick="testLogin()">Test Login</button>
+        
+        <div id="familyResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Test Steps</h2>
+        <ol>
+            <li>Click "Create Test Family Users" (creates parent + 2 children)</li>
+            <li>Go to <a href="/auth/login" target="_blank">Login Page</a></li>
+            <li>Enter Mobile: <strong>9876543210</strong></li>
+            <li>Enter Password: <strong>password123</strong></li>
+            <li>Click Sign In</li>
+            <li>🎯 User selection screen should appear!</li>
+            <li>Click any user card to login as that user</li>
+        </ol>
+    </div>
+
+    <script>
+        async function createTestFamily() {
+            try {
+                const response = await fetch('/api/test/create-family-users', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('familyResult').innerHTML = `
+                        <div class="success">✅ Family users created!</div>
+                        <div class="user-card">
+                            <h4>Created Users:</h4>
+                            ${result.users.map(user => `
+                                <div>• ${user.name} (${user.champId})</div>
+                            `).join('')}
+                        </div>
+                        <div class="user-card">
+                            <h4>Login Credentials:</h4>
+                            <div>📱 Mobile: ${result.loginInfo.mobile}</div>
+                            <div>🔑 Password: ${result.loginInfo.password}</div>
+                            <div class="info">${result.loginInfo.note}</div>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('familyResult').innerHTML = `
+                        <div class="error">❌ ${result.message}</div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('familyResult').innerHTML = `
+                    <div class="error">❌ Error: ${error.message}</div>
+                `;
+            }
+        }
+
+        async function showExistingUsers() {
+            try {
+                const response = await fetch('/api/admin/users');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const testMobileUsers = result.users.filter(user => 
+                        user.mobile === '9876543210'
+                    );
+                    
+                    if (testMobileUsers.length > 0) {
+                        document.getElementById('familyResult').innerHTML = `
+                            <div class="success">📋 Found ${testMobileUsers.length} users with mobile 9876543210:</div>
+                            ${testMobileUsers.map(user => `
+                                <div class="user-card">
+                                    <strong>${user.name}</strong> (${user.champId || 'No ChampID'})
+                                    <br>📧 ${user.email}
+                                    <br>🏃 ${user.preferredSport}
+                                    <br>📊 ${user.status} | 💰 ${user.paymentStatus}
+                                </div>
+                            `).join('')}
+                        `;
+                    } else {
+                        document.getElementById('familyResult').innerHTML = `
+                            <div class="info">ℹ️ No users found with mobile 9876543210</div>
+                        `;
+                    }
+                }
+            } catch (error) {
+                document.getElementById('familyResult').innerHTML = `
+                    <div class="error">❌ Error fetching users: ${error.message}</div>
+                `;
+            }
+        }
+
+        function testLogin() {
+            window.open('/auth/login', '_blank');
+        }
+    </script>
+</body>
+</html>

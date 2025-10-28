@@ -45,6 +45,10 @@ import {
   Refresh,
   CheckCircle,
   Check,
+  Add,
+  CalendarCheck,
+  ArrowUpward,
+  ArrowDownward,
 } from "@mui/icons-material";
 
 // Time slots constant to match registration page format
@@ -98,6 +102,8 @@ interface User {
   status: string;
   verifiedAt?: string;
   createdAt: string;
+  comments?: string;
+  mode?: string;
 }
 
 interface Stats {
@@ -145,6 +151,15 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [alert, setAlert] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
+
+  // Sorting state for user table
+  const [sortConfig, setSortConfig] = useState<{
+    key: keyof User | null;
+    direction: 'asc' | 'desc';
+  }>({
+    key: null,
+    direction: 'asc',
+  });
   
   // Edit User Dialog states
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
@@ -160,7 +175,9 @@ export default function AdminDashboard() {
     selectedCourt: '',
     subscriptionType: '',
     status: '',
-    paymentStatus: ''
+    paymentStatus: '',
+    comments: '',
+    mode: ''
   });
 
   // ChampID validation states
@@ -191,6 +208,61 @@ export default function AdminDashboard() {
       return;
     }
   }, [session, status, router]);
+
+  // Sorting functions for user table
+  const handleSort = (key: keyof User) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortedUsers = () => {
+    if (!sortConfig.key) return users;
+
+    return [...users].sort((a, b) => {
+      const aValue = a[sortConfig.key!];
+      const bValue = b[sortConfig.key!];
+
+      // Handle null/undefined values
+      if (aValue === null || aValue === undefined) return 1;
+      if (bValue === null || bValue === undefined) return -1;
+
+      // Convert to string for comparison
+      const aStr = String(aValue).toLowerCase();
+      const bStr = String(bValue).toLowerCase();
+
+      if (aStr < bStr) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aStr > bStr) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+  };
+
+  const sortedUsers = getSortedUsers();
+
+  // Sortable header component
+  const SortableHeader = ({ column, children }: { column: keyof User; children: React.ReactNode }) => (
+    <TableCell 
+      onClick={() => handleSort(column)}
+      sx={{ 
+        cursor: 'pointer', 
+        userSelect: 'none',
+        '&:hover': { backgroundColor: 'action.hover' }
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        {children}
+        {sortConfig.key === column && (
+          sortConfig.direction === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />
+        )}
+      </Box>
+    </TableCell>
+  );
 
   // Fetch data
   const fetchData = async () => {
@@ -262,7 +334,9 @@ export default function AdminDashboard() {
       selectedCourt: user.selectedCourt || '',
       subscriptionType: user.subscriptionType || '',
       status: user.status || 'pending',
-      paymentStatus: user.paymentStatus || 'pending'
+      paymentStatus: user.paymentStatus || 'pending',
+      comments: user.comments || '',
+      mode: user.mode || ''
     });
     
     // Reset ChampID validation to valid if user already has a ChampID
@@ -291,9 +365,19 @@ export default function AdminDashboard() {
     console.log('ChampID validation:', champIdValidation);
 
     try {
-      // Validate ChampID if provided and changed
-      if (editUserFormData.champId && 
-          editUserFormData.champId !== (selectedUser.champId || '') && 
+      // Validate ChampID is required
+      if (!editUserFormData.champId || editUserFormData.champId.trim() === '') {
+        console.log('ChampID is required');
+        setAlert({ 
+          type: "error", 
+          message: "ChampID is required for all users" 
+        });
+        setTimeout(() => setAlert(null), 5000);
+        return;
+      }
+
+      // Validate ChampID if changed
+      if (editUserFormData.champId !== (selectedUser.champId || '') && 
           champIdValidation.isValid !== true) {
         console.log('ChampID validation failed');
         setAlert({ 
@@ -311,7 +395,7 @@ export default function AdminDashboard() {
         
         console.log('Checking court availability for badminton user...');
         
-        // Check if there are already 4 users with same court, time slot and sport
+        // Check if there are already 6 users with same court, time slot and sport
         const availabilityResponse = await fetch('/api/check-court-availability', {
           method: 'POST',
           headers: {
@@ -331,7 +415,7 @@ export default function AdminDashboard() {
         if (!availabilityData.canBook) {
           setAlert({ 
             type: 'error', 
-            message: `Court ${editUserFormData.selectedCourt} is fully booked for ${editUserFormData.preferredTimeSlot}. Maximum 4 slots per court. Please choose a different time slot or court.` 
+            message: `Court ${editUserFormData.selectedCourt} is fully booked for ${editUserFormData.preferredTimeSlot}. Maximum 6 slots per court. Please choose a different time slot or court.` 
           });
           setTimeout(() => setAlert(null), 5000);
           return;
@@ -655,6 +739,7 @@ export default function AdminDashboard() {
         <Tabs value={tabValue} onChange={handleTabChange} sx={{ borderBottom: 1, borderColor: "divider" }}>
           <Tab label="Recent Bookings" />
           <Tab label="Users" />
+          <Tab label="Slots Stats" />
           <Tab label="Settings" />
         </Tabs>
 
@@ -737,30 +822,42 @@ export default function AdminDashboard() {
         <TabPanel value={tabValue} index={1}>
           <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6">User Management</Typography>
-            <Button variant="contained" startIcon={<Refresh />} onClick={fetchData}>
-              Refresh
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button 
+                variant="contained" 
+                startIcon={<Add />} 
+                onClick={() => router.push('/register')}
+                sx={{ mr: 1 }}
+              >
+                Add New User
+              </Button>
+              <Button variant="outlined" startIcon={<Refresh />} onClick={fetchData}>
+                Refresh
+              </Button>
+            </Box>
           </Box>
           
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Champ ID</TableCell>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Mobile</TableCell>
-                  <TableCell>Sport</TableCell>
-                  <TableCell>Preferred Time Slot</TableCell>
-                  <TableCell>Court</TableCell>
-                  <TableCell>Subscription</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Payment</TableCell>
+                  <SortableHeader column="champId">Champ ID</SortableHeader>
+                  <SortableHeader column="name">Name</SortableHeader>
+                  <SortableHeader column="email">Email</SortableHeader>
+                  <SortableHeader column="mobile">Mobile</SortableHeader>
+                  <SortableHeader column="preferredSport">Sport</SortableHeader>
+                  <SortableHeader column="preferredTimeSlot">Preferred Time Slot</SortableHeader>
+                  <SortableHeader column="selectedCourt">Court</SortableHeader>
+                  <SortableHeader column="subscriptionType">Subscription</SortableHeader>
+                  <SortableHeader column="status">Status</SortableHeader>
+                  <SortableHeader column="paymentStatus">Payment</SortableHeader>
+                  <SortableHeader column="comments">Comments</SortableHeader>
+                  <SortableHeader column="mode">Mode</SortableHeader>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {users.map((user) => (
+                {sortedUsers.map((user) => (
                   <TableRow key={user._id}>
                     <TableCell>
                       <Chip 
@@ -813,6 +910,19 @@ export default function AdminDashboard() {
                       />
                     </TableCell>
                     <TableCell>
+                      <Typography variant="body2" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {user.comments || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={user.mode || 'N/A'} 
+                        color={user.mode === 'fixed' ? 'primary' : user.mode === 'flexible' ? 'secondary' : 'default'}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
                       <Button size="small" onClick={() => handleEditUser(user)} startIcon={<Edit />}>
                         Edit
                       </Button>
@@ -827,8 +937,311 @@ export default function AdminDashboard() {
           </TableContainer>
         </TabPanel>
 
-        {/* Settings Tab */}
+        {/* Slots Stats Tab */}
         <TabPanel value={tabValue} index={2}>
+          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">Court Slots Overview</Typography>
+            <Button 
+              variant="outlined" 
+              startIcon={<Refresh />} 
+              onClick={fetchData}
+            >
+              Refresh Data
+            </Button>
+          </Box>
+          
+          <Box sx={{ mb: 3 }}>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Real-time view of court availability across all time slots. Each court can accommodate up to 6 players per slot.
+            </Alert>
+            
+            <Grid container spacing={2}>
+              {['S1', 'S2', 'S3'].map((courtId) => (
+                <Grid item xs={12} md={4} key={courtId}>
+                  <Paper sx={{ p: 2 }}>
+                    <Typography variant="h6" sx={{ mb: 2, textAlign: 'center', fontWeight: 'bold' }}>
+                      Court {courtId}
+                    </Typography>
+                    
+                    <Grid container spacing={1}>
+                      {TIME_SLOTS.map((slot) => {
+                        // Get registered users for this slot and court
+                        const registeredUsers = users.filter(user => 
+                          user.selectedCourt === courtId && 
+                          user.preferredTimeSlot === slot &&
+                          user.preferredSport === 'Shuttle Badminton'
+                        );
+
+                        // Get hourly bookings for this slot and court for today
+                        const today = new Date().toDateString();
+                        const hourlyBookings = bookings.filter(booking => 
+                          booking.court === courtId &&
+                          booking.sport === 'Shuttle Badminton' &&
+                          new Date(booking.date).toDateString() === today &&
+                          booking.timeSlots.some(bookingSlot => {
+                            // Normalize time slot format for comparison
+                            const normalizeSlot = (s: string) => s.replace(/\s+/g, ' ').trim();
+                            return normalizeSlot(bookingSlot) === normalizeSlot(slot);
+                          }) &&
+                          ['confirmed', 'pending'].includes(booking.bookingStatus) &&
+                          booking.paymentStatus !== 'expired'
+                        );
+
+                        // Calculate total occupancy (registered users + hourly bookings)
+                        const registeredCount = registeredUsers.length;
+                        const hourlyBookingCount = hourlyBookings.length;
+                        const totalOccupancy = registeredCount + hourlyBookingCount;
+                        const isAvailable = totalOccupancy < 6;
+                        
+                        return (
+                          <Grid item xs={6} key={slot}>
+                            <Paper 
+                              sx={{ 
+                                p: 1, 
+                                textAlign: 'center',
+                                backgroundColor: isAvailable ? '#e8f5e8' : '#ffebee',
+                                border: isAvailable ? '1px solid #4caf50' : '1px solid #f44336',
+                                minHeight: '80px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.7rem' }}>
+                                {slot}
+                              </Typography>
+                              <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                  color: isAvailable ? '#2e7d32' : '#d32f2f',
+                                  fontWeight: 'bold',
+                                  fontSize: '0.8rem'
+                                }}
+                              >
+                                {totalOccupancy}/6
+                              </Typography>
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                {registeredCount > 0 && (
+                                  <Chip 
+                                    label={`${registeredCount} Reg`} 
+                                    size="small"
+                                    color="primary"
+                                    sx={{ fontSize: '0.5rem', height: '14px' }}
+                                  />
+                                )}
+                                {hourlyBookingCount > 0 && (
+                                  <Chip 
+                                    label={`${hourlyBookingCount} Book`} 
+                                    size="small"
+                                    color="secondary"
+                                    sx={{ fontSize: '0.5rem', height: '14px' }}
+                                  />
+                                )}
+                                {totalOccupancy === 0 && (
+                                  <Chip 
+                                    label="Available" 
+                                    size="small"
+                                    color="success"
+                                    sx={{ fontSize: '0.5rem', height: '14px' }}
+                                  />
+                                )}
+                                {totalOccupancy >= 6 && (
+                                  <Chip 
+                                    label="Full" 
+                                    size="small"
+                                    color="error"
+                                    sx={{ fontSize: '0.5rem', height: '14px' }}
+                                  />
+                                )}
+                              </Box>
+                            </Paper>
+                          </Grid>
+                        );
+                      })}
+                    </Grid>
+                    
+                    <Box sx={{ mt: 2, textAlign: 'center' }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Total: {(() => {
+                          const registeredUsers = users.filter(user => 
+                            user.selectedCourt === courtId && 
+                            user.preferredSport === 'Shuttle Badminton'
+                          ).length;
+                          
+                          const today = new Date().toDateString();
+                          const hourlyBookings = bookings.filter(booking => 
+                            booking.court === courtId &&
+                            booking.sport === 'Shuttle Badminton' &&
+                            new Date(booking.date).toDateString() === today &&
+                            ['confirmed', 'pending'].includes(booking.bookingStatus) &&
+                            booking.paymentStatus !== 'expired'
+                          ).length;
+                          
+                          return `${registeredUsers + hourlyBookings} (${registeredUsers} Reg + ${hourlyBookings} Book)`;
+                        })()}
+                      </Typography>
+                    </Box>
+                  </Paper>
+                </Grid>
+              ))}
+            </Grid>
+            
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>Quick Stats</Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" gutterBottom>
+                        Total Available Slots
+                      </Typography>
+                      <Typography variant="h4" component="div">
+                        {(() => {
+                          const totalCapacity = TIME_SLOTS.length * 3 * 6;
+                          const registeredUsers = users.filter(user => 
+                            user.preferredSport === 'Shuttle Badminton' && 
+                            ['S1', 'S2', 'S3'].includes(user.selectedCourt || '')
+                          ).length;
+                          
+                          const today = new Date().toDateString();
+                          const hourlyBookings = bookings.filter(booking => 
+                            booking.sport === 'Shuttle Badminton' &&
+                            ['S1', 'S2', 'S3'].includes(booking.court || '') &&
+                            new Date(booking.date).toDateString() === today &&
+                            ['confirmed', 'pending'].includes(booking.bookingStatus) &&
+                            booking.paymentStatus !== 'expired'
+                          ).reduce((total, booking) => total + booking.timeSlots.length, 0);
+                          
+                          return totalCapacity - registeredUsers - hourlyBookings;
+                        })()}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" gutterBottom>
+                        Total Occupied Slots
+                      </Typography>
+                      <Typography variant="h4" component="div">
+                        {(() => {
+                          const registeredUsers = users.filter(user => 
+                            user.preferredSport === 'Shuttle Badminton' && 
+                            ['S1', 'S2', 'S3'].includes(user.selectedCourt || '')
+                          ).length;
+                          
+                          const today = new Date().toDateString();
+                          const hourlyBookings = bookings.filter(booking => 
+                            booking.sport === 'Shuttle Badminton' &&
+                            ['S1', 'S2', 'S3'].includes(booking.court || '') &&
+                            new Date(booking.date).toDateString() === today &&
+                            ['confirmed', 'pending'].includes(booking.bookingStatus) &&
+                            booking.paymentStatus !== 'expired'
+                          ).reduce((total, booking) => total + booking.timeSlots.length, 0);
+                          
+                          return registeredUsers + hourlyBookings;
+                        })()}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {(() => {
+                          const registeredUsers = users.filter(user => 
+                            user.preferredSport === 'Shuttle Badminton' && 
+                            ['S1', 'S2', 'S3'].includes(user.selectedCourt || '')
+                          ).length;
+                          
+                          const today = new Date().toDateString();
+                          const hourlyBookings = bookings.filter(booking => 
+                            booking.sport === 'Shuttle Badminton' &&
+                            ['S1', 'S2', 'S3'].includes(booking.court || '') &&
+                            new Date(booking.date).toDateString() === today &&
+                            ['confirmed', 'pending'].includes(booking.bookingStatus) &&
+                            booking.paymentStatus !== 'expired'
+                          ).reduce((total, booking) => total + booking.timeSlots.length, 0);
+                          
+                          return `${registeredUsers} Registered + ${hourlyBookings} Hourly`;
+                        })()}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" gutterBottom>
+                        Peak Time Slots
+                      </Typography>
+                      <Typography variant="h6" component="div">
+                        {(() => {
+                          const today = new Date().toDateString();
+                          const slotCounts = TIME_SLOTS.map(slot => {
+                            const registeredCount = users.filter(user => 
+                              user.preferredTimeSlot === slot && 
+                              user.preferredSport === 'Shuttle Badminton'
+                            ).length;
+                            
+                            const hourlyBookingCount = bookings.filter(booking => 
+                              booking.sport === 'Shuttle Badminton' &&
+                              new Date(booking.date).toDateString() === today &&
+                              booking.timeSlots.some(bookingSlot => {
+                                const normalizeSlot = (s: string) => s.replace(/\s+/g, ' ').trim();
+                                return normalizeSlot(bookingSlot) === normalizeSlot(slot);
+                              }) &&
+                              ['confirmed', 'pending'].includes(booking.bookingStatus) &&
+                              booking.paymentStatus !== 'expired'
+                            ).length;
+                            
+                            return {
+                              slot,
+                              count: registeredCount + hourlyBookingCount
+                            };
+                          });
+                          
+                          const maxCount = Math.max(...slotCounts.map(s => s.count));
+                          const peakSlots = slotCounts.filter(s => s.count === maxCount);
+                          return peakSlots.length > 0 ? peakSlots[0].slot : 'N/A';
+                        })()}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <Card>
+                    <CardContent>
+                      <Typography color="text.secondary" gutterBottom>
+                        Capacity Utilization
+                      </Typography>
+                      <Typography variant="h4" component="div">
+                        {(() => {
+                          const totalCapacity = TIME_SLOTS.length * 3 * 6;
+                          const registeredUsers = users.filter(user => 
+                            user.preferredSport === 'Shuttle Badminton' && 
+                            ['S1', 'S2', 'S3'].includes(user.selectedCourt || '')
+                          ).length;
+                          
+                          const today = new Date().toDateString();
+                          const hourlyBookings = bookings.filter(booking => 
+                            booking.sport === 'Shuttle Badminton' &&
+                            ['S1', 'S2', 'S3'].includes(booking.court || '') &&
+                            new Date(booking.date).toDateString() === today &&
+                            ['confirmed', 'pending'].includes(booking.bookingStatus) &&
+                            booking.paymentStatus !== 'expired'
+                          ).reduce((total, booking) => total + booking.timeSlots.length, 0);
+                          
+                          const totalOccupied = registeredUsers + hourlyBookings;
+                          return Math.round((totalOccupied / totalCapacity) * 100);
+                        })()}%
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+            </Box>
+          </Box>
+        </TabPanel>
+
+        {/* Settings Tab */}
+        <TabPanel value={tabValue} index={3}>
           <Typography variant="h6" sx={{ mb: 2 }}>System Settings</Typography>
           <Typography variant="body1">Settings panel coming soon...</Typography>
         </TabPanel>
@@ -844,6 +1257,7 @@ export default function AdminDashboard() {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
+                  required
                   label="Champion ID"
                   placeholder="S25911"
                   value={editUserFormData.champId}
@@ -858,9 +1272,9 @@ export default function AdminDashboard() {
                   helperText={
                     champIdValidation.isChecking 
                       ? "Checking availability..." 
-                      : champIdValidation.message || "Format: S##### (e.g., S25911)"
+                      : champIdValidation.message || "Required. Format: S##### (e.g., S25911)"
                   }
-                  error={champIdValidation.isValid === false}
+                  error={!editUserFormData.champId || champIdValidation.isValid === false}
                   InputProps={{
                     style: { 
                       color: champIdValidation.isValid === true ? '#2e7d32' : 
@@ -1006,6 +1420,35 @@ export default function AdminDashboard() {
                     <MenuItem value="pending">Pending</MenuItem>
                     <MenuItem value="completed">Completed</MenuItem>
                     <MenuItem value="failed">Failed</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              {/* Comments Field */}
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={3}
+                  label="Comments"
+                  value={editUserFormData.comments}
+                  onChange={(e) => setEditUserFormData(prev => ({ ...prev, comments: e.target.value }))}
+                  placeholder="Any additional comments or notes..."
+                />
+              </Grid>
+              
+              {/* Mode Field */}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Mode</InputLabel>
+                  <Select
+                    value={editUserFormData.mode}
+                    onChange={(e) => setEditUserFormData(prev => ({ ...prev, mode: e.target.value }))}
+                    label="Mode"
+                  >
+                    <MenuItem value="">None</MenuItem>
+                    <MenuItem value="fixed">Fixed</MenuItem>
+                    <MenuItem value="flexible">Flexible</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>

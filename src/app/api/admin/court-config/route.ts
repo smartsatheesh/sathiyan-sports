@@ -58,9 +58,9 @@ export async function GET(req: NextRequest) {
   try {
     // Return default court configuration
     const defaultCourtConfig = [
-      { courtId: 'S1', name: 'Court S1', maxCapacity: 4, isActive: true },
-      { courtId: 'S2', name: 'Court S2', maxCapacity: 4, isActive: true },
-      { courtId: 'S3', name: 'Court S3', maxCapacity: 4, isActive: true },
+      { courtId: 'S1', name: 'Court S1', maxCapacity: 6, isActive: true },
+      { courtId: 'S2', name: 'Court S2', maxCapacity: 6, isActive: true },
+      { courtId: 'S3', name: 'Court S3', maxCapacity: 6, isActive: true },
     ];
 
     return NextResponse.json({

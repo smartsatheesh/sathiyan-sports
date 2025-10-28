@@ -34,12 +34,15 @@ import Link from 'next/link';
 export default function LoginPage() {
   const [formData, setFormData] = useState({
     mobile: '',
-    password: ''
+    password: '',
+    champId: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState('');
   const [error, setError] = useState('');
+  const [userOptions, setUserOptions] = useState<Array<{champId: string, name: string, hasPassword: boolean}>>([]);
+  const [showUserSelection, setShowUserSelection] = useState(false);
   
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -65,7 +68,7 @@ export default function LoginPage() {
     setError(''); // Clear error when user types
   };
 
-  const handleCredentialsLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.mobile || !formData.password) {
@@ -84,11 +87,16 @@ export default function LoginPage() {
     setError('');
 
     try {
-      console.log('Attempting login with:', { mobile: formData.mobile, passwordLength: formData.password.length });
+      console.log('Attempting login with:', { 
+        mobile: formData.mobile, 
+        champId: formData.champId,
+        passwordLength: formData.password.length 
+      });
       
       const result = await signIn('credentials', {
         mobile: formData.mobile,
         password: formData.password,
+        champId: formData.champId || '',
         redirect: false,
       });
 
@@ -96,7 +104,22 @@ export default function LoginPage() {
 
       if (result?.error) {
         console.error('Login error:', result.error);
-        setError(result.error);
+        
+        // Check if error indicates multiple users
+        if (result.error.startsWith('MULTIPLE_USERS:')) {
+          const userOptionsStr = result.error.replace('MULTIPLE_USERS:', '');
+          try {
+            const options = JSON.parse(userOptionsStr);
+            setUserOptions(options);
+            setShowUserSelection(true);
+            setError('Multiple accounts found with this mobile number. Please select your account below:');
+          } catch (parseError) {
+            console.error('Error parsing user options:', parseError);
+            setError('Multiple accounts found. Please contact support.');
+          }
+        } else {
+          setError(result.error);
+        }
       } else if (result?.ok) {
         console.log('Login successful, redirecting to:', callbackUrl);
         router.push(callbackUrl);
@@ -109,6 +132,19 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUserSelection = (champId: string) => {
+    setFormData(prev => ({ ...prev, champId }));
+    setShowUserSelection(false);
+    setError('');
+    // Automatically retry login with selected user
+    setTimeout(() => {
+      const form = document.querySelector('form');
+      if (form) {
+        form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+      }
+    }, 100);
   };
 
   const handleSocialLogin = async (provider: 'google' | 'facebook') => {
@@ -160,8 +196,70 @@ export default function LoginPage() {
             </Alert>
           )}
 
+          {/* User Selection for Multiple Users */}
+          {showUserSelection && userOptions.length > 0 && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Select Your Account
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Multiple accounts found with this mobile number. Please select your account:
+              </Typography>
+              <Grid container spacing={2}>
+                {userOptions.map((user, index) => (
+                  <Grid item xs={12} key={user.champId}>
+                    <Card 
+                      sx={{ 
+                        cursor: user.hasPassword ? 'pointer' : 'not-allowed',
+                        opacity: user.hasPassword ? 1 : 0.6,
+                        border: '1px solid',
+                        borderColor: user.hasPassword ? 'primary.main' : 'grey.300',
+                        '&:hover': {
+                          borderColor: user.hasPassword ? 'primary.dark' : 'grey.300',
+                          boxShadow: user.hasPassword ? 2 : 0
+                        }
+                      }}
+                      onClick={() => user.hasPassword && handleUserSelection(user.champId)}
+                    >
+                      <CardContent sx={{ py: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Box>
+                            <Typography variant="subtitle1" fontWeight="medium">
+                              {user.name}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              ChampID: {user.champId}
+                            </Typography>
+                          </Box>
+                          {!user.hasPassword && (
+                            <Typography variant="caption" color="error">
+                              Social Login Only
+                            </Typography>
+                          )}
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+              <Button
+                variant="text"
+                onClick={() => {
+                  setShowUserSelection(false);
+                  setUserOptions([]);
+                  setFormData(prev => ({ ...prev, champId: '' }));
+                }}
+                sx={{ mt: 2 }}
+              >
+                Back to Login
+              </Button>
+            </Box>
+          )}
+
           {/* Social Login Buttons */}
-          <Grid container spacing={2} sx={{ mb: 3 }}>
+          {!showUserSelection && (
+            <>
+              <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={6}>
               <Button
                 fullWidth
@@ -206,7 +304,7 @@ export default function LoginPage() {
           </Divider>
 
           {/* Credentials Login Form */}
-          <Box component="form" onSubmit={handleCredentialsLogin}>
+          <Box component="form" onSubmit={handleSubmit}>
             <TextField
               fullWidth
               label="Mobile Number"
@@ -269,6 +367,8 @@ export default function LoginPage() {
               )}
             </Button>
           </Box>
+            </>
+          )}
 
           {/* Links */}
           <Box sx={{ textAlign: 'center', mt: 3 }}>

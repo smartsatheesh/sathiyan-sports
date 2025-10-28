@@ -59,15 +59,20 @@ export const authOptions: AuthOptions = {
       : []
     ),
     
-    // Custom Credentials Provider (Mobile + Password)
+    // Custom Credentials Provider (Mobile + Password + Optional ChampID)
     CredentialsProvider({
       name: 'credentials',
       credentials: {
         mobile: { label: 'Mobile Number', type: 'text' },
-        password: { label: 'Password', type: 'password' }
+        password: { label: 'Password', type: 'password' },
+        champId: { label: 'Champion ID (if multiple users)', type: 'text' }
       },
       async authorize(credentials) {
-        console.log('🔐 Authorization attempt:', { mobile: credentials?.mobile, hasPassword: !!credentials?.password });
+        console.log('🔐 Authorization attempt:', { 
+          mobile: credentials?.mobile, 
+          champId: credentials?.champId,
+          hasPassword: !!credentials?.password 
+        });
         
         if (!credentials?.mobile || !credentials?.password) {
           console.error('❌ Missing credentials');
@@ -78,16 +83,63 @@ export const authOptions: AuthOptions = {
           console.log('🔌 Connecting to database...');
           await connectToMongoose();
           
-          console.log('🔍 Looking for user with mobile:', credentials.mobile);
-          // Find user by mobile number
-          const user = await (User.findOne as any)({ mobile: credentials.mobile });
+          console.log('🔍 Looking for users with mobile:', credentials.mobile);
+          // Find all users with this mobile number
+          const users = await (User.find as any)({ mobile: credentials.mobile });
           
-          if (!user) {
-            console.error('❌ No user found with mobile:', credentials.mobile);
+          if (!users || users.length === 0) {
+            console.error('❌ No users found with mobile:', credentials.mobile);
             throw new Error('No user found with this mobile number');
           }
 
-          console.log('✅ User found:', { id: user._id, name: user.name, hasPassword: !!user.password });
+          console.log(`✅ Found ${users.length} user(s) with this mobile number`);
+
+          // If specific champId provided, find that user
+          if (credentials.champId && credentials.champId.trim() !== '') {
+            const selectedUser = users.find((u: any) => u.champId === credentials.champId);
+            if (!selectedUser) {
+              console.error('❌ No user found with champId:', credentials.champId);
+              throw new Error('Invalid Champion ID for this mobile number');
+            }
+            
+            console.log('✅ User selected by ChampID:', { id: selectedUser._id, name: selectedUser.name, champId: selectedUser.champId });
+            
+            // Check password for selected user
+            if (!selectedUser.password) {
+              console.error('❌ Selected user has no password (probably social login)');
+              throw new Error('Please login using Google or Facebook');
+            }
+
+            const isPasswordValid = await bcrypt.compare(credentials.password, selectedUser.password);
+            if (!isPasswordValid) {
+              console.error('❌ Invalid password for selected user');
+              throw new Error('Invalid password');
+            }
+
+            return {
+              id: selectedUser._id.toString(),
+              name: selectedUser.name,
+              email: selectedUser.email,
+              role: selectedUser.role || 'customer',
+              mobile: selectedUser.mobile,
+            };
+          }
+
+          // If multiple users found and no champId provided, return user selection info
+          if (users.length > 1) {
+            const userOptions = users.map((u: any) => ({
+              champId: u.champId,
+              name: u.name,
+              hasPassword: !!u.password
+            }));
+            
+            console.log('🔀 Multiple users found, requiring selection:', userOptions);
+            throw new Error(`MULTIPLE_USERS:${JSON.stringify(userOptions)}`);
+          }
+
+          // Single user found - proceed with normal login
+          const user = users[0];
+          console.log('✅ Single user found:', { id: user._id, name: user.name, hasPassword: !!user.password });
 
           // Check if user has a password (for social login users)
           if (!user.password) {

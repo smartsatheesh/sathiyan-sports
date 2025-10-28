@@ -57,6 +57,14 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
     // Remove sensitive fields that shouldn't be updated via this endpoint
     const { password, _id, __v, ...updateData } = body;
 
+    // Validate required champId field
+    if (!updateData.champId || updateData.champId.trim() === '') {
+      return NextResponse.json(
+        { message: "ChampID is required for all users", success: false },
+        { status: 400 }
+      );
+    }
+
     // Get current user data to check for changes that require validation
     const currentUser = await (User.findById as any)(userId);
     if (!currentUser) {

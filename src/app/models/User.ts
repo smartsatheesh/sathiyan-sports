@@ -3,8 +3,8 @@ import mongoose from "mongoose";
 const userSchema = new mongoose.Schema({
   champId: {
     type: String,
+    required: [true, "ChampID is required"],
     unique: true,
-    sparse: true, // Allow null for existing users
   },
   name: {
     type: String,
@@ -112,6 +112,14 @@ const userSchema = new mongoose.Schema({
   },
   resetPasswordExpires: {
     type: Date,
+  },
+  // New fields for registration
+  comments: {
+    type: String,
+  },
+  mode: {
+    type: String,
+    enum: ["fixed", "flexible"],
   },
   createdAt: {
     type: Date,

@@ -979,7 +979,7 @@ export default function AdminDashboard() {
         return;
       }
 
-      // Check court capacity (4-user limit) before adding slot
+      // Check court capacity (6-user limit) before adding slot
       const availabilityResponse = await fetch('/api/check-court-availability', {
         method: 'POST',
         headers: {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToMongoose } from "@/app/server/mongodb";
 import User from "@/app/models/User";
 
-const COURT_CAPACITY = 4; // Maximum 4 users per court per time slot
+const COURT_CAPACITY = 6; // Maximum 6 users per court per time slot
 const COURTS = ["S1", "S2", "S3"];
 
 // Utility function to normalize time slot formats
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
         result.suggestedCourts = freeCourts.map(c => c.court); // Return court names, not objects
       } else {
         result.canBook = false;
-        result.message = `❌ All courts are at full capacity (4/4 slots occupied) for ${timeSlot}. Please choose a different time slot.`;
+        result.message = `❌ All courts are at full capacity (6/6 slots occupied) for ${timeSlot}. Please choose a different time slot.`;
         result.suggestedCourts = [];
       }
     }

@@ -40,7 +40,7 @@ const TIME_SLOTS = [
 
 const DAYS_OF_WEEK = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 const COURTS = ['S1', 'S2', 'S3'];
-const DEFAULT_CAPACITY = 4;
+const DEFAULT_CAPACITY = 6;
 
 export async function POST(req: NextRequest) {
   try {

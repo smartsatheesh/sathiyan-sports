@@ -79,9 +79,9 @@ export default function SlotTrackingPage() {
   const [loading, setLoading] = useState(true);
   const [slotData, setSlotData] = useState<SlotData[]>([]);
   const [courtConfigs, setCourtConfigs] = useState<CourtConfig[]>([
-    { courtId: 'S1', name: 'Court S1', maxCapacity: 4, isActive: true },
-    { courtId: 'S2', name: 'Court S2', maxCapacity: 4, isActive: true },
-    { courtId: 'S3', name: 'Court S3', maxCapacity: 4, isActive: true },
+    { courtId: 'S1', name: 'Court S1', maxCapacity: 6, isActive: true },
+    { courtId: 'S2', name: 'Court S2', maxCapacity: 6, isActive: true },
+    { courtId: 'S3', name: 'Court S3', maxCapacity: 6, isActive: true },
   ]);
   const [viewType, setViewType] = useState<'weekly' | 'monthly'>('weekly');
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -514,7 +514,7 @@ export default function SlotTrackingPage() {
                     value={court.maxCapacity}
                     onChange={(e) => {
                       const newConfigs = [...courtConfigs];
-                      newConfigs[index].maxCapacity = parseInt(e.target.value) || 4;
+                      newConfigs[index].maxCapacity = parseInt(e.target.value) || 6;
                       setCourtConfigs(newConfigs);
                     }}
                     fullWidth

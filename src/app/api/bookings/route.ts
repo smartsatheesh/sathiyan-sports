@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 
     const existingBookings = await (Booking.find as any)(existingBookingsQuery);
 
-    // For Shuttle Badminton, check capacity limit (4 users per court per slot)
+    // For Shuttle Badminton, check capacity limit (6 users per court per slot)
     if (sport === "Shuttle Badminton" && court) {
       for (const requestedSlot of timeSlots) {
         // Count existing bookings for this specific slot and court
@@ -98,10 +98,10 @@ export async function POST(req: NextRequest) {
         
         const totalBookings = slotBookingsCount + registeredUsersCount;
         
-        if (totalBookings >= 4) {
+        if (totalBookings >= 6) {
           return NextResponse.json(
             { 
-              message: `Court ${court} is at full capacity (4/4 users) for ${requestedSlot}. Please choose a different court or time slot.`,
+              message: `Court ${court} is at full capacity (6/6 users) for ${requestedSlot}. Please choose a different court or time slot.`,
               success: false,
               conflictingSlots: [requestedSlot],
               type: "capacity_full"

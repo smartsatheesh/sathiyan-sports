@@ -128,15 +128,15 @@ export async function POST(req: Request) {
           }
         });
 
-        console.log(`📊 Final count for ${body.selectedCourt} at ${normalizedRequestedSlot}: ${totalUsersInSlot}/4 users`);
+        console.log(`📊 Final count for ${body.selectedCourt} at ${normalizedRequestedSlot}: ${totalUsersInSlot}/6 users`);
 
         // Check if adding this user would exceed the 4-user capacity
-        if (totalUsersInSlot >= 4) {
+        if (totalUsersInSlot >= 6) {
           console.log('❌ Registration: Court capacity exceeded -', totalUsersInSlot, 'users already in slot');
           return NextResponse.json(
             { 
               success: false, 
-              message: `Court ${body.selectedCourt} is at full capacity (${totalUsersInSlot}/4 users) for ${body.preferredTimeSlot}. Please choose a different court or time slot.`,
+              message: `Court ${body.selectedCourt} is at full capacity (${totalUsersInSlot}/6 users) for ${body.preferredTimeSlot}. Please choose a different court or time slot.`,
               capacityExceeded: true
             },
             { status: 400 }
@@ -147,27 +147,19 @@ export async function POST(req: Request) {
       }
     }
 
-    // Check if user already exists by email or mobile
-    const existingUser = await (User.findOne as any)({
-      $or: [
-        { email: body.email },
-        { mobile: body.mobile }
-      ]
-    });
-
-    if (existingUser) {
-      const field = existingUser.email === body.email ? "Email" : "Mobile number";
-      return NextResponse.json(
-        { success: false, message: `${field} already registered` },
-        { status: 400 }
-      );
-    }
-
     // Hash password
     const hashedPassword = await bcrypt.hash(body.password, 12);
 
     // Generate unique ChampID for new registration
     const champId = await generateNextChampId();
+    
+    // Ensure ChampID was generated successfully
+    if (!champId) {
+      return NextResponse.json(
+        { success: false, message: "Failed to generate ChampID. Please try again." },
+        { status: 500 }
+      );
+    }
 
     // Create new user with authentication fields
     const userData = {
@@ -191,6 +183,9 @@ export async function POST(req: Request) {
       isMobileVerified: false,
       // Keep legacy phone field for backward compatibility
       phone: body.mobile,
+      // New fields
+      comments: body.comments || "",
+      mode: body.mode || "",
     };
 
     const user = await (User.create as any)(userData);
@@ -230,9 +225,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // Handle duplicate key error
+    // Handle duplicate key error (should only be ChampID now)
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern)[0];
+      if (field === 'champId') {
+        return NextResponse.json(
+          { success: false, message: "ChampID already exists. Please try registering again." },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
         { success: false, message: `${field} already exists` },
         { status: 400 }
