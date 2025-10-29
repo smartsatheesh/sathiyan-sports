@@ -104,6 +104,16 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
       delete updateData.selectedCourt;
     }
 
+    // Clean up paymentMethod - remove if empty string to avoid enum validation error
+    if (updateData.paymentMethod === '') {
+      delete updateData.paymentMethod;
+    }
+
+    // Clean up transactionId - remove if empty string
+    if (updateData.transactionId === '') {
+      delete updateData.transactionId;
+    }
+
     // Check if user is being verified and payment is completed - populate registered slots
     const shouldPopulateSlots = 
       updateData.status === 'verified' && 

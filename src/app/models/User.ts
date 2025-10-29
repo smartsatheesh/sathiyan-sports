@@ -79,8 +79,46 @@ const userSchema = new mongoose.Schema({
   paymentStatus: {
     type: String,
     default: "pending",
-    enum: ["pending", "completed", "failed"],
-    },
+    enum: ["pending", "registered", "completed", "failed", "overdue"],
+  },
+  // Enhanced payment tracking fields
+  paymentCompletedDate: {
+    type: Date,
+  },
+  nextDueDate: {
+    type: Date,
+  },
+  billingCycleLength: {
+    type: Number, // For flexible months (1-5 for monthly)
+    default: 1,
+  },
+  lastPaymentAmount: {
+    type: Number,
+  },
+  paymentMethod: {
+    type: String,
+    enum: ["cash", "gpay", "phonepe", "bank_transfer", "whatsapp"],
+  },
+  transactionId: {
+    type: String,
+  },
+  paymentHistory: [{
+    paymentDate: { type: Date, required: true },
+    amount: { type: Number, required: true },
+    method: { type: String, required: true },
+    transactionId: { type: String },
+    billingPeriodStart: { type: Date, required: true },
+    billingPeriodEnd: { type: Date, required: true },
+    status: { type: String, enum: ["completed", "failed", "pending"], required: true }
+  }],
+  overdueDays: {
+    type: Number,
+    default: 0,
+  },
+  gracePeriodDays: {
+    type: Number,
+    default: 5, // 5 days grace period
+  },
   status: {
     type: String,
     default: "pending",

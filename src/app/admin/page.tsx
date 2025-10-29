@@ -46,7 +46,6 @@ import {
   CheckCircle,
   Check,
   Add,
-  CalendarCheck,
   ArrowUpward,
   ArrowDownward,
 } from "@mui/icons-material";
@@ -104,6 +103,18 @@ interface User {
   createdAt: string;
   comments?: string;
   mode?: string;
+  // Enhanced payment tracking fields
+  paymentCompletedDate?: string;
+  nextDueDate?: string;
+  billingCycleLength?: number;
+  lastPaymentAmount?: number;
+  paymentMethod?: string;
+  transactionId?: string;
+  overdueDays?: number;
+  gracePeriodDays?: number;
+  subscriptionStartDate?: string;
+  subscriptionEndDate?: string;
+  subscriptionAmount?: number;
 }
 
 interface Stats {
@@ -177,7 +188,13 @@ export default function AdminDashboard() {
     status: '',
     paymentStatus: '',
     comments: '',
-    mode: ''
+    mode: '',
+    // Enhanced payment fields
+    billingCycleLength: 1,
+    subscriptionAmount: 0,
+    paymentMethod: '',
+    transactionId: '',
+    gracePeriodDays: 5
   });
 
   // ChampID validation states
@@ -336,7 +353,13 @@ export default function AdminDashboard() {
       status: user.status || 'pending',
       paymentStatus: user.paymentStatus || 'pending',
       comments: user.comments || '',
-      mode: user.mode || ''
+      mode: user.mode || '',
+      // Enhanced payment fields
+      billingCycleLength: user.billingCycleLength || 1,
+      subscriptionAmount: user.subscriptionAmount || 0,
+      paymentMethod: user.paymentMethod || '',
+      transactionId: user.transactionId || '',
+      gracePeriodDays: user.gracePeriodDays || 5
     });
     
     // Reset ChampID validation to valid if user already has a ChampID
@@ -440,6 +463,14 @@ export default function AdminDashboard() {
           subscriptionType: editUserFormData.subscriptionType,
           status: editUserFormData.status,
           paymentStatus: editUserFormData.paymentStatus,
+          // Enhanced payment fields
+          billingCycleLength: editUserFormData.billingCycleLength,
+          subscriptionAmount: editUserFormData.subscriptionAmount,
+          // Only include paymentMethod if it has a value and is not empty string
+          ...(editUserFormData.paymentMethod && editUserFormData.paymentMethod !== '' && { paymentMethod: editUserFormData.paymentMethod }),
+          // Only include transactionId if it has a value and is not empty string
+          ...(editUserFormData.transactionId && editUserFormData.transactionId !== '' && { transactionId: editUserFormData.transactionId }),
+          gracePeriodDays: editUserFormData.gracePeriodDays,
         }),
       });
 
@@ -573,6 +604,87 @@ export default function AdminDashboard() {
     }
   };
 
+  // Payment management functions
+  const updateOverdueStatus = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/admin/overdue-status', {
+        method: 'POST',
+      });
+      
+      if (response.ok) {
+        setAlert({ type: 'success', message: 'Overdue status updated successfully!' });
+        await fetchData(); // Refresh the data
+      } else {
+        throw new Error('Failed to update overdue status');
+      }
+    } catch (error) {
+      setAlert({ 
+        type: 'error', 
+        message: error instanceof Error ? error.message : 'Failed to update overdue status' 
+      });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setAlert(null), 3000);
+    }
+  };
+
+  const registerUser = async (userId: string, subscriptionData: {
+    subscriptionType: 'monthly' | 'quarterly' | 'half yearly' | 'yearly';
+    cycleLength?: number;
+    amount: number;
+  }) => {
+    try {
+      const response = await fetch('/api/admin/payment-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, ...subscriptionData }),
+      });
+      
+      if (response.ok) {
+        setAlert({ type: 'success', message: 'User registered successfully!' });
+        await fetchData(); // Refresh the data
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to register user');
+      }
+    } catch (error) {
+      setAlert({ 
+        type: 'error', 
+        message: error instanceof Error ? error.message : 'Failed to register user' 
+      });
+    }
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  const markPaymentCompleted = async (userId: string, paymentData: {
+    amount: number;
+    method: string;
+    transactionId?: string;
+  }) => {
+    try {
+      const response = await fetch('/api/admin/payment-status', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, ...paymentData }),
+      });
+      
+      if (response.ok) {
+        setAlert({ type: 'success', message: 'Payment marked as completed!' });
+        await fetchData(); // Refresh the data
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to complete payment');
+      }
+    } catch (error) {
+      setAlert({ 
+        type: 'error', 
+        message: error instanceof Error ? error.message : 'Failed to complete payment' 
+      });
+    }
+    setTimeout(() => setAlert(null), 3000);
+  };
+
   // Booking management handlers
   const handleEditBooking = (booking: Booking) => {
     // TODO: Implement booking edit functionality
@@ -640,6 +752,10 @@ export default function AdminDashboard() {
         return 'success';
       case 'pending':
         return 'warning';
+      case 'registered':
+        return 'info';
+      case 'overdue':
+        return 'error';
       case 'failed':
       case 'rejected':
       case 'suspended':
@@ -647,6 +763,61 @@ export default function AdminDashboard() {
       default:
         return 'default';
     }
+  };
+
+  // Enhanced function to get payment status display with overdue highlighting
+  const getPaymentStatusChip = (user: User) => {
+    const status = user.paymentStatus || 'pending';
+    const isOverdue = status === 'overdue' || (user.overdueDays && user.overdueDays > 0);
+    
+    return (
+      <Chip 
+        label={
+          isOverdue 
+            ? `Overdue (${user.overdueDays || 0} days)` 
+            : status.charAt(0).toUpperCase() + status.slice(1)
+        }
+        color={getStatusColor(status) as any}
+        size="small"
+        sx={isOverdue ? { 
+          backgroundColor: '#ffebee', 
+          color: '#c62828',
+          fontWeight: 'bold',
+          animation: 'pulse 2s infinite',
+          '@keyframes pulse': {
+            '0%': {
+              transform: 'scale(1)',
+            },
+            '50%': {
+              transform: 'scale(1.05)',
+            },
+            '100%': {
+              transform: 'scale(1)',
+            },
+          }
+        } : {}}
+      />
+    );
+  };
+
+  // Function to format and display due dates
+  const formatDueDate = (dueDateStr: string | undefined) => {
+    if (!dueDateStr) return 'Not Set';
+    
+    const dueDate = new Date(dueDateStr);
+    const today = new Date();
+    const diffTime = dueDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    const formatted = format(dueDate, 'MMM dd, yyyy');
+    
+    if (diffDays < 0) {
+      return `${formatted} (${Math.abs(diffDays)} days overdue)`;
+    } else if (diffDays <= 7) {
+      return `${formatted} (${diffDays} days left)`;
+    }
+    
+    return formatted;
   };
 
   if (loading) {
@@ -740,6 +911,8 @@ export default function AdminDashboard() {
           <Tab label="Recent Bookings" />
           <Tab label="Users" />
           <Tab label="Slots Stats" />
+          <Tab label="Expenses" />
+          <Tab label="Subscriptions" />
           <Tab label="Settings" />
         </Tabs>
 
@@ -834,6 +1007,14 @@ export default function AdminDashboard() {
               <Button variant="outlined" startIcon={<Refresh />} onClick={fetchData}>
                 Refresh
               </Button>
+              <Button 
+                variant="outlined" 
+                color="warning"
+                onClick={updateOverdueStatus}
+                sx={{ ml: 1 }}
+              >
+                Update Overdue Status
+              </Button>
             </Box>
           </Box>
           
@@ -850,7 +1031,10 @@ export default function AdminDashboard() {
                   <SortableHeader column="selectedCourt">Court</SortableHeader>
                   <SortableHeader column="subscriptionType">Subscription</SortableHeader>
                   <SortableHeader column="status">Status</SortableHeader>
-                  <SortableHeader column="paymentStatus">Payment</SortableHeader>
+                  <SortableHeader column="paymentStatus">Payment Status</SortableHeader>
+                  <SortableHeader column="nextDueDate">Next Due Date</SortableHeader>
+                  <SortableHeader column="lastPaymentAmount">Last Payment</SortableHeader>
+                  <SortableHeader column="paymentCompletedDate">Payment Date</SortableHeader>
                   <SortableHeader column="comments">Comments</SortableHeader>
                   <SortableHeader column="mode">Mode</SortableHeader>
                   <TableCell>Actions</TableCell>
@@ -903,11 +1087,35 @@ export default function AdminDashboard() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Chip 
-                        label={user.paymentStatus || 'pending'} 
-                        color={getStatusColor(user.paymentStatus || 'pending') as any}
-                        size="small"
-                      />
+                      {getPaymentStatusChip(user)}
+                    </TableCell>
+                    <TableCell>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          color: user.nextDueDate && new Date(user.nextDueDate) < new Date() ? '#c62828' : 'inherit',
+                          fontWeight: user.nextDueDate && new Date(user.nextDueDate) < new Date() ? 'bold' : 'normal',
+                          fontSize: '0.875rem'
+                        }}
+                      >
+                        {formatDueDate(user.nextDueDate)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {user.lastPaymentAmount 
+                          ? `₹${user.lastPaymentAmount.toLocaleString()}` 
+                          : 'Not Paid'
+                        }
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {user.paymentCompletedDate 
+                          ? format(new Date(user.paymentCompletedDate), 'MMM dd, yyyy')
+                          : 'Not Completed'
+                        }
+                      </Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -923,12 +1131,58 @@ export default function AdminDashboard() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Button size="small" onClick={() => handleEditUser(user)} startIcon={<Edit />}>
-                        Edit
-                      </Button>
-                      <Button size="small" color="error" onClick={() => handleDeleteUser(user)} startIcon={<Delete />}>
-                        Delete
-                      </Button>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          <Button size="small" onClick={() => handleEditUser(user)} startIcon={<Edit />}>
+                            Edit
+                          </Button>
+                          <Button size="small" color="error" onClick={() => handleDeleteUser(user)} startIcon={<Delete />}>
+                            Delete
+                          </Button>
+                        </Box>
+                        
+                        {/* Payment Actions */}
+                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                          {user.paymentStatus === 'pending' && (
+                            <Button 
+                              size="small" 
+                              variant="outlined" 
+                              color="info"
+                              onClick={() => registerUser(user._id, {
+                                subscriptionType: user.subscriptionType as any,
+                                cycleLength: user.billingCycleLength || 1,
+                                amount: user.subscriptionAmount || 1000
+                              })}
+                            >
+                              Register
+                            </Button>
+                          )}
+                          
+                          {(user.paymentStatus === 'registered' || user.paymentStatus === 'pending') && (
+                            <Button 
+                              size="small" 
+                              variant="outlined" 
+                              color="success"
+                              onClick={() => markPaymentCompleted(user._id, {
+                                amount: user.subscriptionAmount || 1000,
+                                method: 'gpay',
+                                transactionId: `TXN${Date.now()}`
+                              })}
+                            >
+                              Mark Paid
+                            </Button>
+                          )}
+                          
+                          {user.paymentStatus === 'overdue' && (
+                            <Chip 
+                              label={`${user.overdueDays || 0} days overdue`}
+                              color="error"
+                              size="small"
+                              sx={{ fontSize: '0.7rem' }}
+                            />
+                          )}
+                        </Box>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1240,8 +1494,116 @@ export default function AdminDashboard() {
           </Box>
         </TabPanel>
 
-        {/* Settings Tab */}
+        {/* Expenses Tab */}
         <TabPanel value={tabValue} index={3}>
+          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">Expense Management</Typography>
+            <Button 
+              variant="contained" 
+              startIcon={<Add />} 
+              onClick={() => router.push('/admin/expenses')}
+            >
+              Manage Expenses
+            </Button>
+          </Box>
+          
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Typography variant="h6" gutterBottom>
+              Full Expense Management System
+            </Typography>
+            <Typography variant="body1" color="textSecondary" sx={{ mb: 3 }}>
+              Track and manage all expenses with detailed analytics and reporting.
+            </Typography>
+            <Button 
+              variant="contained" 
+              size="large"
+              onClick={() => router.push('/admin/expenses')}
+            >
+              Go to Expenses Management
+            </Button>
+          </Box>
+        </TabPanel>
+
+        {/* Settings Tab */}
+        <TabPanel value={tabValue} index={4}>
+          <Typography variant="h6" gutterBottom>
+            🏥 Subscription Management
+          </Typography>
+          
+          <Box sx={{ mb: 3 }}>
+            <Button
+              variant="contained"
+              onClick={() => router.push('/admin/subscriptions')}
+              startIcon={<Add />}
+            >
+              View All Subscriptions
+            </Button>
+          </Box>
+
+          <Alert severity="info" sx={{ mb: 3 }}>
+            <Typography variant="body2">
+              <strong>Subscription Management:</strong> View and manage user health subscriptions, payments, and renewals.
+              Click "View All Subscriptions" for the full management interface.
+            </Typography>
+          </Alert>
+
+          <Typography variant="subtitle1" gutterBottom>
+            Quick Stats
+          </Typography>
+          
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography color="textSecondary" gutterBottom>
+                    Active Subscriptions
+                  </Typography>
+                  <Typography variant="h4">
+                    --
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography color="textSecondary" gutterBottom>
+                    Pending Payments
+                  </Typography>
+                  <Typography variant="h4">
+                    --
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography color="textSecondary" gutterBottom>
+                    Monthly Revenue
+                  </Typography>
+                  <Typography variant="h4">
+                    ₹--
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography color="textSecondary" gutterBottom>
+                    Due for Renewal
+                  </Typography>
+                  <Typography variant="h4">
+                    --
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={5}>
           <Typography variant="h6" sx={{ mb: 2 }}>System Settings</Typography>
           <Typography variant="body1">Settings panel coming soon...</Typography>
         </TabPanel>
@@ -1418,10 +1780,87 @@ export default function AdminDashboard() {
                     label="Payment Status"
                   >
                     <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="registered">Registered</MenuItem>
                     <MenuItem value="completed">Completed</MenuItem>
                     <MenuItem value="failed">Failed</MenuItem>
+                    <MenuItem value="overdue">Overdue</MenuItem>
                   </Select>
                 </FormControl>
+              </Grid>
+              
+              {/* Billing Cycle Length for Monthly Subscriptions */}
+              {editUserFormData.subscriptionType === 'monthly' && (
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Billing Cycle (Months)</InputLabel>
+                    <Select
+                      value={editUserFormData.billingCycleLength}
+                      onChange={(e) => setEditUserFormData(prev => ({ ...prev, billingCycleLength: Number(e.target.value) }))}
+                      label="Billing Cycle (Months)"
+                    >
+                      <MenuItem value={1}>1 Month</MenuItem>
+                      <MenuItem value={2}>2 Months</MenuItem>
+                      <MenuItem value={3}>3 Months</MenuItem>
+                      <MenuItem value={4}>4 Months</MenuItem>
+                      <MenuItem value={5}>5 Months</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+              
+              {/* Subscription Amount */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Subscription Amount (₹)"
+                  value={editUserFormData.subscriptionAmount}
+                  onChange={(e) => setEditUserFormData(prev => ({ ...prev, subscriptionAmount: Number(e.target.value) }))}
+                  inputProps={{ min: 0 }}
+                />
+              </Grid>
+              
+              {/* Payment Method */}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Payment Method</InputLabel>
+                  <Select
+                    value={editUserFormData.paymentMethod}
+                    onChange={(e) => setEditUserFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                    label="Payment Method"
+                  >
+                    <MenuItem value="">Not Selected</MenuItem>
+                    <MenuItem value="cash">Cash</MenuItem>
+                    <MenuItem value="gpay">GPay</MenuItem>
+                    <MenuItem value="phonepe">PhonePe</MenuItem>
+                    <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
+                    <MenuItem value="whatsapp">WhatsApp Payment</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              {/* Transaction ID */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Transaction ID"
+                  value={editUserFormData.transactionId}
+                  onChange={(e) => setEditUserFormData(prev => ({ ...prev, transactionId: e.target.value }))}
+                  placeholder="Enter transaction reference"
+                />
+              </Grid>
+              
+              {/* Grace Period Days */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Grace Period (Days)"
+                  value={editUserFormData.gracePeriodDays}
+                  onChange={(e) => setEditUserFormData(prev => ({ ...prev, gracePeriodDays: Number(e.target.value) }))}
+                  inputProps={{ min: 0, max: 30 }}
+                  helperText="Days after due date before marking as overdue"
+                />
               </Grid>
               
               {/* Comments Field */}

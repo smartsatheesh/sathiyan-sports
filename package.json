@@ -49,6 +49,7 @@
     "react-pdf": "^10.1.0",
     "react-qr-code": "^2.0.18",
     "react-slick": "^0.29.0",
+    "recharts": "^3.3.0",
     "slick-carousel": "^1.8.1",
     "three": "^0.160.1",
     "twilio": "^5.8.0",

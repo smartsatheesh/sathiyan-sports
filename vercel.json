@@ -1,0 +1,13 @@
+{
+  "crons": [
+    {
+      "path": "/api/subscription/notifications",
+      "schedule": "0 9 * * *"
+    }
+  ],
+  "functions": {
+    "src/app/api/subscription/notifications/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}
