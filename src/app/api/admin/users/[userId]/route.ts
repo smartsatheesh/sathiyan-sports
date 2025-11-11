@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToMongoose } from "@/app/server/mongodb";
 import User from "../../../../models/User";
 import Booking from "../../../../models/Booking";
+import Subscription from "../../../../models/Subscription";
 
 // GET - Fetch a specific user
 export async function GET(req: NextRequest, { params }: { params: { userId: string } }) {
@@ -114,6 +115,39 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
       delete updateData.transactionId;
     }
 
+    // Check if payment status is changing to completed - set subscription dates
+    const isPaymentCompleting = 
+      updateData.paymentStatus === 'completed' && 
+      currentUser.paymentStatus !== 'completed';
+
+    if (isPaymentCompleting && currentUser.subscriptionType) {
+      // Calculate subscription duration based on type
+      const durationMap = {
+        'monthly': 1,
+        'quarterly': 3,
+        'half yearly': 6,
+        'yearly': 12
+      };
+
+      const duration = durationMap[currentUser.subscriptionType] || 1;
+      
+      // Set subscription start date to today
+      const startDate = new Date();
+      
+      // Calculate end date
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + duration);
+      
+      // Set the dates in update data
+      updateData.subscriptionStartDate = startDate;
+      updateData.subscriptionEndDate = endDate;
+      updateData.nextDueDate = endDate;
+      updateData.hasActiveSubscription = true;
+      updateData.paymentCompletedDate = new Date();
+      
+      console.log(`💳 Payment completed for ${currentUser.name}: Setting subscription dates from ${startDate.toDateString()} to ${endDate.toDateString()}`);
+    }
+
     // Check if user is being verified and payment is completed - populate registered slots
     const shouldPopulateSlots = 
       updateData.status === 'verified' && 
@@ -150,6 +184,55 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
         { message: "User not found", success: false },
         { status: 404 }
       );
+    }
+
+    // Create subscription entry after payment completion
+    if (isPaymentCompleting && currentUser.subscriptionType) {
+      try {
+        // Check if subscription already exists for this user
+        const existingSubscription = await (Subscription.findOne as any)({ 
+          userId: user._id 
+        });
+
+        if (!existingSubscription) {
+          const durationMap = {
+            'monthly': 1,
+            'quarterly': 3,
+            'half yearly': 6,
+            'yearly': 12
+          };
+
+          const subscriptionData = {
+            userId: user._id,
+            champId: user.champId,
+            userName: user.name,
+            userEmail: user.email,
+            userMobile: user.mobile,
+            subscriptionType: currentUser.subscriptionType,
+            mode: currentUser.mode || 'fixed',
+            amount: currentUser.subscriptionAmount,
+            duration: durationMap[currentUser.subscriptionType],
+            startDate: updateData.subscriptionStartDate,
+            endDate: updateData.subscriptionEndDate,
+            nextDueDate: updateData.nextDueDate,
+            paymentStatus: 'completed',
+            status: 'active',
+            preferredSport: currentUser.preferredSport,
+            preferredTimeSlot: currentUser.preferredTimeSlot,
+            selectedCourt: currentUser.selectedCourt,
+            autoRenewal: false,
+            createdBy: user._id
+          };
+
+          const subscription = await (Subscription.create as any)(subscriptionData);
+          console.log(`✅ Subscription created for ${user.name}: ${subscription._id}`);
+        } else {
+          console.log(`ℹ️ Subscription already exists for ${user.name}`);
+        }
+      } catch (subscriptionError) {
+        console.warn('⚠️ Failed to create subscription entry:', subscriptionError);
+        // Don't fail the user update if subscription creation fails
+      }
     }
 
     return NextResponse.json({

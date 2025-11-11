@@ -160,7 +160,6 @@ export class BillingCycleService {
     user.paymentStatus = 'completed';
     user.paymentCompletedDate = paymentDate;
     user.nextDueDate = nextDueDate;
-    user.lastPaymentAmount = paymentData.amount;
     user.paymentMethod = paymentData.method;
     user.transactionId = paymentData.transactionId;
     user.overdueDays = 0;

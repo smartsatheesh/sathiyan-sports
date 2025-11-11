@@ -97,9 +97,6 @@ const userSchema = new mongoose.Schema({
     type: Number, // For flexible months (1-5 for monthly)
     default: 1,
   },
-  lastPaymentAmount: {
-    type: Number,
-  },
   paymentMethod: {
     type: String,
     enum: ["cash", "gpay", "phonepe", "bank_transfer", "whatsapp"],

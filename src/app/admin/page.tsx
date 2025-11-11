@@ -107,7 +107,6 @@ interface User {
   paymentCompletedDate?: string;
   nextDueDate?: string;
   billingCycleLength?: number;
-  lastPaymentAmount?: number;
   paymentMethod?: string;
   transactionId?: string;
   overdueDays?: number;
@@ -663,14 +662,20 @@ export default function AdminDashboard() {
     transactionId?: string;
   }) => {
     try {
-      const response = await fetch('/api/admin/payment-status', {
+      // Use the user update endpoint instead of payment-status endpoint
+      const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, ...paymentData }),
+        body: JSON.stringify({ 
+          paymentStatus: 'completed',
+          paymentMethod: paymentData.method,
+          transactionId: paymentData.transactionId || `TXN${Date.now()}`,
+          // The user update endpoint will automatically set subscription dates
+        }),
       });
       
       if (response.ok) {
-        setAlert({ type: 'success', message: 'Payment marked as completed!' });
+        setAlert({ type: 'success', message: 'Payment marked as completed and subscription activated!' });
         await fetchData(); // Refresh the data
       } else {
         const errorData = await response.json();
@@ -1033,7 +1038,6 @@ export default function AdminDashboard() {
                   <SortableHeader column="status">Status</SortableHeader>
                   <SortableHeader column="paymentStatus">Payment Status</SortableHeader>
                   <SortableHeader column="nextDueDate">Next Due Date</SortableHeader>
-                  <SortableHeader column="lastPaymentAmount">Last Payment</SortableHeader>
                   <SortableHeader column="paymentCompletedDate">Payment Date</SortableHeader>
                   <SortableHeader column="comments">Comments</SortableHeader>
                   <SortableHeader column="mode">Mode</SortableHeader>
@@ -1099,14 +1103,6 @@ export default function AdminDashboard() {
                         }}
                       >
                         {formatDueDate(user.nextDueDate)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {user.lastPaymentAmount 
-                          ? `₹${user.lastPaymentAmount.toLocaleString()}` 
-                          : 'Not Paid'
-                        }
                       </Typography>
                     </TableCell>
                     <TableCell>

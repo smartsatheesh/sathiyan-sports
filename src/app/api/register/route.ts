@@ -111,49 +111,9 @@ export async function POST(req: Request) {
 
     const user = await (User.create as any)(userData);
 
-    // Create subscription entry for fee management
-    try {
-      // Calculate duration based on subscription type
-      const durationMap = {
-        'monthly': 1,
-        'quarterly': 3,
-        'half yearly': 6,
-        'yearly': 12
-      };
-
-      // Calculate end date
-      const startDate = new Date();
-      const endDate = new Date(startDate);
-      endDate.setMonth(endDate.getMonth() + durationMap[body.subscriptionType]);
-
-      const subscriptionData = {
-        userId: user._id,
-        champId: user.champId,
-        userName: user.name,
-        userEmail: user.email,
-        userMobile: user.mobile,
-        subscriptionType: body.subscriptionType,
-        mode: body.mode || 'fixed',
-        amount: body.subscriptionAmount,
-        duration: durationMap[body.subscriptionType],
-        startDate,
-        endDate,
-        nextDueDate: endDate,
-        paymentStatus: 'pending',
-        status: 'pending',
-        preferredSport: body.preferredSport,
-        preferredTimeSlot: body.preferredTimeSlot,
-        selectedCourt: body.selectedCourt,
-        autoRenewal: false,
-        createdBy: user._id
-      };
-
-      const subscription = await (Subscription.create as any)(subscriptionData);
-      console.log('✅ Subscription entry created:', subscription._id);
-    } catch (subscriptionError) {
-      console.warn('⚠️ Failed to create subscription entry:', subscriptionError);
-      // Don't fail the registration if subscription creation fails
-    }
+    // Don't create subscription entry here - wait until payment is completed
+    // Subscription will be created in the admin user update endpoint when payment status changes to "completed"
+    console.log('✅ User registration successful:', user.champId);
 
     // Send welcome email (async, don't wait for it)
     emailService.sendWelcomeEmail(user.email, user.name).catch((error) => {

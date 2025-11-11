@@ -80,7 +80,6 @@ export async function PUT(req: NextRequest) {
         paymentStatus: user.paymentStatus,
         paymentCompletedDate: user.paymentCompletedDate,
         nextDueDate: user.nextDueDate,
-        lastPaymentAmount: user.lastPaymentAmount,
         paymentMethod: user.paymentMethod,
         transactionId: user.transactionId,
         overdueDays: user.overdueDays
