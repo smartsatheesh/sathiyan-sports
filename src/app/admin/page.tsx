@@ -1077,7 +1077,7 @@ export default function AdminDashboard() {
                       {user.selectedCourt ? (
                         <Chip label={user.selectedCourt} size="small" color="primary" variant="outlined" />
                       ) : (
-                        <Typography variant="body2" color="textSecondary">No court</Typography>
+                        <Typography variant="body2" color="textSecondary">No Court</Typography>
                       )}
                     </TableCell>
                     <TableCell>
@@ -1107,7 +1107,7 @@ export default function AdminDashboard() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {user.paymentCompletedDate 
+                        {user.paymentCompletedDate && user.paymentStatus === 'completed'
                           ? format(new Date(user.paymentCompletedDate), 'MMM dd, yyyy')
                           : 'Not Completed'
                         }
@@ -1727,14 +1727,23 @@ export default function AdminDashboard() {
                   <FormControl fullWidth>
                     <InputLabel>Selected Court</InputLabel>
                     <Select
-                      value={editUserFormData.selectedCourt}
+                      value={editUserFormData.selectedCourt || ''}
                       onChange={(e) => setEditUserFormData(prev => ({ ...prev, selectedCourt: e.target.value }))}
                       label="Selected Court"
+                      disabled={editUserFormData.paymentStatus !== 'completed'}
                     >
+                      <MenuItem value="">
+                        <em>No Court Assigned</em>
+                      </MenuItem>
                       <MenuItem value="S1">Court S1</MenuItem>
                       <MenuItem value="S2">Court S2</MenuItem>
                       <MenuItem value="S3">Court S3</MenuItem>
                     </Select>
+                    {editUserFormData.paymentStatus !== 'completed' && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                        Court can only be assigned to users with completed payment
+                      </Typography>
+                    )}
                   </FormControl>
                 </Grid>
               )}

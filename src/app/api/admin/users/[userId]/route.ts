@@ -120,7 +120,13 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
       updateData.paymentStatus === 'completed' && 
       currentUser.paymentStatus !== 'completed';
 
-    if (isPaymentCompleting && currentUser.subscriptionType) {
+    // Check if user has completed payment but missing subscription dates
+    const needsSubscriptionDates = 
+      (updateData.paymentStatus === 'completed' || currentUser.paymentStatus === 'completed') &&
+      currentUser.subscriptionType &&
+      (!currentUser.nextDueDate || !currentUser.paymentCompletedDate);
+
+    if ((isPaymentCompleting || needsSubscriptionDates) && currentUser.subscriptionType) {
       // Calculate subscription duration based on type
       const durationMap = {
         'monthly': 1,
@@ -131,21 +137,37 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
 
       const duration = durationMap[currentUser.subscriptionType] || 1;
       
-      // Set subscription start date to today
-      const startDate = new Date();
+      // Set subscription start date to today (or keep existing if already set)
+      const startDate = currentUser.subscriptionStartDate || new Date();
       
-      // Calculate end date
-      const endDate = new Date(startDate);
-      endDate.setMonth(endDate.getMonth() + duration);
+      // Calculate end date based on billing cycle if available
+      let endDate;
+      if (currentUser.billingCycleLength && currentUser.subscriptionType === 'monthly') {
+        endDate = new Date(startDate);
+        endDate.setMonth(endDate.getMonth() + currentUser.billingCycleLength);
+      } else {
+        endDate = new Date(startDate);
+        endDate.setMonth(endDate.getMonth() + duration);
+      }
       
-      // Set the dates in update data
-      updateData.subscriptionStartDate = startDate;
-      updateData.subscriptionEndDate = endDate;
-      updateData.nextDueDate = endDate;
-      updateData.hasActiveSubscription = true;
-      updateData.paymentCompletedDate = new Date();
+      // Only set dates if they're missing
+      if (!currentUser.subscriptionStartDate) updateData.subscriptionStartDate = startDate;
+      if (!currentUser.subscriptionEndDate) updateData.subscriptionEndDate = endDate;
+      if (!currentUser.nextDueDate) updateData.nextDueDate = endDate;
+      if (!currentUser.paymentCompletedDate) updateData.paymentCompletedDate = new Date();
+      if (!currentUser.hasActiveSubscription) updateData.hasActiveSubscription = true;
       
-      console.log(`💳 Payment completed for ${currentUser.name}: Setting subscription dates from ${startDate.toDateString()} to ${endDate.toDateString()}`);
+      // Assign court for badminton users upon payment completion
+      if (currentUser.preferredSport === 'Shuttle Badminton' && !currentUser.selectedCourt && !updateData.selectedCourt) {
+        updateData.selectedCourt = 'S1'; // Default court assignment
+        console.log(`🏸 Assigned default court S1 to badminton player ${currentUser.name}`);
+      }
+      
+      if (isPaymentCompleting) {
+        console.log(`💳 Payment completed for ${currentUser.name}: Setting subscription dates from ${startDate.toDateString()} to ${endDate.toDateString()}`);
+      } else if (needsSubscriptionDates) {
+        console.log(`📅 Setting missing subscription dates for ${currentUser.name}: from ${startDate.toDateString()} to ${endDate.toDateString()}`);
+      }
     }
 
     // Check if user is being verified and payment is completed - populate registered slots
@@ -187,7 +209,7 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
     }
 
     // Create subscription entry after payment completion
-    if (isPaymentCompleting && currentUser.subscriptionType) {
+    if ((isPaymentCompleting || needsSubscriptionDates) && currentUser.subscriptionType) {
       try {
         // Check if subscription already exists for this user
         const existingSubscription = await (Subscription.findOne as any)({ 
