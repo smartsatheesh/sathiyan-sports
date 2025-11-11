@@ -1524,10 +1524,10 @@ export default function AdminDashboard() {
           </Box>
         </TabPanel>
 
-        {/* Settings Tab */}
+        {/* Subscriptions Tab */}
         <TabPanel value={tabValue} index={4}>
           <Typography variant="h6" gutterBottom>
-            🏥 Subscription Management
+            � Sports Subscription Management
           </Typography>
           
           <Box sx={{ mb: 3 }}>
@@ -1542,8 +1542,8 @@ export default function AdminDashboard() {
 
           <Alert severity="info" sx={{ mb: 3 }}>
             <Typography variant="body2">
-              <strong>Subscription Management:</strong> View and manage user health subscriptions, payments, and renewals.
-              Click "View All Subscriptions" for the full management interface.
+              <strong>Subscription Management:</strong> View and manage sports subscriptions with flexible mode pricing, 
+              payment tracking, and renewal management. Click "View All Subscriptions" for the full management interface.
             </Typography>
           </Alert>
 

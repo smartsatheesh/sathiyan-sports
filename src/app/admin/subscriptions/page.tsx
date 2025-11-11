@@ -54,14 +54,23 @@ interface Subscription {
     email: string;
     champId: string;
   };
+  champId: string;
+  userName: string;
+  userEmail: string;
+  userMobile: string;
   subscriptionType: string;
+  mode: string;
   amount: number;
   duration: number;
   startDate: string;
   endDate: string;
+  status: string;
   paymentStatus: string;
   paymentMethod?: string;
   transactionId?: string;
+  preferredSport?: string;
+  selectedCourt?: string;
+  notes?: string;
   nextDueDate: string;
   autoRenewal: boolean;
   createdAt: string;
@@ -398,6 +407,7 @@ const AdminSubscriptionsPage = () => {
               <TableRow>
                 <SortableHeader column="userId">User</SortableHeader>
                 <SortableHeader column="subscriptionType">Plan</SortableHeader>
+                <SortableHeader column="mode">Mode</SortableHeader>
                 <SortableHeader column="amount">Amount</SortableHeader>
                 <SortableHeader column="paymentStatus">Status</SortableHeader>
                 <TableCell>Payment Method</TableCell>
@@ -428,6 +438,20 @@ const AdminSubscriptionsPage = () => {
                       variant="outlined"
                       size="small"
                     />
+                  </TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={subscription.mode || 'standard'} 
+                      color={subscription.mode === 'flexible' ? 'secondary' : 'default'}
+                      variant="outlined"
+                      size="small"
+                      sx={{ textTransform: 'capitalize' }}
+                    />
+                    {subscription.mode === 'flexible' && (
+                      <Typography variant="caption" color="secondary" display="block">
+                        +₹500
+                      </Typography>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" fontWeight="bold">

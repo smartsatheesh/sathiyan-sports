@@ -73,12 +73,17 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ["monthly", "quarterly", "half yearly", "yearly"],
   },
+  mode: {
+    type: String,
+    enum: ["fixed", "flexible"],
+    default: "fixed",
+  },
   subscriptionAmount: {
     type: Number,
   },
   paymentStatus: {
     type: String,
-    default: "pending",
+    default: "completed",
     enum: ["pending", "registered", "completed", "failed", "overdue"],
   },
   // Enhanced payment tracking fields
@@ -121,8 +126,8 @@ const userSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    default: "pending",
-    enum: ["pending", "verified", "rejected", "suspended"],
+    default: "registered",
+    enum: ["pending", "verified", "registered", "rejected", "suspended"],
   },
   verifiedAt: {
     type: Date,
@@ -135,6 +140,13 @@ const userSchema = new mongoose.Schema({
     type: Date,
   },
   subscriptionEndDate: {
+    type: Date,
+  },
+  hasActiveSubscription: {
+    type: Boolean,
+    default: false,
+  },
+  lastSubscriptionDate: {
     type: Date,
   },
   lastLogin: {
@@ -154,10 +166,6 @@ const userSchema = new mongoose.Schema({
   // New fields for registration
   comments: {
     type: String,
-  },
-  mode: {
-    type: String,
-    enum: ["fixed", "flexible"],
   },
   createdAt: {
     type: Date,

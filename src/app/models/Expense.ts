@@ -1,3 +1,4 @@
+import { Book } from "lucide-react";
 import mongoose from "mongoose";
 
 const expenseSchema = new mongoose.Schema({
@@ -31,7 +32,7 @@ const expenseSchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, "Category is required"],
-    enum: ["Sathiyan sports", "Common", "Seimurai"],
+    enum: ["Badminton Subscription Fees", "Football Subscription Fees", "Cricket Subscription Fees", "Sathiyan sports", "Common", "Seimurai","Booking-Badminton","Booking-Cricket","Booking-Football","Booking-Functions and Events"],
   },
   date: {
     type: Date,

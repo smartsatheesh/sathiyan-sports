@@ -270,8 +270,8 @@ export default function RegisterPage() {
       errors.preferredSport = 'Please select your preferred sport';
     }
     
-    if (!formData.preferredTimeSlot) {
-      errors.preferredTimeSlot = 'Please select your preferred time slot';
+    if (!formData.mode) {
+      errors.mode = 'Please select a mode';
     }
     
     if (!formData.subscriptionType) {
@@ -283,15 +283,7 @@ export default function RegisterPage() {
       errors.preferredTimeSlot = 'Please select a preferred time slot';
     }
 
-    // Court selection is only required for Shuttle Badminton
-    if (formData.preferredSport === "Shuttle Badminton" && !formData.selectedCourt) {
-      errors.selectedCourt = 'Please select a court for Shuttle Badminton';
-    }
-
-    // Check court availability before submission for Shuttle Badminton
-    if (formData.preferredSport === "Shuttle Badminton" && courtAvailability && !courtAvailability.canBook) {
-      errors.selectedCourt = 'Selected court is not available for the chosen time slot. Please select a different court or time slot.';
-    }
+    // Note: Slot selection is now mandatory at registration
 
     // If there are field errors, set them and scroll to first error
     if (Object.keys(errors).length > 0) {
@@ -581,27 +573,31 @@ export default function RegisterPage() {
           </FormControl>
 
           {/* Time Slot Selection - Required */}
-          <FormControl fullWidth margin="normal" required error={!!fieldErrors.preferredTimeSlot}>
-            <InputLabel data-field="preferredTimeSlot">Preferred Time Slot</InputLabel>
-            <Select
-              value={formData.preferredTimeSlot}
-              label="Preferred Time Slot"
-              onChange={(e) => {
-                setFormData({ ...formData, preferredTimeSlot: e.target.value });
-                setCourtAvailability(null);
-                if (fieldErrors.preferredTimeSlot) {
-                  const newErrors = { ...fieldErrors };
-                  delete newErrors.preferredTimeSlot;
-                  setFieldErrors(newErrors);
-                }
-              }}
-            >
-              {TIME_SLOTS.map((slot) => (
-                <MenuItem key={slot} value={slot}>
-                  {slot}
-                </MenuItem>
-              ))}
-            </Select>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle1" sx={{ mb: 1 }}>
+              ⏰ <strong>Preferred Time Slot</strong> - Select your preferred time slot
+            </Typography>
+            <FormControl fullWidth required error={!!fieldErrors.preferredTimeSlot}>
+              <InputLabel data-field="preferredTimeSlot">Preferred Time Slot</InputLabel>
+              <Select
+                value={formData.preferredTimeSlot}
+                label="Preferred Time Slot"
+                onChange={(e) => {
+                  setFormData({ ...formData, preferredTimeSlot: e.target.value });
+                  setCourtAvailability(null);
+                  if (fieldErrors.preferredTimeSlot) {
+                    const newErrors = { ...fieldErrors };
+                    delete newErrors.preferredTimeSlot;
+                    setFieldErrors(newErrors);
+                  }
+                }}
+              >
+                {TIME_SLOTS.map((slot) => (
+                  <MenuItem key={slot} value={slot}>
+                    {slot}
+                  </MenuItem>
+                ))}
+              </Select>
             {fieldErrors.preferredTimeSlot && (
               <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
                 {fieldErrors.preferredTimeSlot}
@@ -662,32 +658,42 @@ export default function RegisterPage() {
               )}
 
               {courtAvailability?.suggestedCourts && courtAvailability.suggestedCourts.length > 0 && (
-                <FormControl fullWidth margin="normal" required error={!!fieldErrors.selectedCourt}>
-                  <InputLabel data-field="selectedCourt">Select Court</InputLabel>
-                  <Select
-                    value={formData.selectedCourt}
-                    label="Select Court"
-                    onChange={(e) => {
-                      setFormData({ ...formData, selectedCourt: e.target.value });
-                      if (fieldErrors.selectedCourt) {
-                        const newErrors = { ...fieldErrors };
-                        delete newErrors.selectedCourt;
-                        setFieldErrors(newErrors);
-                      }
-                    }}
-                  >
-                    {courtAvailability.suggestedCourts.map((court: string) => (
-                      <MenuItem key={court} value={court}>
-                        Court {court}
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                      <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                    🏸 <strong>Court Selection</strong> - Select your preferred court
+                  </Typography>
+                  </Typography>
+                  <FormControl fullWidth error={!!fieldErrors.selectedCourt}>
+                    <InputLabel data-field="selectedCourt">Select Court (Optional)</InputLabel>
+                    <Select
+                      value={formData.selectedCourt}
+                      label="Select Court (Optional)"
+                      onChange={(e) => {
+                        setFormData({ ...formData, selectedCourt: e.target.value });
+                        if (fieldErrors.selectedCourt) {
+                          const newErrors = { ...fieldErrors };
+                          delete newErrors.selectedCourt;
+                          setFieldErrors(newErrors);
+                        }
+                      }}
+                    >
+                      <MenuItem value="">
+                        <em>Skip for now - Book after payment</em>
                       </MenuItem>
-                    ))}
-                  </Select>
-                  {fieldErrors.selectedCourt && (
-                    <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                      {fieldErrors.selectedCourt}
-                    </Typography>
-                  )}
-                </FormControl>
+                      {courtAvailability.suggestedCourts.map((court: string) => (
+                        <MenuItem key={court} value={court}>
+                          Court {court}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {fieldErrors.selectedCourt && (
+                      <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                        {fieldErrors.selectedCourt}
+                      </Typography>
+                    )}
+                  </FormControl>
+                </Box>
               )}
             </>
           )}
@@ -707,7 +713,7 @@ export default function RegisterPage() {
                 }
               }}
             >
-              <MenuItem value="fixed">Fixed - Regular pricing</MenuItem>
+              <MenuItem value="standard">Standard - Regular pricing</MenuItem>
               <MenuItem value="flexible">Flexible - Additional ₹300/month for flexible scheduling</MenuItem>
             </Select>
             {fieldErrors.mode && (
@@ -776,24 +782,16 @@ export default function RegisterPage() {
             fullWidth
             variant="contained"
             sx={{ mt: 3, mb: 2 }}
-            disabled={
-              loading || 
-              (formData.preferredSport === "Shuttle Badminton" && 
-               courtAvailability && 
-               !courtAvailability.canBook)
-            }
+            disabled={loading}
           >
-            {loading ? <CircularProgress size={24} /> : "Register"}
+            {loading ? <CircularProgress size={24} /> : "💳 Register & Pay"}
           </Button>
 
-          {/* Court availability warning */}
-          {formData.preferredSport === "Shuttle Badminton" && 
-           courtAvailability && 
-           !courtAvailability.canBook && (
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              Registration disabled: Please select an available court and time slot combination
-            </Alert>
-          )}
+          <Box sx={{ mt: 2, mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" textAlign="center">
+              🔒 Secure payment powered by PhonePe • Complete registration with required slot selection
+            </Typography>
+          </Box>
 
           <Box sx={{ textAlign: "center", mt: 2 }}>
             <Typography variant="body2">
@@ -803,6 +801,7 @@ export default function RegisterPage() {
               </MuiLink>
             </Typography>
           </Box>
+        </Box>
         </Box>
       </Paper>
 
@@ -814,4 +813,4 @@ export default function RegisterPage() {
       />
     </Container>
   );
-};
+}

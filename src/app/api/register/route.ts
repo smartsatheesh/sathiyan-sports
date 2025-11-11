@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { connectToMongoose } from "@/app/server/mongodb";
 import User, { generateNextChampId } from "@/app/models/User";
+import Subscription from "@/app/models/Subscription";
 import emailService from "@/app/lib/emailService";
 
 // Utility function to normalize time slot formats
@@ -21,8 +22,8 @@ export async function POST(req: Request) {
       name: body.name,
       email: body.email,
       sport: body.preferredSport,
-      timeSlot: body.preferredTimeSlot,
-      court: body.selectedCourt
+      timeSlot: body.preferredTimeSlot || 'Not selected',
+      court: body.selectedCourt || 'Not selected'
     });
 
     // Validate required fields
@@ -30,29 +31,22 @@ export async function POST(req: Request) {
       "name",
       "email",
       "mobile",
-      "gender",
+      "gender", 
       "preferredSport",
       "subscriptionType",
+      "mode"
     ];
     
-    // Add conditional required fields
-    if (body.preferredSport === "Shuttle Badminton") {
-      requiredFields.push("selectedCourt", "preferredTimeSlot");
-    }    for (const field of requiredFields) {
+    // Note: preferredTimeSlot and selectedCourt are now optional
+    // Users can set these after payment completion
+    
+    for (const field of requiredFields) {
       if (!body[field]) {
         return NextResponse.json(
           { success: false, message: `${field} is required` },
           { status: 400 }
         );
       }
-    }
-
-    // Court selection is only required for Shuttle Badminton
-    if (body.preferredSport === "Shuttle Badminton" && !body.selectedCourt) {
-      return NextResponse.json(
-        { success: false, message: "Court selection is required for Shuttle Badminton" },
-        { status: 400 }
-      );
     }
 
     // Password validation
@@ -70,82 +64,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validate court selection and check availability only for Shuttle Badminton
-    if (body.preferredSport === "Shuttle Badminton") {
-      const validCourts = ["S1", "S2", "S3"];
-      if (!validCourts.includes(body.selectedCourt)) {
-        return NextResponse.json(
-          { success: false, message: "Invalid court selection. Please choose S1, S2, or S3" },
-          { status: 400 }
-        );
-      }
-
-      // Check slot availability for Shuttle Badminton registrations
-      if (body.preferredTimeSlot) {
-        const normalizedRequestedSlot = normalizeTimeSlot(body.preferredTimeSlot);
-        console.log('🔍 Registration: Checking slot capacity for:', body.preferredTimeSlot, '-> normalized:', normalizedRequestedSlot, 'court:', body.selectedCourt);
-
-        // Count existing users with the same slot and court (capacity check only)
-        let totalUsersInSlot = 0;
-
-        // Count users with preferredTimeSlot (including pending users for real-time capacity checking)
-        const existingUsersWithSlot = await (User.find as any)({
-          preferredTimeSlot: { $exists: true },
-          selectedCourt: body.selectedCourt,
-          status: { $in: ['pending', 'verified'] }, // Include pending users
-          preferredSport: "Shuttle Badminton"
-        });
-
-        existingUsersWithSlot.forEach((user: any) => {
-          if (user.preferredTimeSlot) {
-            const normalizedExistingSlot = normalizeTimeSlot(user.preferredTimeSlot);
-            console.log(`🔍 Checking user ${user.name} (${user.champId}): slot "${user.preferredTimeSlot}" -> normalized "${normalizedExistingSlot}"`);
-            if (normalizedExistingSlot === normalizedRequestedSlot) {
-              totalUsersInSlot++;
-              console.log(`✅ Match found! Total users in slot: ${totalUsersInSlot}`);
-            }
-          }
-        });
-
-        // Count users with registered slots
-        const usersWithRegisteredSlots = await (User.find as any)({
-          "registeredSlots.timeSlot": { $exists: true },
-          status: "verified", 
-          paymentStatus: "completed",
-          preferredSport: "Shuttle Badminton"
-        });
-
-        usersWithRegisteredSlots.forEach((user: any) => {
-          if (user.registeredSlots && Array.isArray(user.registeredSlots)) {
-            user.registeredSlots.forEach((slot: any) => {
-              if (slot.timeSlot && slot.court === body.selectedCourt) {
-                const normalizedSlotTimeSlot = normalizeTimeSlot(slot.timeSlot);
-                if (normalizedSlotTimeSlot === normalizedRequestedSlot) {
-                  totalUsersInSlot++;
-                }
-              }
-            });
-          }
-        });
-
-        console.log(`📊 Final count for ${body.selectedCourt} at ${normalizedRequestedSlot}: ${totalUsersInSlot}/6 users`);
-
-        // Check if adding this user would exceed the 4-user capacity
-        if (totalUsersInSlot >= 6) {
-          console.log('❌ Registration: Court capacity exceeded -', totalUsersInSlot, 'users already in slot');
-          return NextResponse.json(
-            { 
-              success: false, 
-              message: `Court ${body.selectedCourt} is at full capacity (${totalUsersInSlot}/6 users) for ${body.preferredTimeSlot}. Please choose a different court or time slot.`,
-              capacityExceeded: true
-            },
-            { status: 400 }
-          );
-        }
-
-        console.log('✅ Registration: Capacity available -', totalUsersInSlot, 'users in slot, proceeding with registration');
-      }
-    }
+    // Note: Court availability checking removed since preferred slots are now optional
+    // Users will select and book their slots after registration and payment
 
     // Hash password
     const hashedPassword = await bcrypt.hash(body.password, 12);
@@ -170,13 +90,15 @@ export async function POST(req: Request) {
       password: hashedPassword,
       gender: body.gender,
       preferredSport: body.preferredSport,
-      ...(body.preferredSport === "Shuttle Badminton" && { 
-        selectedCourt: body.selectedCourt,
-        preferredTimeSlot: body.preferredTimeSlot 
-      }),
+      // Set preferred slots as optional - empty by default, users can update after payment
+      selectedCourt: body.selectedCourt || "",
+      preferredTimeSlot: body.preferredTimeSlot || "",
       subscriptionType: body.subscriptionType,
+      mode: body.mode || "standard",
       subscriptionAmount: body.subscriptionAmount,
       subscriptionEndDate: body.subscriptionEndDate,
+      status: "registered", // Set to registered status immediately
+      paymentStatus: "pending", // Will be updated after payment
       role: body.role || "customer", // Default to customer role
       provider: "credentials", // Indicates this is a custom registration
       isEmailVerified: false,
@@ -185,10 +107,53 @@ export async function POST(req: Request) {
       phone: body.mobile,
       // New fields
       comments: body.comments || "",
-      mode: body.mode || "",
     };
 
     const user = await (User.create as any)(userData);
+
+    // Create subscription entry for fee management
+    try {
+      // Calculate duration based on subscription type
+      const durationMap = {
+        'monthly': 1,
+        'quarterly': 3,
+        'half yearly': 6,
+        'yearly': 12
+      };
+
+      // Calculate end date
+      const startDate = new Date();
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + durationMap[body.subscriptionType]);
+
+      const subscriptionData = {
+        userId: user._id,
+        champId: user.champId,
+        userName: user.name,
+        userEmail: user.email,
+        userMobile: user.mobile,
+        subscriptionType: body.subscriptionType,
+        mode: body.mode || 'standard',
+        amount: body.subscriptionAmount,
+        duration: durationMap[body.subscriptionType],
+        startDate,
+        endDate,
+        nextDueDate: endDate,
+        paymentStatus: 'Pending',
+        status: 'pending',
+        preferredSport: body.preferredSport,
+        preferredTimeSlot: body.preferredTimeSlot,
+        selectedCourt: body.selectedCourt,
+        autoRenewal: false,
+        createdBy: user._id
+      };
+
+      const subscription = await (Subscription.create as any)(subscriptionData);
+      console.log('✅ Subscription entry created:', subscription._id);
+    } catch (subscriptionError) {
+      console.warn('⚠️ Failed to create subscription entry:', subscriptionError);
+      // Don't fail the registration if subscription creation fails
+    }
 
     // Send welcome email (async, don't wait for it)
     emailService.sendWelcomeEmail(user.email, user.name).catch((error) => {

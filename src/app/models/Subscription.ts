@@ -2,17 +2,27 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ISubscription extends Document {
   userId: mongoose.Types.ObjectId;
-  subscriptionType: 'Basic' | 'Premium' | 'Elite';
+  champId: string;
+  userName: string;
+  userEmail: string;
+  userMobile: string;
+  subscriptionType: 'monthly' | 'quarterly' | 'half yearly' | 'yearly';
+  mode: 'fixed' | 'flexible';
   amount: number;
   duration: number; // in months
   startDate: Date;
   endDate: Date;
   paymentStatus: 'Pending' | 'Paid' | 'Overdue' | 'Cancelled';
+  status: 'active' | 'expired' | 'cancelled' | 'pending';
   paymentMethod?: 'PhonePe' | 'GPay' | 'WhatsApp' | 'Cash';
   transactionId?: string;
   lastPaymentDate?: Date;
   nextDueDate: Date;
   autoRenewal: boolean;
+  preferredSport?: 'Cricket' | 'Football' | 'Shuttle Badminton' | 'Functions and Events';
+  preferredTimeSlot?: string;
+  selectedCourt?: 'S1' | 'S2' | 'S3';
+  notes?: string;
   notificationsSent: {
     twoDaysBefore: boolean;
     onDueDate: boolean;
@@ -31,10 +41,32 @@ const subscriptionSchema = new Schema<ISubscription>({
     required: true,
     index: true
   },
+  champId: {
+    type: String,
+    required: true,
+    index: true
+  },
+  userName: {
+    type: String,
+    required: true
+  },
+  userEmail: {
+    type: String,
+    required: true
+  },
+  userMobile: {
+    type: String,
+    required: true
+  },
   subscriptionType: {
     type: String,
-    enum: ['Basic', 'Premium', 'Elite'],
+    enum: ['monthly', 'quarterly', 'half yearly', 'yearly'],
     required: true
+  },
+  mode: {
+    type: String,
+    enum: ['fixed', 'flexible'],
+    default: 'fixed'
   },
   amount: {
     type: Number,
@@ -61,6 +93,11 @@ const subscriptionSchema = new Schema<ISubscription>({
     enum: ['Pending', 'Paid', 'Overdue', 'Cancelled'],
     default: 'Pending'
   },
+  status: {
+    type: String,
+    enum: ['active', 'expired', 'cancelled', 'pending'],
+    default: 'active'
+  },
   paymentMethod: {
     type: String,
     enum: ['PhonePe', 'GPay', 'WhatsApp', 'Cash']
@@ -80,6 +117,20 @@ const subscriptionSchema = new Schema<ISubscription>({
   autoRenewal: {
     type: Boolean,
     default: false
+  },
+  preferredSport: {
+    type: String,
+    enum: ['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events']
+  },
+  preferredTimeSlot: {
+    type: String
+  },
+  selectedCourt: {
+    type: String,
+    enum: ['S1', 'S2', 'S3']
+  },
+  notes: {
+    type: String
   },
   notificationsSent: {
     twoDaysBefore: {
@@ -142,27 +193,37 @@ subscriptionSchema.virtual('isActive').get(function() {
 });
 
 // Static method to get subscription plans
-subscriptionSchema.statics.getSubscriptionPlans = function() {
-  return {
-    Basic: {
-      name: 'Basic Health Plan',
-      amount: 500,
-      duration: 1,
-      features: ['Monthly health checkup', 'Basic fitness consultation', 'Health tips via WhatsApp']
-    },
-    Premium: {
-      name: 'Premium Health Plan',
-      amount: 1200,
-      duration: 3,
-      features: ['Weekly health checkup', 'Personalized fitness plan', 'Nutrition guidance', 'Priority booking']
-    },
-    Elite: {
-      name: 'Elite Health Plan',
-      amount: 2000,
-      duration: 6,
-      features: ['Daily health monitoring', 'Personal trainer sessions', 'Complete nutrition plan', 'Exclusive access to events', 'Health insurance consultation']
-    }
+subscriptionSchema.statics.getSubscriptionPlans = function(gender = 'male', mode = 'standard') {
+  const basePrices = {
+    monthly: { male: 800, female: 700 },
+    quarterly: { male: 2200, female: 1900 },
+    'half yearly': { male: 4000, female: 3500 },
+    yearly: { male: 7500, female: 6500 }
   };
+
+  const plans = {};
+  const flexibleSurcharge = 500;
+
+  Object.keys(basePrices).forEach(type => {
+    const basePrice = basePrices[type][gender];
+    const finalPrice = mode === 'flexible' ? basePrice + flexibleSurcharge : basePrice;
+    
+    plans[type] = {
+      name: `${type.charAt(0).toUpperCase() + type.slice(1)} Sports Plan`,
+      amount: finalPrice,
+      duration: type === 'monthly' ? 1 : type === 'quarterly' ? 3 : type === 'half yearly' ? 6 : 12,
+      mode: mode,
+      features: [
+        'Access to all sports facilities',
+        'Court booking privileges',
+        `${mode === 'flexible' ? 'Flexible' : 'Standard'} timing options`,
+        'Equipment usage',
+        'Tournament participation'
+      ]
+    };
+  });
+
+  return plans;
 };
 
 // Instance method to renew subscription

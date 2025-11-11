@@ -88,7 +88,7 @@ interface ExpenseFormData {
 
 const PAID_BY_OPTIONS = ["Satheesh", "Sasi", "Maha", "Anu"];
 const PAYMENT_METHODS = ["cash", "gpay"];
-const CATEGORIES = ["Sathiyan sports", "Common", "Seimurai"];
+const CATEGORIES = ["Badminton fees", "Football fees", "Cricket fees", "Sathiyan sports", "Common", "Seimurai"];
 
 export default function ExpensesPage() {
   const { data: session, status } = useSession();
@@ -383,6 +383,9 @@ export default function ExpensesPage() {
   // Get category color
   const getCategoryColor = (category: string) => {
     switch (category) {
+      case 'Badminton fees': return 'info';
+      case 'Football fees': return 'warning';
+      case 'Cricket fees': return 'error';
       case 'Sathiyan sports': return 'primary';
       case 'Common': return 'secondary';
       case 'Seimurai': return 'success';
