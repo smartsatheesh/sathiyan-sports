@@ -50,6 +50,14 @@ import {
   ArrowDownward,
 } from "@mui/icons-material";
 
+// Utility function for safe date formatting
+const formatSafeDate = (dateString: string | undefined | null, formatPattern: string = 'dd/MM/yyyy'): string => {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'Invalid date';
+  return format(date, formatPattern);
+};
+
 // Time slots constant to match registration page format
 const TIME_SLOTS = [
   "06:00 AM - 07:00 AM",
@@ -93,6 +101,8 @@ interface User {
   phone: string;
   mobile: string;
   gender?: string;
+  champType?: string;
+  subscribed?: string;
   preferredSport: string;
   preferredTimeSlot?: string;
   selectedCourt?: string;
@@ -103,6 +113,9 @@ interface User {
   createdAt: string;
   comments?: string;
   mode?: string;
+  height?: number;
+  weight?: number;
+  bmi?: number;
   // Enhanced payment tracking fields
   paymentCompletedDate?: string;
   nextDueDate?: string;
@@ -180,6 +193,8 @@ export default function AdminDashboard() {
     email: '',
     mobile: '',
     gender: '',
+    champType: '',
+    subscribed: '',
     preferredSport: '',
     preferredTimeSlot: '',
     selectedCourt: '',
@@ -188,12 +203,16 @@ export default function AdminDashboard() {
     paymentStatus: '',
     comments: '',
     mode: '',
+    height: '',
+    weight: '',
+    bmi: '',
     // Enhanced payment fields
     billingCycleLength: 1,
     subscriptionAmount: 0,
     paymentMethod: '',
     transactionId: '',
-    gracePeriodDays: 5
+    gracePeriodDays: 5,
+    nextDueDate: ''
   });
 
   // ChampID validation states
@@ -207,6 +226,21 @@ export default function AdminDashboard() {
     message: ''
   });
 
+  // Slot details dialog state
+  const [slotDetailsDialog, setSlotDetailsDialog] = useState<{
+    open: boolean;
+    courtId: string;
+    timeSlot: string;
+    registeredUsers: User[];
+    hourlyBookings: Booking[];
+  }>({
+    open: false,
+    courtId: '',
+    timeSlot: '',
+    registeredUsers: [],
+    hourlyBookings: []
+  });
+
   // Delete User Dialog states
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
 
@@ -215,7 +249,7 @@ export default function AdminDashboard() {
     if (status === "loading") return;
     
     if (!session) {
-      router.push("/auth/login?callbackUrl=/admin");
+      router.push("/auth/signin?callbackUrl=/admin");
       return;
     }
     
@@ -345,6 +379,8 @@ export default function AdminDashboard() {
       email: user.email || '',
       mobile: user.phone || user.mobile || '',
       gender: user.gender || '',
+      champType: user.champType || 'adult', // Default to adult for existing users
+      subscribed: user.subscribed || 'no', // Default to no for existing users
       preferredSport: user.preferredSport || '',
       preferredTimeSlot: user.preferredTimeSlot || '',
       selectedCourt: user.selectedCourt || '',
@@ -353,12 +389,16 @@ export default function AdminDashboard() {
       paymentStatus: user.paymentStatus || 'pending',
       comments: user.comments || '',
       mode: user.mode || '',
+      height: user.height ? user.height.toString() : '',
+      weight: user.weight ? user.weight.toString() : '',
+      bmi: user.bmi ? user.bmi.toString() : '',
       // Enhanced payment fields
       billingCycleLength: user.billingCycleLength || 1,
       subscriptionAmount: user.subscriptionAmount || 0,
       paymentMethod: user.paymentMethod || '',
       transactionId: user.transactionId || '',
-      gracePeriodDays: user.gracePeriodDays || 5
+      gracePeriodDays: user.gracePeriodDays || 5,
+      nextDueDate: user.nextDueDate || ''
     });
     
     // Reset ChampID validation to valid if user already has a ChampID
@@ -456,12 +496,17 @@ export default function AdminDashboard() {
           mobile: editUserFormData.mobile,
           phone: editUserFormData.mobile,
           gender: editUserFormData.gender,
+          champType: editUserFormData.champType,
+          subscribed: editUserFormData.subscribed,
           preferredSport: editUserFormData.preferredSport,
           preferredTimeSlot: editUserFormData.preferredTimeSlot,
           selectedCourt: editUserFormData.selectedCourt,
           subscriptionType: editUserFormData.subscriptionType,
           status: editUserFormData.status,
           paymentStatus: editUserFormData.paymentStatus,
+          height: editUserFormData.height ? parseFloat(editUserFormData.height) : undefined,
+          weight: editUserFormData.weight ? parseFloat(editUserFormData.weight) : undefined,
+          bmi: editUserFormData.bmi ? parseFloat(editUserFormData.bmi) : undefined,
           // Enhanced payment fields
           billingCycleLength: editUserFormData.billingCycleLength,
           subscriptionAmount: editUserFormData.subscriptionAmount,
@@ -470,6 +515,8 @@ export default function AdminDashboard() {
           // Only include transactionId if it has a value and is not empty string
           ...(editUserFormData.transactionId && editUserFormData.transactionId !== '' && { transactionId: editUserFormData.transactionId }),
           gracePeriodDays: editUserFormData.gracePeriodDays,
+          // Include nextDueDate if provided
+          ...(editUserFormData.nextDueDate && editUserFormData.nextDueDate !== '' && { nextDueDate: editUserFormData.nextDueDate }),
         }),
       });
 
@@ -488,12 +535,17 @@ export default function AdminDashboard() {
                 mobile: editUserFormData.mobile,
                 phone: editUserFormData.mobile,
                 gender: editUserFormData.gender,
+                champType: editUserFormData.champType,
+                subscribed: editUserFormData.subscribed,
                 preferredSport: editUserFormData.preferredSport,
                 preferredTimeSlot: editUserFormData.preferredTimeSlot,
                 selectedCourt: editUserFormData.selectedCourt,
                 subscriptionType: editUserFormData.subscriptionType,
                 status: editUserFormData.status,
-                paymentStatus: editUserFormData.paymentStatus
+                paymentStatus: editUserFormData.paymentStatus,
+                height: editUserFormData.height ? parseFloat(editUserFormData.height) : undefined,
+                weight: editUserFormData.weight ? parseFloat(editUserFormData.weight) : undefined,
+                bmi: editUserFormData.bmi ? parseFloat(editUserFormData.bmi) : undefined,
               }
             : u
         ));
@@ -548,6 +600,39 @@ export default function AdminDashboard() {
     }
 
     setTimeout(() => setAlert(null), 3000);
+  };
+
+  // Handle slot click to show booking details
+  const handleSlotClick = (courtId: string, timeSlot: string) => {
+    // Get registered users for this slot and court
+    const registeredUsers = users.filter(user => 
+      user.selectedCourt === courtId && 
+      user.preferredTimeSlot === timeSlot &&
+      user.preferredSport === 'Shuttle Badminton'
+    );
+
+    // Get hourly bookings for this slot and court for today
+    const today = new Date().toDateString();
+    const hourlyBookings = bookings.filter(booking => 
+      booking.court === courtId &&
+      booking.sport === 'Shuttle Badminton' &&
+      new Date(booking.date).toDateString() === today &&
+      booking.timeSlots.some(bookingSlot => {
+        // Normalize time slot format for comparison
+        const normalizeSlot = (s: string) => s.replace(/\s+/g, ' ').trim();
+        return normalizeSlot(bookingSlot) === normalizeSlot(timeSlot);
+      }) &&
+      ['confirmed', 'pending'].includes(booking.bookingStatus) &&
+      booking.paymentStatus !== 'expired'
+    );
+
+    setSlotDetailsDialog({
+      open: true,
+      courtId,
+      timeSlot,
+      registeredUsers,
+      hourlyBookings
+    });
   };
 
   // ChampID validation function
@@ -873,17 +958,55 @@ export default function AdminDashboard() {
         mb: 4,
         color: 'white',
         display: 'flex',
-        alignItems: 'center',
-        gap: 2
+        justifyContent: 'space-between',
+        alignItems: 'center'
       }}>
-        <Dashboard sx={{ fontSize: 48 }} />
-        <Box>
-          <Typography variant="h3" sx={{ fontWeight: 800, mb: 0.5 }}>
-            Sathiyan Sports Admin
-          </Typography>
-          <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.9)', fontStyle: 'italic' }}>
-            Coaching Excellence Dashboard
-          </Typography>
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2
+        }}>
+          <Dashboard sx={{ fontSize: 48 }} />
+          <Box>
+            <Typography variant="h3" sx={{ fontWeight: 800, mb: 0.5 }}>
+              Sathiyan Sports Admin
+            </Typography>
+            <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.9)', fontStyle: 'italic' }}>
+              Coaching Excellence Dashboard
+            </Typography>
+          </Box>
+        </Box>
+        <Box display="flex" gap={2}>
+          <Button
+            variant="contained"
+            color="secondary"
+            size="large"
+            onClick={() => router.push('/admin/subscriptions')}
+            sx={{
+              bgcolor: 'rgba(255,255,255,0.2)',
+              backdropFilter: 'blur(10px)',
+              '&:hover': {
+                bgcolor: 'rgba(255,255,255,0.3)',
+              }
+            }}
+          >
+            Subscription Management
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            size="large"
+            onClick={() => router.push('/admin/fee-collection')}
+            sx={{
+              bgcolor: 'rgba(255,193,7,0.2)',
+              backdropFilter: 'blur(10px)',
+              '&:hover': {
+                bgcolor: 'rgba(255,193,7,0.3)',
+              }
+            }}
+          >
+            Fee Collection
+          </Button>
         </Box>
       </Box>
 
@@ -917,7 +1040,6 @@ export default function AdminDashboard() {
           <Tab label="Users" />
           <Tab label="Slots Stats" />
           <Tab label="Expenses" />
-          <Tab label="Subscriptions" />
           <Tab label="Settings" />
         </Tabs>
 
@@ -1012,14 +1134,6 @@ export default function AdminDashboard() {
               <Button variant="outlined" startIcon={<Refresh />} onClick={fetchData}>
                 Refresh
               </Button>
-              <Button 
-                variant="outlined" 
-                color="warning"
-                onClick={updateOverdueStatus}
-                sx={{ ml: 1 }}
-              >
-                Update Overdue Status
-              </Button>
             </Box>
           </Box>
           
@@ -1031,16 +1145,14 @@ export default function AdminDashboard() {
                   <SortableHeader column="name">Name</SortableHeader>
                   <SortableHeader column="email">Email</SortableHeader>
                   <SortableHeader column="mobile">Mobile</SortableHeader>
-                  <SortableHeader column="preferredSport">Sport</SortableHeader>
-                  <SortableHeader column="preferredTimeSlot">Preferred Time Slot</SortableHeader>
-                  <SortableHeader column="selectedCourt">Court</SortableHeader>
-                  <SortableHeader column="subscriptionType">Subscription</SortableHeader>
-                  <SortableHeader column="status">Status</SortableHeader>
+                  <SortableHeader column="champType">Type</SortableHeader>
+                  <SortableHeader column="subscribed">Subscribed</SortableHeader>
+                  <TableCell>Height</TableCell>
+                  <TableCell>Weight</TableCell>
+                  <TableCell>BMI</TableCell>
                   <SortableHeader column="paymentStatus">Payment Status</SortableHeader>
-                  <SortableHeader column="nextDueDate">Next Due Date</SortableHeader>
-                  <SortableHeader column="paymentCompletedDate">Payment Date</SortableHeader>
-                  <SortableHeader column="comments">Comments</SortableHeader>
-                  <SortableHeader column="mode">Mode</SortableHeader>
+                  <SortableHeader column="selectedCourt">Court</SortableHeader>
+                  <SortableHeader column="status">Status</SortableHeader>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -1058,20 +1170,46 @@ export default function AdminDashboard() {
                     <TableCell>{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{user.mobile || user.phone}</TableCell>
-                    <TableCell>{user.preferredSport || 'N/A'}</TableCell>
                     <TableCell>
-                      {user.preferredTimeSlot ? (
-                        <Chip 
-                          label={user.preferredTimeSlot} 
-                          size="small" 
-                          color="secondary"
-                          variant="outlined"
-                        />
-                      ) : (
-                        <Typography variant="body2" color="textSecondary">
-                          No time slot
-                        </Typography>
-                      )}
+                      <Chip 
+                        label={user.champType || 'Not Set'} 
+                        size="small" 
+                        color={user.champType === 'kids' ? 'primary' : user.champType === 'adult' ? 'secondary' : user.champType === 'veteran' ? 'warning' : 'default'}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={user.subscribed === 'yes' ? 'Yes' : 'No'} 
+                        size="small" 
+                        color={user.subscribed === 'yes' ? 'success' : 'error'}
+                        variant="outlined"
+                        onClick={user.subscribed === 'yes' ? () => router.push('/admin/subscriptions') : undefined}
+                        sx={{ 
+                          cursor: user.subscribed === 'yes' ? 'pointer' : 'default',
+                          '&:hover': user.subscribed === 'yes' ? { 
+                            backgroundColor: 'rgba(46, 125, 50, 0.1)' 
+                          } : {}
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {user.height ? `${user.height} cm` : '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {user.weight ? `${user.weight} kg` : '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {user.bmi ? user.bmi : '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {getPaymentStatusChip(user)}
                     </TableCell>
                     <TableCell>
                       {user.selectedCourt ? (
@@ -1081,9 +1219,6 @@ export default function AdminDashboard() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Chip label={user.subscriptionType || 'None'} size="small" />
-                    </TableCell>
-                    <TableCell>
                       <Chip 
                         label={user.status || 'pending'} 
                         color={getStatusColor(user.status || 'pending') as any}
@@ -1091,93 +1226,24 @@ export default function AdminDashboard() {
                       />
                     </TableCell>
                     <TableCell>
-                      {getPaymentStatusChip(user)}
-                    </TableCell>
-                    <TableCell>
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          color: user.nextDueDate && new Date(user.nextDueDate) < new Date() ? '#c62828' : 'inherit',
-                          fontWeight: user.nextDueDate && new Date(user.nextDueDate) < new Date() ? 'bold' : 'normal',
-                          fontSize: '0.875rem'
-                        }}
-                      >
-                        {formatDueDate(user.nextDueDate)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {user.paymentCompletedDate && user.paymentStatus === 'completed'
-                          ? format(new Date(user.paymentCompletedDate), 'MMM dd, yyyy')
-                          : 'Not Completed'
-                        }
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {user.comments || '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={user.mode || 'N/A'} 
-                        color={user.mode === 'fixed' ? 'primary' : user.mode === 'flexible' ? 'secondary' : 'default'}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                          <Button size="small" onClick={() => handleEditUser(user)} startIcon={<Edit />}>
-                            Edit
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <Button size="small" onClick={() => handleEditUser(user)} startIcon={<Edit />}>
+                          Edit
+                        </Button>
+                        <Button size="small" color="error" onClick={() => handleDeleteUser(user)} startIcon={<Delete />}>
+                          Delete
+                        </Button>
+                        {user.subscribed === 'yes' && (
+                          <Button 
+                            size="small" 
+                            color="primary" 
+                            variant="contained"
+                            onClick={() => router.push('/admin/subscriptions')}
+                            sx={{ fontSize: '0.75rem' }}
+                          >
+                            View Sub
                           </Button>
-                          <Button size="small" color="error" onClick={() => handleDeleteUser(user)} startIcon={<Delete />}>
-                            Delete
-                          </Button>
-                        </Box>
-                        
-                        {/* Payment Actions */}
-                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                          {user.paymentStatus === 'pending' && (
-                            <Button 
-                              size="small" 
-                              variant="outlined" 
-                              color="info"
-                              onClick={() => registerUser(user._id, {
-                                subscriptionType: user.subscriptionType as any,
-                                cycleLength: user.billingCycleLength || 1,
-                                amount: user.subscriptionAmount || 1000
-                              })}
-                            >
-                              Register
-                            </Button>
-                          )}
-                          
-                          {(user.paymentStatus === 'registered' || user.paymentStatus === 'pending') && (
-                            <Button 
-                              size="small" 
-                              variant="outlined" 
-                              color="success"
-                              onClick={() => markPaymentCompleted(user._id, {
-                                amount: user.subscriptionAmount || 1000,
-                                method: 'gpay',
-                                transactionId: `TXN${Date.now()}`
-                              })}
-                            >
-                              Mark Paid
-                            </Button>
-                          )}
-                          
-                          {user.paymentStatus === 'overdue' && (
-                            <Chip 
-                              label={`${user.overdueDays || 0} days overdue`}
-                              color="error"
-                              size="small"
-                              sx={{ fontSize: '0.7rem' }}
-                            />
-                          )}
-                        </Box>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -1246,6 +1312,7 @@ export default function AdminDashboard() {
                         return (
                           <Grid item xs={6} key={slot}>
                             <Paper 
+                              onClick={() => handleSlotClick(courtId, slot)}
                               sx={{ 
                                 p: 1, 
                                 textAlign: 'center',
@@ -1254,7 +1321,13 @@ export default function AdminDashboard() {
                                 minHeight: '80px',
                                 display: 'flex',
                                 flexDirection: 'column',
-                                justifyContent: 'center'
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                '&:hover': {
+                                  opacity: 0.8,
+                                  transform: 'scale(1.02)',
+                                },
+                                transition: 'all 0.2s ease'
                               }}
                             >
                               <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.7rem' }}>
@@ -1526,7 +1599,7 @@ export default function AdminDashboard() {
             � Sports Subscription Management
           </Typography>
           
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
             <Button
               variant="contained"
               onClick={() => router.push('/admin/subscriptions')}
@@ -1534,69 +1607,126 @@ export default function AdminDashboard() {
             >
               View All Subscriptions
             </Button>
+            <Button 
+              variant="outlined" 
+              color="warning"
+              onClick={updateOverdueStatus}
+              startIcon={<Refresh />}
+            >
+              Update Overdue Status
+            </Button>
           </Box>
 
           <Alert severity="info" sx={{ mb: 3 }}>
             <Typography variant="body2">
-              <strong>Subscription Management:</strong> View and manage sports subscriptions with flexible mode pricing, 
-              payment tracking, and renewal management. Click "View All Subscriptions" for the full management interface.
+              <strong>Subscription Management:</strong> This table shows only users with subscribed="yes" for billing cycle and overdue management. 
+              The same users also appear in the Users tab for basic information management. Here you can track payment dates, due dates, and billing cycles.
             </Typography>
           </Alert>
 
-          <Typography variant="subtitle1" gutterBottom>
-            Quick Stats
-          </Typography>
-          
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography color="textSecondary" gutterBottom>
-                    Active Subscriptions
-                  </Typography>
-                  <Typography variant="h4">
-                    --
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography color="textSecondary" gutterBottom>
-                    Pending Payments
-                  </Typography>
-                  <Typography variant="h4">
-                    --
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography color="textSecondary" gutterBottom>
-                    Monthly Revenue
-                  </Typography>
-                  <Typography variant="h4">
-                    ₹--
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography color="textSecondary" gutterBottom>
-                    Due for Renewal
-                  </Typography>
-                  <Typography variant="h4">
-                    --
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
+          {/* Subscription Users Table */}
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>ChampID</TableCell>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Game</TableCell>
+                  <TableCell>Time Slot</TableCell>
+                  <TableCell>Payment Date</TableCell>
+                  <TableCell>Next Due Date</TableCell>
+                  <TableCell>Payment Status</TableCell>
+                  <TableCell>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {users
+                  .filter(user => user.subscribed === 'yes')
+                  .map((user) => (
+                    <TableRow key={user._id} hover>
+                      <TableCell>
+                        <Chip label={user.champId} size="small" color="primary" variant="outlined" />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                          {user.name}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={user.preferredSport || 'Not Set'} 
+                          size="small" 
+                          color={user.preferredSport ? 'success' : 'default'}
+                          variant="outlined" 
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {user.preferredTimeSlot ? (
+                          <Chip 
+                            label={user.preferredTimeSlot} 
+                            size="small" 
+                            color="secondary"
+                            variant="outlined"
+                          />
+                        ) : (
+                          <Typography variant="body2" color="textSecondary">
+                            No time slot
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {user.paymentCompletedDate && user.paymentStatus === 'completed'
+                            ? format(new Date(user.paymentCompletedDate), 'MMM dd, yyyy')
+                            : 'Not Completed'
+                          }
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: user.nextDueDate && new Date(user.nextDueDate) < new Date() ? '#c62828' : 'inherit',
+                            fontWeight: user.nextDueDate && new Date(user.nextDueDate) < new Date() ? 'bold' : 'normal',
+                            fontSize: '0.875rem'
+                          }}
+                        >
+                          {formatDueDate(user.nextDueDate)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {getPaymentStatusChip(user)}
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          <Button size="small" onClick={() => handleEditUser(user)} startIcon={<Edit />}>
+                            Edit
+                          </Button>
+                          <Button 
+                            size="small" 
+                            color="primary" 
+                            variant="contained"
+                            onClick={() => router.push('/admin/subscriptions')}
+                            sx={{ fontSize: '0.75rem' }}
+                          >
+                            View
+                          </Button>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                {users.filter(user => user.subscribed === 'yes').length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
+                      <Typography variant="body2" color="textSecondary">
+                        No subscribed users found. Users need to have subscribed="yes" to appear here.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </TabPanel>
 
         <TabPanel value={tabValue} index={5}>
@@ -1680,6 +1810,108 @@ export default function AdminDashboard() {
                   </Select>
                 </FormControl>
               </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Champion Type</InputLabel>
+                  <Select
+                    value={editUserFormData.champType}
+                    onChange={(e) => setEditUserFormData(prev => ({ ...prev, champType: e.target.value }))}
+                    label="Champion Type"
+                  >
+                    <MenuItem value="kids">Kids</MenuItem>
+                    <MenuItem value="adult">Adult</MenuItem>
+                    <MenuItem value="veteran">Veteran</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Subscribed</InputLabel>
+                  <Select
+                    value={editUserFormData.subscribed}
+                    onChange={(e) => setEditUserFormData(prev => ({ ...prev, subscribed: e.target.value }))}
+                    label="Subscribed"
+                  >
+                    <MenuItem value="no">No</MenuItem>
+                    <MenuItem value="yes">Yes</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              {/* Health Information Section */}
+              <Grid item xs={12}>
+                <Typography variant="h6" sx={{ mt: 2, mb: 1, color: 'primary.main' }}>
+                  Health Information (Optional)
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="Height (cm)"
+                  type="number"
+                  value={editUserFormData.height}
+                  onChange={(e) => {
+                    const height = e.target.value;
+                    const weight = editUserFormData.weight;
+                    let bmi = '';
+                    
+                    if (height && weight && parseFloat(height) > 0 && parseFloat(weight) > 0) {
+                      const h = parseFloat(height) / 100; // convert cm to m
+                      const w = parseFloat(weight);
+                      bmi = (w / (h * h)).toFixed(1);
+                    }
+                    
+                    setEditUserFormData(prev => ({ 
+                      ...prev, 
+                      height, 
+                      bmi 
+                    }));
+                  }}
+                  InputProps={{
+                    inputProps: { min: 50, max: 300 }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="Weight (kg)"
+                  type="number"
+                  value={editUserFormData.weight}
+                  onChange={(e) => {
+                    const weight = e.target.value;
+                    const height = editUserFormData.height;
+                    let bmi = '';
+                    
+                    if (height && weight && parseFloat(height) > 0 && parseFloat(weight) > 0) {
+                      const h = parseFloat(height) / 100; // convert cm to m
+                      const w = parseFloat(weight);
+                      bmi = (w / (h * h)).toFixed(1);
+                    }
+                    
+                    setEditUserFormData(prev => ({ 
+                      ...prev, 
+                      weight, 
+                      bmi 
+                    }));
+                  }}
+                  InputProps={{
+                    inputProps: { min: 10, max: 300 }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="BMI"
+                  value={editUserFormData.bmi}
+                  InputProps={{
+                    readOnly: true,
+                  }}
+                  helperText="Calculated automatically"
+                />
+              </Grid>
+              
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
                   <InputLabel>Preferred Sport</InputLabel>
@@ -1785,7 +2017,6 @@ export default function AdminDashboard() {
                     label="Payment Status"
                   >
                     <MenuItem value="pending">Pending</MenuItem>
-                    <MenuItem value="registered">Registered</MenuItem>
                     <MenuItem value="completed">Completed</MenuItem>
                     <MenuItem value="failed">Failed</MenuItem>
                     <MenuItem value="overdue">Overdue</MenuItem>
@@ -1868,6 +2099,19 @@ export default function AdminDashboard() {
                 />
               </Grid>
               
+              {/* Next Due Date */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  type="date"
+                  label="Next Due Date"
+                  value={editUserFormData.nextDueDate ? new Date(editUserFormData.nextDueDate).toISOString().split('T')[0] : ''}
+                  onChange={(e) => setEditUserFormData(prev => ({ ...prev, nextDueDate: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Next payment due date"
+                />
+              </Grid>
+              
               {/* Comments Field */}
               <Grid item xs={12}>
                 <TextField
@@ -1927,6 +2171,157 @@ export default function AdminDashboard() {
           <Button onClick={() => setDeleteUserDialogOpen(false)}>Cancel</Button>
           <Button onClick={confirmDeleteUser} variant="contained" color="error">
             Delete User
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Slot Details Dialog */}
+      <Dialog 
+        open={slotDetailsDialog.open}
+        onClose={() => setSlotDetailsDialog(prev => ({ ...prev, open: false }))}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Slot Details - Court {slotDetailsDialog.courtId} ({slotDetailsDialog.timeSlot})
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 1 }}>
+            {/* Registered Users Section */}
+            <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+              Registered Users ({slotDetailsDialog.registeredUsers.length})
+            </Typography>
+            {slotDetailsDialog.registeredUsers.length > 0 ? (
+              <TableContainer component={Paper} sx={{ mb: 3 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Champion ID</TableCell>
+                      <TableCell>Email</TableCell>
+                      <TableCell>Mobile</TableCell>
+                      <TableCell>Payment Status</TableCell>
+                      <TableCell>Subscription</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {slotDetailsDialog.registeredUsers.map((user) => (
+                      <TableRow key={user._id}>
+                        <TableCell>{user.name}</TableCell>
+                        <TableCell>{user.champId || '-'}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>{user.phone || user.mobile}</TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={user.paymentStatus} 
+                            color={user.paymentStatus === 'paid' ? 'success' : 
+                                   user.paymentStatus === 'pending' ? 'warning' : 'error'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={user.subscriptionType} 
+                            size="small"
+                            color="primary"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Alert severity="info" sx={{ mb: 3 }}>
+                No registered users for this slot
+              </Alert>
+            )}
+
+            {/* Hourly Bookings Section */}
+            <Typography variant="h6" sx={{ mb: 2, color: 'secondary.main' }}>
+              Hourly Bookings ({slotDetailsDialog.hourlyBookings.length})
+            </Typography>
+            {slotDetailsDialog.hourlyBookings.length > 0 ? (
+              <TableContainer component={Paper}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Customer Name</TableCell>
+                      <TableCell>Email</TableCell>
+                      <TableCell>Phone</TableCell>
+                      <TableCell>Amount</TableCell>
+                      <TableCell>Payment Status</TableCell>
+                      <TableCell>Booking Status</TableCell>
+                      <TableCell>Created</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {slotDetailsDialog.hourlyBookings.map((booking) => (
+                      <TableRow key={booking._id}>
+                        <TableCell>{booking.customerName}</TableCell>
+                        <TableCell>{booking.customerEmail}</TableCell>
+                        <TableCell>{booking.customerPhone}</TableCell>
+                        <TableCell>₹{booking.totalAmount}</TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={booking.paymentStatus} 
+                            color={booking.paymentStatus === 'confirmed' ? 'success' : 
+                                   booking.paymentStatus === 'pending' ? 'warning' : 'error'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={booking.bookingStatus} 
+                            color={booking.bookingStatus === 'confirmed' ? 'success' : 'warning'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {formatSafeDate(booking.createdAt, 'dd/MM/yyyy HH:mm')}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Alert severity="info">
+                No hourly bookings for this slot today
+              </Alert>
+            )}
+
+            {/* Summary */}
+            <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+              <Typography variant="h6" sx={{ mb: 1 }}>Summary</Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={6}>
+                  <Typography variant="body2">
+                    <strong>Total Occupancy:</strong> {slotDetailsDialog.registeredUsers.length + slotDetailsDialog.hourlyBookings.length}/6
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2">
+                    <strong>Available Slots:</strong> {6 - (slotDetailsDialog.registeredUsers.length + slotDetailsDialog.hourlyBookings.length)}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2">
+                    <strong>Registered:</strong> {slotDetailsDialog.registeredUsers.length}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2">
+                    <strong>Hourly Bookings:</strong> {slotDetailsDialog.hourlyBookings.length}
+                  </Typography>
+                </Grid>
+              </Grid>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSlotDetailsDialog(prev => ({ ...prev, open: false }))}>
+            Close
           </Button>
         </DialogActions>
       </Dialog>

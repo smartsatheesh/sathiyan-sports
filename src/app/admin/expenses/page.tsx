@@ -145,11 +145,11 @@ export default function ExpensesPage() {
     if (status === "loading") return;
     
     if (!session) {
-      router.push("/auth/login?callbackUrl=/admin/expenses");
+      router.push("/auth/signin?callbackUrl=/admin/expenses");
       return;
     }
     
-    if ((session.user as any)?.role !== "admin") {
+    if (session.user?.role !== "admin") {
       router.push("/");
       return;
     }
@@ -189,7 +189,7 @@ export default function ExpensesPage() {
   };
 
   useEffect(() => {
-    if (session?.user && (session.user as any).role === "admin") {
+    if (session?.user && session.user.role === "admin") {
       fetchExpenses();
     }
   }, [session, page, filters]);

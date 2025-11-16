@@ -55,6 +55,17 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ["male", "female", "other"],
   },
+  champType: {
+    type: String,
+    enum: ["kids", "adult", "veteran"],
+    required: [true, "Champion type is required"],
+  },
+  subscribed: {
+    type: String,
+    enum: ["yes", "no"],
+    default: "no",
+    required: [true, "Subscription status is required"],
+  },
   preferredSport: {
     type: String,
     enum: ["Cricket", "Football", "Shuttle Badminton", "Functions and Events"],
@@ -83,8 +94,8 @@ const userSchema = new mongoose.Schema({
   },
   paymentStatus: {
     type: String,
-    default: "completed",
-    enum: ["pending", "registered", "completed", "failed", "overdue"],
+    default: "pending",
+    enum: ["pending", "completed", "failed", "overdue"],
   },
   // Enhanced payment tracking fields
   paymentCompletedDate: {
@@ -163,6 +174,18 @@ const userSchema = new mongoose.Schema({
   // New fields for registration
   comments: {
     type: String,
+  },
+  height: {
+    type: Number,
+    // Optional field for user height in cm
+  },
+  weight: {
+    type: Number,
+    // Optional field for user weight in kg
+  },
+  bmi: {
+    type: Number,
+    // Optional field for BMI (calculated from height and weight)
   },
   createdAt: {
     type: Date,

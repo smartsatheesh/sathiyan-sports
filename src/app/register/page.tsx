@@ -50,6 +50,13 @@ const WOMEN_SUBSCRIPTION_PRICES = {
   yearly: 8399,
 };
 
+const KIDS_SUBSCRIPTION_PRICES = {
+  monthly: 1500,
+  quarterly: 4000,
+  "half yearly": 8000,
+  yearly: 13000,
+};
+
 const TIME_SLOTS = [
   "12:00 AM - 01:00 AM",
   "01:00 AM - 02:00 AM",
@@ -78,6 +85,20 @@ const TIME_SLOTS = [
 ];
 
 export default function RegisterPage() {
+  // Helper function to get current subscription prices
+  const getCurrentPrices = () => {
+    return formData.champType === 'kids' 
+      ? KIDS_SUBSCRIPTION_PRICES
+      : formData.gender === 'female' 
+        ? WOMEN_SUBSCRIPTION_PRICES 
+        : SUBSCRIPTION_PRICES;
+  };
+
+  // Helper function to calculate price with flexible surcharge
+  const getPriceWithSurcharge = (basePrice: number, surcharge: number) => {
+    return basePrice + (formData.mode === 'flexible' ? surcharge : 0);
+  };
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -92,6 +113,11 @@ export default function RegisterPage() {
     role: "customer", // Default role
     comments: "",
     mode: "",
+    champType: "", // New field for Kids, Adult, Veteran
+    subscribed: "no", // New field for subscription status (default: no)
+    height: "", // New field for height in cm
+    weight: "", // New field for weight in kg
+    bmi: "", // Calculated BMI field
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -119,6 +145,33 @@ export default function RegisterPage() {
       default:
         return startDate;
     }
+  };
+
+  // Calculate BMI from height and weight
+  const calculateBMI = (height: string, weight: string) => {
+    const h = parseFloat(height);
+    const w = parseFloat(weight);
+    if (h > 0 && w > 0) {
+      // BMI = weight(kg) / height(m)^2
+      const heightInMeters = h / 100;
+      return (w / (heightInMeters * heightInMeters)).toFixed(1);
+    }
+    return "";
+  };
+
+  // Update BMI when height or weight changes
+  const handleHeightWeightChange = (field: string, value: string) => {
+    const newFormData = { ...formData, [field]: value };
+    
+    if (field === 'height' || field === 'weight') {
+      const bmi = calculateBMI(
+        field === 'height' ? value : formData.height,
+        field === 'weight' ? value : formData.weight
+      );
+      newFormData.bmi = bmi;
+    }
+    
+    setFormData(newFormData);
   };
 
   // Check court availability when time slot or court selection changes
@@ -278,6 +331,14 @@ export default function RegisterPage() {
       errors.subscriptionType = 'Please select a subscription type';
     }
     
+    if (!formData.champType) {
+      errors.champType = 'Please select your champion type';
+    }
+    
+    if (!formData.subscribed) {
+      errors.subscribed = 'Please select subscription status';
+    }
+    
     // Make preferred slots mandatory
     if (!formData.preferredTimeSlot) {
       errors.preferredTimeSlot = 'Please select a preferred time slot';
@@ -303,7 +364,12 @@ export default function RegisterPage() {
       return;
     }
 
-    const subscriptionPrices = formData.gender === 'female' ? WOMEN_SUBSCRIPTION_PRICES : SUBSCRIPTION_PRICES;
+    const subscriptionPrices = 
+      formData.champType === 'kids' 
+        ? KIDS_SUBSCRIPTION_PRICES
+        : formData.gender === 'female' 
+          ? WOMEN_SUBSCRIPTION_PRICES 
+          : SUBSCRIPTION_PRICES;
     let subscriptionAmount =
       subscriptionPrices[
         formData.subscriptionType as keyof typeof SUBSCRIPTION_PRICES
@@ -351,6 +417,8 @@ export default function RegisterPage() {
         password: "",
         confirmPassword: "",
         gender: "",
+        champType: "",
+        subscribed: "no",
         preferredSport: "",
         preferredTimeSlot: "",
         selectedCourt: "",
@@ -358,6 +426,9 @@ export default function RegisterPage() {
         role: "customer",
         comments: "",
         mode: "",
+        height: "",
+        weight: "",
+        bmi: "",
       });
       setCourtAvailability(null);
       setAvailabilityMessage("");
@@ -552,6 +623,104 @@ export default function RegisterPage() {
             )}
           </FormControl>
 
+          {/* Champion Type Selection */}
+          <FormControl fullWidth margin="normal" required error={!!fieldErrors.champType}>
+            <InputLabel data-field="champType">Champion Type</InputLabel>
+            <Select
+              value={formData.champType}
+              label="Champion Type"
+              onChange={(e) => {
+                setFormData({ ...formData, champType: e.target.value });
+                if (fieldErrors.champType) {
+                  const newErrors = { ...fieldErrors };
+                  delete newErrors.champType;
+                  setFieldErrors(newErrors);
+                }
+              }}
+            >
+              <MenuItem value="kids">Kids</MenuItem>
+              <MenuItem value="adult">Adult</MenuItem>
+              <MenuItem value="veteran">Veteran</MenuItem>
+            </Select>
+            {fieldErrors.champType && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                {fieldErrors.champType}
+              </Typography>
+            )}
+          </FormControl>
+
+          {/* Subscribed Selection */}
+          <FormControl fullWidth margin="normal" required error={!!fieldErrors.subscribed}>
+            <InputLabel data-field="subscribed">Subscribed</InputLabel>
+            <Select
+              value={formData.subscribed}
+              label="Subscribed"
+              onChange={(e) => {
+                setFormData({ ...formData, subscribed: e.target.value });
+                if (fieldErrors.subscribed) {
+                  const newErrors = { ...fieldErrors };
+                  delete newErrors.subscribed;
+                  setFieldErrors(newErrors);
+                }
+              }}
+            >
+              <MenuItem value="no">No</MenuItem>
+              <MenuItem value="yes">Yes</MenuItem>
+            </Select>
+            {fieldErrors.subscribed && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                {fieldErrors.subscribed}
+              </Typography>
+            )}
+          </FormControl>
+
+          {/* Height, Weight, BMI Section */}
+          <Typography variant="h6" sx={{ mt: 3, mb: 2, color: 'primary.main' }}>
+            Optional Health Information
+          </Typography>
+          
+          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+            <TextField
+              margin="normal"
+              label="Height (cm)"
+              name="height"
+              type="number"
+              value={formData.height}
+              onChange={(e) => handleHeightWeightChange('height', e.target.value)}
+              InputProps={{
+                inputProps: { min: 50, max: 300 }
+              }}
+              helperText="Enter height in centimeters"
+              sx={{ flex: 1 }}
+            />
+            
+            <TextField
+              margin="normal"
+              label="Weight (kg)"
+              name="weight"
+              type="number"
+              value={formData.weight}
+              onChange={(e) => handleHeightWeightChange('weight', e.target.value)}
+              InputProps={{
+                inputProps: { min: 10, max: 300 }
+              }}
+              helperText="Enter weight in kilograms"
+              sx={{ flex: 1 }}
+            />
+            
+            <TextField
+              margin="normal"
+              label="BMI"
+              name="bmi"
+              value={formData.bmi}
+              InputProps={{
+                readOnly: true,
+              }}
+              helperText="Calculated automatically"
+              sx={{ flex: 1 }}
+            />
+          </Box>
+
           {/* Sport Selection */}
           <FormControl fullWidth margin="normal" required error={!!fieldErrors.preferredSport}>
             <InputLabel data-field="preferredSport">Preferred Sport</InputLabel>
@@ -733,19 +902,19 @@ export default function RegisterPage() {
               }}
             >
               <MenuItem value="monthly">
-                Monthly - ₹{formData.gender === 'female' ? WOMEN_SUBSCRIPTION_PRICES.monthly + (formData.mode === 'flexible' ? 300 : 0) : SUBSCRIPTION_PRICES.monthly + (formData.mode === 'flexible' ? 300 : 0)}
+                Monthly - ₹{getPriceWithSurcharge(getCurrentPrices().monthly, 300)}
                 {formData.mode === 'flexible' && ' (includes ₹300 flexible surcharge)'}
               </MenuItem>
               <MenuItem value="quarterly">
-                Quarterly - ₹{formData.gender === 'female' ? WOMEN_SUBSCRIPTION_PRICES.quarterly + (formData.mode === 'flexible' ? 900 : 0) : SUBSCRIPTION_PRICES.quarterly + (formData.mode === 'flexible' ? 900 : 0)}
+                Quarterly - ₹{getPriceWithSurcharge(getCurrentPrices().quarterly, 900)}
                 {formData.mode === 'flexible' && ' (includes ₹900 flexible surcharge)'}
               </MenuItem>
               <MenuItem value="half yearly">
-                Half Yearly - ₹{formData.gender === 'female' ? WOMEN_SUBSCRIPTION_PRICES["half yearly"] + (formData.mode === 'flexible' ? 1800 : 0) : SUBSCRIPTION_PRICES["half yearly"] + (formData.mode === 'flexible' ? 1800 : 0)}
+                Half Yearly - ₹{getPriceWithSurcharge(getCurrentPrices()["half yearly"], 1800)}
                 {formData.mode === 'flexible' && ' (includes ₹1800 flexible surcharge)'}
               </MenuItem>
               <MenuItem value="yearly">
-                Yearly - ₹{formData.gender === 'female' ? WOMEN_SUBSCRIPTION_PRICES.yearly + (formData.mode === 'flexible' ? 3600 : 0) : SUBSCRIPTION_PRICES.yearly + (formData.mode === 'flexible' ? 3600 : 0)}
+                Yearly - ₹{getPriceWithSurcharge(getCurrentPrices().yearly, 3600)}
                 {formData.mode === 'flexible' && ' (includes ₹3600 flexible surcharge)'}
               </MenuItem>
             </Select>

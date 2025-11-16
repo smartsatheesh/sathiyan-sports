@@ -32,6 +32,8 @@ export async function POST(req: Request) {
       "email",
       "mobile",
       "gender", 
+      "champType",
+      "subscribed",
       "preferredSport",
       "subscriptionType",
       "mode"
@@ -89,6 +91,8 @@ export async function POST(req: Request) {
       mobile: body.mobile,
       password: hashedPassword,
       gender: body.gender,
+      champType: body.champType,
+      subscribed: body.subscribed,
       preferredSport: body.preferredSport,
       // Set preferred slots as optional - empty by default, users can update after payment
       selectedCourt: body.selectedCourt || "",

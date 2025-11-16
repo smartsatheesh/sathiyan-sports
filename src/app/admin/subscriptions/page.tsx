@@ -46,6 +46,14 @@ import {
 } from "@mui/icons-material";
 import { format } from "date-fns";
 
+// Utility function for safe date formatting
+const formatSafeDate = (dateString: string | undefined | null, formatPattern: string = 'dd/MM/yyyy'): string => {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'Invalid date';
+  return format(date, formatPattern);
+};
+
 interface Subscription {
   _id: string;
   userId: {
@@ -235,7 +243,8 @@ const AdminSubscriptionsPage = () => {
     }
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (amount == null || isNaN(amount)) return '₹0';
     return `₹${amount.toLocaleString('en-IN')}`;
   };
 
@@ -472,10 +481,10 @@ const AdminSubscriptionsPage = () => {
                     {subscription.paymentMethod || '-'}
                   </TableCell>
                   <TableCell>
-                    {format(new Date(subscription.startDate), 'dd/MM/yyyy')}
+                    {formatSafeDate(subscription.startDate)}
                   </TableCell>
                   <TableCell>
-                    {format(new Date(subscription.endDate), 'dd/MM/yyyy')}
+                    {formatSafeDate(subscription.endDate)}
                   </TableCell>
                   <TableCell>
                     <Chip 
@@ -491,7 +500,7 @@ const AdminSubscriptionsPage = () => {
                       </Typography>
                       <br />
                       <Typography variant="caption" color="textSecondary">
-                        {format(new Date(subscription.createdAt), 'dd/MM/yyyy HH:mm')}
+                        {formatSafeDate(subscription.createdAt, 'dd/MM/yyyy HH:mm')}
                       </Typography>
                       {subscription.updatedBy && (
                         <>
