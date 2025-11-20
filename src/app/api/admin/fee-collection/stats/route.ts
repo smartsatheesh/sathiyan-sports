@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/authConfig';
-import { connectToMongoose } from '@/app/lib/mongoose';
+import { connectToMongoose } from '@/app/server/mongodb';
 import FeeCollection from '@/app/models/FeeCollection';
 
 export async function GET() {
@@ -15,7 +15,7 @@ export async function GET() {
     await connectToMongoose();
     
     // Get all fees for statistics
-    const allFees = await FeeCollection.find({}).lean();
+    const allFees = await (FeeCollection.find as any)({}).lean();
     
     // Calculate statistics
     const totalFees = allFees.length;

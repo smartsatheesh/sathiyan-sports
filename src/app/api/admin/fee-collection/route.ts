@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/authConfig';
-import { connectToMongoose } from '@/app/lib/mongoose';
+import { connectToMongoose } from '@/app/server/mongodb';
 import FeeCollection from '@/app/models/FeeCollection';
 
 export async function GET() {
@@ -14,7 +14,7 @@ export async function GET() {
 
     await connectToMongoose();
     
-    const fees = await FeeCollection.find({})
+    const fees = await (FeeCollection.find as any)({})
       .populate('userId', 'name email champId phone mobile')
       .populate('createdBy', 'name email')
       .populate('updatedBy', 'name email')

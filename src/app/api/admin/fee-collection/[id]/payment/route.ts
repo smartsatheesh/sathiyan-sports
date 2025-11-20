@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/authConfig';
-import { connectToMongoose } from '@/app/lib/mongoose';
+import { connectToMongoose } from '@/app/server/mongodb';
 import FeeCollection from '@/app/models/FeeCollection';
 
 export async function POST(
@@ -28,7 +28,7 @@ export async function POST(
 
     await connectToMongoose();
 
-    const updatedFee = await FeeCollection.findByIdAndUpdate(
+    const updatedFee = await (FeeCollection.findByIdAndUpdate as any)(
       id,
       {
         status: 'paid',

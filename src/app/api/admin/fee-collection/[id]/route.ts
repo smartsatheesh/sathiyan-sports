@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/authConfig';
-import { connectToMongoose } from '@/app/lib/mongoose';
+import { connectToMongoose } from '@/app/server/mongodb';
 import FeeCollection from '@/app/models/FeeCollection';
 
 export async function PUT(
@@ -20,7 +20,7 @@ export async function PUT(
 
     await connectToMongoose();
 
-    const updatedFee = await FeeCollection.findByIdAndUpdate(
+    const updatedFee = await (FeeCollection.findByIdAndUpdate as any)(
       id,
       {
         ...body,
@@ -68,7 +68,7 @@ export async function DELETE(
 
     await connectToMongoose();
 
-    const deletedFee = await FeeCollection.findByIdAndDelete(id);
+    const deletedFee = await (FeeCollection.findByIdAndDelete as any)(id);
 
     if (!deletedFee) {
       return NextResponse.json({ error: 'Fee not found' }, { status: 404 });

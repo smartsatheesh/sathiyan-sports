@@ -70,6 +70,8 @@ interface User {
   nextDueDate?: string;
   paymentStatus: 'pending' | 'paid' | 'overdue';
   court?: string;
+  gender?: 'male' | 'female';
+  preferredTimeSlot?: string;
 }
 
 interface Stats {
@@ -145,7 +147,7 @@ const SubscriptionPage = () => {
     // Calculate revenue based on subscription type
     const revenue = userList.reduce((total, user) => {
       if (user.paymentStatus === 'paid') {
-        const amount = getSubscriptionAmount(user.champType, user.subscriptionType);
+        const amount = getSubscriptionAmount(user.champType, user.subscriptionType, user.gender, user.preferredTimeSlot);
         return total + amount;
       }
       return total;
@@ -160,13 +162,39 @@ const SubscriptionPage = () => {
     });
   };
 
-  const getSubscriptionAmount = (champType?: string, subscriptionType?: string) => {
-    // Define pricing for different championship types
-    const ADULT_PRICING = {
-      monthly: 1000,
-      quarterly: 2700,
-      'half yearly': 6000,
-      yearly: 9600
+  const getSubscriptionAmount = (champType?: string, subscriptionType?: string, gender?: string, preferredTimeSlot?: string) => {
+    // Helper function to check if time slot qualifies for female discount
+    const isFemalDiscountTimeSlot = (timeSlot: string): boolean => {
+      if (!timeSlot) return false;
+      
+      // Parse the start time from time slot (e.g., "10:00 AM - 11:00 AM")
+      const startTime = timeSlot.split(' - ')[0];
+      const [time, period] = startTime.split(' ');
+      const [hours, minutes] = time.split(':').map(Number);
+      
+      let hour24 = hours;
+      if (period === 'PM' && hours !== 12) hour24 += 12;
+      if (period === 'AM' && hours === 12) hour24 = 0;
+      
+      const startHour = hour24 + minutes / 60;
+      
+      // Female discount applies from 10:00 AM (10.0) to 4:00 PM (16.0)
+      return startHour >= 10.0 && startHour < 16.0;
+    };
+
+    // Define pricing for different championship types with gender-based pricing
+    const ADULT_MALE_PRICING = {
+      monthly: 1199,
+      quarterly: 3399,
+      'half yearly': 6299,
+      yearly: 11499
+    };
+
+    const ADULT_FEMALE_PRICING = {
+      monthly: 799,
+      quarterly: 2099,
+      'half yearly': 4099,
+      yearly: 8399
     };
     
     const KIDS_PRICING = {
@@ -176,6 +204,7 @@ const SubscriptionPage = () => {
       yearly: 13000
     };
 
+    // Kids pricing is not affected by gender or time slots
     if (champType === 'kids') {
       switch (subscriptionType) {
         case 'monthly': return KIDS_PRICING.monthly;
@@ -185,13 +214,20 @@ const SubscriptionPage = () => {
         default: return KIDS_PRICING.monthly;
       }
     } else {
-      // Default adult/veteran pricing
+      // Adult/veteran pricing with gender and time-based logic
+      let pricing = ADULT_MALE_PRICING; // Default to male pricing
+      
+      // Apply female pricing only if user is female AND selected time slot is within 10 AM - 4 PM
+      if (gender === 'female' && preferredTimeSlot && isFemalDiscountTimeSlot(preferredTimeSlot)) {
+        pricing = ADULT_FEMALE_PRICING;
+      }
+      
       switch (subscriptionType) {
-        case 'monthly': return ADULT_PRICING.monthly;
-        case 'quarterly': return ADULT_PRICING.quarterly;
-        case 'half yearly': return ADULT_PRICING['half yearly'];
-        case 'yearly': return ADULT_PRICING.yearly;
-        default: return ADULT_PRICING.monthly;
+        case 'monthly': return pricing.monthly;
+        case 'quarterly': return pricing.quarterly;
+        case 'half yearly': return pricing['half yearly'];
+        case 'yearly': return pricing.yearly;
+        default: return pricing.monthly;
       }
     }
   };
@@ -200,13 +236,78 @@ const SubscriptionPage = () => {
     return `₹${amount.toLocaleString('en-IN')}`;
   };
 
-  const getPaymentStatusColor = (status: string) => {
-    switch (status) {
-      case 'paid': return 'success';
-      case 'pending': return 'warning';
-      case 'overdue': return 'error';
-      default: return 'default';
+  // Grace period in days after due date
+  const GRACE_PERIOD_DAYS = 7;
+
+  // Calculate overdue status based on next due date
+  const getOverdueStatus = (nextDueDate: string | undefined, paymentStatus: string) => {
+    if (!nextDueDate || paymentStatus === 'paid') return { isOverdue: false, isPastGrace: false };
+    
+    const dueDate = new Date(nextDueDate);
+    const today = new Date();
+    
+    // Set time to start of day to avoid time-of-day issues
+    dueDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    
+    const diffTime = today.getTime() - dueDate.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    // Only consider overdue if payment is actually past due date (not on due date)
+    const isOverdue = diffDays > 0;
+    const isPastGrace = diffDays > GRACE_PERIOD_DAYS;
+    
+    return { isOverdue, isPastGrace, daysPastDue: Math.max(diffDays, 0) };
+  };
+
+  const getPaymentStatusColor = (status: string, nextDueDate?: string) => {
+    const overdueStatus = getOverdueStatus(nextDueDate, status);
+    
+    // If payment is already marked as paid, use success color
+    if (status === 'paid') return 'success';
+    
+    // If past grace period, use error (red)
+    if (overdueStatus.isPastGrace) return 'error';
+    
+    // If overdue but within grace period, use warning (amber/orange)
+    if (overdueStatus.isOverdue) return 'warning';
+    
+    // For pending payments not yet due
+    if (status === 'pending') return 'info';
+    
+    // For explicitly marked overdue status
+    if (status === 'overdue') return 'error';
+    
+    return 'default';
+  };
+
+  // Get row styling based on overdue status
+  const getRowStyling = (user: User) => {
+    const overdueStatus = getOverdueStatus(user.nextDueDate, user.paymentStatus);
+    
+    if (user.paymentStatus === 'paid') {
+      return {}; // No special styling for paid users
     }
+    
+    if (overdueStatus.isPastGrace) {
+      return {
+        backgroundColor: 'rgba(211, 47, 47, 0.08)', // Light red background
+        '&:hover': {
+          backgroundColor: 'rgba(211, 47, 47, 0.12)', // Darker red on hover
+        }
+      };
+    }
+    
+    if (overdueStatus.isOverdue) {
+      return {
+        backgroundColor: 'rgba(255, 152, 0, 0.08)', // Light amber background  
+        '&:hover': {
+          backgroundColor: 'rgba(255, 152, 0, 0.12)', // Darker amber on hover
+        }
+      };
+    }
+    
+    return {}; // No special styling for on-time payments
   };
 
   useEffect(() => {
@@ -423,6 +524,40 @@ const SubscriptionPage = () => {
         </Grid>
       </Grid>
 
+      {/* Pricing Information Card */}
+      <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+          <Star color="primary" sx={{ mr: 1 }} />
+          Pricing Information
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <Typography variant="subtitle2" color="primary" gutterBottom>
+              Female Pricing (10 AM - 4 PM slots)
+            </Typography>
+            <Typography variant="body2" component="div">
+              • Monthly: ₹799 &nbsp;&nbsp;&nbsp; • Quarterly: ₹2,099<br/>
+              • Half Yearly: ₹4,099 &nbsp;&nbsp;&nbsp; • Yearly: ₹8,399
+            </Typography>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Typography variant="subtitle2" color="text.primary" gutterBottom>
+              Standard Pricing (All other slots)
+            </Typography>
+            <Typography variant="body2" component="div">
+              • Monthly: ₹1,199 &nbsp;&nbsp;&nbsp; • Quarterly: ₹3,399<br/>
+              • Half Yearly: ₹6,299 &nbsp;&nbsp;&nbsp; • Yearly: ₹11,499
+            </Typography>
+          </Grid>
+        </Grid>
+        <Alert severity="info" sx={{ mt: 2 }}>
+          <Typography variant="body2">
+            <strong>Note:</strong> Female users get special pricing only for time slots between 10:00 AM - 4:00 PM. 
+            Slots outside this range will use standard pricing regardless of gender.
+          </Typography>
+        </Alert>
+      </Paper>
+
       {/* Filters */}
       <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
@@ -474,6 +609,38 @@ const SubscriptionPage = () => {
         </Grid>
       </Paper>
 
+      {/* Payment Status Legend */}
+      <Paper elevation={1} sx={{ p: 2, mb: 3, backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
+        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+          Payment Status Legend:
+        </Typography>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={6} md={3}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ width: 16, height: 16, backgroundColor: 'rgba(76, 175, 80, 0.1)', borderRadius: 1 }} />
+              <Typography variant="body2">Paid (Green)</Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ width: 16, height: 16, backgroundColor: 'rgba(255, 152, 0, 0.1)', borderRadius: 1 }} />
+              <Typography variant="body2">Overdue (Amber Row)</Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ width: 16, height: 16, backgroundColor: 'rgba(211, 47, 47, 0.1)', borderRadius: 1 }} />
+              <Typography variant="body2">Past Grace Period (Red Row)</Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="body2" color="text.secondary">
+              Grace period: {GRACE_PERIOD_DAYS} days
+            </Typography>
+          </Grid>
+        </Grid>
+      </Paper>
+
       {/* Subscriptions Table */}
       <Paper elevation={2}>
         <TableContainer>
@@ -509,26 +676,46 @@ const SubscriptionPage = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredUsers.map((user) => (
-                  <TableRow key={user._id} hover>
-                    <TableCell>
-                      {user.paymentDate ? format(new Date(user.paymentDate), 'dd/MM/yyyy') : '-'}
-                    </TableCell>
-                    <TableCell>
-                      {user.nextDueDate ? format(new Date(user.nextDueDate), 'dd/MM/yyyy') : '-'}
-                    </TableCell>
-                    <TableCell>{user.champId}</TableCell>
-                    <TableCell>{user.name}</TableCell>
-                    <TableCell>{user.game}</TableCell>
-                    <TableCell>{user.slot}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user.paymentStatus}
-                        color={getPaymentStatusColor(user.paymentStatus) as any}
-                        variant="filled"
-                        size="small"
-                      />
-                    </TableCell>
+                filteredUsers.map((user) => {
+                  const overdueStatus = getOverdueStatus(user.nextDueDate, user.paymentStatus);
+                  return (
+                    <TableRow 
+                      key={user._id} 
+                      hover 
+                      sx={getRowStyling(user)}
+                    >
+                      <TableCell>
+                        {user.paymentDate ? format(new Date(user.paymentDate), 'dd/MM/yyyy') : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2">
+                            {user.nextDueDate ? format(new Date(user.nextDueDate), 'dd/MM/yyyy') : '-'}
+                          </Typography>
+                          {overdueStatus.isOverdue && user.paymentStatus !== 'paid' && (
+                            <Chip 
+                              label={overdueStatus.isPastGrace ? `${overdueStatus.daysPastDue}d past grace` : `${overdueStatus.daysPastDue}d overdue`}
+                              size="small"
+                              color={overdueStatus.isPastGrace ? 'error' : 'warning'}
+                              variant="outlined"
+                            />
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell>{user.champId}</TableCell>
+                      <TableCell>{user.name}</TableCell>
+                      <TableCell>{user.game}</TableCell>
+                      <TableCell>{user.slot}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={overdueStatus.isOverdue && user.paymentStatus !== 'paid' 
+                            ? (overdueStatus.isPastGrace ? 'Past Grace Period' : 'Overdue') 
+                            : user.paymentStatus}
+                          color={getPaymentStatusColor(user.paymentStatus, user.nextDueDate) as any}
+                          variant="filled"
+                          size="small"
+                        />
+                      </TableCell>
                     <TableCell>
                       <Chip
                         label={user.champType || 'monthly'}
@@ -537,7 +724,74 @@ const SubscriptionPage = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      {formatCurrency(getSubscriptionAmount(user.champType, user.subscriptionType))}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" fontWeight="bold">
+                          {formatCurrency(getSubscriptionAmount(user.champType, user.subscriptionType, user.gender, user.preferredTimeSlot))}
+                        </Typography>
+                        {user.gender === 'female' && user.preferredTimeSlot && (
+                          <Tooltip 
+                            title={(() => {
+                              const timeSlot = user.preferredTimeSlot;
+                              if (!timeSlot) return '';
+                              
+                              const startTime = timeSlot.split(' - ')[0];
+                              const [time, period] = startTime.split(' ');
+                              const [hours, minutes] = time.split(':').map(Number);
+                              
+                              let hour24 = hours;
+                              if (period === 'PM' && hours !== 12) hour24 += 12;
+                              if (period === 'AM' && hours === 12) hour24 = 0;
+                              
+                              const startHour = hour24 + minutes / 60;
+                              const isDiscountTime = startHour >= 10.0 && startHour < 16.0;
+                              
+                              return isDiscountTime 
+                                ? 'Female discount applied (10 AM - 4 PM slot)'
+                                : 'Standard pricing (outside 10 AM - 4 PM)';
+                            })()}
+                            placement="top"
+                          >
+                            <Chip
+                              label={(() => {
+                                const timeSlot = user.preferredTimeSlot;
+                                if (!timeSlot) return '';
+                                
+                                const startTime = timeSlot.split(' - ')[0];
+                                const [time, period] = startTime.split(' ');
+                                const [hours, minutes] = time.split(':').map(Number);
+                                
+                                let hour24 = hours;
+                                if (period === 'PM' && hours !== 12) hour24 += 12;
+                                if (period === 'AM' && hours === 12) hour24 = 0;
+                                
+                                const startHour = hour24 + minutes / 60;
+                                const isDiscountTime = startHour >= 10.0 && startHour < 16.0;
+                                
+                                return isDiscountTime ? 'F+' : 'F';
+                              })()}
+                              size="small"
+                              color={(() => {
+                                const timeSlot = user.preferredTimeSlot;
+                                if (!timeSlot) return 'default';
+                                
+                                const startTime = timeSlot.split(' - ')[0];
+                                const [time, period] = startTime.split(' ');
+                                const [hours, minutes] = time.split(':').map(Number);
+                                
+                                let hour24 = hours;
+                                if (period === 'PM' && hours !== 12) hour24 += 12;
+                                if (period === 'AM' && hours === 12) hour24 = 0;
+                                
+                                const startHour = hour24 + minutes / 60;
+                                const isDiscountTime = startHour >= 10.0 && startHour < 16.0;
+                                
+                                return isDiscountTime ? 'success' : 'default';
+                              })()}
+                              variant="outlined"
+                            />
+                          </Tooltip>
+                        )}
+                      </Box>
                     </TableCell>
                     <TableCell>{user.court || '-'}</TableCell>
                     <TableCell>
@@ -552,7 +806,8 @@ const SubscriptionPage = () => {
                       </Tooltip>
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -641,6 +896,52 @@ const SubscriptionPage = () => {
                       <MenuItem value="quarterly">Quarterly</MenuItem>
                       <MenuItem value="half yearly">Half Yearly</MenuItem>
                       <MenuItem value="yearly">Yearly</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Gender</InputLabel>
+                    <Select
+                      value={selectedUser.gender || 'male'}
+                      label="Gender"
+                      onChange={(e) => setSelectedUser({
+                        ...selectedUser,
+                        gender: e.target.value as 'male' | 'female'
+                      })}
+                    >
+                      <MenuItem value="male">Male</MenuItem>
+                      <MenuItem value="female">Female</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Preferred Time Slot</InputLabel>
+                    <Select
+                      value={selectedUser.preferredTimeSlot || ''}
+                      label="Preferred Time Slot"
+                      onChange={(e) => setSelectedUser({
+                        ...selectedUser,
+                        preferredTimeSlot: e.target.value
+                      })}
+                    >
+                      <MenuItem value="06:00 AM - 07:00 AM">06:00 AM - 07:00 AM</MenuItem>
+                      <MenuItem value="07:00 AM - 08:00 AM">07:00 AM - 08:00 AM</MenuItem>
+                      <MenuItem value="08:00 AM - 09:00 AM">08:00 AM - 09:00 AM</MenuItem>
+                      <MenuItem value="09:00 AM - 10:00 AM">09:00 AM - 10:00 AM</MenuItem>
+                      <MenuItem value="10:00 AM - 11:00 AM">10:00 AM - 11:00 AM</MenuItem>
+                      <MenuItem value="11:00 AM - 12:00 PM">11:00 AM - 12:00 PM</MenuItem>
+                      <MenuItem value="12:00 PM - 01:00 PM">12:00 PM - 01:00 PM</MenuItem>
+                      <MenuItem value="01:00 PM - 02:00 PM">01:00 PM - 02:00 PM</MenuItem>
+                      <MenuItem value="02:00 PM - 03:00 PM">02:00 PM - 03:00 PM</MenuItem>
+                      <MenuItem value="03:00 PM - 04:00 PM">03:00 PM - 04:00 PM</MenuItem>
+                      <MenuItem value="04:00 PM - 05:00 PM">04:00 PM - 05:00 PM</MenuItem>
+                      <MenuItem value="05:00 PM - 06:00 PM">05:00 PM - 06:00 PM</MenuItem>
+                      <MenuItem value="06:00 PM - 07:00 PM">06:00 PM - 07:00 PM</MenuItem>
+                      <MenuItem value="07:00 PM - 08:00 PM">07:00 PM - 08:00 PM</MenuItem>
+                      <MenuItem value="08:00 PM - 09:00 PM">08:00 PM - 09:00 PM</MenuItem>
+                      <MenuItem value="09:00 PM - 10:00 PM">09:00 PM - 10:00 PM</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>

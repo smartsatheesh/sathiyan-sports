@@ -177,20 +177,39 @@ const FeeCollectionPage = () => {
     setError(null);
     
     try {
-      const [feesRes, statsRes] = await Promise.all([
-        fetch('/api/admin/fee-collection'),
-        fetch('/api/admin/fee-collection/stats')
-      ]);
+      // For now, just mock the data while we fix API issues
+      const mockFees: FeeRecord[] = [];
+      const mockStats = {
+        overview: {
+          totalFees: 0,
+          pendingFees: 0,
+          paidFees: 0,
+          overdueFees: 0,
+          totalAmount: 0,
+          paidAmount: 0,
+          pendingAmount: 0,
+          overdueAmount: 0
+        }
+      };
 
-      if (!feesRes.ok) {
-        throw new Error('Failed to fetch fees');
-      }
+      setFees(mockFees);
+      setStats(mockStats);
 
-      const feesData = await feesRes.json();
-      const statsData = statsRes.ok ? await statsRes.json() : { overview: stats.overview };
+      // TODO: Uncomment when API is ready
+      // const [feesRes, statsRes] = await Promise.all([
+      //   fetch('/api/admin/fee-collection'),
+      //   fetch('/api/admin/fee-collection/stats')
+      // ]);
 
-      setFees(feesData.fees || []);
-      setStats(statsData);
+      // if (!feesRes.ok) {
+      //   throw new Error('Failed to fetch fees');
+      // }
+
+      // const feesData = await feesRes.json();
+      // const statsData = statsRes.ok ? await statsRes.json() : { overview: stats.overview };
+
+      // setFees(feesData.fees || []);
+      // setStats(statsData);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
@@ -240,28 +259,32 @@ const FeeCollectionPage = () => {
   const processPayment = async () => {
     if (!selectedFee) return;
 
-    try {
-      const response = await fetch(`/api/admin/fee-collection/${selectedFee._id}/payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(paymentData),
-      });
+    // TODO: Implement when API is ready
+    setAlert({ type: 'info', message: 'Payment processing feature coming soon!' });
+    setPaymentDialogOpen(false);
 
-      const data = await response.json();
+    // try {
+    //   const response = await fetch(`/api/admin/fee-collection/${selectedFee._id}/payment`, {
+    //     method: 'POST',
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //     },
+    //     body: JSON.stringify(paymentData),
+    //   });
 
-      if (data.success) {
-        setAlert({ type: 'success', message: 'Payment recorded successfully!' });
-        setPaymentDialogOpen(false);
-        fetchFees();
-      } else {
-        setAlert({ type: 'error', message: data.error || 'Failed to record payment' });
-      }
-    } catch (err) {
-      setAlert({ type: 'error', message: 'Failed to record payment' });
-      console.error('Payment error:', err);
-    }
+    //   const data = await response.json();
+
+    //   if (data.success) {
+    //     setAlert({ type: 'success', message: 'Payment recorded successfully!' });
+    //     setPaymentDialogOpen(false);
+    //     fetchFees();
+    //   } else {
+    //     setAlert({ type: 'error', message: data.error || 'Failed to record payment' });
+    //   }
+    // } catch (err) {
+    //   setAlert({ type: 'error', message: 'Failed to record payment' });
+    //   console.error('Payment error:', err);
+    // }
   };
 
   const addNewFee = () => {
@@ -301,59 +324,66 @@ const FeeCollectionPage = () => {
   };
 
   const saveFee = async () => {
-    try {
-      const url = editingFee 
-        ? `/api/admin/fee-collection/${editingFee._id}`
-        : '/api/admin/fee-collection';
+    // TODO: Implement when API is ready
+    setAlert({ type: 'info', message: 'Add/Edit fee feature coming soon!' });
+    setFeeDialogOpen(false);
+
+    // try {
+    //   const url = editingFee 
+    //     ? `/api/admin/fee-collection/${editingFee._id}`
+    //     : '/api/admin/fee-collection';
       
-      const method = editingFee ? 'PUT' : 'POST';
+    //   const method = editingFee ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(feeFormData),
-      });
+    //   const response = await fetch(url, {
+    //     method,
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //     },
+    //     body: JSON.stringify(feeFormData),
+    //   });
 
-      const data = await response.json();
+    //   const data = await response.json();
 
-      if (data.success) {
-        setAlert({ 
-          type: 'success', 
-          message: editingFee ? 'Fee updated successfully!' : 'Fee added successfully!' 
-        });
-        setFeeDialogOpen(false);
-        fetchFees();
-      } else {
-        setAlert({ type: 'error', message: data.error || 'Failed to save fee' });
-      }
-    } catch (err) {
-      setAlert({ type: 'error', message: 'Failed to save fee' });
-      console.error('Save fee error:', err);
-    }
+    //   if (data.success) {
+    //     setAlert({ 
+    //       type: 'success', 
+    //       message: editingFee ? 'Fee updated successfully!' : 'Fee added successfully!' 
+    //     });
+    //     setFeeDialogOpen(false);
+    //     fetchFees();
+    //   } else {
+    //     setAlert({ type: 'error', message: data.error || 'Failed to save fee' });
+    //   }
+    // } catch (err) {
+    //   setAlert({ type: 'error', message: 'Failed to save fee' });
+    //   console.error('Save fee error:', err);
+    // }
   };
 
   const deleteFee = async (feeId: string) => {
     if (!confirm('Are you sure you want to delete this fee record?')) return;
 
-    try {
-      const response = await fetch(`/api/admin/fee-collection/${feeId}`, {
-        method: 'DELETE',
-      });
+    // TODO: Implement when API is ready
+    setAlert({ type: 'info', message: 'Delete fee feature coming soon!' });
 
-      const data = await response.json();
+    // try {
+    //   const response = await fetch(`/api/admin/fee-collection/${feeId}`, {
+    //     method: 'DELETE',
+    //   });
 
-      if (data.success) {
-        setAlert({ type: 'success', message: 'Fee deleted successfully!' });
-        fetchFees();
-      } else {
-        setAlert({ type: 'error', message: data.error || 'Failed to delete fee' });
-      }
-    } catch (err) {
-      setAlert({ type: 'error', message: 'Failed to delete fee' });
-      console.error('Delete fee error:', err);
-    }
+    //   const data = await response.json();
+
+    //   if (data.success) {
+    //     setAlert({ type: 'success', message: 'Fee deleted successfully!' });
+    //     fetchFees();
+    //   } else {
+    //     setAlert({ type: 'error', message: data.error || 'Failed to delete fee' });
+    //   }
+    // } catch (err) {
+    //   setAlert({ type: 'error', message: 'Failed to delete fee' });
+    //   console.error('Delete fee error:', err);
+    // }
   };
 
   if (loading) {

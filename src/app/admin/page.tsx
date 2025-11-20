@@ -78,6 +78,82 @@ const TIME_SLOTS = [
   "09:00 PM - 10:00 PM",
 ];
 
+// Pricing calculation function with time-based logic for females
+const calculateSubscriptionAmount = (
+  champType: string,
+  subscriptionType: string,
+  gender: string,
+  preferredTimeSlot: string
+): number => {
+  // Helper function to check if time slot qualifies for female discount
+  const isFemalDiscountTimeSlot = (timeSlot: string): boolean => {
+    if (!timeSlot) return false;
+    
+    // Parse the start time from time slot (e.g., "10:00 AM - 11:00 AM")
+    const startTime = timeSlot.split(' - ')[0];
+    const [time, period] = startTime.split(' ');
+    const [hours, minutes] = time.split(':').map(Number);
+    
+    let hour24 = hours;
+    if (period === 'PM' && hours !== 12) hour24 += 12;
+    if (period === 'AM' && hours === 12) hour24 = 0;
+    
+    const startHour = hour24 + minutes / 60;
+    
+    // Female discount applies from 10:00 AM (10.0) to 4:00 PM (16.0)
+    return startHour >= 10.0 && startHour < 16.0;
+  };
+
+  // Define pricing for different championship types with gender-based pricing
+  const ADULT_MALE_PRICING = {
+    monthly: 1199,
+    quarterly: 3399,
+    'half yearly': 6299,
+    yearly: 11499
+  };
+
+  const ADULT_FEMALE_PRICING = {
+    monthly: 799,
+    quarterly: 2099,
+    'half yearly': 4099,
+    yearly: 8399
+  };
+  
+  const KIDS_PRICING = {
+    monthly: 1500,
+    quarterly: 4000,
+    'half yearly': 8000,
+    yearly: 13000
+  };
+
+  // Kids pricing is not affected by gender or time slots
+  if (champType === 'kids') {
+    switch (subscriptionType) {
+      case 'monthly': return KIDS_PRICING.monthly;
+      case 'quarterly': return KIDS_PRICING.quarterly;
+      case 'half yearly': return KIDS_PRICING['half yearly'];
+      case 'yearly': return KIDS_PRICING.yearly;
+      default: return KIDS_PRICING.monthly;
+    }
+  } else {
+    // Adult/veteran pricing with gender and time-based logic
+    let pricing = ADULT_MALE_PRICING; // Default to male pricing
+    
+    // Apply female pricing only if user is female AND selected time slot is within 10 AM - 4 PM
+    if (gender === 'female' && preferredTimeSlot && isFemalDiscountTimeSlot(preferredTimeSlot)) {
+      pricing = ADULT_FEMALE_PRICING;
+    }
+    
+    switch (subscriptionType) {
+      case 'monthly': return pricing.monthly;
+      case 'quarterly': return pricing.quarterly;
+      case 'half yearly': return pricing['half yearly'];
+      case 'yearly': return pricing.yearly;
+      default: return pricing.monthly;
+    }
+  }
+};
+
 interface Booking {
   _id: string;
   sport: string;
@@ -367,6 +443,23 @@ export default function AdminDashboard() {
       fetchData();
     }
   }, [session]);
+
+  // Auto-calculate subscription amount based on time-based pricing
+  useEffect(() => {
+    if (editUserFormData.champType && editUserFormData.subscriptionType && editUserFormData.gender) {
+      const calculatedAmount = calculateSubscriptionAmount(
+        editUserFormData.champType,
+        editUserFormData.subscriptionType,
+        editUserFormData.gender,
+        editUserFormData.preferredTimeSlot
+      );
+      
+      setEditUserFormData(prev => ({
+        ...prev,
+        subscriptionAmount: calculatedAmount
+      }));
+    }
+  }, [editUserFormData.champType, editUserFormData.subscriptionType, editUserFormData.gender, editUserFormData.preferredTimeSlot]);
 
   const handleEditUser = (user: User) => {
     console.log('Opening edit dialog for user:', user);
@@ -2054,6 +2147,29 @@ export default function AdminDashboard() {
                   onChange={(e) => setEditUserFormData(prev => ({ ...prev, subscriptionAmount: Number(e.target.value) }))}
                   inputProps={{ min: 0 }}
                 />
+                {editUserFormData.gender === 'female' && editUserFormData.preferredTimeSlot && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    {(() => {
+                      const timeSlot = editUserFormData.preferredTimeSlot;
+                      if (!timeSlot) return '';
+                      
+                      const startTime = timeSlot.split(' - ')[0];
+                      const [time, period] = startTime.split(' ');
+                      const [hours, minutes] = time.split(':').map(Number);
+                      
+                      let hour24 = hours;
+                      if (period === 'PM' && hours !== 12) hour24 += 12;
+                      if (period === 'AM' && hours === 12) hour24 = 0;
+                      
+                      const startHour = hour24 + minutes / 60;
+                      const isDiscountTime = startHour >= 10.0 && startHour < 16.0;
+                      
+                      return isDiscountTime 
+                        ? '✅ Female discount applied (10 AM - 4 PM slot)'
+                        : '⚠️ Using standard pricing (outside 10 AM - 4 PM)';
+                    })()}
+                  </Typography>
+                )}
               </Grid>
               
               {/* Payment Method */}

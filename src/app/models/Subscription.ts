@@ -193,19 +193,53 @@ subscriptionSchema.virtual('isActive').get(function() {
 });
 
 // Static method to get subscription plans
-subscriptionSchema.statics.getSubscriptionPlans = function(gender = 'male', mode = 'standard') {
-  const basePrices = {
-    monthly: { male: 800, female: 700 },
-    quarterly: { male: 2200, female: 1900 },
-    'half yearly': { male: 4000, female: 3500 },
-    yearly: { male: 7500, female: 6500 }
+subscriptionSchema.statics.getSubscriptionPlans = function(gender = 'male', mode = 'standard', preferredTimeSlot = null) {
+  // Helper function to check if time slot qualifies for female discount
+  const isFemalDiscountTimeSlot = (timeSlot: string) => {
+    if (!timeSlot) return false;
+    
+    // Extract start time from time slot
+    const startTime = timeSlot.split(' - ')[0];
+    
+    // Convert time to 24-hour format
+    const convertTo24Hour = (time: string) => {
+      const [timePart, period] = time.split(' ');
+      let [hours, minutes] = timePart.split(':').map(Number);
+      
+      if (period === 'PM' && hours !== 12) {
+        hours += 12;
+      } else if (period === 'AM' && hours === 12) {
+        hours = 0;
+      }
+      
+      return hours + minutes / 60;
+    };
+    
+    const startHour = convertTo24Hour(startTime);
+    
+    // Female discount applies from 10:00 AM (10.0) to 4:00 PM (16.0)
+    return startHour >= 10.0 && startHour < 16.0;
   };
+
+  const basePrices = {
+    monthly: { male: 1199, female: 799 },
+    quarterly: { male: 3399, female: 2099 },
+    'half yearly': { male: 6299, female: 4099 },
+    yearly: { male: 11499, female: 8399 }
+  };
+
+  // Determine pricing gender based on time slot for females
+  let pricingGender = gender;
+  if (gender === 'female' && preferredTimeSlot && !isFemalDiscountTimeSlot(preferredTimeSlot)) {
+    // Female selected time slot outside 10 AM - 4 PM, use male pricing
+    pricingGender = 'male';
+  }
 
   const plans = {};
   const flexibleSurcharge = 500;
 
   Object.keys(basePrices).forEach(type => {
-    const basePrice = basePrices[type][gender];
+    const basePrice = basePrices[type][pricingGender];
     const finalPrice = mode === 'flexible' ? basePrice + flexibleSurcharge : basePrice;
     
     plans[type] = {

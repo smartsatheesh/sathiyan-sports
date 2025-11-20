@@ -85,13 +85,54 @@ const TIME_SLOTS = [
 ];
 
 export default function RegisterPage() {
+  // Helper function to check if time slot is within female discount hours (10 AM to 4 PM)
+  const isFemalDiscountTimeSlot = (timeSlot: string) => {
+    if (!timeSlot) return false;
+    
+    // Extract start time from time slot (e.g., "10:00 AM - 11:00 AM" -> "10:00 AM")
+    const startTime = timeSlot.split(' - ')[0];
+    
+    // Convert time to 24-hour format for easier comparison
+    const convertTo24Hour = (time: string) => {
+      const [timePart, period] = time.split(' ');
+      let [hours, minutes] = timePart.split(':').map(Number);
+      
+      if (period === 'PM' && hours !== 12) {
+        hours += 12;
+      } else if (period === 'AM' && hours === 12) {
+        hours = 0;
+      }
+      
+      return hours + minutes / 60;
+    };
+    
+    const startHour = convertTo24Hour(startTime);
+    
+    // Female discount applies from 10:00 AM (10.0) to 4:00 PM (16.0)
+    return startHour >= 10.0 && startHour < 16.0;
+  };
+
   // Helper function to get current subscription prices
   const getCurrentPrices = () => {
-    return formData.champType === 'kids' 
-      ? KIDS_SUBSCRIPTION_PRICES
-      : formData.gender === 'female' 
-        ? WOMEN_SUBSCRIPTION_PRICES 
-        : SUBSCRIPTION_PRICES;
+    if (formData.champType === 'kids') {
+      return KIDS_SUBSCRIPTION_PRICES;
+    }
+    
+    // For females: check if selected time slot qualifies for discount
+    if (formData.gender === 'female') {
+      const qualifiesForDiscount = isFemalDiscountTimeSlot(formData.preferredTimeSlot);
+      
+      // If time slot is outside 10 AM - 4 PM, use male pricing
+      if (!qualifiesForDiscount && formData.preferredTimeSlot) {
+        return SUBSCRIPTION_PRICES; // Male pricing
+      }
+      
+      // If within 10 AM - 4 PM or no time slot selected yet, use female pricing
+      return WOMEN_SUBSCRIPTION_PRICES;
+    }
+    
+    // Default male pricing
+    return SUBSCRIPTION_PRICES;
   };
 
   // Helper function to calculate price with flexible surcharge
@@ -621,6 +662,26 @@ export default function RegisterPage() {
                 {fieldErrors.gender}
               </Typography>
             )}
+            
+            {/* Female Pricing Information */}
+            {formData.gender === 'female' && (
+              <Box sx={{ mt: 1 }}>
+                <Alert severity="info" sx={{ py: 1 }}>
+                  <Typography variant="body2" fontWeight="bold">
+                    💡 Female Pricing Information
+                  </Typography>
+                  <Typography variant="caption" display="block">
+                    • Special female pricing applies for time slots between <strong>10 AM - 4 PM</strong>
+                  </Typography>
+                  <Typography variant="caption" display="block">
+                    • Time slots outside this range use regular pricing
+                  </Typography>
+                  <Typography variant="caption" display="block">
+                    • Select your preferred time slot to see applicable pricing
+                  </Typography>
+                </Alert>
+              </Box>
+            )}
           </FormControl>
 
           {/* Champion Type Selection */}
@@ -775,6 +836,31 @@ export default function RegisterPage() {
               <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
                 {fieldErrors.preferredTimeSlot}
               </Typography>
+            )}
+            
+            {/* Pricing Information for Female Time Slot Selection */}
+            {formData.gender === 'female' && formData.preferredTimeSlot && (
+              <Box sx={{ mt: 1, p: 1.5, bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                {isFemalDiscountTimeSlot(formData.preferredTimeSlot) ? (
+                  <Alert severity="success" sx={{ py: 0.5 }}>
+                    <Typography variant="caption" fontWeight="bold">
+                      🎉 Female Discount Applied! 
+                    </Typography>
+                    <Typography variant="caption" display="block">
+                      You selected a time slot between 10 AM - 4 PM and qualify for our special female pricing.
+                    </Typography>
+                  </Alert>
+                ) : (
+                  <Alert severity="info" sx={{ py: 0.5 }}>
+                    <Typography variant="caption" fontWeight="bold">
+                      💰 Regular Pricing Applied
+                    </Typography>
+                    <Typography variant="caption" display="block">
+                      Time slots outside 10 AM - 4 PM use regular pricing. Select a slot between 10 AM - 4 PM for female discount pricing.
+                    </Typography>
+                  </Alert>
+                )}
+              </Box>
             )}
           </FormControl>
 
