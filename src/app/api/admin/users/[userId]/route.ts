@@ -252,8 +252,14 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
       );
     }
 
-    // Create subscription entry after payment completion
-    if ((isPaymentCompleting || needsSubscriptionDates) && currentUser.subscriptionType) {
+    // Check if user subscription status is being set to 'Yes'
+    const isBecomingSubscribed = 
+      updateData.subscribed === 'Yes' && 
+      currentUser.subscribed !== 'Yes';
+
+    // Create subscription entry when: payment completing, missing dates, or becoming subscribed
+    if (((isPaymentCompleting || needsSubscriptionDates || isBecomingSubscribed) && currentUser.subscriptionType) || 
+        (isBecomingSubscribed && updateData.subscriptionType)) {
       try {
         // Check if subscription already exists for this user
         const existingSubscription = await (Subscription.findOne as any)({ 
@@ -261,6 +267,9 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
         });
 
         if (!existingSubscription) {
+          // Use the updated subscription type if provided, or existing one
+          const subscriptionType = updateData.subscriptionType || currentUser.subscriptionType;
+          
           const durationMap = {
             'monthly': 1,
             'quarterly': 3,
@@ -268,32 +277,212 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
             'yearly': 12
           };
 
+          // Determine payment status based on user's current status
+          let subscriptionPaymentStatus = 'Pending'; // Default to pending
+          if (updateData.paymentStatus === 'completed' || currentUser.paymentStatus === 'completed') {
+            subscriptionPaymentStatus = 'Paid';
+          } else if (updateData.paymentStatus === 'failed' || currentUser.paymentStatus === 'failed') {
+            subscriptionPaymentStatus = 'Failed';
+          }
+
+          // Calculate subscription price if not already set
+          const subscriptionAmount = updateData.subscriptionAmount || 
+                                   currentUser.subscriptionAmount || 
+                                   calculateSubscriptionAmount(
+                                     updateData.champType || currentUser.champType,
+                                     subscriptionType,
+                                     updateData.gender || currentUser.gender,
+                                     updateData.preferredTimeSlot || currentUser.preferredTimeSlot
+                                   );
+
+          // Set due date - if payment is pending, set to start of subscription
+          let dueDate = updateData.nextDueDate || currentUser.nextDueDate;
+          if (!dueDate) {
+            if (subscriptionPaymentStatus === 'Pending') {
+              // For pending payments, set due date to start date or today
+              dueDate = updateData.subscriptionStartDate || new Date();
+            } else {
+              // For completed payments, calculate next due date
+              const paymentDate = updateData.paymentCompletedDate || new Date();
+              switch (subscriptionType) {
+                case 'monthly':
+                  dueDate = new Date(paymentDate.getFullYear(), paymentDate.getMonth() + 1, 1);
+                  break;
+                case 'quarterly':
+                  const currentQuarter = Math.floor(paymentDate.getMonth() / 3);
+                  const nextQuarterMonth = (currentQuarter + 1) * 3;
+                  dueDate = nextQuarterMonth >= 12 ? 
+                    new Date(paymentDate.getFullYear() + 1, 0, 1) : 
+                    new Date(paymentDate.getFullYear(), nextQuarterMonth, 1);
+                  break;
+                case 'half yearly':
+                  const currentHalf = Math.floor(paymentDate.getMonth() / 6);
+                  const nextHalfMonth = (currentHalf + 1) * 6;
+                  dueDate = nextHalfMonth >= 12 ? 
+                    new Date(paymentDate.getFullYear() + 1, 0, 1) : 
+                    new Date(paymentDate.getFullYear(), nextHalfMonth, 1);
+                  break;
+                case 'yearly':
+                  dueDate = new Date(paymentDate.getFullYear() + 1, paymentDate.getMonth(), 1);
+                  break;
+                default:
+                  dueDate = new Date(paymentDate.getFullYear(), paymentDate.getMonth() + 1, 1);
+              }
+            }
+          }
+
+          // Calculate overdue status
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const dueDateObj = new Date(dueDate);
+          dueDateObj.setHours(0, 0, 0, 0);
+          
+          const diffTime = today.getTime() - dueDateObj.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const gracePeriod = updateData.gracePeriodDays || currentUser.gracePeriodDays || 7;
+          
+          const isOverdue = diffDays > 0 && subscriptionPaymentStatus !== 'Paid';
+          const isPastGrace = diffDays > gracePeriod && subscriptionPaymentStatus !== 'Paid';
+          const daysPastDue = Math.max(diffDays, 0);
+
           const subscriptionData = {
             userId: user._id,
-            champId: user.champId,
-            userName: user.name,
-            userEmail: user.email,
-            userMobile: user.mobile,
-            subscriptionType: currentUser.subscriptionType,
-            mode: currentUser.mode || 'fixed',
-            amount: currentUser.subscriptionAmount,
-            duration: durationMap[currentUser.subscriptionType],
-            startDate: updateData.subscriptionStartDate,
-            endDate: updateData.subscriptionEndDate,
-            nextDueDate: updateData.nextDueDate,
-            paymentStatus: 'completed',
+            champId: updateData.champId || user.champId,
+            userName: updateData.name || user.name,
+            userEmail: updateData.email || user.email,
+            userMobile: updateData.mobile || user.mobile,
+            subscriptionType: subscriptionType,
+            subscriptionPrice: subscriptionAmount,
+            mode: updateData.mode || currentUser.mode || 'fixed',
+            duration: durationMap[subscriptionType] || 1,
+            startDate: updateData.subscriptionStartDate || currentUser.subscriptionStartDate || new Date(),
+            endDate: updateData.subscriptionEndDate || currentUser.subscriptionEndDate,
+            nextDueDate: dueDate,
+            lastPaidDate: subscriptionPaymentStatus === 'Paid' ? 
+              (updateData.paymentCompletedDate || currentUser.paymentCompletedDate || new Date()) : null,
+            paymentStatus: subscriptionPaymentStatus,
             status: 'active',
-            preferredSport: currentUser.preferredSport,
-            preferredTimeSlot: currentUser.preferredTimeSlot,
-            selectedCourt: currentUser.selectedCourt,
+            preferredSport: updateData.preferredSport || currentUser.preferredSport,
+            preferredTimeSlot: updateData.preferredTimeSlot || currentUser.preferredTimeSlot,
+            selectedCourt: updateData.selectedCourt || currentUser.selectedCourt,
+            gracePeriod: gracePeriod,
+            isOverdue: isOverdue,
+            isPastGrace: isPastGrace,
+            daysPastDue: daysPastDue,
             autoRenewal: false,
-            createdBy: user._id
+            createdBy: user._id,
+            createdAt: new Date(),
+            updatedAt: new Date()
           };
 
           const subscription = await (Subscription.create as any)(subscriptionData);
-          console.log(`✅ Subscription created for ${user.name}: ${subscription._id}`);
+          console.log(`✅ Subscription created for ${user.name}: ${subscription._id} with payment status: ${subscriptionPaymentStatus}`);
+
+          // Helper function to calculate subscription amount
+          function calculateSubscriptionAmount(champType?: string, subscriptionType?: string, gender?: string, preferredTimeSlot?: string) {
+            // Default pricing structure
+            const ADULT_MALE_PRICING = {
+              monthly: 1499,
+              quarterly: 4299, 
+              'half yearly': 8099,
+              yearly: 11499
+            };
+
+            const ADULT_FEMALE_PRICING = {
+              monthly: 1199,
+              quarterly: 3599,
+              'half yearly': 6899,
+              yearly: 10999
+            };
+
+            const KIDS_PRICING = {
+              monthly: 899,
+              quarterly: 2399,
+              'half yearly': 4599,
+              yearly: 8999
+            };
+
+            // Helper function to check if time slot qualifies for female discount
+            function isFemalDiscountTimeSlot(timeSlot: string): boolean {
+              if (!timeSlot) return false;
+              
+              const startTime = timeSlot.split(' - ')[0];
+              const [time, period] = startTime.split(' ');
+              const [hours, minutes] = time.split(':').map(Number);
+              
+              let hour24 = hours;
+              if (period === 'PM' && hours !== 12) hour24 += 12;
+              if (period === 'AM' && hours === 12) hour24 = 0;
+              
+              const startHour = hour24 + minutes / 60;
+              
+              // Female discount applies from 10:00 AM (10.0) to 4:00 PM (16.0)
+              return startHour >= 10.0 && startHour < 16.0;
+            }
+
+            // Determine pricing category
+            if (champType === 'kids') {
+              return KIDS_PRICING[subscriptionType || 'monthly'] || KIDS_PRICING.monthly;
+            } else if (gender === 'female' && isFemalDiscountTimeSlot(preferredTimeSlot || '')) {
+              return ADULT_FEMALE_PRICING[subscriptionType || 'monthly'] || ADULT_FEMALE_PRICING.monthly;
+            } else {
+              return ADULT_MALE_PRICING[subscriptionType || 'monthly'] || ADULT_MALE_PRICING.monthly;
+            }
+          }
         } else {
-          console.log(`ℹ️ Subscription already exists for ${user.name}`);
+          console.log(`ℹ️ Subscription already exists for ${user.name}, updating with latest details...`);
+          
+          // Update existing subscription with latest user details and payment status
+          const subscriptionType = updateData.subscriptionType || currentUser.subscriptionType;
+          
+          // Determine payment status
+          let subscriptionPaymentStatus = existingSubscription.paymentStatus || 'Pending';
+          if (updateData.paymentStatus === 'completed' || currentUser.paymentStatus === 'completed') {
+            subscriptionPaymentStatus = 'Paid';
+          } else if (updateData.paymentStatus === 'failed' || currentUser.paymentStatus === 'failed') {
+            subscriptionPaymentStatus = 'Failed';
+          } else if (updateData.paymentStatus === 'pending' || currentUser.paymentStatus === 'pending') {
+            subscriptionPaymentStatus = 'Pending';
+          }
+
+          // Calculate overdue status
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const nextDueDate = updateData.nextDueDate || existingSubscription.nextDueDate;
+          const dueDateObj = new Date(nextDueDate);
+          dueDateObj.setHours(0, 0, 0, 0);
+          
+          const diffTime = today.getTime() - dueDateObj.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const gracePeriod = updateData.gracePeriodDays || currentUser.gracePeriodDays || existingSubscription.gracePeriod || 7;
+          
+          const isOverdue = diffDays > 0 && subscriptionPaymentStatus !== 'Paid';
+          const isPastGrace = diffDays > gracePeriod && subscriptionPaymentStatus !== 'Paid';
+          const daysPastDue = Math.max(diffDays, 0);
+
+          const updateSubscriptionData = {
+            champId: updateData.champId || user.champId,
+            userName: updateData.name || user.name,
+            userEmail: updateData.email || user.email,
+            userMobile: updateData.mobile || user.mobile,
+            subscriptionType: subscriptionType,
+            paymentStatus: subscriptionPaymentStatus,
+            lastPaidDate: subscriptionPaymentStatus === 'Paid' ? 
+              (updateData.paymentCompletedDate || currentUser.paymentCompletedDate || existingSubscription.lastPaidDate) : 
+              existingSubscription.lastPaidDate,
+            nextDueDate: updateData.nextDueDate || existingSubscription.nextDueDate,
+            preferredSport: updateData.preferredSport || currentUser.preferredSport,
+            preferredTimeSlot: updateData.preferredTimeSlot || currentUser.preferredTimeSlot,
+            selectedCourt: updateData.selectedCourt || currentUser.selectedCourt,
+            gracePeriod: gracePeriod,
+            isOverdue: isOverdue,
+            isPastGrace: isPastGrace,
+            daysPastDue: daysPastDue,
+            updatedAt: new Date()
+          };
+
+          await (Subscription.findByIdAndUpdate as any)(existingSubscription._id, updateSubscriptionData);
+          console.log(`✅ Subscription updated for ${user.name} with payment status: ${subscriptionPaymentStatus}, overdue: ${isOverdue}`);
         }
       } catch (subscriptionError) {
         console.warn('⚠️ Failed to create subscription entry:', subscriptionError);

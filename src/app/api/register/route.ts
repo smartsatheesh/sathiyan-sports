@@ -95,7 +95,8 @@ export async function POST(req: Request) {
       subscribed: body.subscribed,
       preferredSport: body.preferredSport,
       // Set preferred slots as optional - empty by default, users can update after payment
-      selectedCourt: body.selectedCourt || "",
+      // Only set selectedCourt for badminton players
+      ...(body.preferredSport === "Shuttle Badminton" && body.selectedCourt && { selectedCourt: body.selectedCourt }),
       preferredTimeSlot: body.preferredTimeSlot || "",
       subscriptionType: body.subscriptionType,
       mode: body.mode || "standard",

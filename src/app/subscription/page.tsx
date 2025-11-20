@@ -60,18 +60,30 @@ interface User {
   name: string;
   email: string;
   phone: string;
+  mobile?: string;
   champId: string;
-  game: string;
-  slot: string;
-  subscribed: 'Yes' | 'No';
+  game?: string;
+  slot?: string;
+  preferredSport?: string;
+  selectedCourt?: string;
+  subscribed?: 'Yes' | 'No';
   champType?: 'kids' | 'adult' | 'veteran';
   subscriptionType?: 'monthly' | 'quarterly' | 'half yearly' | 'yearly';
+  subscriptionPrice?: number;
   paymentDate?: string;
+  lastPaidDate?: string;
   nextDueDate?: string;
-  paymentStatus: 'pending' | 'paid' | 'overdue';
+  paymentStatus: 'Pending' | 'Paid' | 'Failed' | 'pending' | 'paid' | 'overdue';
   court?: string;
   gender?: 'male' | 'female';
   preferredTimeSlot?: string;
+  subscriptionId?: string;
+  isOverdue?: boolean;
+  daysPastDue?: number;
+  isPastGrace?: boolean;
+  gracePeriod?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface Stats {
@@ -121,19 +133,63 @@ const SubscriptionPage = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/users');
-      if (response.ok) {
-        const data = await response.json();
-        const subscribedUsers = data.users.filter((user: User) => user.subscribed === 'Yes');
-        setUsers(subscribedUsers);
-        setFilteredUsers(subscribedUsers);
-        calculateStats(subscribedUsers);
+      console.log('Fetching subscriptions...');
+      const response = await fetch('/api/admin/subscriptions');
+      
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Raw subscription response:', data);
+      
+      if (data && data.subscriptions) {
+        // Transform subscription data to match the expected user data structure
+        const transformedData = data.subscriptions.map((sub: any) => ({
+          _id: sub.userId?._id || sub._id,
+          name: sub.userId?.name || '',
+          email: sub.userId?.email || '',
+          phone: sub.userId?.phone || '',
+          mobile: sub.userId?.mobile || '',
+          champId: sub.userId?.champId || '',
+          game: sub.userId?.preferredSport || sub.userId?.game || '',
+          slot: sub.userId?.preferredTimeSlot || sub.userId?.slot || '',
+          preferredSport: sub.userId?.preferredSport || '',
+          selectedCourt: sub.userId?.selectedCourt || '',
+          subscribed: 'Yes', // All entries in subscription collection are subscribed
+          champType: sub.userId?.champType || 'adult',
+          subscriptionType: sub.subscriptionType,
+          subscriptionPrice: sub.subscriptionPrice,
+          paymentDate: sub.lastPaidDate,
+          lastPaidDate: sub.lastPaidDate,
+          nextDueDate: sub.nextDueDate,
+          paymentStatus: sub.paymentStatus?.toLowerCase() || 'pending',
+          court: sub.userId?.selectedCourt || sub.userId?.court || '',
+          gender: sub.userId?.gender,
+          preferredTimeSlot: sub.userId?.preferredTimeSlot,
+          subscriptionId: sub._id,
+          isOverdue: sub.isOverdue,
+          daysPastDue: sub.daysPastDue,
+          isPastGrace: sub.isPastGrace,
+          gracePeriod: sub.gracePeriod,
+          createdAt: sub.createdAt,
+          updatedAt: sub.updatedAt
+        }));
+        
+        setUsers(transformedData);
+        setFilteredUsers(transformedData);
+        calculateStats(transformedData);
+        console.log('Subscription data transformed and set successfully:', transformedData.length, 'subscriptions');
       } else {
-        throw new Error('Failed to fetch users');
+        console.error('Unexpected data structure:', data);
+        setUsers([]);
+        setFilteredUsers([]);
       }
     } catch (error) {
-      console.error('Error fetching users:', error);
-      setError('Failed to load users');
+      console.error('Error fetching subscriptions:', error);
+      setError('Failed to load subscription data');
+      setUsers([]);
+      setFilteredUsers([]);
     } finally {
       setLoading(false);
     }
@@ -141,13 +197,18 @@ const SubscriptionPage = () => {
 
   const calculateStats = (userList: User[]) => {
     const totalSubscribed = userList.length;
-    const pendingPayments = userList.filter(user => user.paymentStatus === 'pending').length;
-    const overdue = userList.filter(user => user.paymentStatus === 'overdue').length;
+    const pendingPayments = userList.filter(user => 
+      user.paymentStatus === 'pending' || user.paymentStatus === 'Pending'
+    ).length;
+    const overdue = userList.filter(user => 
+      user.isOverdue || user.paymentStatus === 'overdue'
+    ).length;
     
     // Calculate revenue based on subscription type
     const revenue = userList.reduce((total, user) => {
-      if (user.paymentStatus === 'paid') {
-        const amount = getSubscriptionAmount(user.champType, user.subscriptionType, user.gender, user.preferredTimeSlot);
+      if (user.paymentStatus === 'paid' || user.paymentStatus === 'Paid') {
+        const amount = user.subscriptionPrice || 
+          getSubscriptionAmount(user.champType, user.subscriptionType, user.gender, user.preferredTimeSlot);
         return total + amount;
       }
       return total;
@@ -240,8 +301,20 @@ const SubscriptionPage = () => {
   const GRACE_PERIOD_DAYS = 7;
 
   // Calculate overdue status based on next due date
-  const getOverdueStatus = (nextDueDate: string | undefined, paymentStatus: string) => {
-    if (!nextDueDate || paymentStatus === 'paid') return { isOverdue: false, isPastGrace: false };
+  const getOverdueStatus = (nextDueDate: string | undefined, paymentStatus: string, user?: User) => {
+    // Use pre-calculated values from subscription if available
+    if (user && user.isOverdue !== undefined && user.isPastGrace !== undefined) {
+      return { 
+        isOverdue: user.isOverdue, 
+        isPastGrace: user.isPastGrace, 
+        daysPastDue: user.daysPastDue || 0 
+      };
+    }
+
+    // Fallback to manual calculation
+    if (!nextDueDate || paymentStatus === 'paid' || paymentStatus === 'Paid') {
+      return { isOverdue: false, isPastGrace: false, daysPastDue: 0 };
+    }
     
     const dueDate = new Date(nextDueDate);
     const today = new Date();
@@ -255,16 +328,17 @@ const SubscriptionPage = () => {
     
     // Only consider overdue if payment is actually past due date (not on due date)
     const isOverdue = diffDays > 0;
-    const isPastGrace = diffDays > GRACE_PERIOD_DAYS;
+    const gracePeriod = user?.gracePeriod || GRACE_PERIOD_DAYS;
+    const isPastGrace = diffDays > gracePeriod;
     
     return { isOverdue, isPastGrace, daysPastDue: Math.max(diffDays, 0) };
   };
 
-  const getPaymentStatusColor = (status: string, nextDueDate?: string) => {
-    const overdueStatus = getOverdueStatus(nextDueDate, status);
+  const getPaymentStatusColor = (status: string, nextDueDate?: string, user?: User) => {
+    const overdueStatus = getOverdueStatus(nextDueDate, status, user);
     
     // If payment is already marked as paid, use success color
-    if (status === 'paid') return 'success';
+    if (status === 'paid' || status === 'Paid') return 'success';
     
     // If past grace period, use error (red)
     if (overdueStatus.isPastGrace) return 'error';
@@ -273,7 +347,7 @@ const SubscriptionPage = () => {
     if (overdueStatus.isOverdue) return 'warning';
     
     // For pending payments not yet due
-    if (status === 'pending') return 'info';
+    if (status === 'pending' || status === 'Pending') return 'info';
     
     // For explicitly marked overdue status
     if (status === 'overdue') return 'error';
@@ -283,9 +357,9 @@ const SubscriptionPage = () => {
 
   // Get row styling based on overdue status
   const getRowStyling = (user: User) => {
-    const overdueStatus = getOverdueStatus(user.nextDueDate, user.paymentStatus);
+    const overdueStatus = getOverdueStatus(user.nextDueDate, user.paymentStatus, user);
     
-    if (user.paymentStatus === 'paid') {
+    if (user.paymentStatus === 'paid' || user.paymentStatus === 'Paid') {
       return {}; // No special styling for paid users
     }
     
@@ -316,21 +390,29 @@ const SubscriptionPage = () => {
     // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(user =>
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.champId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.phone.includes(searchTerm)
+        user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.champId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.phone?.includes(searchTerm) ||
+        user.mobile?.includes(searchTerm)
       );
     }
 
     // Filter by payment status
     if (filterStatus !== 'all') {
-      filtered = filtered.filter(user => user.paymentStatus === filterStatus);
+      filtered = filtered.filter(user => {
+        const status = user.paymentStatus?.toLowerCase();
+        const filterStatusLower = filterStatus.toLowerCase();
+        return status === filterStatusLower;
+      });
     }
 
     // Filter by game
     if (filterGame !== 'all') {
-      filtered = filtered.filter(user => user.game === filterGame);
+      filtered = filtered.filter(user => 
+        user.game === filterGame || 
+        user.preferredSport === filterGame
+      );
     }
 
     setFilteredUsers(filtered);
@@ -390,7 +472,7 @@ const SubscriptionPage = () => {
     }
   };
 
-  const uniqueGames = Array.from(new Set(users.map(user => user.game)));
+  const uniqueGames = Array.from(new Set(users.map(user => user.preferredSport || user.game).filter(Boolean)));
 
   if (status === "loading") {
     return (
@@ -677,7 +759,7 @@ const SubscriptionPage = () => {
                 </TableRow>
               ) : (
                 filteredUsers.map((user) => {
-                  const overdueStatus = getOverdueStatus(user.nextDueDate, user.paymentStatus);
+                  const overdueStatus = getOverdueStatus(user.nextDueDate, user.paymentStatus, user);
                   return (
                     <TableRow 
                       key={user._id} 
@@ -704,14 +786,14 @@ const SubscriptionPage = () => {
                       </TableCell>
                       <TableCell>{user.champId}</TableCell>
                       <TableCell>{user.name}</TableCell>
-                      <TableCell>{user.game}</TableCell>
-                      <TableCell>{user.slot}</TableCell>
+                      <TableCell>{user.preferredSport || user.game || '-'}</TableCell>
+                      <TableCell>{user.preferredTimeSlot || user.slot || '-'}</TableCell>
                       <TableCell>
                         <Chip
-                          label={overdueStatus.isOverdue && user.paymentStatus !== 'paid' 
+                          label={overdueStatus.isOverdue && (user.paymentStatus !== 'paid' && user.paymentStatus !== 'Paid') 
                             ? (overdueStatus.isPastGrace ? 'Past Grace Period' : 'Overdue') 
                             : user.paymentStatus}
-                          color={getPaymentStatusColor(user.paymentStatus, user.nextDueDate) as any}
+                          color={getPaymentStatusColor(user.paymentStatus, user.nextDueDate, user) as any}
                           variant="filled"
                           size="small"
                         />

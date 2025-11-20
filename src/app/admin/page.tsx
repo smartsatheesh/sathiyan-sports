@@ -577,6 +577,17 @@ export default function AdminDashboard() {
         }
       }
 
+      // Check for subscription creation when setting subscribed to Yes
+      if (editUserFormData.subscribed === 'Yes' && selectedUser.subscribed !== 'Yes') {
+        console.log('🔔 User subscription status changing to Yes - this should trigger subscription entry creation');
+        console.log('🔍 Subscription details:', {
+          subscriptionType: editUserFormData.subscriptionType,
+          paymentStatus: editUserFormData.paymentStatus,
+          champType: editUserFormData.champType,
+          amount: editUserFormData.subscriptionAmount
+        });
+      }
+
       const response = await fetch(`/api/admin/users/${selectedUser._id}`, {
         method: 'PUT',
         headers: {
@@ -618,6 +629,12 @@ export default function AdminDashboard() {
       console.log('Update response data:', data);
 
       if (data.success) {
+        console.log('✅ User update successful');
+        
+        // Check if subscription was mentioned in response
+        if (editUserFormData.subscribed === 'Yes') {
+          console.log('🔄 Subscription status set to Yes - checking if subscription entry was created...');
+        }
         setUsers(prev => prev.map(u => 
           u._id === selectedUser._id 
             ? { 

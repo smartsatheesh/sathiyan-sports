@@ -21,7 +21,7 @@ export interface ISubscription extends Document {
   autoRenewal: boolean;
   preferredSport?: 'Cricket' | 'Football' | 'Shuttle Badminton' | 'Functions and Events';
   preferredTimeSlot?: string;
-  selectedCourt?: 'S1' | 'S2' | 'S3';
+  selectedCourt?: string; // Optional, only for badminton players
   notes?: string;
   notificationsSent: {
     twoDaysBefore: boolean;
@@ -127,7 +127,21 @@ const subscriptionSchema = new Schema<ISubscription>({
   },
   selectedCourt: {
     type: String,
-    enum: ['S1', 'S2', 'S3']
+    enum: {
+      values: ['S1', 'S2', 'S3'],
+      message: "Selected court must be one of: S1, S2, S3"
+    },
+    validate: {
+      validator: function(value) {
+        // Only validate enum for badminton players
+        if (this.preferredSport === "Shuttle Badminton") {
+          return !value || ['S1', 'S2', 'S3'].includes(value);
+        }
+        // For other sports, allow any value or no value
+        return true;
+      },
+      message: "Court selection is only applicable for Shuttle Badminton players"
+    }
   },
   notes: {
     type: String
