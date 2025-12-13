@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
         userEmail: sub.userEmail,
         paymentStatus: sub.paymentStatus,
         nextDueDate: sub.nextDueDate,
-        daysOverdue: Math.floor((new Date() - sub.nextDueDate) / (1000 * 60 * 60 * 24))
+        daysOverdue: Math.floor((new Date().getTime() - new Date(sub.nextDueDate).getTime()) / (1000 * 60 * 60 * 24))
       }))
     });
 
