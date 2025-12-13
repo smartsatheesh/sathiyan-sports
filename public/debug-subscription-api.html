@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Subscription API Debug</title>
+</head>
+<body>
+    <h1>Subscription API Debug Test</h1>
+    <div id="output"></div>
+    <p><a href="/auth/login">Login First</a> if you get authentication errors</p>
+    
+    <script>
+        async function testAPI() {
+            const output = document.getElementById('output');
+            output.innerHTML = '<h2>Testing API...</h2>';
+            
+            try {
+                const response = await fetch('/api/admin/subscriptions');
+                output.innerHTML += `<p><strong>Status:</strong> ${response.status}</p>`;
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    output.innerHTML += `<p><strong>Error:</strong> ${errorText}</p>`;
+                    return;
+                }
+                
+                const data = await response.json();
+                output.innerHTML += `<h3>Response Data:</h3>`;
+                output.innerHTML += `<p><strong>Success:</strong> ${data.success}</p>`;
+                output.innerHTML += `<p><strong>Subscription Count:</strong> ${data.subscriptions?.length || 0}</p>`;
+                
+                if (data.subscriptions && data.subscriptions.length > 0) {
+                    output.innerHTML += `<h4>First Subscription:</h4>`;
+                    output.innerHTML += `<pre>${JSON.stringify(data.subscriptions[0], null, 2)}</pre>`;
+                } else {
+                    output.innerHTML += `<p><strong>No subscriptions found</strong></p>`;
+                }
+                
+                output.innerHTML += `<h4>Full Response:</h4>`;
+                output.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                
+            } catch (error) {
+                output.innerHTML += `<p><strong>Error:</strong> ${error.message}</p>`;
+            }
+        }
+        
+        // Run test when page loads
+        window.onload = testAPI;
+    </script>
+</body>
+</html>

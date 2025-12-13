@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Session Debug</title>
+</head>
+<body>
+    <h1>Current Session Debug</h1>
+    <div id="output"></div>
+    
+    <script>
+        async function checkSession() {
+            const output = document.getElementById('output');
+            
+            try {
+                const response = await fetch('/api/auth/session');
+                const session = await response.json();
+                
+                output.innerHTML = `
+                    <h3>Current Session:</h3>
+                    <pre>${JSON.stringify(session, null, 2)}</pre>
+                    
+                    <h3>Required for Admin:</h3>
+                    <p>Email: sathiyan.personal@gmail.com</p>
+                    <p>OR Role: admin</p>
+                    
+                    <h3>Current Status:</h3>
+                    <p>Email: ${session?.user?.email || 'Not logged in'}</p>
+                    <p>Role: ${session?.user?.role || 'Not set'}</p>
+                    <p>Admin Access: ${session?.user?.role === 'admin' || session?.user?.email === 'sathiyan.personal@gmail.com' ? 'YES' : 'NO'}</p>
+                    
+                    <h3>Actions:</h3>
+                    <p><a href="/auth/login">Login</a></p>
+                    <p><a href="/api/auth/signout">Logout</a></p>
+                `;
+                
+            } catch (error) {
+                output.innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        }
+        
+        window.onload = checkSession;
+    </script>
+</body>
+</html>

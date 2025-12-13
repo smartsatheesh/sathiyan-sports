@@ -103,6 +103,11 @@ interface FeeStats {
     paidAmount: number;
     pendingAmount: number;
     overdueAmount: number;
+    // Fee-specific stats
+    recentFees: number; // Last 30 days
+    avgFeeAmount: number;
+    lateFeesCollected: number;
+    collectionRate: number; // percentage
   };
 }
 
@@ -121,6 +126,10 @@ const FeeCollectionPage = () => {
       paidAmount: 0,
       pendingAmount: 0,
       overdueAmount: 0,
+      recentFees: 0,
+      avgFeeAmount: 0,
+      lateFeesCollected: 0,
+      collectionRate: 0,
     }
   });
   const [loading, setLoading] = useState(true);
@@ -139,6 +148,9 @@ const FeeCollectionPage = () => {
   // Add/Edit Fee Dialog
   const [feeDialogOpen, setFeeDialogOpen] = useState(false);
   const [editingFee, setEditingFee] = useState<FeeRecord | null>(null);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [feeFormData, setFeeFormData] = useState({
     champId: '',
     userName: '',
@@ -172,14 +184,64 @@ const FeeCollectionPage = () => {
   }, [session, router]);
 
   // Fetch data
+  // Fetch users for the dropdown
+  const fetchAllUsers = async () => {
+    try {
+      setLoadingUsers(true);
+      const response = await fetch('/api/admin/users?limit=1000'); // Get all users
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setAllUsers(data.users || []);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  // Handle user selection
+  const handleUserSelect = (userId: string) => {
+    const selectedUser = allUsers.find(user => user._id === userId);
+    if (selectedUser) {
+      setSelectedUserId(userId);
+      setFeeFormData(prev => ({
+        ...prev,
+        champId: selectedUser.champId || '',
+        userName: selectedUser.name || '',
+        userEmail: selectedUser.email || '',
+        userMobile: selectedUser.mobile || selectedUser.phone || '',
+      }));
+    }
+  };
+
   const fetchFees = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // For now, just mock the data while we fix API issues
-      const mockFees: FeeRecord[] = [];
-      const mockStats = {
+      console.log('🔍 Fee Collection - Fetching fees and stats...');
+      
+      // Fetch both fees and fee collection stats
+      const [feesResponse, statsResponse] = await Promise.allSettled([
+        fetch('/api/admin/fee-collection'),
+        fetch('/api/admin/fee-collection/stats')
+      ]);
+      
+      // Handle fee data
+      let feeData = [];
+      if (feesResponse.status === 'fulfilled' && feesResponse.value.ok) {
+        const feesResult = await feesResponse.value.json();
+        feeData = feesResult.fees || [];
+        console.log('📋 Fetched', feeData.length, 'fee records');
+      } else {
+        console.log('⚠️ Fee collection API not available, using empty fee list');
+      }
+      
+      // Handle fee collection stats
+      let statsData = {
         overview: {
           totalFees: 0,
           pendingFees: 0,
@@ -188,32 +250,71 @@ const FeeCollectionPage = () => {
           totalAmount: 0,
           paidAmount: 0,
           pendingAmount: 0,
-          overdueAmount: 0
+          overdueAmount: 0,
+          recentFees: 0,
+          avgFeeAmount: 0,
+          lateFeesCollected: 0,
+          collectionRate: 0,
         }
       };
 
-      setFees(mockFees);
-      setStats(mockStats);
+      if (statsResponse.status === 'fulfilled' && statsResponse.value.ok) {
+        const statsResult = await statsResponse.value.json();
+        console.log('📊 Fee Collection - Stats data:', statsResult);
+        
+        if (statsResult.overview) {
+          const overview = statsResult.overview;
+          
+          // Calculate collection rate
+          const collectionRate = overview.totalFees > 0 ? (overview.paidFees / overview.totalFees * 100) : 0;
+          const avgFeeAmount = overview.totalFees > 0 ? overview.totalAmount / overview.totalFees : 0;
+          
+          statsData = {
+            overview: {
+              totalFees: overview.totalFees,
+              pendingFees: overview.pendingFees,
+              paidFees: overview.paidFees,
+              overdueFees: overview.overdueFees,
+              totalAmount: overview.totalAmount,
+              paidAmount: overview.paidAmount,
+              pendingAmount: overview.pendingAmount,
+              overdueAmount: overview.overdueAmount,
+              recentFees: overview.paidFees, // Recent payments
+              avgFeeAmount: avgFeeAmount,
+              lateFeesCollected: overview.overdueAmount, // Late fees collected
+              collectionRate: collectionRate,
+            }
+          };
+        }
+      } else {
+        console.log('⚠️ Fee collection stats API not available, using default stats');
+      }
 
-      // TODO: Uncomment when API is ready
-      // const [feesRes, statsRes] = await Promise.all([
-      //   fetch('/api/admin/fee-collection'),
-      //   fetch('/api/admin/fee-collection/stats')
-      // ]);
-
-      // if (!feesRes.ok) {
-      //   throw new Error('Failed to fetch fees');
-      // }
-
-      // const feesData = await feesRes.json();
-      // const statsData = statsRes.ok ? await statsRes.json() : { overview: stats.overview };
-
-      // setFees(feesData.fees || []);
-      // setStats(statsData);
+      console.log('📊 Fee Collection - Final calculated stats:', statsData);
+      setFees(feeData);
+      setStats(statsData);
 
     } catch (err) {
+      console.error('❌ Fee collection fetch error:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
-      console.error('Fee collection fetch error:', err);
+      // Set empty data on error
+      setFees([]);
+      setStats({
+        overview: {
+          totalFees: 0,
+          pendingFees: 0,
+          paidFees: 0,
+          overdueFees: 0,
+          totalAmount: 0,
+          paidAmount: 0,
+          pendingAmount: 0,
+          overdueAmount: 0,
+          recentFees: 0,
+          avgFeeAmount: 0,
+          lateFeesCollected: 0,
+          collectionRate: 0,
+        }
+      });
     } finally {
       setLoading(false);
     }
@@ -222,6 +323,26 @@ const FeeCollectionPage = () => {
   useEffect(() => {
     if (session?.user?.role === "admin") {
       fetchFees();
+      fetchAllUsers(); // Load users for dropdown
+      
+      // Check for URL parameters to pre-fill form
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('champId')) {
+        setFeeFormData({
+          champId: urlParams.get('champId') || '',
+          userName: urlParams.get('userName') || '',
+          userEmail: urlParams.get('userEmail') || '',
+          userMobile: urlParams.get('userMobile') || '',
+          feeType: 'Monthly Fee', // Default to Monthly Fee
+          amount: '',
+          dueDate: '',
+          status: 'pending',
+          paymentMethod: '',
+          transactionId: '',
+          notes: ''
+        });
+        setFeeDialogOpen(true); // Auto-open the dialog
+      }
     }
   }, [session]);
 
@@ -239,8 +360,20 @@ const FeeCollectionPage = () => {
     return matchesSearch && matchesStatus && matchesType;
   });
 
+  // Sort fees to put overdue at the top
+  const sortedFees = [...filteredFees].sort((a, b) => {
+    // Priority order: overdue first, then others by due date
+    if (a.status === 'overdue' && b.status !== 'overdue') return -1;
+    if (b.status === 'overdue' && a.status !== 'overdue') return 1;
+    
+    // If both are overdue or both are not overdue, sort by due date
+    const aDate = new Date(a.dueDate);
+    const bDate = new Date(b.dueDate);
+    return aDate.getTime() - bDate.getTime();
+  });
+
   // Pagination
-  const paginatedFees = filteredFees.slice(
+  const paginatedFees = sortedFees.slice(
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
   );
@@ -287,8 +420,10 @@ const FeeCollectionPage = () => {
     // }
   };
 
-  const addNewFee = () => {
+  const openAddFeeDialog = () => {
+    console.log('🔵 openAddFeeDialog called - opening add fee dialog');
     setEditingFee(null);
+    setSelectedUserId('');
     setFeeFormData({
       champId: '',
       userName: '',
@@ -302,11 +437,14 @@ const FeeCollectionPage = () => {
       transactionId: '',
       notes: ''
     });
+    console.log('🔵 Setting feeDialogOpen to true');
     setFeeDialogOpen(true);
+    console.log('✅ Add fee dialog should now be open');
   };
 
-  const editFee = (fee: FeeRecord) => {
+  const openEditFeeDialog = (fee: FeeRecord) => {
     setEditingFee(fee);
+    setSelectedUserId(fee.userId._id);
     setFeeFormData({
       champId: fee.champId,
       userName: fee.userName,
@@ -324,66 +462,85 @@ const FeeCollectionPage = () => {
   };
 
   const saveFee = async () => {
-    // TODO: Implement when API is ready
-    setAlert({ type: 'info', message: 'Add/Edit fee feature coming soon!' });
-    setFeeDialogOpen(false);
+    try {
+      // Validate required fields
+      if (!feeFormData.champId || !feeFormData.userName || !feeFormData.userEmail || 
+          !feeFormData.feeType || !feeFormData.amount || !feeFormData.dueDate) {
+        setAlert({ type: 'error', message: 'Please fill all required fields' });
+        return;
+      }
 
-    // try {
-    //   const url = editingFee 
-    //     ? `/api/admin/fee-collection/${editingFee._id}`
-    //     : '/api/admin/fee-collection';
+      const url = editingFee 
+        ? `/api/admin/fee-collection/${editingFee._id}`
+        : '/api/admin/fee-collection';
       
-    //   const method = editingFee ? 'PUT' : 'POST';
+      const method = editingFee ? 'PUT' : 'POST';
 
-    //   const response = await fetch(url, {
-    //     method,
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //     },
-    //     body: JSON.stringify(feeFormData),
-    //   });
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...feeFormData,
+          amount: parseFloat(feeFormData.amount)
+        }),
+      });
 
-    //   const data = await response.json();
+      const data = await response.json();
 
-    //   if (data.success) {
-    //     setAlert({ 
-    //       type: 'success', 
-    //       message: editingFee ? 'Fee updated successfully!' : 'Fee added successfully!' 
-    //     });
-    //     setFeeDialogOpen(false);
-    //     fetchFees();
-    //   } else {
-    //     setAlert({ type: 'error', message: data.error || 'Failed to save fee' });
-    //   }
-    // } catch (err) {
-    //   setAlert({ type: 'error', message: 'Failed to save fee' });
-    //   console.error('Save fee error:', err);
-    // }
+      if (data.success) {
+        setAlert({ 
+          type: 'success', 
+          message: editingFee ? 'Fee updated successfully!' : 'Fee added successfully!' 
+        });
+        setFeeDialogOpen(false);
+        fetchFees();
+        // Reset form
+        setFeeFormData({
+          champId: '',
+          userName: '',
+          userEmail: '',
+          userMobile: '',
+          feeType: '',
+          amount: '',
+          dueDate: '',
+          status: 'pending',
+          paymentMethod: '',
+          transactionId: '',
+          notes: ''
+        });
+        setSelectedUserId('');
+        setEditingFee(null);
+      } else {
+        setAlert({ type: 'error', message: data.error || 'Failed to save fee' });
+      }
+    } catch (err) {
+      setAlert({ type: 'error', message: 'Failed to save fee' });
+      console.error('Save fee error:', err);
+    }
   };
 
   const deleteFee = async (feeId: string) => {
     if (!confirm('Are you sure you want to delete this fee record?')) return;
 
-    // TODO: Implement when API is ready
-    setAlert({ type: 'info', message: 'Delete fee feature coming soon!' });
+    try {
+      const response = await fetch(`/api/admin/fee-collection/${feeId}`, {
+        method: 'DELETE',
+      });
 
-    // try {
-    //   const response = await fetch(`/api/admin/fee-collection/${feeId}`, {
-    //     method: 'DELETE',
-    //   });
+      const data = await response.json();
 
-    //   const data = await response.json();
-
-    //   if (data.success) {
-    //     setAlert({ type: 'success', message: 'Fee deleted successfully!' });
-    //     fetchFees();
-    //   } else {
-    //     setAlert({ type: 'error', message: data.error || 'Failed to delete fee' });
-    //   }
-    // } catch (err) {
-    //   setAlert({ type: 'error', message: 'Failed to delete fee' });
-    //   console.error('Delete fee error:', err);
-    // }
+      if (data.success) {
+        setAlert({ type: 'success', message: 'Fee deleted successfully!' });
+        fetchFees();
+      } else {
+        setAlert({ type: 'error', message: data.error || 'Failed to delete fee' });
+      }
+    } catch (err) {
+      setAlert({ type: 'error', message: 'Failed to delete fee' });
+      console.error('Delete fee error:', err);
+    }
   };
 
   if (loading) {
@@ -447,7 +604,12 @@ const FeeCollectionPage = () => {
         </Box>
       </Box>
 
-      {/* Stats Overview */}
+      {/* Comprehensive Fee Collection Statistics */}
+      <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
+        💰 Fee Collection Analytics Dashboard
+      </Typography>
+
+      {/* Primary Fee Stats Row */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
@@ -457,6 +619,9 @@ const FeeCollectionPage = () => {
               </Typography>
               <Typography variant="h5" component="div">
                 {stats.overview.totalFees}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                All fee records
               </Typography>
             </CardContent>
           </Card>
@@ -470,6 +635,9 @@ const FeeCollectionPage = () => {
               <Typography variant="h5" component="div" color="warning.main">
                 {stats.overview.pendingFees}
               </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Awaiting payment
+              </Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -481,6 +649,9 @@ const FeeCollectionPage = () => {
               </Typography>
               <Typography variant="h5" component="div" color="success.main">
                 {stats.overview.paidFees}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Successfully collected
               </Typography>
             </CardContent>
           </Card>
@@ -494,12 +665,15 @@ const FeeCollectionPage = () => {
               <Typography variant="h5" component="div" color="error.main">
                 {stats.overview.overdueFees}
               </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Past due date
+              </Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Amount Overview */}
+      {/* Amount Overview Row */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={4}>
           <Card>
@@ -509,6 +683,9 @@ const FeeCollectionPage = () => {
               </Typography>
               <Typography variant="h5" component="div">
                 ₹{stats.overview.totalAmount.toFixed(2)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Total fee value
               </Typography>
             </CardContent>
           </Card>
@@ -522,6 +699,9 @@ const FeeCollectionPage = () => {
               <Typography variant="h5" component="div" color="success.main">
                 ₹{stats.overview.paidAmount.toFixed(2)}
               </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Successfully collected
+              </Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -533,6 +713,73 @@ const FeeCollectionPage = () => {
               </Typography>
               <Typography variant="h5" component="div" color="warning.main">
                 ₹{stats.overview.pendingAmount.toFixed(2)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                To be collected
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Fee Analytics Row */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom variant="body2">
+                Collection Rate
+              </Typography>
+              <Typography variant="h6" component="div" color="primary.main">
+                {stats.overview.collectionRate}%
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Payment success rate
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom variant="body2">
+                Avg Fee Amount
+              </Typography>
+              <Typography variant="h6" component="div">
+                ₹{stats.overview.avgFeeAmount}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Per fee record
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom variant="body2">
+                Recent Payments
+              </Typography>
+              <Typography variant="h6" component="div" color="info.main">
+                {stats.overview.recentFees}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Last 30 days
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom variant="body2">
+                Overdue Amount
+              </Typography>
+              <Typography variant="h6" component="div" color="error.main">
+                ₹{stats.overview.overdueAmount.toFixed(2)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Late payment value
               </Typography>
             </CardContent>
           </Card>
@@ -587,6 +834,9 @@ const FeeCollectionPage = () => {
                 <MenuItem value="Court Fee">Court Fee</MenuItem>
                 <MenuItem value="Equipment Fee">Equipment Fee</MenuItem>
                 <MenuItem value="Late Fee">Late Fee</MenuItem>
+                <MenuItem value="Football Booking">Football Booking</MenuItem>
+                <MenuItem value="Badminton Booking">Badminton Booking</MenuItem>
+                <MenuItem value="Cricket Booking">Cricket Booking</MenuItem>
                 <MenuItem value="Other">Other</MenuItem>
               </Select>
             </FormControl>
@@ -596,7 +846,7 @@ const FeeCollectionPage = () => {
               fullWidth
               variant="contained"
               startIcon={<Add />}
-              onClick={addNewFee}
+              onClick={openAddFeeDialog}
             >
               Add Fee
             </Button>
@@ -606,6 +856,31 @@ const FeeCollectionPage = () => {
 
       {/* Fees Table */}
       <Paper>
+        {/* Show overdue info banner if there are overdue fees */}
+        {sortedFees.some(fee => fee.status === 'overdue') && (
+          <Box 
+            sx={{ 
+              backgroundColor: '#ffebee', 
+              borderLeft: '4px solid #f44336',
+              padding: 2,
+              margin: 2,
+              borderRadius: 1
+            }}
+          >
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                color: '#d32f2f',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
+              }}
+            >
+              ⚠️ Overdue fees are highlighted in red and shown at the top of the table for priority attention.
+            </Typography>
+          </Box>
+        )}
         <TableContainer>
           <Table>
             <TableHead>
@@ -622,11 +897,36 @@ const FeeCollectionPage = () => {
             </TableHead>
             <TableBody>
               {paginatedFees.map((fee) => (
-                <TableRow key={fee._id}>
-                  <TableCell>{fee.champId}</TableCell>
+                <TableRow 
+                  key={fee._id}
+                  sx={{
+                    backgroundColor: fee.status === 'overdue' ? '#ffebee' : 'transparent',
+                    '&:hover': {
+                      backgroundColor: fee.status === 'overdue' ? '#ffcdd2' : 'rgba(0, 0, 0, 0.04)',
+                    },
+                    borderLeft: fee.status === 'overdue' ? '4px solid #f44336' : 'none',
+                  }}
+                >
+                  <TableCell>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        fontWeight: fee.status === 'overdue' ? 'bold' : 'normal',
+                        color: fee.status === 'overdue' ? '#d32f2f' : 'inherit'
+                      }}
+                    >
+                      {fee.champId}
+                    </Typography>
+                  </TableCell>
                   <TableCell>
                     <Box>
-                      <Typography variant="body2" fontWeight="bold">
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          fontWeight: fee.status === 'overdue' ? 'bold' : 'bold',
+                          color: fee.status === 'overdue' ? '#d32f2f' : 'inherit'
+                        }}
+                      >
                         {fee.userName}
                       </Typography>
                       <Typography variant="caption" color="textSecondary">
@@ -634,9 +934,39 @@ const FeeCollectionPage = () => {
                       </Typography>
                     </Box>
                   </TableCell>
-                  <TableCell>{fee.feeType}</TableCell>
-                  <TableCell>₹{fee.amount}</TableCell>
-                  <TableCell>{formatSafeDate(fee.dueDate)}</TableCell>
+                  <TableCell>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        fontWeight: fee.status === 'overdue' ? 'bold' : 'normal',
+                        color: fee.status === 'overdue' ? '#d32f2f' : 'inherit'
+                      }}
+                    >
+                      {fee.feeType}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        fontWeight: fee.status === 'overdue' ? 'bold' : 'normal',
+                        color: fee.status === 'overdue' ? '#d32f2f' : 'inherit'
+                      }}
+                    >
+                      ₹{fee.amount}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        fontWeight: fee.status === 'overdue' ? 'bold' : 'normal',
+                        color: fee.status === 'overdue' ? '#d32f2f' : 'inherit'
+                      }}
+                    >
+                      {formatSafeDate(fee.dueDate)}
+                    </Typography>
+                  </TableCell>
                   <TableCell>
                     <Chip 
                       label={fee.status} 
@@ -666,7 +996,7 @@ const FeeCollectionPage = () => {
                         <IconButton
                           size="small"
                           color="primary"
-                          onClick={() => editFee(fee)}
+                          onClick={() => openEditFeeDialog(fee)}
                         >
                           <Edit />
                         </IconButton>
@@ -691,7 +1021,7 @@ const FeeCollectionPage = () => {
         <TablePagination
           rowsPerPageOptions={[5, 10, 25, 50]}
           component="div"
-          count={filteredFees.length}
+          count={sortedFees.length}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={(_, newPage) => setPage(newPage)}
@@ -777,6 +1107,34 @@ const FeeCollectionPage = () => {
         <DialogContent>
           <Box sx={{ mt: 2 }}>
             <Grid container spacing={2}>
+              {/* User Selection Dropdown */}
+              <Grid item xs={12}>
+                <FormControl fullWidth margin="normal" disabled={editingFee !== null}>
+                  <InputLabel>Select User</InputLabel>
+                  <Select
+                    value={selectedUserId}
+                    label="Select User"
+                    onChange={(e) => handleUserSelect(e.target.value)}
+                    disabled={loadingUsers || editingFee !== null}
+                  >
+                    <MenuItem value="">
+                      <em>{loadingUsers ? 'Loading users...' : 'Choose a user'}</em>
+                    </MenuItem>
+                    {allUsers.map((user) => (
+                      <MenuItem key={user._id} value={user._id}>
+                        {user.champId} - {user.name} ({user.email})
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                {editingFee && (
+                  <Alert severity="info" sx={{ mt: 1 }}>
+                    User selection is disabled when editing existing fees.
+                  </Alert>
+                )}
+              </Grid>
+
+              {/* User Details (Auto-populated or manual) */}
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
@@ -784,6 +1142,10 @@ const FeeCollectionPage = () => {
                   margin="normal"
                   value={feeFormData.champId}
                   onChange={(e) => setFeeFormData(prev => ({ ...prev, champId: e.target.value }))}
+                  InputProps={{
+                    readOnly: selectedUserId !== '',
+                  }}
+                  helperText={selectedUserId ? "Auto-populated from selected user" : ""}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -793,6 +1155,10 @@ const FeeCollectionPage = () => {
                   margin="normal"
                   value={feeFormData.userName}
                   onChange={(e) => setFeeFormData(prev => ({ ...prev, userName: e.target.value }))}
+                  InputProps={{
+                    readOnly: selectedUserId !== '',
+                  }}
+                  helperText={selectedUserId ? "Auto-populated from selected user" : ""}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -803,6 +1169,10 @@ const FeeCollectionPage = () => {
                   margin="normal"
                   value={feeFormData.userEmail}
                   onChange={(e) => setFeeFormData(prev => ({ ...prev, userEmail: e.target.value }))}
+                  InputProps={{
+                    readOnly: selectedUserId !== '',
+                  }}
+                  helperText={selectedUserId ? "Auto-populated from selected user" : ""}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -812,6 +1182,10 @@ const FeeCollectionPage = () => {
                   margin="normal"
                   value={feeFormData.userMobile}
                   onChange={(e) => setFeeFormData(prev => ({ ...prev, userMobile: e.target.value }))}
+                  InputProps={{
+                    readOnly: selectedUserId !== '',
+                  }}
+                  helperText={selectedUserId ? "Auto-populated from selected user" : ""}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -827,6 +1201,9 @@ const FeeCollectionPage = () => {
                     <MenuItem value="Court Fee">Court Fee</MenuItem>
                     <MenuItem value="Equipment Fee">Equipment Fee</MenuItem>
                     <MenuItem value="Late Fee">Late Fee</MenuItem>
+                    <MenuItem value="Football Booking">Football Booking</MenuItem>
+                    <MenuItem value="Badminton Booking">Badminton Booking</MenuItem>
+                    <MenuItem value="Cricket Booking">Cricket Booking</MenuItem>
                     <MenuItem value="Other">Other</MenuItem>
                   </Select>
                 </FormControl>

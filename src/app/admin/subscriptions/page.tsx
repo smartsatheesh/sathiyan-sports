@@ -43,6 +43,13 @@ import {
   GetApp,
   HealthAndSafety,
   TrendingUp,
+  People,
+  CheckCircle,
+  Cancel,
+  Warning,
+  AttachMoney,
+  Receipt,
+  Assessment,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 
@@ -101,6 +108,13 @@ interface SubscriptionStats {
     totalRevenue: number;
     averageAmount: number;
     upcomingRenewals: number;
+    // Enhanced stats from subscription page
+    expiredSubscriptions: number;
+    monthlySubscribers: number;
+    yearlySubscribers: number;
+    averageSubscriptionValue: number;
+    paidThisMonth: number;
+    collectionRate: number;
   };
 }
 
@@ -121,25 +135,67 @@ const AdminSubscriptionsPage = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
-    if (session?.user?.role !== 'admin') {
+    console.log('🔍 Session check:', session?.user?.email, 'Role:', session?.user?.role, 'Name:', session?.user?.name);
+    console.log('🔍 Session object:', session);
+    
+    // Check if user has admin role
+    if (!session?.user?.role || session.user.role !== 'admin') {
+      console.log('❌ No admin role, redirecting to home');
       router.push('/');
       return;
     }
     
+    console.log('✅ Admin role confirmed, fetching data');
     fetchSubscriptions();
     fetchStats();
   }, [session, router]);
 
+  // Calculate stats whenever subscriptions change
+  useEffect(() => {
+    if (subscriptions.length > 0) {
+      console.log('🔄 ADMIN PAGE: Subscriptions changed, recalculating stats for', subscriptions.length, 'items');
+      calculateStatsLocally();
+    }
+  }, [subscriptions]);
+
+  // Reset page to 0 when filters change to avoid pagination errors
+  useEffect(() => {
+    setPage(0);
+  }, [filterStatus, searchTerm]);
+
   const fetchSubscriptions = async () => {
     setLoading(true);
     try {
+      console.log('🔍 ADMIN PAGE: Fetching subscriptions from unified API...');
       const response = await fetch('/api/subscription');
+      console.log('📡 ADMIN PAGE: Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ ADMIN PAGE: API Error:', errorText);
+        throw new Error(`Error: ${response.status} ${response.statusText}`);
+      }
+      
       const data = await response.json();
+      console.log('📊 ADMIN PAGE: Raw subscription response:', data);
+      console.log('📊 ADMIN PAGE: Subscription count:', data.subscriptions?.length);
+      
       if (data.subscriptions) {
+        console.log('✅ ADMIN PAGE: Setting', data.subscriptions.length, 'subscriptions');
+        console.log('🔍 ADMIN PAGE: Sample subscription data:', data.subscriptions[0]);
+        console.log('🔍 ADMIN PAGE: Amount fields in first subscription:', {
+          amount: data.subscriptions[0]?.amount,
+          subscriptionPrice: data.subscriptions[0]?.subscriptionPrice
+        });
         setSubscriptions(data.subscriptions);
+        // Calculate stats locally since we have the data - no timeout needed
+      } else {
+        console.warn('⚠️ ADMIN PAGE: No subscriptions in response');
+        setSubscriptions([]);
       }
     } catch (error) {
-      console.error('Error fetching subscriptions:', error);
+      console.error('❌ ADMIN PAGE: Error fetching subscriptions:', error);
+      setSubscriptions([]);
     } finally {
       setLoading(false);
     }
@@ -147,12 +203,144 @@ const AdminSubscriptionsPage = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/subscription/stats');
+      console.log('🔍 Fetching stats from admin API...');
+      const response = await fetch('/api/admin/subscription-stats');
+      console.log('📊 Stats response status:', response.status);
+      
+      if (!response.ok) {
+        console.warn('⚠️ Stats API not available, calculating locally');
+        // Calculate stats locally from subscriptions
+        calculateStatsLocally();
+        return;
+      }
+      
       const data = await response.json();
+      console.log('📊 Stats data:', data);
       setStats(data);
     } catch (error) {
-      console.error('Error fetching subscription stats:', error);
+      console.error('❌ Error fetching subscription stats:', error);
+      // Calculate stats locally from subscriptions
+      calculateStatsLocally();
     }
+  };
+
+  const calculateStatsLocally = () => {
+    console.log('🔄 ADMIN PAGE: calculateStatsLocally called with', subscriptions.length, 'subscriptions');
+    
+    if (subscriptions.length === 0) {
+      console.log('❌ ADMIN PAGE: No subscriptions to calculate from');
+      return;
+    }
+    
+    console.log('📊 ADMIN PAGE: Calculating comprehensive admin stats locally from', subscriptions.length, 'subscriptions');
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Basic counts
+    const totalSubscriptions = subscriptions.length;
+    const activeSubscriptions = subscriptions.filter(sub => sub.status === 'active').length;
+    const pendingSubscriptions = subscriptions.filter(sub => 
+      sub.paymentStatus === 'Pending' || sub.paymentStatus === 'pending'
+    ).length;
+    
+    const overdueSubscriptions = subscriptions.filter(sub => {
+      if (!sub.nextDueDate) return false;
+      const dueDate = new Date(sub.nextDueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      return today > dueDate;
+    }).length;
+
+    // Enhanced calculations - Active vs Expired subscriptions  
+    const now = new Date();
+    const activeByDueDate = subscriptions.filter(sub => {
+      if (!sub.nextDueDate) return true; // No due date means ongoing
+      const dueDate = new Date(sub.nextDueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate >= today; // Active if due date is today or future
+    }).length;
+    
+    // Expired = Overdue (same thing - past due date)
+    const expiredSubscriptions = overdueSubscriptions;
+    
+    // Subscription type breakdown
+    const monthlySubscribers = subscriptions.filter(sub => 
+      sub.subscriptionType === 'monthly'
+    ).length;
+    const yearlySubscribers = subscriptions.filter(sub => 
+      sub.subscriptionType === 'yearly' 
+    ).length;
+
+    // Revenue calculations
+    const totalRevenue = subscriptions.reduce((total, sub) => {
+      if (sub.paymentStatus === 'Paid' || sub.paymentStatus === 'paid' || sub.paymentStatus === 'completed') {
+        const revenue = sub.amount || 0;
+        return total + revenue;
+      }
+      return total;
+    }, 0);
+
+    // This month's payments (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const paidThisMonth = subscriptions.filter(sub => {
+      if (sub.paymentStatus === 'Paid' || sub.paymentStatus === 'paid') {
+        return new Date(sub.createdAt) > thirtyDaysAgo;
+      }
+      return false;
+    }).reduce((total, sub) => {
+      return total + (sub.amount || 0);
+    }, 0);
+
+    // Calculate average amounts
+    const paidSubscriptions = subscriptions.filter(sub => 
+      sub.paymentStatus === 'Paid' || sub.paymentStatus === 'paid' || sub.paymentStatus === 'completed'
+    );
+    const averageAmount = paidSubscriptions.length > 0 
+      ? totalRevenue / paidSubscriptions.length 
+      : 0;
+    const averageSubscriptionValue = averageAmount;
+
+    // Collection rate
+    const collectionRate = totalSubscriptions > 0 ? (paidSubscriptions.length / totalSubscriptions) * 100 : 0;
+
+    // Calculate upcoming renewals (next 30 days)
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    const upcomingRenewals = subscriptions.filter(sub => {
+      if (!sub.nextDueDate) return false;
+      const dueDate = new Date(sub.nextDueDate);
+      return dueDate >= today && dueDate <= thirtyDaysFromNow;
+    }).length;
+
+    const enhancedAdminStats = {
+      overview: {
+        totalSubscriptions,
+        activeSubscriptions,
+        pendingSubscriptions,
+        overdueSubscriptions,
+        totalRevenue: Math.round(totalRevenue),
+        averageAmount: Math.round(averageAmount),
+        upcomingRenewals,
+        expiredSubscriptions,
+        monthlySubscribers,
+        yearlySubscribers,
+        averageSubscriptionValue: Math.round(averageSubscriptionValue),
+        paidThisMonth: Math.round(paidThisMonth),
+        collectionRate: Math.round(collectionRate),
+      }
+    };
+
+    console.log('📊 ADMIN PAGE: Enhanced admin stats calculated:', enhancedAdminStats);
+    console.log('💰 ADMIN PAGE: Revenue breakdown:', {
+      totalRevenue: Math.round(totalRevenue),
+      paidThisMonth: Math.round(paidThisMonth),
+      averageAmount: Math.round(averageAmount),
+      collectionRate: Math.round(collectionRate) + '%'
+    });
+    
+    setStats(enhancedAdminStats);
+    console.log('✅ ADMIN PAGE: Stats set successfully');
   };
 
   const handleEditSubscription = async () => {
@@ -200,7 +388,26 @@ const AdminSubscriptionsPage = () => {
   // Filtering and sorting logic
   const filteredAndSortedSubscriptions = useMemo(() => {
     let filtered = subscriptions.filter(subscription => {
-      const matchesStatus = filterStatus === 'all' || subscription.paymentStatus.toLowerCase() === filterStatus.toLowerCase();
+      // Special handling for overdue status
+      let matchesStatus = false;
+      if (filterStatus === 'all') {
+        matchesStatus = true;
+      } else if (filterStatus === 'overdue') {
+        // Check if subscription is overdue based on nextDueDate
+        if (subscription.nextDueDate) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const dueDate = new Date(subscription.nextDueDate);
+          dueDate.setHours(0, 0, 0, 0);
+          matchesStatus = today > dueDate;
+        } else {
+          matchesStatus = false;
+        }
+      } else {
+        // Regular paymentStatus matching
+        matchesStatus = subscription.paymentStatus.toLowerCase() === filterStatus.toLowerCase();
+      }
+      
       const matchesSearch = !searchTerm || 
         subscription.userId.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         subscription.userId.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -328,58 +535,153 @@ const AdminSubscriptionsPage = () => {
           </Box>
         </Box>
 
-        {/* Stats Cards */}
-        {stats && (
-          <Grid container spacing={3} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography color="textSecondary" gutterBottom>
-                    Total Subscriptions
-                  </Typography>
-                  <Typography variant="h4">
-                    {stats.overview.totalSubscriptions}
-                  </Typography>
-                </CardContent>
-              </Card>
+        {/* Enhanced Stats Cards */}
+        {stats ? (
+          <>
+            <Typography variant="h6" sx={{ mb: 2, color: 'green' }}>
+              📊 ADMIN STATS LOADED: Total = {stats.overview.totalSubscriptions} subscription records found
+              {stats.overview.totalSubscriptions < 40 && (
+                <><br/>⚠️ <strong>Note:</strong> Some users may be marked as subscribed but missing subscription records.</>
+              )}
+            </Typography>
+            {/* Overview Stats Row 1 */}
+            <Grid container spacing={3} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography color="textSecondary" gutterBottom variant="body2">
+                        Total Subscriptions
+                      </Typography>
+                      <Typography variant="h4" component="h2">
+                        {stats.overview.totalSubscriptions}
+                      </Typography>
+                    </Box>
+                    <People color="primary" sx={{ fontSize: 40 }} />
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography color="textSecondary" gutterBottom variant="body2">
+                        Active Subscriptions
+                      </Typography>
+                      <Typography variant="h4" component="h2" color="success.main">
+                        {stats.overview.activeSubscriptions}
+                      </Typography>
+                    </Box>
+                    <CheckCircle color="success" sx={{ fontSize: 40 }} />
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography color="textSecondary" gutterBottom variant="body2">
+                        Expired/Overdue Subscriptions
+                      </Typography>
+                      <Typography variant="h4" component="h2" color="error.main">
+                        {stats.overview.expiredSubscriptions}
+                      </Typography>
+                      <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem' }}>
+                        (Past due date)
+                      </Typography>
+                    </Box>
+                    <Cancel color="error" sx={{ fontSize: 40 }} />
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography color="textSecondary" gutterBottom variant="body2">
+                        Overdue (Same Count)
+                      </Typography>
+                      <Typography variant="h4" component="h2" color="warning.main">
+                        {stats.overview.overdueSubscriptions}
+                      </Typography>
+                      <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem' }}>
+                        (Same as expired)
+                      </Typography>
+                    </Box>
+                    <Warning color="warning" sx={{ fontSize: 40 }} />
+                  </CardContent>
+                </Card>
+              </Grid>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography color="textSecondary" gutterBottom>
-                    Active Subscriptions
-                  </Typography>
-                  <Typography variant="h4" color="success.main">
-                    {stats.overview.activeSubscriptions}
-                  </Typography>
-                </CardContent>
-              </Card>
+
+            {/* Revenue Stats Row 2 */}
+            <Grid container spacing={3} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography color="textSecondary" gutterBottom variant="body2">
+                        Total Revenue
+                      </Typography>
+                      <Typography variant="h5" component="h2" color="primary.main">
+                        {formatCurrency(stats.overview.totalRevenue)}
+                      </Typography>
+                    </Box>
+                    <AttachMoney color="primary" sx={{ fontSize: 40 }} />
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography color="textSecondary" gutterBottom variant="body2">
+                        Revenue This Month
+                      </Typography>
+                      <Typography variant="h5" component="h2" color="success.main">
+                        {formatCurrency(stats.overview.paidThisMonth)}
+                      </Typography>
+                    </Box>
+                    <Receipt color="success" sx={{ fontSize: 40 }} />
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography color="textSecondary" gutterBottom variant="body2">
+                        Average Amount
+                      </Typography>
+                      <Typography variant="h5" component="h2">
+                        {formatCurrency(stats.overview.averageAmount)}
+                      </Typography>
+                    </Box>
+                    <TrendingUp color="info" sx={{ fontSize: 40 }} />
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography color="textSecondary" gutterBottom variant="body2">
+                        Collection Rate
+                      </Typography>
+                      <Typography variant="h5" component="h2" color="info.main">
+                        {stats.overview.collectionRate}%
+                      </Typography>
+                    </Box>
+                    <Assessment color="info" sx={{ fontSize: 40 }} />
+                  </CardContent>
+                </Card>
+              </Grid>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography color="textSecondary" gutterBottom>
-                    Total Revenue
-                  </Typography>
-                  <Typography variant="h4" color="primary.main">
-                    {formatCurrency(stats.overview.totalRevenue)}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography color="textSecondary" gutterBottom>
-                    Upcoming Renewals
-                  </Typography>
-                  <Typography variant="h4" color="warning.main">
-                    {stats.overview.upcomingRenewals}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
+          </>
+        ) : (
+          <Typography variant="h6" sx={{ mb: 2, color: 'red' }}>
+            ❌ ADMIN STATS NOT LOADED: {subscriptions.length} subscriptions available
+          </Typography>
         )}
 
         {/* Filters */}
@@ -464,7 +766,14 @@ const AdminSubscriptionsPage = () => {
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" fontWeight="bold">
-                      {formatCurrency(subscription.amount)}
+                      {(() => {
+                        const amount = subscription.amount || 0;
+                        console.log(`💰 Admin page - Rendering amount for ${subscription.userName}:`, {
+                          amount: subscription.amount,
+                          final: amount
+                        });
+                        return formatCurrency(amount);
+                      })()}
                     </Typography>
                     <Typography variant="caption" color="textSecondary">
                       {subscription.duration} month{subscription.duration > 1 ? 's' : ''}
@@ -555,8 +864,11 @@ const AdminSubscriptionsPage = () => {
           component="div"
           count={filteredAndSortedSubscriptions.length}
           rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={(event, newPage) => setPage(newPage)}
+          page={Math.min(page, Math.max(0, Math.ceil(filteredAndSortedSubscriptions.length / rowsPerPage) - 1))}
+          onPageChange={(event, newPage) => {
+            const maxPage = Math.max(0, Math.ceil(filteredAndSortedSubscriptions.length / rowsPerPage) - 1);
+            setPage(Math.min(newPage, maxPage));
+          }}
           onRowsPerPageChange={(event) => {
             setRowsPerPage(parseInt(event.target.value, 10));
             setPage(0);

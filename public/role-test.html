@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User Role Test</title>
+</head>
+<body>
+    <h1>User Role Test</h1>
+    <div id="output">Loading...</div>
+    
+    <script>
+        async function checkUserRole() {
+            const output = document.getElementById('output');
+            
+            try {
+                // Check current session
+                const sessionResponse = await fetch('/api/auth/session');
+                const session = await sessionResponse.json();
+                
+                output.innerHTML = `
+                    <h3>Current User Session:</h3>
+                    <pre>${JSON.stringify(session, null, 2)}</pre>
+                `;
+                
+                if (!session.user) {
+                    output.innerHTML += '<p><strong>❌ No user logged in</strong></p>';
+                    return;
+                }
+                
+                output.innerHTML += `
+                    <h3>User Details:</h3>
+                    <p><strong>Name:</strong> ${session.user.name}</p>
+                    <p><strong>Email:</strong> ${session.user.email}</p>
+                    <p><strong>Role:</strong> ${session.user.role || 'Not set'}</p>
+                    <p><strong>Admin Access:</strong> ${session.user.role === 'admin' ? '✅ YES' : '❌ NO'}</p>
+                `;
+                
+                // Test subscription API
+                const subscriptionResponse = await fetch('/api/subscription');
+                output.innerHTML += `
+                    <h3>Subscription API Test:</h3>
+                    <p><strong>Status:</strong> ${subscriptionResponse.status}</p>
+                `;
+                
+                if (subscriptionResponse.ok) {
+                    const subscriptionData = await subscriptionResponse.json();
+                    output.innerHTML += `
+                        <p><strong>✅ API Success</strong></p>
+                        <p><strong>Subscriptions Count:</strong> ${subscriptionData.subscriptions?.length || 0}</p>
+                        <pre>${JSON.stringify(subscriptionData, null, 2)}</pre>
+                    `;
+                } else {
+                    const errorText = await subscriptionResponse.text();
+                    output.innerHTML += `
+                        <p><strong>❌ API Error</strong></p>
+                        <p>${errorText}</p>
+                    `;
+                }
+                
+            } catch (error) {
+                output.innerHTML += `<p><strong>Error:</strong> ${error.message}</p>`;
+            }
+        }
+        
+        window.onload = checkUserRole;
+    </script>
+</body>
+</html>

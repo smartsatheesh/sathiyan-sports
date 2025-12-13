@@ -252,14 +252,18 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
       );
     }
 
-    // Check if user subscription status is being set to 'Yes'
+    // Check if user subscription status is being set to 'Yes' or 'yes'
     const isBecomingSubscribed = 
-      updateData.subscribed === 'Yes' && 
-      currentUser.subscribed !== 'Yes';
+      (updateData.subscribed === 'Yes' || updateData.subscribed === 'yes') && 
+      (currentUser.subscribed !== 'Yes' && currentUser.subscribed !== 'yes');
 
     // Create subscription entry when: payment completing, missing dates, or becoming subscribed
-    if (((isPaymentCompleting || needsSubscriptionDates || isBecomingSubscribed) && currentUser.subscriptionType) || 
-        (isBecomingSubscribed && updateData.subscriptionType)) {
+    // IMPORTANT: Always create subscription when user is marked as subscribed
+    const shouldCreateSubscription = 
+      ((isPaymentCompleting || needsSubscriptionDates || isBecomingSubscribed) && (currentUser.subscriptionType || updateData.subscriptionType)) || 
+      (isBecomingSubscribed); // Always create when becoming subscribed, even without subscription type
+
+    if (shouldCreateSubscription) {
       try {
         // Check if subscription already exists for this user
         const existingSubscription = await (Subscription.findOne as any)({ 
@@ -267,8 +271,13 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
         });
 
         if (!existingSubscription) {
-          // Use the updated subscription type if provided, or existing one
-          const subscriptionType = updateData.subscriptionType || currentUser.subscriptionType;
+          // Use the updated subscription type if provided, or existing one, or default to 'monthly'
+          const subscriptionType = updateData.subscriptionType || currentUser.subscriptionType || 'monthly';
+          
+          // If user is being marked as subscribed but has no subscription type, set default
+          if (isBecomingSubscribed && !subscriptionType) {
+            console.log(`⚠️ User ${user.name} marked as subscribed but no subscription type set. Using default 'monthly'.`);
+          }
           
           const durationMap = {
             'monthly': 1,
@@ -376,7 +385,13 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
           };
 
           const subscription = await (Subscription.create as any)(subscriptionData);
-          console.log(`✅ Subscription created for ${user.name}: ${subscription._id} with payment status: ${subscriptionPaymentStatus}`);
+          
+          if (isBecomingSubscribed) {
+            console.log(`🎉 NEW SUBSCRIPTION: User ${user.name} (${user.email}) marked as subscribed - created subscription record ${subscription._id}`);
+            console.log(`📊 Subscription Details: Type=${subscriptionType}, Amount=₹${subscriptionAmount}, Payment=${subscriptionPaymentStatus}`);
+          } else {
+            console.log(`✅ Subscription created for ${user.name}: ${subscription._id} with payment status: ${subscriptionPaymentStatus}`);
+          }
 
           // Helper function to calculate subscription amount
           function calculateSubscriptionAmount(champType?: string, subscriptionType?: string, gender?: string, preferredTimeSlot?: string) {

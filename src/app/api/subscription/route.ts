@@ -6,27 +6,89 @@ import { connectToMongoose } from '../../server/mongodb';
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('🔍 Subscription API called');
     await connectToMongoose();
     const session = await getServerSession(authOptions);
+    console.log('🔐 Session user:', session?.user?.email, 'Role:', session?.user?.role);
     
     if (!session?.user?.id) {
+      console.log('❌ No session or user ID');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
+    const isAdmin = session.user.role === 'admin';
     
-    // Admin can view all subscriptions, users can only view their own
-    const query = session.user.role === 'admin' && userId 
-      ? { userId } 
-      : { userId: session.user.id };
+    console.log('🔑 Admin status:', isAdmin, 'Requested userId:', userId);
+    
+    let query: any = {};
+    
+    if (isAdmin) {
+      // Admin can view all subscriptions or filter by userId
+      if (userId) {
+        query = { userId };
+        console.log('👨‍💼 Admin viewing specific user subscriptions:', userId);
+      } else {
+        // Admin viewing all subscriptions
+        console.log('👨‍💼 Admin viewing all subscriptions');
+      }
+    } else {
+      // Regular users can only view their own subscriptions
+      query = { userId: session.user.id };
+      console.log('👤 User viewing own subscriptions');
+    }
 
+    console.log('📊 Fetching subscriptions with query:', query);
     const subscriptions = await (Subscription.find as any)(query)
-      .populate('userId', 'name email champId')
+      .populate('userId', 'name email champId phone mobile gender preferredTimeSlot champType preferredSport selectedCourt')
       .populate('createdBy', 'name email')
       .populate('updatedBy', 'name email')
-      .sort({ createdAt: -1 });
+      .sort({ nextDueDate: 1, createdAt: -1 });
 
+    console.log('📊 Found', subscriptions.length, 'subscriptions');
+
+    // For admin requests, calculate overdue status
+    if (isAdmin && subscriptions.length > 0) {
+      console.log('📊 Calculating overdue status for admin view...');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const subscriptionsWithStatus = subscriptions.map((sub: any) => {
+        const subscription = sub.toObject();
+        
+        // Calculate overdue status
+        if (subscription.paymentStatus !== 'Paid' && subscription.nextDueDate) {
+          const dueDate = new Date(subscription.nextDueDate);
+          dueDate.setHours(0, 0, 0, 0);
+          
+          const diffTime = today.getTime() - dueDate.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          subscription.isOverdue = diffDays > 0;
+          subscription.daysPastDue = Math.max(diffDays, 0);
+          
+          const gracePeriod = subscription.gracePeriod || 7;
+          subscription.isPastGrace = diffDays > gracePeriod;
+          subscription.gracePeriod = gracePeriod;
+        } else {
+          subscription.isOverdue = false;
+          subscription.daysPastDue = 0;
+          subscription.isPastGrace = false;
+          subscription.gracePeriod = subscription.gracePeriod || 7;
+        }
+
+        return subscription;
+      });
+
+      console.log('✅ Returning', subscriptionsWithStatus.length, 'subscriptions with overdue status');
+      return NextResponse.json({ 
+        success: true,
+        subscriptions: subscriptionsWithStatus 
+      });
+    }
+
+    console.log('✅ Returning', subscriptions.length, 'subscriptions');
     return NextResponse.json({ subscriptions });
   } catch (error) {
     console.error('Error fetching subscriptions:', error);

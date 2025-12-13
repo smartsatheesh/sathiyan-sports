@@ -52,6 +52,9 @@ import {
   GetApp,
   TrendingUp,
   Add,
+  Cancel,
+  AttachMoney,
+  Receipt,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 
@@ -70,6 +73,7 @@ interface User {
   champType?: 'kids' | 'adult' | 'veteran';
   subscriptionType?: 'monthly' | 'quarterly' | 'half yearly' | 'yearly';
   subscriptionPrice?: number;
+  amount?: number; // Add amount field
   paymentDate?: string;
   lastPaidDate?: string;
   nextDueDate?: string;
@@ -92,6 +96,13 @@ interface Stats {
   overdue: number;
   totalRevenue: number;
   monthlyRevenue: number;
+  // Subscription-specific stats
+  activeSubscriptions: number;
+  expiredSubscriptions: number;
+  monthlySubscribers: number;
+  yearlySubscribers: number;
+  averageSubscriptionValue: number;
+  paidThisMonth: number;
 }
 
 const SubscriptionPage = () => {
@@ -111,6 +122,12 @@ const SubscriptionPage = () => {
     overdue: 0,
     totalRevenue: 0,
     monthlyRevenue: 0,
+    activeSubscriptions: 0,
+    expiredSubscriptions: 0,
+    monthlySubscribers: 0,
+    yearlySubscribers: 0,
+    averageSubscriptionValue: 0,
+    paidThisMonth: 0,
   });
   const [editDialog, setEditDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -122,7 +139,7 @@ const SubscriptionPage = () => {
     }
     
     if (status === "authenticated") {
-      if (session?.user?.email !== "sathiyan.personal@gmail.com") {
+      if (session?.user?.role !== "admin") {
         router.push("/");
         return;
       }
@@ -133,61 +150,100 @@ const SubscriptionPage = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      console.log('Fetching subscriptions...');
-      const response = await fetch('/api/admin/subscriptions');
+      console.log('🔍 Fetching subscriptions...');
+      console.log('🔐 Session details:', session);
+      
+      const response = await fetch('/api/subscription');
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', response.headers);
       
       if (!response.ok) {
-        throw new Error(`Error: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('❌ API Error:', errorText);
+        throw new Error(`Error: ${response.status} ${response.statusText} - ${errorText}`);
       }
       
       const data = await response.json();
-      console.log('Raw subscription response:', data);
+      console.log('📊 Raw subscription response:', data);
+      console.log('📊 Subscription count:', data.subscriptions?.length);
       
       if (data && data.subscriptions) {
+        console.log('✅ Processing', data.subscriptions.length, 'subscriptions');
+        
         // Transform subscription data to match the expected user data structure
-        const transformedData = data.subscriptions.map((sub: any) => ({
-          _id: sub.userId?._id || sub._id,
-          name: sub.userId?.name || '',
-          email: sub.userId?.email || '',
-          phone: sub.userId?.phone || '',
-          mobile: sub.userId?.mobile || '',
-          champId: sub.userId?.champId || '',
-          game: sub.userId?.preferredSport || sub.userId?.game || '',
-          slot: sub.userId?.preferredTimeSlot || sub.userId?.slot || '',
-          preferredSport: sub.userId?.preferredSport || '',
-          selectedCourt: sub.userId?.selectedCourt || '',
-          subscribed: 'Yes', // All entries in subscription collection are subscribed
-          champType: sub.userId?.champType || 'adult',
-          subscriptionType: sub.subscriptionType,
-          subscriptionPrice: sub.subscriptionPrice,
-          paymentDate: sub.lastPaidDate,
-          lastPaidDate: sub.lastPaidDate,
-          nextDueDate: sub.nextDueDate,
-          paymentStatus: sub.paymentStatus?.toLowerCase() || 'pending',
-          court: sub.userId?.selectedCourt || sub.userId?.court || '',
-          gender: sub.userId?.gender,
-          preferredTimeSlot: sub.userId?.preferredTimeSlot,
-          subscriptionId: sub._id,
-          isOverdue: sub.isOverdue,
-          daysPastDue: sub.daysPastDue,
-          isPastGrace: sub.isPastGrace,
-          gracePeriod: sub.gracePeriod,
-          createdAt: sub.createdAt,
-          updatedAt: sub.updatedAt
-        }));
+        const transformedData = data.subscriptions.map((sub: any, index: number) => {
+          console.log(`🔄 Transforming subscription ${index + 1}:`, {
+            id: sub._id,
+            userName: sub.userId?.name,
+            amount: sub.amount,
+            subscriptionPrice: sub.subscriptionPrice,
+            rawSub: sub, // Log the raw subscription object
+            paymentStatus: sub.paymentStatus,
+            isOverdue: sub.isOverdue,
+            daysPastDue: sub.daysPastDue,
+            isPastGrace: sub.isPastGrace,
+            nextDueDate: sub.nextDueDate
+          });
+          
+          const transformedUser = {
+            _id: sub.userId?._id || sub._id,
+            name: sub.userId?.name || '',
+            email: sub.userId?.email || '',
+            phone: sub.userId?.phone || '',
+            mobile: sub.userId?.mobile || '',
+            champId: sub.userId?.champId || '',
+            game: sub.userId?.preferredSport || sub.userId?.game || '',
+            slot: sub.userId?.preferredTimeSlot || sub.userId?.slot || '',
+            preferredSport: sub.userId?.preferredSport || '',
+            selectedCourt: sub.userId?.selectedCourt || '',
+            subscribed: 'Yes', // All entries in subscription collection are subscribed
+            champType: sub.userId?.champType || 'adult',
+            subscriptionType: sub.subscriptionType,
+            subscriptionPrice: sub.amount, // Use sub.amount as the main price
+            amount: sub.amount, // Direct mapping from subscription amount
+            paymentDate: sub.lastPaidDate,
+            lastPaidDate: sub.lastPaidDate,
+            nextDueDate: sub.nextDueDate,
+            paymentStatus: sub.paymentStatus?.toLowerCase() || 'pending',
+            court: sub.userId?.selectedCourt || sub.userId?.court || '',
+            gender: sub.userId?.gender,
+            preferredTimeSlot: sub.userId?.preferredTimeSlot,
+            subscriptionId: sub._id,
+            isOverdue: sub.isOverdue,
+            daysPastDue: sub.daysPastDue,
+            isPastGrace: sub.isPastGrace,
+            gracePeriod: sub.gracePeriod,
+            createdAt: sub.createdAt,
+            updatedAt: sub.updatedAt
+          };
+          
+          console.log(`✅ Transformed user ${index + 1}:`, {
+            name: transformedUser.name,
+            amount: transformedUser.amount,
+            subscriptionPrice: transformedUser.subscriptionPrice,
+            paymentStatus: transformedUser.paymentStatus,
+            isOverdue: transformedUser.isOverdue,
+            daysPastDue: transformedUser.daysPastDue
+          });
+          
+          return transformedUser;
+        });
+        
+        console.log('✅ Transformed data:', transformedData);
+        console.log('✅ Setting', transformedData.length, 'users');
         
         setUsers(transformedData);
         setFilteredUsers(transformedData);
         calculateStats(transformedData);
-        console.log('Subscription data transformed and set successfully:', transformedData.length, 'subscriptions');
+        console.log('✅ Subscription data transformed and set successfully:', transformedData.length, 'subscriptions');
       } else {
-        console.error('Unexpected data structure:', data);
+        console.error('❌ Unexpected data structure:', data);
         setUsers([]);
         setFilteredUsers([]);
       }
     } catch (error) {
-      console.error('Error fetching subscriptions:', error);
-      setError('Failed to load subscription data');
+      console.error('❌ Error fetching subscriptions:', error);
+      setError('Failed to load subscription data: ' + error.message);
       setUsers([]);
       setFilteredUsers([]);
     } finally {
@@ -196,6 +252,8 @@ const SubscriptionPage = () => {
   };
 
   const calculateStats = (userList: User[]) => {
+    console.log('📊 Calculating comprehensive subscription stats for', userList.length, 'users');
+    
     const totalSubscribed = userList.length;
     const pendingPayments = userList.filter(user => 
       user.paymentStatus === 'pending' || user.paymentStatus === 'Pending'
@@ -204,23 +262,79 @@ const SubscriptionPage = () => {
       user.isOverdue || user.paymentStatus === 'overdue'
     ).length;
     
-    // Calculate revenue based on subscription type
-    const revenue = userList.reduce((total, user) => {
+    // Active vs Expired subscriptions
+    const now = new Date();
+    const activeSubscriptions = userList.filter(user => {
+      if (!user.nextDueDate) return true; // No due date means ongoing
+      return new Date(user.nextDueDate) > now;
+    }).length;
+    const expiredSubscriptions = totalSubscribed - activeSubscriptions;
+    
+    // Subscription type breakdown
+    const monthlySubscribers = userList.filter(user => 
+      user.subscriptionType === 'monthly'
+    ).length;
+    const yearlySubscribers = userList.filter(user => 
+      user.subscriptionType === 'yearly'
+    ).length;
+    
+    // Revenue calculations
+    const totalRevenue = userList.reduce((total, user) => {
       if (user.paymentStatus === 'paid' || user.paymentStatus === 'Paid') {
-        const amount = user.subscriptionPrice || 
+        const amount = user.subscriptionPrice || user.amount || 
           getSubscriptionAmount(user.champType, user.subscriptionType, user.gender, user.preferredTimeSlot);
+        console.log(`💰 Adding revenue for ${user.name}: ₹${amount} (status: ${user.paymentStatus})`);
         return total + amount;
       }
       return total;
     }, 0);
+    
+    // This month's payments (simplified - last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const paidThisMonth = userList.filter(user => {
+      if (user.paymentDate && (user.paymentStatus === 'paid' || user.paymentStatus === 'Paid')) {
+        return new Date(user.paymentDate) > thirtyDaysAgo;
+      }
+      return false;
+    }).reduce((total, user) => {
+      const amount = user.subscriptionPrice || user.amount || 
+        getSubscriptionAmount(user.champType, user.subscriptionType, user.gender, user.preferredTimeSlot);
+      return total + amount;
+    }, 0);
+    
+    // Average subscription value
+    const paidUsers = userList.filter(user => user.paymentStatus === 'paid' || user.paymentStatus === 'Paid');
+    const averageSubscriptionValue = paidUsers.length > 0 ? totalRevenue / paidUsers.length : 0;
 
-    setStats({
+    const newStats = {
       totalSubscribed,
       pendingPayments,
       overdue,
-      totalRevenue: revenue,
-      monthlyRevenue: revenue, // Simplified for now
+      totalRevenue,
+      monthlyRevenue: paidThisMonth, // Last 30 days
+      activeSubscriptions,
+      expiredSubscriptions,
+      monthlySubscribers,
+      yearlySubscribers,
+      averageSubscriptionValue,
+      paidThisMonth,
+    };
+    
+    console.log('📊 Comprehensive subscription stats calculated:', {
+      totalSubscribed,
+      pendingPayments,
+      overdue,
+      totalRevenue,
+      activeSubscriptions,
+      expiredSubscriptions,
+      monthlySubscribers,
+      yearlySubscribers,
+      averageSubscriptionValue: Math.round(averageSubscriptionValue),
+      paidThisMonth,
+      paidUsers: paidUsers.length
     });
+    setStats(newStats);
   };
 
   const getSubscriptionAmount = (champType?: string, subscriptionType?: string, gender?: string, preferredTimeSlot?: string) => {
@@ -447,6 +561,20 @@ const SubscriptionPage = () => {
     setEditDialog(true);
   };
 
+  const handleAddFee = (user: User) => {
+    // Create URL with user data pre-filled
+    const params = new URLSearchParams({
+      champId: user.champId || '',
+      userName: user.name || '',
+      userEmail: user.email || '',
+      userMobile: user.mobile || user.phone || '',
+      returnUrl: '/subscription'
+    });
+    
+    // Navigate to fee collection page with pre-filled data
+    router.push(`/admin/fee-collection?${params.toString()}`);
+  };
+
   const handleSaveEdit = async () => {
     if (!selectedUser) return;
 
@@ -534,7 +662,12 @@ const SubscriptionPage = () => {
         </Alert>
       )}
 
-      {/* Statistics Cards */}
+      {/* Comprehensive Subscription Statistics */}
+      <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
+        📊 Subscription Analytics Dashboard
+      </Typography>
+      
+      {/* Primary Stats Row */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} md={3}>
           <Card>
@@ -543,10 +676,13 @@ const SubscriptionPage = () => {
                 <FitnessCenter color="primary" sx={{ mr: 2 }} />
                 <Box>
                   <Typography color="text.secondary" gutterBottom>
-                    Total Subscribed
+                    Total Subscriptions
                   </Typography>
                   <Typography variant="h4">
                     {stats.totalSubscribed}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Active members
                   </Typography>
                 </Box>
               </Box>
@@ -565,6 +701,9 @@ const SubscriptionPage = () => {
                   <Typography variant="h4">
                     {stats.pendingPayments}
                   </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Awaiting payment
+                  </Typography>
                 </Box>
               </Box>
             </CardContent>
@@ -582,6 +721,9 @@ const SubscriptionPage = () => {
                   <Typography variant="h4">
                     {stats.overdue}
                   </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Past due date
+                  </Typography>
                 </Box>
               </Box>
             </CardContent>
@@ -598,6 +740,93 @@ const SubscriptionPage = () => {
                   </Typography>
                   <Typography variant="h4">
                     {formatCurrency(stats.totalRevenue)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Lifetime earnings
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Secondary Stats Row */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <CheckCircle color="success" sx={{ mr: 2 }} />
+                <Box>
+                  <Typography color="text.secondary" gutterBottom>
+                    Active Subscriptions
+                  </Typography>
+                  <Typography variant="h5">
+                    {stats.activeSubscriptions}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Currently active
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <Cancel color="error" sx={{ mr: 2 }} />
+                <Box>
+                  <Typography color="text.secondary" gutterBottom>
+                    Expired/Cancelled
+                  </Typography>
+                  <Typography variant="h5">
+                    {stats.expiredSubscriptions}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    No longer active
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <AttachMoney color="info" sx={{ mr: 2 }} />
+                <Box>
+                  <Typography color="text.secondary" gutterBottom>
+                    Avg. Subscription Value
+                  </Typography>
+                  <Typography variant="h5">
+                    {formatCurrency(stats.averageSubscriptionValue)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Per subscriber
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <Receipt color="secondary" sx={{ mr: 2 }} />
+                <Box>
+                  <Typography color="text.secondary" gutterBottom>
+                    Revenue (Last 30d)
+                  </Typography>
+                  <Typography variant="h5">
+                    {formatCurrency(stats.paidThisMonth)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Recent payments
                   </Typography>
                 </Box>
               </Box>
@@ -759,6 +988,7 @@ const SubscriptionPage = () => {
                 </TableRow>
               ) : (
                 filteredUsers.map((user) => {
+                  console.log('🔍 Rendering user:', user);
                   const overdueStatus = getOverdueStatus(user.nextDueDate, user.paymentStatus, user);
                   return (
                     <TableRow 
@@ -808,7 +1038,16 @@ const SubscriptionPage = () => {
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Typography variant="body2" fontWeight="bold">
-                          {formatCurrency(getSubscriptionAmount(user.champType, user.subscriptionType, user.gender, user.preferredTimeSlot))}
+                          {(() => {
+                            const amount = user.subscriptionPrice || user.amount || getSubscriptionAmount(user.champType, user.subscriptionType, user.gender, user.preferredTimeSlot);
+                            console.log(`💰 Rendering amount for ${user.name}:`, {
+                              subscriptionPrice: user.subscriptionPrice,
+                              amount: user.amount,
+                              calculated: getSubscriptionAmount(user.champType, user.subscriptionType, user.gender, user.preferredTimeSlot),
+                              final: amount
+                            });
+                            return formatCurrency(amount);
+                          })()}
                         </Typography>
                         {user.gender === 'female' && user.preferredTimeSlot && (
                           <Tooltip 
@@ -877,15 +1116,26 @@ const SubscriptionPage = () => {
                     </TableCell>
                     <TableCell>{user.court || '-'}</TableCell>
                     <TableCell>
-                      <Tooltip title="Edit">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleEditUser(user)}
-                          color="primary"
-                        >
-                          <Edit />
-                        </IconButton>
-                      </Tooltip>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Tooltip title="Edit">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditUser(user)}
+                            color="primary"
+                          >
+                            <Edit />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Add Fee">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleAddFee(user)}
+                            color="success"
+                          >
+                            <Add />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
                     </TableCell>
                   </TableRow>
                   );

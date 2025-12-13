@@ -18,6 +18,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   Button,
   Chip,
   CircularProgress,
@@ -31,6 +32,7 @@ import {
   FormControl,
   InputLabel,
   TextField,
+  InputAdornment,
   FormLabel,
   FormControlLabel,
   RadioGroup,
@@ -48,6 +50,8 @@ import {
   Add,
   ArrowUpward,
   ArrowDownward,
+  Search,
+  FilterList,
 } from "@mui/icons-material";
 
 // Utility function for safe date formatting
@@ -263,6 +267,17 @@ export default function AdminDashboard() {
   // Edit User Dialog states
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  
+  // User filtering states
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [champTypeFilter, setChampTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
+  
+  // User pagination states
+  const [userPage, setUserPage] = useState(0);
+  const [userRowsPerPage, setUserRowsPerPage] = useState(10);
+  
   const [editUserFormData, setEditUserFormData] = useState({
     champId: '',
     name: '',
@@ -344,32 +359,57 @@ export default function AdminDashboard() {
     setSortConfig({ key, direction });
   };
 
-  const getSortedUsers = () => {
-    if (!sortConfig.key) return users;
-
-    return [...users].sort((a, b) => {
-      const aValue = a[sortConfig.key!];
-      const bValue = b[sortConfig.key!];
-
-      // Handle null/undefined values
-      if (aValue === null || aValue === undefined) return 1;
-      if (bValue === null || bValue === undefined) return -1;
-
-      // Convert to string for comparison
-      const aStr = String(aValue).toLowerCase();
-      const bStr = String(bValue).toLowerCase();
-
-      if (aStr < bStr) {
-        return sortConfig.direction === 'asc' ? -1 : 1;
-      }
-      if (aStr > bStr) {
-        return sortConfig.direction === 'asc' ? 1 : -1;
-      }
-      return 0;
+  const getFilteredAndSortedUsers = () => {
+    // First, filter the users
+    let filteredUsers = users.filter(user => {
+      const matchesSearch = userSearchTerm === '' || 
+        user.name?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+        user.email?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+        user.champId?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+        user.mobile?.includes(userSearchTerm) ||
+        user.phone?.includes(userSearchTerm);
+        
+      const matchesChampType = champTypeFilter === 'all' || user.champType === champTypeFilter;
+      const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
+      const matchesPaymentStatus = paymentStatusFilter === 'all' || user.paymentStatus === paymentStatusFilter;
+      
+      return matchesSearch && matchesChampType && matchesStatus && matchesPaymentStatus;
     });
+
+    // Then, sort the filtered users
+    if (sortConfig.key) {
+      filteredUsers = [...filteredUsers].sort((a, b) => {
+        const aValue = a[sortConfig.key!];
+        const bValue = b[sortConfig.key!];
+
+        // Handle null/undefined values
+        if (aValue === null || aValue === undefined) return 1;
+        if (bValue === null || bValue === undefined) return -1;
+
+        // Convert to string for comparison
+        const aStr = String(aValue).toLowerCase();
+        const bStr = String(bValue).toLowerCase();
+
+        if (aStr < bStr) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aStr > bStr) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return filteredUsers;
   };
 
-  const sortedUsers = getSortedUsers();
+  const filteredUsers = getFilteredAndSortedUsers();
+  
+  // Apply pagination to filtered users
+  const paginatedUsers = filteredUsers.slice(
+    userPage * userRowsPerPage,
+    userPage * userRowsPerPage + userRowsPerPage
+  );
 
   // Sortable header component
   const SortableHeader = ({ column, children }: { column: keyof User; children: React.ReactNode }) => (
@@ -443,6 +483,11 @@ export default function AdminDashboard() {
       fetchData();
     }
   }, [session]);
+
+  // Reset user page when filters change to avoid pagination errors
+  useEffect(() => {
+    setUserPage(0);
+  }, [userSearchTerm, champTypeFilter, statusFilter, paymentStatusFilter]);
 
   // Auto-calculate subscription amount based on time-based pricing
   useEffect(() => {
@@ -1064,29 +1109,46 @@ export default function AdminDashboard() {
       <Box sx={{ 
         background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
         borderRadius: 3,
-        p: 4,
+        p: { xs: 2, sm: 3, md: 4 },
         mb: 4,
         color: 'white',
         display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' },
         justifyContent: 'space-between',
-        alignItems: 'center'
+        alignItems: { xs: 'center', md: 'center' },
+        gap: { xs: 3, md: 0 }
       }}>
         <Box sx={{
           display: 'flex',
           alignItems: 'center',
-          gap: 2
+          gap: 2,
+          textAlign: { xs: 'center', md: 'left' }
         }}>
-          <Dashboard sx={{ fontSize: 48 }} />
+          <Dashboard sx={{ fontSize: { xs: 32, sm: 40, md: 48 } }} />
           <Box>
-            <Typography variant="h3" sx={{ fontWeight: 800, mb: 0.5 }}>
+            <Typography variant="h3" sx={{ 
+              fontWeight: 800, 
+              mb: 0.5,
+              fontSize: { xs: '1.75rem', sm: '2.25rem', md: '3rem' }
+            }}>
               Sathiyan Sports Admin
             </Typography>
-            <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.9)', fontStyle: 'italic' }}>
+            <Typography variant="h6" sx={{ 
+              color: 'rgba(255,255,255,0.9)', 
+              fontStyle: 'italic',
+              fontSize: { xs: '0.875rem', sm: '1rem', md: '1.25rem' }
+            }}>
               Coaching Excellence Dashboard
             </Typography>
           </Box>
         </Box>
-        <Box display="flex" gap={2}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 2,
+          width: { xs: '100%', sm: 'auto' },
+          minWidth: { xs: '280px', sm: 'auto' }
+        }}>
           <Button
             variant="contained"
             color="secondary"
@@ -1095,6 +1157,8 @@ export default function AdminDashboard() {
             sx={{
               bgcolor: 'rgba(255,255,255,0.2)',
               backdropFilter: 'blur(10px)',
+              fontSize: { xs: '0.875rem', sm: '1rem' },
+              padding: { xs: '12px 16px', sm: '16px 24px' },
               '&:hover': {
                 bgcolor: 'rgba(255,255,255,0.3)',
               }
@@ -1110,6 +1174,8 @@ export default function AdminDashboard() {
             sx={{
               bgcolor: 'rgba(255,193,7,0.2)',
               backdropFilter: 'blur(10px)',
+              fontSize: { xs: '0.875rem', sm: '1rem' },
+              padding: { xs: '12px 16px', sm: '16px 24px' },
               '&:hover': {
                 bgcolor: 'rgba(255,193,7,0.3)',
               }
@@ -1145,12 +1211,28 @@ export default function AdminDashboard() {
 
       {/* Tabs */}
       <Paper sx={{ width: "100%" }}>
-        <Tabs value={tabValue} onChange={handleTabChange} sx={{ borderBottom: 1, borderColor: "divider" }}>
+        <Tabs 
+          value={tabValue} 
+          onChange={handleTabChange} 
+          sx={{ 
+            borderBottom: 1, 
+            borderColor: "divider",
+            '& .MuiTabs-flexContainer': {
+              flexWrap: { xs: 'wrap', sm: 'nowrap' }
+            },
+            '& .MuiTab-root': {
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
+              minWidth: { xs: 'auto', sm: '120px' },
+              padding: { xs: '6px 8px', sm: '12px 16px' }
+            }
+          }}
+          variant="scrollable"
+          scrollButtons="auto"
+        >
           <Tab label="Recent Bookings" />
           <Tab label="Users" />
           <Tab label="Slots Stats" />
           <Tab label="Expenses" />
-          <Tab label="Settings" />
         </Tabs>
 
         {/* Bookings Tab */}
@@ -1246,28 +1328,115 @@ export default function AdminDashboard() {
               </Button>
             </Box>
           </Box>
+
+          {/* User Filters */}
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="Search Users"
+                  placeholder="Search by name, email, Champion ID, or mobile"
+                  value={userSearchTerm}
+                  onChange={(e) => setUserSearchTerm(e.target.value)}
+                  size="small"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Champion Type</InputLabel>
+                  <Select
+                    value={champTypeFilter}
+                    label="Champion Type"
+                    onChange={(e) => setChampTypeFilter(e.target.value)}
+                  >
+                    <MenuItem value="all">All Types</MenuItem>
+                    <MenuItem value="kids">Kids</MenuItem>
+                    <MenuItem value="adult">Adult</MenuItem>
+                    <MenuItem value="veteran">Veteran</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={statusFilter}
+                    label="Status"
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <MenuItem value="all">All Status</MenuItem>
+                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="verified">Verified</MenuItem>
+                    <MenuItem value="registered">Registered</MenuItem>
+                    <MenuItem value="rejected">Rejected</MenuItem>
+                    <MenuItem value="suspended">Suspended</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Payment Status</InputLabel>
+                  <Select
+                    value={paymentStatusFilter}
+                    label="Payment Status"
+                    onChange={(e) => setPaymentStatusFilter(e.target.value)}
+                  >
+                    <MenuItem value="all">All Payments</MenuItem>
+                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="completed">Completed</MenuItem>
+                    <MenuItem value="failed">Failed</MenuItem>
+                    <MenuItem value="overdue">Overdue</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  onClick={() => {
+                    setUserSearchTerm('');
+                    setChampTypeFilter('all');
+                    setStatusFilter('all');
+                    setPaymentStatusFilter('all');
+                  }}
+                  size="small"
+                >
+                  Clear Filters
+                </Button>
+              </Grid>
+            </Grid>
+          </Paper>
           
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <SortableHeader column="champId">Champ ID</SortableHeader>
-                  <SortableHeader column="name">Name</SortableHeader>
-                  <SortableHeader column="email">Email</SortableHeader>
-                  <SortableHeader column="mobile">Mobile</SortableHeader>
-                  <SortableHeader column="champType">Type</SortableHeader>
-                  <SortableHeader column="subscribed">Subscribed</SortableHeader>
-                  <TableCell>Height</TableCell>
-                  <TableCell>Weight</TableCell>
-                  <TableCell>BMI</TableCell>
-                  <SortableHeader column="paymentStatus">Payment Status</SortableHeader>
-                  <SortableHeader column="selectedCourt">Court</SortableHeader>
-                  <SortableHeader column="status">Status</SortableHeader>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {sortedUsers.map((user) => (
+          <Paper sx={{ mt: 2 }}>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <SortableHeader column="champId">Champ ID</SortableHeader>
+                    <SortableHeader column="name">Name</SortableHeader>
+                    <SortableHeader column="email">Email</SortableHeader>
+                    <SortableHeader column="mobile">Mobile</SortableHeader>
+                    <SortableHeader column="champType">Type</SortableHeader>
+                    <SortableHeader column="subscribed">Subscribed</SortableHeader>
+                    <TableCell>Height</TableCell>
+                    <TableCell>Weight</TableCell>
+                    <TableCell>BMI</TableCell>
+                    <SortableHeader column="paymentStatus">Payment Status</SortableHeader>
+                    <SortableHeader column="selectedCourt">Court</SortableHeader>
+                    <SortableHeader column="status">Status</SortableHeader>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {paginatedUsers.map((user) => (
                   <TableRow key={user._id}>
                     <TableCell>
                       <Chip 
@@ -1361,6 +1530,26 @@ export default function AdminDashboard() {
               </TableBody>
             </Table>
           </TableContainer>
+          
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            component="div"
+            count={filteredUsers.length}
+            rowsPerPage={userRowsPerPage}
+            page={Math.min(userPage, Math.max(0, Math.ceil(filteredUsers.length / userRowsPerPage) - 1))}
+            onPageChange={(_, newPage) => {
+              const maxPage = Math.max(0, Math.ceil(filteredUsers.length / userRowsPerPage) - 1);
+              setUserPage(Math.min(newPage, maxPage));
+            }}
+            onRowsPerPageChange={(event) => {
+              setUserRowsPerPage(parseInt(event.target.value, 10));
+              setUserPage(0);
+            }}
+            labelDisplayedRows={({ from, to, count }) => 
+              `${from}-${to} of ${count !== -1 ? count : `more than ${to}`} filtered users`
+            }
+          />
+        </Paper>
         </TabPanel>
 
         {/* Slots Stats Tab */}
@@ -1701,147 +1890,6 @@ export default function AdminDashboard() {
               Go to Expenses Management
             </Button>
           </Box>
-        </TabPanel>
-
-        {/* Subscriptions Tab */}
-        <TabPanel value={tabValue} index={4}>
-          <Typography variant="h6" gutterBottom>
-            � Sports Subscription Management
-          </Typography>
-          
-          <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
-            <Button
-              variant="contained"
-              onClick={() => router.push('/admin/subscriptions')}
-              startIcon={<Add />}
-            >
-              View All Subscriptions
-            </Button>
-            <Button 
-              variant="outlined" 
-              color="warning"
-              onClick={updateOverdueStatus}
-              startIcon={<Refresh />}
-            >
-              Update Overdue Status
-            </Button>
-          </Box>
-
-          <Alert severity="info" sx={{ mb: 3 }}>
-            <Typography variant="body2">
-              <strong>Subscription Management:</strong> This table shows only users with subscribed="yes" for billing cycle and overdue management. 
-              The same users also appear in the Users tab for basic information management. Here you can track payment dates, due dates, and billing cycles.
-            </Typography>
-          </Alert>
-
-          {/* Subscription Users Table */}
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>ChampID</TableCell>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Game</TableCell>
-                  <TableCell>Time Slot</TableCell>
-                  <TableCell>Payment Date</TableCell>
-                  <TableCell>Next Due Date</TableCell>
-                  <TableCell>Payment Status</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {users
-                  .filter(user => user.subscribed === 'yes')
-                  .map((user) => (
-                    <TableRow key={user._id} hover>
-                      <TableCell>
-                        <Chip label={user.champId} size="small" color="primary" variant="outlined" />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                          {user.name}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={user.preferredSport || 'Not Set'} 
-                          size="small" 
-                          color={user.preferredSport ? 'success' : 'default'}
-                          variant="outlined" 
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {user.preferredTimeSlot ? (
-                          <Chip 
-                            label={user.preferredTimeSlot} 
-                            size="small" 
-                            color="secondary"
-                            variant="outlined"
-                          />
-                        ) : (
-                          <Typography variant="body2" color="textSecondary">
-                            No time slot
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {user.paymentCompletedDate && user.paymentStatus === 'completed'
-                            ? format(new Date(user.paymentCompletedDate), 'MMM dd, yyyy')
-                            : 'Not Completed'
-                          }
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography 
-                          variant="body2" 
-                          sx={{ 
-                            color: user.nextDueDate && new Date(user.nextDueDate) < new Date() ? '#c62828' : 'inherit',
-                            fontWeight: user.nextDueDate && new Date(user.nextDueDate) < new Date() ? 'bold' : 'normal',
-                            fontSize: '0.875rem'
-                          }}
-                        >
-                          {formatDueDate(user.nextDueDate)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        {getPaymentStatusChip(user)}
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                          <Button size="small" onClick={() => handleEditUser(user)} startIcon={<Edit />}>
-                            Edit
-                          </Button>
-                          <Button 
-                            size="small" 
-                            color="primary" 
-                            variant="contained"
-                            onClick={() => router.push('/admin/subscriptions')}
-                            sx={{ fontSize: '0.75rem' }}
-                          >
-                            View
-                          </Button>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                {users.filter(user => user.subscribed === 'yes').length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
-                      <Typography variant="body2" color="textSecondary">
-                        No subscribed users found. Users need to have subscribed="yes" to appear here.
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </TabPanel>
-
-        <TabPanel value={tabValue} index={5}>
-          <Typography variant="h6" sx={{ mb: 2 }}>System Settings</Typography>
-          <Typography variant="body1">Settings panel coming soon...</Typography>
         </TabPanel>
       </Paper>
 
