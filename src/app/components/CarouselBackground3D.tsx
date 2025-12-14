@@ -53,7 +53,7 @@ export default function CarouselBackground3D() {
           <directionalLight position={[5, 5, 5]} intensity={0.5} />
 
           {/* Environment for reflections - with fallback */}
-          <Environment background={false} preset="dawn" />
+          <Environment background={false} preset="city" />
           
           {/* Fallback lighting if environment fails */}
           <hemisphereLight intensity={0.2} />

@@ -44,7 +44,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const body = await request.json();
-    const { paymentStatus, paymentMethod, transactionId, autoRenewal } = body;
+    const { paymentStatus, paymentMethod, transactionId, autoRenewal, amount } = body;
 
     const subscription = await (Subscription.findById as any)(params.id);
 
@@ -62,6 +62,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (paymentMethod) subscription.paymentMethod = paymentMethod;
     if (transactionId) subscription.transactionId = transactionId;
     if (typeof autoRenewal !== 'undefined') subscription.autoRenewal = autoRenewal;
+    if (amount !== undefined && amount !== null) subscription.amount = amount;
     
     // If payment is successful, set payment date
     if (paymentStatus === 'Paid') {

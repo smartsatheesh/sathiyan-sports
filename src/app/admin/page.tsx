@@ -188,7 +188,6 @@ interface User {
   selectedCourt?: string;
   subscriptionType: string;
   paymentStatus: string;
-  status: string;
   verifiedAt?: string;
   createdAt: string;
   comments?: string;
@@ -271,7 +270,6 @@ export default function AdminDashboard() {
   // User filtering states
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [champTypeFilter, setChampTypeFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
   
   // User pagination states
@@ -290,7 +288,6 @@ export default function AdminDashboard() {
     preferredTimeSlot: '',
     selectedCourt: '',
     subscriptionType: '',
-    status: '',
     paymentStatus: '',
     comments: '',
     mode: '',
@@ -370,10 +367,9 @@ export default function AdminDashboard() {
         user.phone?.includes(userSearchTerm);
         
       const matchesChampType = champTypeFilter === 'all' || user.champType === champTypeFilter;
-      const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
       const matchesPaymentStatus = paymentStatusFilter === 'all' || user.paymentStatus === paymentStatusFilter;
       
-      return matchesSearch && matchesChampType && matchesStatus && matchesPaymentStatus;
+      return matchesSearch && matchesChampType && matchesPaymentStatus;
     });
 
     // Then, sort the filtered users
@@ -487,7 +483,7 @@ export default function AdminDashboard() {
   // Reset user page when filters change to avoid pagination errors
   useEffect(() => {
     setUserPage(0);
-  }, [userSearchTerm, champTypeFilter, statusFilter, paymentStatusFilter]);
+  }, [userSearchTerm, champTypeFilter, paymentStatusFilter]);
 
   // Auto-calculate subscription amount based on time-based pricing
   useEffect(() => {
@@ -523,7 +519,6 @@ export default function AdminDashboard() {
       preferredTimeSlot: user.preferredTimeSlot || '',
       selectedCourt: user.selectedCourt || '',
       subscriptionType: user.subscriptionType || '',
-      status: user.status || 'pending',
       paymentStatus: user.paymentStatus || 'pending',
       comments: user.comments || '',
       mode: user.mode || '',
@@ -651,7 +646,6 @@ export default function AdminDashboard() {
           preferredTimeSlot: editUserFormData.preferredTimeSlot,
           selectedCourt: editUserFormData.selectedCourt,
           subscriptionType: editUserFormData.subscriptionType,
-          status: editUserFormData.status,
           paymentStatus: editUserFormData.paymentStatus,
           height: editUserFormData.height ? parseFloat(editUserFormData.height) : undefined,
           weight: editUserFormData.weight ? parseFloat(editUserFormData.weight) : undefined,
@@ -696,7 +690,6 @@ export default function AdminDashboard() {
                 preferredTimeSlot: editUserFormData.preferredTimeSlot,
                 selectedCourt: editUserFormData.selectedCourt,
                 subscriptionType: editUserFormData.subscriptionType,
-                status: editUserFormData.status,
                 paymentStatus: editUserFormData.paymentStatus,
                 height: editUserFormData.height ? parseFloat(editUserFormData.height) : undefined,
                 weight: editUserFormData.weight ? parseFloat(editUserFormData.weight) : undefined,
@@ -1143,11 +1136,13 @@ export default function AdminDashboard() {
           </Box>
         </Box>
         <Box sx={{ 
-          display: 'flex', 
+          display: 'flex',
+          flexWrap: 'wrap',
           flexDirection: { xs: 'column', sm: 'row' },
           gap: 2,
           width: { xs: '100%', sm: 'auto' },
-          minWidth: { xs: '280px', sm: 'auto' }
+          minWidth: { xs: '280px', sm: 'auto' },
+          justifyContent: 'center'
         }}>
           <Button
             variant="contained"
@@ -1182,6 +1177,40 @@ export default function AdminDashboard() {
             }}
           >
             Fee Collection
+          </Button>
+          <Button
+            variant="contained"
+            color="info"
+            size="large"
+            onClick={() => router.push('/admin/attendance')}
+            sx={{
+              bgcolor: 'rgba(33,150,243,0.2)',
+              backdropFilter: 'blur(10px)',
+              fontSize: { xs: '0.875rem', sm: '1rem' },
+              padding: { xs: '12px 16px', sm: '16px 24px' },
+              '&:hover': {
+                bgcolor: 'rgba(33,150,243,0.3)',
+              }
+            }}
+          >
+            Attendance Tracking
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            size="large"
+            onClick={() => router.push('/admin/universal-qr')}
+            sx={{
+              bgcolor: 'rgba(76,175,80,0.2)',
+              backdropFilter: 'blur(10px)',
+              fontSize: { xs: '0.875rem', sm: '1rem' },
+              padding: { xs: '12px 16px', sm: '16px 24px' },
+              '&:hover': {
+                bgcolor: 'rgba(76,175,80,0.3)',
+              }
+            }}
+          >
+            Generate QR Code
           </Button>
         </Box>
       </Box>
@@ -1366,23 +1395,6 @@ export default function AdminDashboard() {
               </Grid>
               <Grid item xs={12} md={2}>
                 <FormControl fullWidth size="small">
-                  <InputLabel>Status</InputLabel>
-                  <Select
-                    value={statusFilter}
-                    label="Status"
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                  >
-                    <MenuItem value="all">All Status</MenuItem>
-                    <MenuItem value="pending">Pending</MenuItem>
-                    <MenuItem value="verified">Verified</MenuItem>
-                    <MenuItem value="registered">Registered</MenuItem>
-                    <MenuItem value="rejected">Rejected</MenuItem>
-                    <MenuItem value="suspended">Suspended</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={2}>
-                <FormControl fullWidth size="small">
                   <InputLabel>Payment Status</InputLabel>
                   <Select
                     value={paymentStatusFilter}
@@ -1404,7 +1416,6 @@ export default function AdminDashboard() {
                   onClick={() => {
                     setUserSearchTerm('');
                     setChampTypeFilter('all');
-                    setStatusFilter('all');
                     setPaymentStatusFilter('all');
                   }}
                   size="small"
@@ -1422,16 +1433,16 @@ export default function AdminDashboard() {
                   <TableRow>
                     <SortableHeader column="champId">Champ ID</SortableHeader>
                     <SortableHeader column="name">Name</SortableHeader>
-                    <SortableHeader column="email">Email</SortableHeader>
                     <SortableHeader column="mobile">Mobile</SortableHeader>
                     <SortableHeader column="champType">Type</SortableHeader>
                     <SortableHeader column="subscribed">Subscribed</SortableHeader>
+                    <SortableHeader column="subscriptionType">Sub Type</SortableHeader>
+                    <TableCell>Comments</TableCell>
                     <TableCell>Height</TableCell>
                     <TableCell>Weight</TableCell>
                     <TableCell>BMI</TableCell>
                     <SortableHeader column="paymentStatus">Payment Status</SortableHeader>
                     <SortableHeader column="selectedCourt">Court</SortableHeader>
-                    <SortableHeader column="status">Status</SortableHeader>
                     <TableCell>Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -1447,7 +1458,6 @@ export default function AdminDashboard() {
                       />
                     </TableCell>
                     <TableCell>{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
                     <TableCell>{user.mobile || user.phone}</TableCell>
                     <TableCell>
                       <Chip 
@@ -1473,6 +1483,19 @@ export default function AdminDashboard() {
                       />
                     </TableCell>
                     <TableCell>
+                      <Chip 
+                        label={user.subscriptionType || 'Not Set'} 
+                        size="small" 
+                        color={user.subscriptionType ? 'primary' : 'default'}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {user.comments || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
                       <Typography variant="body2">
                         {user.height ? `${user.height} cm` : '-'}
                       </Typography>
@@ -1496,13 +1519,6 @@ export default function AdminDashboard() {
                       ) : (
                         <Typography variant="body2" color="textSecondary">No Court</Typography>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={user.status || 'pending'} 
-                        color={getStatusColor(user.status || 'pending') as any}
-                        size="small"
-                      />
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -2150,20 +2166,6 @@ export default function AdminDashboard() {
                     <FormControlLabel value="half yearly" control={<Radio />} label="Half Yearly" />
                     <FormControlLabel value="yearly" control={<Radio />} label="Yearly" />
                   </RadioGroup>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Status</InputLabel>
-                  <Select
-                    value={editUserFormData.status}
-                    onChange={(e) => setEditUserFormData(prev => ({ ...prev, status: e.target.value }))}
-                    label="Status"
-                  >
-                    <MenuItem value="pending">Pending</MenuItem>
-                    <MenuItem value="verified">Verified</MenuItem>
-                    <MenuItem value="suspended">Suspended</MenuItem>
-                  </Select>
                 </FormControl>
               </Grid>
               <Grid item xs={12} sm={6}>

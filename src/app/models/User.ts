@@ -146,11 +146,6 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 5, // 5 days grace period
   },
-  status: {
-    type: String,
-    default: "registered",
-    enum: ["pending", "verified", "registered", "rejected", "suspended"],
-  },
   verifiedAt: {
     type: Date,
   },

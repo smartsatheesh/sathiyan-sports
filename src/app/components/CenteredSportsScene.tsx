@@ -100,7 +100,7 @@ export default function CenteredSportsScene() {
           />
 
           {/* Environment for reflections - with fallback */}
-          <Environment background={false} preset="sunset" />
+          <Environment background={false} preset="city" />
           
           {/* Fallback lighting if environment fails */}
           <hemisphereLight intensity={0.15} />

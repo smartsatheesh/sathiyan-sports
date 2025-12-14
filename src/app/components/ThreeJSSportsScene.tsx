@@ -83,8 +83,8 @@ export default function ThreeJSSportsScene() {
           <pointLight position={[-10, -10, -10]} intensity={0.4} />
           <spotLight position={[0, 15, 0]} intensity={0.8} angle={0.3} penumbra={1} />
 
-          {/* Environment for reflections - with fallback */}
-          <Environment background={false} preset="sunset" />
+          {/* Simple Environment without HDR files */}
+          <Environment background={false} preset="city" />
           
           {/* Fallback lighting if environment fails */}
           <hemisphereLight intensity={0.15} />

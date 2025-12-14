@@ -353,6 +353,7 @@ const AdminSubscriptionsPage = () => {
         body: JSON.stringify({
           paymentStatus: selectedSubscription.paymentStatus,
           paymentMethod: selectedSubscription.paymentMethod,
+          amount: selectedSubscription.amount,
           autoRenewal: selectedSubscription.autoRenewal
         })
       });
@@ -919,6 +920,22 @@ const AdminSubscriptionsPage = () => {
                         <MenuItem value="Cash">Cash</MenuItem>
                       </Select>
                     </FormControl>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Amount (₹)"
+                      type="number"
+                      value={selectedSubscription.amount}
+                      onChange={(e) => setSelectedSubscription({
+                        ...selectedSubscription,
+                        amount: parseFloat(e.target.value) || 0
+                      })}
+                      InputProps={{
+                        inputProps: { min: 0, step: 0.01 }
+                      }}
+                    />
                   </Grid>
                   
                   <Grid item xs={12}>

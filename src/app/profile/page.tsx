@@ -30,6 +30,9 @@ import {
   Cancel,
   Visibility,
   VisibilityOff,
+  QrCode,
+  Download,
+  Print,
 } from "@mui/icons-material";
 
 interface UserProfile {
@@ -42,6 +45,7 @@ interface UserProfile {
   emailVerified: boolean;
   mobileVerified: boolean;
   createdAt: string;
+  champId?: string;
 }
 
 export default function ProfilePage() {
@@ -54,6 +58,8 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+  const [qrLoading, setQrLoading] = useState(false);
   const [editData, setEditData] = useState({
     name: "",
     email: "",
@@ -92,6 +98,11 @@ export default function ProfilePage() {
           email: data.user.email,
           mobile: data.user.mobile,
         });
+        
+        // Generate QR code if user has champId
+        if (data.user.champId) {
+          fetchQRCode(data.user.champId);
+        }
       } else {
         setError(data.message || "Failed to fetch profile");
       }
@@ -99,6 +110,86 @@ export default function ProfilePage() {
       setError("Failed to fetch profile");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchQRCode = async (champId: string) => {
+    setQrLoading(true);
+    try {
+      const response = await fetch(`/api/attendance/qr?champId=${champId}`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setQrCodeUrl(data.data.qrCodeUrl);
+      }
+    } catch (error) {
+      console.error('Failed to generate QR code:', error);
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  const downloadQRCode = () => {
+    if (qrCodeUrl && profile?.champId) {
+      const link = document.createElement('a');
+      link.href = qrCodeUrl;
+      link.download = `${profile.champId}_attendance_qr.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  const printQRCode = () => {
+    if (qrCodeUrl && profile?.champId) {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Attendance QR Code - ${profile.champId}</title>
+              <style>
+                body { 
+                  font-family: Arial, sans-serif; 
+                  text-align: center; 
+                  padding: 20px; 
+                }
+                .qr-container { 
+                  border: 2px solid #ccc; 
+                  border-radius: 8px; 
+                  padding: 20px; 
+                  display: inline-block; 
+                }
+                img { 
+                  max-width: 300px; 
+                  height: auto; 
+                }
+                h2 { 
+                  margin-bottom: 10px; 
+                  color: #333; 
+                }
+                p { 
+                  margin: 5px 0; 
+                  color: #666; 
+                }
+              </style>
+            </head>
+            <body>
+              <div class="qr-container">
+                <h2>Attendance QR Code</h2>
+                <p><strong>ChampID:</strong> ${profile.champId}</p>
+                <p><strong>Name:</strong> ${profile.name}</p>
+                <img src="${qrCodeUrl}" alt="QR Code for ${profile.champId}" />
+                <p style="font-size: 12px; margin-top: 15px;">Scan this code to mark attendance</p>
+              </div>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+      }
     }
   };
 
@@ -411,9 +502,77 @@ export default function ProfilePage() {
                     {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : "N/A"}
                   </Typography>
                 </Box>
+
+                {profile?.champId && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      ChampID:
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                      {profile.champId}
+                    </Typography>
+                  </Box>
+                )}
               </Box>
             </CardContent>
           </Card>
+          
+          {/* QR Code Section */}
+          {profile?.champId && (
+            <Card sx={{ mt: 2 }}>
+              <CardContent sx={{ textAlign: 'center' }}>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                  <QrCode />
+                  Attendance QR Code
+                </Typography>
+                
+                {qrLoading ? (
+                  <CircularProgress sx={{ my: 3 }} />
+                ) : qrCodeUrl ? (
+                  <Box>
+                    <img 
+                      src={qrCodeUrl} 
+                      alt={`QR Code for ${profile.champId}`}
+                      style={{ 
+                        maxWidth: '200px', 
+                        height: 'auto',
+                        border: '1px solid #ddd',
+                        borderRadius: '8px',
+                        marginBottom: '16px'
+                      }} 
+                    />
+                    
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Scan this code to mark your attendance
+                    </Typography>
+                    
+                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', mt: 2 }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<Download />}
+                        onClick={downloadQRCode}
+                      >
+                        Download
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<Print />}
+                        onClick={printQRCode}
+                      >
+                        Print
+                      </Button>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Unable to generate QR code
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </Grid>
 
         {/* Change Password - Only for credentials provider */}
