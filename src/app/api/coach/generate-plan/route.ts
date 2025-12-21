@@ -27,8 +27,8 @@ const getJWTClient = () => {
   });
 };
 
-// Custom fetch function with OAuth2 authentication for Gemini 2.5 Pro
-const callGemini25Pro = async (prompt: string) => {
+// Custom fetch function with OAuth2 authentication for Gemini 3 Flash Preview
+const callGemini3FlashPreview = async (prompt: string) => {
   const jwtClient = getJWTClient();
   if (!jwtClient) {
     throw new Error("No service account credentials available");
@@ -42,13 +42,13 @@ const callGemini25Pro = async (prompt: string) => {
     throw new Error("Failed to get access token");
   }
   
-  console.log("🔑 Got access token for Gemini 2.5 Pro");
+  console.log("🔑 Got access token for Gemini 3 Flash Preview");
   
-  // Use the AI Platform API endpoint for Gemini 2.5 Pro
-  const projectId = serviceAccountCredentials.project_id;
+  // Use the AI Platform API endpoint for Gemini 3 Flash Preview
+  const projectId = "inductive-voice-477212-d8"; // Updated project ID
   const location = 'us-central1'; // or 'europe-west1' if you prefer
   
-  const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/gemini-2.5-pro:generateContent`;
+  const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/gemini-3.0-flash-preview-1227:generateContent`;
   
   const requestBody = {
     contents: [{
@@ -63,7 +63,7 @@ const callGemini25Pro = async (prompt: string) => {
     }
   };
   
-  console.log("🚀 Calling Gemini 2.5 Pro via AI Platform API...");
+  console.log("🚀 Calling Gemini 3 Flash Preview via AI Platform API...");
   
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -76,12 +76,12 @@ const callGemini25Pro = async (prompt: string) => {
   
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("❌ Gemini 2.5 Pro API Error:", response.status, errorText);
-    throw new Error(`Gemini 2.5 Pro API error: ${response.status} - ${errorText}`);
+    console.error("❌ Gemini 3 Flash Preview API Error:", response.status, errorText);
+    throw new Error(`Gemini 3 Flash Preview API error: ${response.status} - ${errorText}`);
   }
   
   const result = await response.json();
-  console.log("✅ Gemini 2.5 Pro response received");
+  console.log("✅ Gemini 3 Flash Preview response received");
   
   // Extract text from the response
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated";
@@ -266,18 +266,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check authentication method
+    // Check authentication method - re-enabled with new project
     const hasServiceAccount = process.env.GOOGLE_SERVICE_ACCOUNT_KEY || process.env.GOOGLE_SERVICE_ACCOUNT_PATH;
     const hasAPIKey = process.env.GEMINI_API_KEY;
     
     if (!hasServiceAccount && !hasAPIKey) {
       return NextResponse.json(
-        { error: "Neither OAuth service account nor API key configured" },
+        { error: "Neither service account nor API key configured" },
         { status: 500 }
       );
     }
 
-    console.log("🔑 Auth method:", hasServiceAccount ? "OAuth2 Service Account (Gemini 2.5 Pro)" : "API Key");
+    console.log("🔑 Auth method:", hasServiceAccount ? "Service Account (Gemini 3 Flash Preview)" : "API Key (Gemini 3 Flash Preview)");
     console.log("🏃‍♂️ The Coach: Generating personalized plan for", data.name);
 
     // Generate prompt
@@ -285,17 +285,47 @@ export async function POST(req: NextRequest) {
 
     let text: string;
     
+    // Try service account first (better for production), fallback to API key
     if (hasServiceAccount) {
+      console.log("🤖 Using service account method with Gemini 3 Flash Preview");
       try {
-        console.log("🚀 Using Gemini 2.5 Pro with OAuth2...");
-        text = await callGemini25Pro(prompt);
-      } catch (authError) {
-        console.warn("⚠️ Gemini 2.5 Pro failed, falling back to API key method:", authError);
-        if (!process.env.GEMINI_API_KEY) {
-          throw new Error("Both OAuth2 and API key methods failed");
+        text = await callGemini3FlashPreview(prompt);
+      } catch (serviceError) {
+        console.warn("⚠️ Gemini 3 Flash Preview failed, falling back to API key method:", serviceError);
+        
+        if (!hasAPIKey) {
+          throw new Error("Service account failed and no API key available");
         }
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+        
+        // Fallback to API key method
+        console.log("🤖 Using API key fallback with Gemini 3 Flash Preview");
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+        const model = genAI.getGenerativeModel({ model: "gemini-3.0-flash-preview-1227" });
+        
+        try {
+          const result = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.7,
+              topK: 40,
+              topP: 0.8,
+              maxOutputTokens: 8192,
+            },
+          });
+          const response = await result.response;
+          text = response.text();
+        } catch (apiError) {
+          console.error("❌ API key method also failed:", apiError);
+          throw new Error(`Both authentication methods failed. Service: ${serviceError instanceof Error ? serviceError.message : 'Unknown'}. API: ${apiError instanceof Error ? apiError.message : 'Unknown'}`);
+        }
+      }
+    } else {
+      // Use API key method with Gemini 3 Flash Preview
+      console.log("🤖 Using API key method with Gemini 3 Flash Preview");
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+      const model = genAI.getGenerativeModel({ model: "gemini-3.0-flash-preview-1227" });
+      
+      try {
         const result = await model.generateContent({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: {
@@ -307,22 +337,10 @@ export async function POST(req: NextRequest) {
         });
         const response = await result.response;
         text = response.text();
+      } catch (apiError) {
+        console.error("❌ Gemini API error:", apiError);
+        throw new Error(`Failed to generate coaching plan: ${apiError instanceof Error ? apiError.message : 'Unknown error'}`);
       }
-    } else {
-      console.log("🤖 Using API key method with Gemini 1.5 Pro");
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-      const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.8,
-          maxOutputTokens: 8192,
-        },
-      });
-      const response = await result.response;
-      text = response.text();
     }
 
     // Try to parse JSON response with improved error handling

@@ -257,11 +257,26 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
       (updateData.subscribed === 'Yes' || updateData.subscribed === 'yes') && 
       (currentUser.subscribed !== 'Yes' && currentUser.subscribed !== 'yes');
 
-    // Create subscription entry when: payment completing, missing dates, or becoming subscribed
+    // Check if user already has subscribed=yes but no subscription entry exists
+    const hasSubscribedButNoEntry = 
+      (updateData.subscribed === 'Yes' || updateData.subscribed === 'yes' || 
+       currentUser.subscribed === 'Yes' || currentUser.subscribed === 'yes') &&
+      !(await (Subscription.findOne as any)({ userId: userId }));
+
+    // Create subscription entry when: payment completing, missing dates, becoming subscribed, or fixing missing entries
     // IMPORTANT: Always create subscription when user is marked as subscribed
     const shouldCreateSubscription = 
-      ((isPaymentCompleting || needsSubscriptionDates || isBecomingSubscribed) && (currentUser.subscriptionType || updateData.subscriptionType)) || 
-      (isBecomingSubscribed); // Always create when becoming subscribed, even without subscription type
+      ((isPaymentCompleting || needsSubscriptionDates || isBecomingSubscribed || hasSubscribedButNoEntry) && 
+       (currentUser.subscriptionType || updateData.subscriptionType)) || 
+      (isBecomingSubscribed || hasSubscribedButNoEntry); // Always create when becoming subscribed or fixing missing entries
+
+    console.log(`🔍 Subscription check for user ${currentUser.name}:`, {
+      isBecomingSubscribed,
+      hasSubscribedButNoEntry, 
+      shouldCreateSubscription,
+      currentSubscribed: currentUser.subscribed,
+      updateSubscribed: updateData.subscribed
+    });
 
     if (shouldCreateSubscription) {
       try {
@@ -292,6 +307,58 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
             subscriptionPaymentStatus = 'Paid';
           } else if (updateData.paymentStatus === 'failed' || currentUser.paymentStatus === 'failed') {
             subscriptionPaymentStatus = 'Failed';
+          }
+
+          // Helper function to calculate subscription amount
+          function calculateSubscriptionAmount(champType?: string, subscriptionType?: string, gender?: string, preferredTimeSlot?: string) {
+            // Default pricing structure
+            const ADULT_MALE_PRICING = {
+              monthly: 1499,
+              quarterly: 4299, 
+              'half yearly': 8099,
+              yearly: 11499
+            };
+
+            const ADULT_FEMALE_PRICING = {
+              monthly: 1199,
+              quarterly: 3599,
+              'half yearly': 6899,
+              yearly: 10999
+            };
+
+            const KIDS_PRICING = {
+              monthly: 899,
+              quarterly: 2399,
+              'half yearly': 4599,
+              yearly: 8999
+            };
+
+            // Helper function to check if time slot qualifies for female discount
+            function isFemalDiscountTimeSlot(timeSlot: string): boolean {
+              if (!timeSlot) return false;
+              
+              const startTime = timeSlot.split(' - ')[0];
+              const [time, period] = startTime.split(' ');
+              const [hours, minutes] = time.split(':').map(Number);
+              
+              let hour24 = hours;
+              if (period === 'PM' && hours !== 12) hour24 += 12;
+              if (period === 'AM' && hours === 12) hour24 = 0;
+              
+              const startHour = hour24 + minutes / 60;
+              
+              // Female discount applies from 10:00 AM (10.0) to 4:00 PM (16.0)
+              return startHour >= 10.0 && startHour < 16.0;
+            }
+
+            // Determine pricing category
+            if (champType === 'kids') {
+              return KIDS_PRICING[subscriptionType || 'monthly'] || KIDS_PRICING.monthly;
+            } else if (gender === 'female' && isFemalDiscountTimeSlot(preferredTimeSlot || '')) {
+              return ADULT_FEMALE_PRICING[subscriptionType || 'monthly'] || ADULT_FEMALE_PRICING.monthly;
+            } else {
+              return ADULT_MALE_PRICING[subscriptionType || 'monthly'] || ADULT_MALE_PRICING.monthly;
+            }
           }
 
           // Calculate subscription price if not already set
@@ -361,27 +428,26 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
             userEmail: updateData.email || user.email,
             userMobile: updateData.mobile || user.mobile,
             subscriptionType: subscriptionType,
-            subscriptionPrice: subscriptionAmount,
+            amount: subscriptionAmount,
             mode: updateData.mode || currentUser.mode || 'fixed',
             duration: durationMap[subscriptionType] || 1,
             startDate: updateData.subscriptionStartDate || currentUser.subscriptionStartDate || new Date(),
             endDate: updateData.subscriptionEndDate || currentUser.subscriptionEndDate,
             nextDueDate: dueDate,
-            lastPaidDate: subscriptionPaymentStatus === 'Paid' ? 
+            lastPaymentDate: subscriptionPaymentStatus === 'Paid' ? 
               (updateData.paymentCompletedDate || currentUser.paymentCompletedDate || new Date()) : null,
             paymentStatus: subscriptionPaymentStatus,
             status: 'active',
             preferredSport: updateData.preferredSport || currentUser.preferredSport,
             preferredTimeSlot: updateData.preferredTimeSlot || currentUser.preferredTimeSlot,
             selectedCourt: updateData.selectedCourt || currentUser.selectedCourt,
-            gracePeriod: gracePeriod,
-            isOverdue: isOverdue,
-            isPastGrace: isPastGrace,
-            daysPastDue: daysPastDue,
             autoRenewal: false,
             createdBy: user._id,
-            createdAt: new Date(),
-            updatedAt: new Date()
+            notificationsSent: {
+              twoDaysBefore: false,
+              onDueDate: false,
+              twoDaysAfter: false
+            }
           };
 
           const subscription = await (Subscription.create as any)(subscriptionData);
@@ -389,60 +455,11 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
           if (isBecomingSubscribed) {
             console.log(`🎉 NEW SUBSCRIPTION: User ${user.name} (${user.email}) marked as subscribed - created subscription record ${subscription._id}`);
             console.log(`📊 Subscription Details: Type=${subscriptionType}, Amount=₹${subscriptionAmount}, Payment=${subscriptionPaymentStatus}`);
+          } else if (hasSubscribedButNoEntry) {
+            console.log(`🔧 FIXED MISSING SUBSCRIPTION: User ${user.name} had subscribed=yes but no subscription entry - created ${subscription._id}`);
+            console.log(`📊 Subscription Details: Type=${subscriptionType}, Amount=₹${subscriptionAmount}, Payment=${subscriptionPaymentStatus}`);
           } else {
             console.log(`✅ Subscription created for ${user.name}: ${subscription._id} with payment status: ${subscriptionPaymentStatus}`);
-          }
-
-          // Helper function to calculate subscription amount
-          function calculateSubscriptionAmount(champType?: string, subscriptionType?: string, gender?: string, preferredTimeSlot?: string) {
-            // Default pricing structure
-            const ADULT_MALE_PRICING = {
-              monthly: 1499,
-              quarterly: 4299, 
-              'half yearly': 8099,
-              yearly: 11499
-            };
-
-            const ADULT_FEMALE_PRICING = {
-              monthly: 1199,
-              quarterly: 3599,
-              'half yearly': 6899,
-              yearly: 10999
-            };
-
-            const KIDS_PRICING = {
-              monthly: 899,
-              quarterly: 2399,
-              'half yearly': 4599,
-              yearly: 8999
-            };
-
-            // Helper function to check if time slot qualifies for female discount
-            function isFemalDiscountTimeSlot(timeSlot: string): boolean {
-              if (!timeSlot) return false;
-              
-              const startTime = timeSlot.split(' - ')[0];
-              const [time, period] = startTime.split(' ');
-              const [hours, minutes] = time.split(':').map(Number);
-              
-              let hour24 = hours;
-              if (period === 'PM' && hours !== 12) hour24 += 12;
-              if (period === 'AM' && hours === 12) hour24 = 0;
-              
-              const startHour = hour24 + minutes / 60;
-              
-              // Female discount applies from 10:00 AM (10.0) to 4:00 PM (16.0)
-              return startHour >= 10.0 && startHour < 16.0;
-            }
-
-            // Determine pricing category
-            if (champType === 'kids') {
-              return KIDS_PRICING[subscriptionType || 'monthly'] || KIDS_PRICING.monthly;
-            } else if (gender === 'female' && isFemalDiscountTimeSlot(preferredTimeSlot || '')) {
-              return ADULT_FEMALE_PRICING[subscriptionType || 'monthly'] || ADULT_FEMALE_PRICING.monthly;
-            } else {
-              return ADULT_MALE_PRICING[subscriptionType || 'monthly'] || ADULT_MALE_PRICING.monthly;
-            }
           }
         } else {
           console.log(`ℹ️ Subscription already exists for ${user.name}, updating with latest details...`);

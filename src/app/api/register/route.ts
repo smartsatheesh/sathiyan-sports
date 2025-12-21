@@ -116,8 +116,103 @@ export async function POST(req: Request) {
 
     const user = await (User.create as any)(userData);
 
-    // Don't create subscription entry here - wait until payment is completed
-    // Subscription will be created in the admin user update endpoint when payment status changes to "completed"
+    // Create subscription entry if user registers with subscribed: "yes"
+    if (body.subscribed === 'yes') {
+      try {
+        // Calculate subscription dates
+        const startDate = new Date();
+        const durationMap = {
+          'monthly': 1,
+          'quarterly': 3,
+          'half yearly': 6,
+          'yearly': 12
+        };
+
+        const duration = durationMap[body.subscriptionType] || 1;
+        const endDate = new Date(startDate);
+        endDate.setMonth(endDate.getMonth() + duration);
+
+        // Calculate next due date
+        let nextDueDate;
+        switch (body.subscriptionType) {
+          case 'monthly':
+            nextDueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 1);
+            break;
+          case 'quarterly':
+            const currentQuarter = Math.floor(startDate.getMonth() / 3);
+            const nextQuarterMonth = (currentQuarter + 1) * 3;
+            nextDueDate = nextQuarterMonth >= 12 ? 
+              new Date(startDate.getFullYear() + 1, 0, 1) : 
+              new Date(startDate.getFullYear(), nextQuarterMonth, 1);
+            break;
+          case 'half yearly':
+            const currentHalf = Math.floor(startDate.getMonth() / 6);
+            const nextHalfMonth = (currentHalf + 1) * 6;
+            nextDueDate = nextHalfMonth >= 12 ? 
+              new Date(startDate.getFullYear() + 1, 0, 1) : 
+              new Date(startDate.getFullYear(), nextHalfMonth, 1);
+            break;
+          case 'yearly':
+            nextDueDate = new Date(startDate.getFullYear() + 1, startDate.getMonth(), 1);
+            break;
+          default:
+            nextDueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 1);
+        }
+
+        // Determine payment status - for new registrations, it's typically pending
+        const paymentStatus = body.paymentStatus === 'completed' ? 'Paid' : 'Pending';
+
+        // Calculate overdue status
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const dueDateObj = new Date(nextDueDate);
+        dueDateObj.setHours(0, 0, 0, 0);
+        
+        const diffTime = today.getTime() - dueDateObj.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const gracePeriod = 7; // Default grace period
+        
+        const isOverdue = diffDays > 0 && paymentStatus !== 'Paid';
+        const isPastGrace = diffDays > gracePeriod && paymentStatus !== 'Paid';
+        const daysPastDue = Math.max(diffDays, 0);
+
+        const subscriptionData = {
+          userId: user._id,
+          champId: user.champId,
+          userName: user.name,
+          userEmail: user.email,
+          userMobile: user.mobile,
+          subscriptionType: body.subscriptionType,
+          amount: body.subscriptionAmount,
+          mode: body.mode || 'fixed',
+          duration: duration,
+          startDate: startDate,
+          endDate: endDate,
+          nextDueDate: nextDueDate,
+          lastPaymentDate: paymentStatus === 'Paid' ? startDate : null,
+          paymentStatus: paymentStatus,
+          status: 'active',
+          preferredSport: body.preferredSport,
+          preferredTimeSlot: body.preferredTimeSlot || '',
+          selectedCourt: body.selectedCourt || '',
+          autoRenewal: false,
+          createdBy: user._id,
+          notificationsSent: {
+            twoDaysBefore: false,
+            onDueDate: false,
+            twoDaysAfter: false
+          }
+        };
+
+        const subscription = await (Subscription.create as any)(subscriptionData);
+        console.log(`🎉 NEW REGISTRATION SUBSCRIPTION: User ${user.name} registered with subscribed=yes - created subscription ${subscription._id}`);
+        console.log(`📊 Subscription Details: Type=${body.subscriptionType}, Amount=₹${body.subscriptionAmount}, Payment=${paymentStatus}`);
+
+      } catch (subscriptionError) {
+        console.error(`⚠️ Failed to create subscription for new user ${user.name}:`, subscriptionError);
+        // Don't fail registration if subscription creation fails
+      }
+    }
     console.log('✅ User registration successful:', user.champId);
 
     // Send welcome email (async, don't wait for it)
