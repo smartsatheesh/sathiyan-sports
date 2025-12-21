@@ -36,6 +36,7 @@ import { useSession, signOut } from "next-auth/react";
 
 const publicNavItems = [
   { label: "Home", href: "/" },
+  { label: "Tournaments", href: "/tournaments" },
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
 ];
@@ -79,11 +80,18 @@ const Navbar = () => {
   ];
 
   if (isAdmin) {
-    profileMenuItems.unshift({
-      label: "Admin Dashboard",
-      href: "/admin",
-      icon: <Dashboard />,
-    });
+    profileMenuItems.unshift(
+      {
+        label: "Admin Dashboard",
+        href: "/admin",
+        icon: <Dashboard />,
+      },
+      {
+        label: "Tournament Management",
+        href: "/admin/tournaments",
+        icon: <Dashboard />,
+      }
+    );
   }
 
   return (

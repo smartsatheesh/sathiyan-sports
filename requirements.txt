@@ -1,0 +1,104 @@
+# Node.js Dependencies for Sathiyan Sports Management App
+# Note: This is a Next.js/React application. For actual package management, refer to package.json
+
+# Core Framework
+next==14.1.0
+react==18.2.0
+react-dom==18.2.0
+
+# UI Framework (Material-UI)
+@mui/material==5.15.6
+@mui/icons-material==5.15.6
+@emotion/react==11.11.3
+@emotion/styled==11.11.0
+@mui/x-date-pickers==7.0.0
+
+# Authentication
+next-auth==4.24.11
+@next-auth/mongodb-adapter==1.1.3
+bcryptjs==3.0.2
+jsonwebtoken==9.0.2
+
+# Database
+mongoose==8.1.1
+
+# External API Integrations
+@google/generative-ai==0.24.1
+google-auth-library==10.4.0
+firebase-admin==13.4.0
+twilio==5.8.0
+
+# Payment Gateways
+razorpay==2.9.6
+pg-sdk-node (PhonePe SDK)
+
+# Data Visualization
+recharts==3.3.0
+
+# Date/Time Handling
+date-fns==2.30.0
+node-cron==4.2.1
+
+# 3D Graphics
+@react-three/fiber==8.15.15
+@react-three/drei==9.96.5
+three==0.160.1
+
+# PDF Generation & Canvas
+jspdf==3.0.3
+html2canvas==1.4.1
+react-pdf==10.1.0
+
+# QR Code Generation
+react-qr-code==2.0.18
+
+# UI Components & Carousel
+react-slick==0.29.0
+slick-carousel==1.8.1
+lucide-react==0.314.0
+
+# HTTP & Form Handling
+axios==1.11.0
+form-data==4.0.4
+cors==2.8.5
+express==4.18.2
+
+# Notifications & Email
+nodemailer==7.0.7
+web-push==3.6.7
+
+# Environment Configuration
+dotenv==16.3.1
+
+# Development Dependencies
+typescript==5.3.3
+eslint==8.56.0
+eslint-config-next==14.1.0
+@types/node==20.11.5
+@types/react==18.2.48
+@types/react-dom==18.2.18
+@types/node-cron==3.0.11
+@types/nodemailer==6.4.17
+@types/react-slick==0.23.13
+@types/web-push==3.6.4
+
+# Installation Instructions:
+# For Node.js projects, use: npm install
+# For package management, refer to package.json
+# This requirements.txt is provided for reference and documentation purposes
+
+# Key Features Supported by These Dependencies:
+# - Sports facility booking system
+# - User authentication and authorization
+# - Subscription management with payment integration
+# - Tournament management system
+# - Attendance tracking with QR codes
+# - AI-powered fitness plan generation
+# - WhatsApp notifications
+# - Email notifications
+# - PDF report generation
+# - 3D visualization components
+# - Material-UI based responsive design
+# - Real-time data analytics and charts
+# - Multi-payment gateway integration (Razorpay, PhonePe)
+# - Automated billing and reminder system

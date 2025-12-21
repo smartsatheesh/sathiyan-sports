@@ -1238,6 +1238,36 @@ export default function AdminDashboard() {
         ))}
       </Grid>
 
+      {/* Quick Actions */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ height: "100%", cursor: "pointer", '&:hover': { elevation: 8 } }} 
+                onClick={() => router.push('/admin/tournament-management')}>
+            <CardContent sx={{ textAlign: "center" }}>
+              <Typography variant="h6" gutterBottom>
+                🎾 Tournament Management
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Manage tournaments, edit results, update player details
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ height: "100%", cursor: "pointer", '&:hover': { elevation: 8 } }} 
+                onClick={() => router.push('/admin/tournaments')}>
+            <CardContent sx={{ textAlign: "center" }}>
+              <Typography variant="h6" gutterBottom>
+                📊 Tournament Overview
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                View tournament list and import new tournaments
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
       {/* Tabs */}
       <Paper sx={{ width: "100%" }}>
         <Tabs 

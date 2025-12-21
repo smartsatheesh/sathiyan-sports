@@ -1,10 +1,12 @@
 import "./globals.css";
+import "./globals-tournament.css";
 import "./navbar-responsive.css";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Providers from "./providers";
 import Navbar from "./components/Navbar";
-import "./lib/scheduler-init"; // Initialize attendance scheduler
+// Temporarily disabled to fix MongoDB timeout issues
+// import "./lib/scheduler-init"; // Initialize attendance scheduler
 
 export const metadata: Metadata = {
   title: "Sathiyan Sports",

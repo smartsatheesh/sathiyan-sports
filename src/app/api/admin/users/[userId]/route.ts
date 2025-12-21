@@ -257,6 +257,40 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
       (updateData.subscribed === 'Yes' || updateData.subscribed === 'yes') && 
       (currentUser.subscribed !== 'Yes' && currentUser.subscribed !== 'yes');
 
+    // Check if user subscription status is being changed from 'Yes' to 'No'
+    const isBecomingUnsubscribed = 
+      (updateData.subscribed === 'No' || updateData.subscribed === 'no') && 
+      (currentUser.subscribed === 'Yes' || currentUser.subscribed === 'yes');
+
+    // Check if payment status is being changed from 'completed' to something else
+    const isPaymentBecomingIncomplete = 
+      updateData.paymentStatus && 
+      updateData.paymentStatus !== 'completed' && 
+      currentUser.paymentStatus === 'completed';
+
+    // Delete subscription entry when user is unsubscribed or payment becomes incomplete
+    const shouldDeleteSubscription = isBecomingUnsubscribed || isPaymentBecomingIncomplete;
+
+    if (shouldDeleteSubscription) {
+      try {
+        const deletedSubscription = await (Subscription.findOneAndDelete as any)({ 
+          userId: user._id 
+        });
+        
+        if (deletedSubscription) {
+          if (isBecomingUnsubscribed) {
+            console.log(`🗑️ SUBSCRIPTION DELETED: User ${user.name} unsubscribed - removed subscription entry ${deletedSubscription._id}`);
+          } else if (isPaymentBecomingIncomplete) {
+            console.log(`🗑️ SUBSCRIPTION DELETED: Payment status for ${user.name} changed from completed to ${updateData.paymentStatus} - removed subscription entry ${deletedSubscription._id}`);
+          }
+        } else {
+          console.log(`ℹ️ No subscription entry found to delete for user ${user.name}`);
+        }
+      } catch (deleteError) {
+        console.error(`⚠️ Failed to delete subscription entry for ${user.name}:`, deleteError);
+      }
+    }
+
     // Check if user already has subscribed=yes but no subscription entry exists
     const hasSubscribedButNoEntry = 
       (updateData.subscribed === 'Yes' || updateData.subscribed === 'yes' || 
@@ -266,16 +300,22 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
     // Create subscription entry when: payment completing, missing dates, becoming subscribed, or fixing missing entries
     // IMPORTANT: Always create subscription when user is marked as subscribed
     const shouldCreateSubscription = 
-      ((isPaymentCompleting || needsSubscriptionDates || isBecomingSubscribed || hasSubscribedButNoEntry) && 
+      !shouldDeleteSubscription && // Don't create if we're deleting
+      (((isPaymentCompleting || needsSubscriptionDates || isBecomingSubscribed || hasSubscribedButNoEntry) && 
        (currentUser.subscriptionType || updateData.subscriptionType)) || 
-      (isBecomingSubscribed || hasSubscribedButNoEntry); // Always create when becoming subscribed or fixing missing entries
+      (isBecomingSubscribed || hasSubscribedButNoEntry)); // Always create when becoming subscribed or fixing missing entries
 
     console.log(`🔍 Subscription check for user ${currentUser.name}:`, {
       isBecomingSubscribed,
+      isBecomingUnsubscribed,
+      isPaymentBecomingIncomplete,
       hasSubscribedButNoEntry, 
       shouldCreateSubscription,
+      shouldDeleteSubscription,
       currentSubscribed: currentUser.subscribed,
-      updateSubscribed: updateData.subscribed
+      updateSubscribed: updateData.subscribed,
+      currentPaymentStatus: currentUser.paymentStatus,
+      updatePaymentStatus: updateData.paymentStatus
     });
 
     if (shouldCreateSubscription) {

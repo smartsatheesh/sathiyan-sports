@@ -129,6 +129,8 @@ const AdminSubscriptionsPage = () => {
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [startDateFilter, setStartDateFilter] = useState<string>('');
+  const [endDateFilter, setEndDateFilter] = useState<string>('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [sortBy, setSortBy] = useState<keyof Subscription>('createdAt');
@@ -161,7 +163,7 @@ const AdminSubscriptionsPage = () => {
   // Reset page to 0 when filters change to avoid pagination errors
   useEffect(() => {
     setPage(0);
-  }, [filterStatus, searchTerm]);
+  }, [filterStatus, searchTerm, startDateFilter, endDateFilter]);
 
   const fetchSubscriptions = async () => {
     setLoading(true);
@@ -353,8 +355,11 @@ const AdminSubscriptionsPage = () => {
         body: JSON.stringify({
           paymentStatus: selectedSubscription.paymentStatus,
           paymentMethod: selectedSubscription.paymentMethod,
+          mode: selectedSubscription.mode,
           amount: selectedSubscription.amount,
-          autoRenewal: selectedSubscription.autoRenewal
+          autoRenewal: selectedSubscription.autoRenewal,
+          startDate: selectedSubscription.startDate,
+          endDate: selectedSubscription.endDate
         })
       });
 
@@ -414,7 +419,20 @@ const AdminSubscriptionsPage = () => {
         subscription.userId.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         subscription.userId.champId.toLowerCase().includes(searchTerm.toLowerCase());
       
-      return matchesStatus && matchesSearch;
+      // Date range filtering
+      let matchesDateRange = true;
+      if (startDateFilter) {
+        const startDate = new Date(startDateFilter);
+        const subscriptionStart = new Date(subscription.startDate);
+        matchesDateRange = matchesDateRange && subscriptionStart >= startDate;
+      }
+      if (endDateFilter) {
+        const endDate = new Date(endDateFilter);
+        const subscriptionEnd = new Date(subscription.endDate);
+        matchesDateRange = matchesDateRange && subscriptionEnd <= endDate;
+      }
+      
+      return matchesStatus && matchesSearch && matchesDateRange;
     });
 
     // Sort subscriptions
@@ -434,7 +452,7 @@ const AdminSubscriptionsPage = () => {
     });
 
     return filtered;
-  }, [subscriptions, filterStatus, searchTerm, sortBy, sortOrder]);
+  }, [subscriptions, filterStatus, searchTerm, startDateFilter, endDateFilter, sortBy, sortOrder]);
 
   const paginatedSubscriptions = useMemo(() => {
     const start = page * rowsPerPage;
@@ -686,7 +704,7 @@ const AdminSubscriptionsPage = () => {
         )}
 
         {/* Filters */}
-        <Box display="flex" gap={2} mb={3} alignItems="center">
+        <Box display="flex" gap={2} mb={3} alignItems="center" flexWrap="wrap">
           <TextField
             label="Search users..."
             variant="outlined"
@@ -710,6 +728,44 @@ const AdminSubscriptionsPage = () => {
               <MenuItem value="cancelled">Cancelled</MenuItem>
             </Select>
           </FormControl>
+          
+          <TextField
+            label="Start Date From"
+            type="date"
+            size="small"
+            value={startDateFilter}
+            onChange={(e) => setStartDateFilter(e.target.value)}
+            InputLabelProps={{
+              shrink: true,
+            }}
+            sx={{ minWidth: 160 }}
+          />
+          
+          <TextField
+            label="Start Date To"
+            type="date"
+            size="small"
+            value={endDateFilter}
+            onChange={(e) => setEndDateFilter(e.target.value)}
+            InputLabelProps={{
+              shrink: true,
+            }}
+            sx={{ minWidth: 160 }}
+          />
+          
+          {(startDateFilter || endDateFilter) && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => {
+                setStartDateFilter('');
+                setEndDateFilter('');
+              }}
+              sx={{ minHeight: 40 }}
+            >
+              Clear Dates
+            </Button>
+          )}
         </Box>
 
         {/* Subscriptions Table */}
@@ -923,6 +979,25 @@ const AdminSubscriptionsPage = () => {
                   </Grid>
                   
                   <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>Mode</InputLabel>
+                      <Select
+                        value={selectedSubscription.mode || ''}
+                        label="Mode"
+                        onChange={(e) => setSelectedSubscription({
+                          ...selectedSubscription,
+                          mode: e.target.value
+                        })}
+                      >
+                        <MenuItem value="">Select Mode</MenuItem>
+                        <MenuItem value="Online">Online</MenuItem>
+                        <MenuItem value="Offline">Offline</MenuItem>
+                        <MenuItem value="Hybrid">Hybrid</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
                       label="Amount (₹)"
@@ -934,6 +1009,38 @@ const AdminSubscriptionsPage = () => {
                       })}
                       InputProps={{
                         inputProps: { min: 0, step: 0.01 }
+                      }}
+                    />
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Start Date"
+                      type="date"
+                      value={selectedSubscription.startDate ? selectedSubscription.startDate.split('T')[0] : ''}
+                      onChange={(e) => setSelectedSubscription({
+                        ...selectedSubscription,
+                        startDate: e.target.value
+                      })}
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
+                    />
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="End Date"
+                      type="date"
+                      value={selectedSubscription.endDate ? selectedSubscription.endDate.split('T')[0] : ''}
+                      onChange={(e) => setSelectedSubscription({
+                        ...selectedSubscription,
+                        endDate: e.target.value
+                      })}
+                      InputLabelProps={{
+                        shrink: true,
                       }}
                     />
                   </Grid>

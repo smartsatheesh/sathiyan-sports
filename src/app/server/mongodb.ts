@@ -89,14 +89,16 @@ export async function connectToMongoose(): Promise<typeof mongoose> {
     
     const opts = {
       bufferCommands: false,
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
+      serverSelectionTimeoutMS: 30000, // Increased from 10s to 30s
+      socketTimeoutMS: 60000, // Increased from 45s to 60s
       family: 4, // Use IPv4, skip trying IPv6
       maxPoolSize: 10,
-      minPoolSize: 5,
-      maxIdleTimeMS: 30000,
-      connectTimeoutMS: 10000,
+      minPoolSize: 2, // Reduced from 5 to 2
+      maxIdleTimeMS: 60000, // Increased from 30s to 60s
+      connectTimeoutMS: 30000, // Increased from 10s to 30s
       dbName: getDBName(), // Explicitly set database name
+      retryWrites: true,
+      retryReads: true,
     };
 
     cached.promise = mongoose.connect(uri, opts).then((mongoose) => {
