@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, memo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
@@ -82,7 +82,7 @@ const TIME_SLOTS = [
   "09:00 PM - 10:00 PM",
 ];
 
-// Pricing calculation function with time-based logic for females
+// Memoized pricing calculation function with time-based logic for females
 const calculateSubscriptionAmount = (
   champType: string,
   subscriptionType: string,
@@ -97,65 +97,65 @@ const calculateSubscriptionAmount = (
     const startTime = timeSlot.split(' - ')[0];
     const [time, period] = startTime.split(' ');
     const [hours, minutes] = time.split(':').map(Number);
-    
-    let hour24 = hours;
-    if (period === 'PM' && hours !== 12) hour24 += 12;
-    if (period === 'AM' && hours === 12) hour24 = 0;
-    
-    const startHour = hour24 + minutes / 60;
-    
-    // Female discount applies from 10:00 AM (10.0) to 4:00 PM (16.0)
-    return startHour >= 10.0 && startHour < 16.0;
-  };
-
-  // Define pricing for different championship types with gender-based pricing
-  const ADULT_MALE_PRICING = {
-    monthly: 1199,
-    quarterly: 3399,
-    'half yearly': 6299,
-    yearly: 11499
-  };
-
-  const ADULT_FEMALE_PRICING = {
-    monthly: 799,
-    quarterly: 2099,
-    'half yearly': 4099,
-    yearly: 8399
-  };
   
-  const KIDS_PRICING = {
-    monthly: 1500,
-    quarterly: 4000,
-    'half yearly': 8000,
-    yearly: 13000
-  };
+  let hour24 = hours;
+  if (period === 'PM' && hours !== 12) hour24 += 12;
+  if (period === 'AM' && hours === 12) hour24 = 0;
+  
+  const startHour = hour24 + minutes / 60;
+  
+  // Female discount applies from 10:00 AM (10.0) to 4:00 PM (16.0)
+  return startHour >= 10.0 && startHour < 16.0;
+};
 
-  // Kids pricing is not affected by gender or time slots
-  if (champType === 'kids') {
-    switch (subscriptionType) {
-      case 'monthly': return KIDS_PRICING.monthly;
-      case 'quarterly': return KIDS_PRICING.quarterly;
-      case 'half yearly': return KIDS_PRICING['half yearly'];
-      case 'yearly': return KIDS_PRICING.yearly;
-      default: return KIDS_PRICING.monthly;
-    }
-  } else {
-    // Adult/veteran pricing with gender and time-based logic
-    let pricing = ADULT_MALE_PRICING; // Default to male pricing
-    
-    // Apply female pricing only if user is female AND selected time slot is within 10 AM - 4 PM
-    if (gender === 'female' && preferredTimeSlot && isFemalDiscountTimeSlot(preferredTimeSlot)) {
-      pricing = ADULT_FEMALE_PRICING;
-    }
-    
-    switch (subscriptionType) {
-      case 'monthly': return pricing.monthly;
-      case 'quarterly': return pricing.quarterly;
-      case 'half yearly': return pricing['half yearly'];
-      case 'yearly': return pricing.yearly;
-      default: return pricing.monthly;
-    }
+// Define pricing for different championship types with gender-based pricing
+const ADULT_MALE_PRICING = {
+  monthly: 1199,
+  quarterly: 3399,
+  'half yearly': 6299,
+  yearly: 11499
+};
+
+const ADULT_FEMALE_PRICING = {
+  monthly: 799,
+  quarterly: 2099,
+  'half yearly': 4099,
+  yearly: 8399
+};
+
+const KIDS_PRICING = {
+  monthly: 1500,
+  quarterly: 4000,
+  'half yearly': 8000,
+  yearly: 13000
+};
+
+// Kids pricing is not affected by gender or time slots
+if (champType === 'kids') {
+  switch (subscriptionType) {
+    case 'monthly': return KIDS_PRICING.monthly;
+    case 'quarterly': return KIDS_PRICING.quarterly;
+    case 'half yearly': return KIDS_PRICING['half yearly'];
+    case 'yearly': return KIDS_PRICING.yearly;
+    default: return KIDS_PRICING.monthly;
   }
+} else {
+  // Adult/veteran pricing with gender and time-based logic
+  let pricing = ADULT_MALE_PRICING; // Default to male pricing
+  
+  // Apply female pricing only if user is female AND selected time slot is within 10 AM - 4 PM
+  if (gender === 'female' && preferredTimeSlot && isFemalDiscountTimeSlot(preferredTimeSlot)) {
+    pricing = ADULT_FEMALE_PRICING;
+  }
+  
+  switch (subscriptionType) {
+    case 'monthly': return pricing.monthly;
+    case 'quarterly': return pricing.quarterly;
+    case 'half yearly': return pricing['half yearly'];
+    case 'yearly': return pricing.yearly;
+    default: return pricing.monthly;
+  }
+}
 };
 
 interface Booking {
@@ -164,6 +164,7 @@ interface Booking {
   court?: string;
   date: string;
   timeSlots: string[];
+  timeSlot?: string; // Single time slot for backward compatibility
   totalAmount: number;
   customerName: string;
   customerEmail: string;
@@ -171,6 +172,10 @@ interface Booking {
   paymentStatus: string;
   bookingStatus: string;
   createdAt: string;
+  receivedBy?: string;
+  paymentMethod?: string;
+  notes?: string;
+  updatedAt?: string;
 }
 
 interface User {
@@ -267,6 +272,23 @@ export default function AdminDashboard() {
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   
+  // Booking edit state
+  const [bookingEditOpen, setBookingEditOpen] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  const [editForm, setEditForm] = useState({
+    customerName: '',
+    sport: '',
+    court: '',
+    date: '',
+    timeSlot: '',
+    bookingStatus: '',
+    paymentStatus: '',
+    totalAmount: 0,
+    receivedBy: '',
+    paymentMethod: '',
+    notes: ''
+  });
+  
   // User filtering states
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [champTypeFilter, setChampTypeFilter] = useState('all');
@@ -356,9 +378,10 @@ export default function AdminDashboard() {
     setSortConfig({ key, direction });
   };
 
-  const getFilteredAndSortedUsers = () => {
+  // Optimized filtering and sorting with useMemo
+  const filteredUsers = React.useMemo(() => {
     // First, filter the users
-    let filteredUsers = users.filter(user => {
+    let filtered = users.filter(user => {
       const matchesSearch = userSearchTerm === '' || 
         user.name?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
         user.email?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
@@ -374,7 +397,7 @@ export default function AdminDashboard() {
 
     // Then, sort the filtered users
     if (sortConfig.key) {
-      filteredUsers = [...filteredUsers].sort((a, b) => {
+      filtered = [...filtered].sort((a, b) => {
         const aValue = a[sortConfig.key!];
         const bValue = b[sortConfig.key!];
 
@@ -396,16 +419,16 @@ export default function AdminDashboard() {
       });
     }
 
-    return filteredUsers;
-  };
-
-  const filteredUsers = getFilteredAndSortedUsers();
+    return filtered;
+  }, [users, userSearchTerm, champTypeFilter, paymentStatusFilter, sortConfig]);
   
-  // Apply pagination to filtered users
-  const paginatedUsers = filteredUsers.slice(
-    userPage * userRowsPerPage,
-    userPage * userRowsPerPage + userRowsPerPage
-  );
+  // Apply pagination to filtered users with useMemo
+  const paginatedUsers = React.useMemo(() => {
+    return filteredUsers.slice(
+      userPage * userRowsPerPage,
+      userPage * userRowsPerPage + userRowsPerPage
+    );
+  }, [filteredUsers, userPage, userRowsPerPage]);
 
   // Sortable header component
   const SortableHeader = ({ column, children }: { column: keyof User; children: React.ReactNode }) => (
@@ -426,13 +449,13 @@ export default function AdminDashboard() {
     </TableCell>
   );
 
-  // Fetch data
-  const fetchData = async () => {
+  // Optimized fetch data function with useCallback
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // Fetch bookings and users
+      // Fetch bookings and users concurrently for better performance
       const [bookingsRes, usersRes] = await Promise.all([
         fetch('/api/admin/bookings?limit=100'),
         fetch('/api/admin/users?limit=100')
@@ -449,7 +472,7 @@ export default function AdminDashboard() {
         setUsers(usersData.users);
       }
 
-      // Calculate stats
+      // Calculate stats efficiently
       const today = new Date().toDateString();
       const todaysBookings = bookingsData.bookings?.filter(
         (booking: Booking) => new Date(booking.date).toDateString() === today
@@ -472,7 +495,7 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (session?.user?.role === "admin") {
@@ -923,11 +946,93 @@ export default function AdminDashboard() {
     setTimeout(() => setAlert(null), 3000);
   };
 
+  const handleMarkComplete = async (bookingId: string) => {
+    try {
+      const response = await fetch(`/api/admin/bookings/${bookingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingStatus: 'completed',
+          paymentStatus: 'completed',
+          updatedAt: new Date().toISOString()
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setAlert({ type: "success", message: "Booking marked as complete" });
+        fetchData(); // Refresh the data
+      } else {
+        throw new Error(data.message || 'Failed to mark booking complete');
+      }
+    } catch (error) {
+      console.error('Error marking booking complete:', error);
+      setAlert({ 
+        type: "error", 
+        message: error instanceof Error ? error.message : 'Failed to mark booking complete' 
+      });
+    }
+    setTimeout(() => setAlert(null), 3000);
+  };
+
   // Booking management handlers
   const handleEditBooking = (booking: Booking) => {
-    // TODO: Implement booking edit functionality
-    console.log('Edit booking:', booking);
-    setAlert({ type: "info", message: "Booking edit functionality will be implemented soon" });
+    setEditingBooking(booking);
+    setEditForm({
+      customerName: booking.customerName || '',
+      sport: booking.sport || '',
+      court: booking.court || '',
+      date: booking.date ? new Date(booking.date).toISOString().split('T')[0] : '',
+      timeSlot: booking.timeSlot || booking.timeSlots?.[0] || '',
+      bookingStatus: booking.bookingStatus || '',
+      paymentStatus: booking.paymentStatus || '',
+      totalAmount: booking.totalAmount || 0,
+      receivedBy: booking.receivedBy || '',
+      paymentMethod: booking.paymentMethod || '',
+      notes: booking.notes || ''
+    });
+    setBookingEditOpen(true);
+  };
+
+  const handleSaveBooking = async () => {
+    if (!editingBooking) return;
+
+    try {
+      const updateData = {
+        ...editForm,
+        timeSlots: editForm.timeSlot ? [editForm.timeSlot] : [],
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Remove timeSlot from update data since we're using timeSlots array
+      const { timeSlot, ...finalUpdateData } = updateData;
+
+      const response = await fetch(`/api/admin/bookings/${editingBooking._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(finalUpdateData)
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setAlert({ type: "success", message: "Booking updated successfully" });
+        setBookingEditOpen(false);
+        setEditingBooking(null);
+        fetchData(); // Refresh the data
+      } else {
+        throw new Error(data.message || 'Failed to update booking');
+      }
+    } catch (error) {
+      console.error('Error updating booking:', error);
+      setAlert({ 
+        type: "error", 
+        message: error instanceof Error ? error.message : 'Failed to update booking' 
+      });
+    } finally {
+      setTimeout(() => setAlert(null), 3000);
+    }
   };
 
   const handleDeleteBooking = async (bookingId: string) => {
@@ -2535,6 +2640,142 @@ export default function AdminDashboard() {
         <DialogActions>
           <Button onClick={() => setSlotDetailsDialog(prev => ({ ...prev, open: false }))}>
             Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Booking Edit Dialog */}
+      <Dialog open={bookingEditOpen} onClose={() => setBookingEditOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit Booking</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Customer Name"
+                value={editForm.customerName}
+                onChange={(e) => setEditForm(prev => ({ ...prev, customerName: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Sport</InputLabel>
+                <Select
+                  value={editForm.sport}
+                  label="Sport"
+                  onChange={(e) => setEditForm(prev => ({ ...prev, sport: e.target.value }))}
+                >
+                  <MenuItem value="Badminton">Badminton</MenuItem>
+                  <MenuItem value="Table Tennis">Table Tennis</MenuItem>
+                  <MenuItem value="Tennis">Tennis</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Court"
+                value={editForm.court}
+                onChange={(e) => setEditForm(prev => ({ ...prev, court: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Date"
+                value={editForm.date}
+                onChange={(e) => setEditForm(prev => ({ ...prev, date: e.target.value }))}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Time Slot</InputLabel>
+                <Select
+                  value={editForm.timeSlot}
+                  label="Time Slot"
+                  onChange={(e) => setEditForm(prev => ({ ...prev, timeSlot: e.target.value }))}
+                >
+                  {TIME_SLOTS.map((slot) => (
+                    <MenuItem key={slot} value={slot}>{slot}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Total Amount"
+                value={editForm.totalAmount}
+                onChange={(e) => setEditForm(prev => ({ ...prev, totalAmount: Number(e.target.value) }))}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Booking Status</InputLabel>
+                <Select
+                  value={editForm.bookingStatus}
+                  label="Booking Status"
+                  onChange={(e) => setEditForm(prev => ({ ...prev, bookingStatus: e.target.value }))}
+                >
+                  <MenuItem value="pending">Pending</MenuItem>
+                  <MenuItem value="confirmed">Confirmed</MenuItem>
+                  <MenuItem value="completed">Completed</MenuItem>
+                  <MenuItem value="cancelled">Cancelled</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Payment Status</InputLabel>
+                <Select
+                  value={editForm.paymentStatus}
+                  label="Payment Status"
+                  onChange={(e) => setEditForm(prev => ({ ...prev, paymentStatus: e.target.value }))}
+                >
+                  <MenuItem value="pending">Pending</MenuItem>
+                  <MenuItem value="completed">Completed</MenuItem>
+                  <MenuItem value="failed">Failed</MenuItem>
+                  <MenuItem value="refunded">Refunded</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Received By"
+                value={editForm.receivedBy}
+                onChange={(e) => setEditForm(prev => ({ ...prev, receivedBy: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Payment Method"
+                value={editForm.paymentMethod}
+                onChange={(e) => setEditForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Notes"
+                value={editForm.notes}
+                onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBookingEditOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSaveBooking} variant="contained">
+            Save Changes
           </Button>
         </DialogActions>
       </Dialog>

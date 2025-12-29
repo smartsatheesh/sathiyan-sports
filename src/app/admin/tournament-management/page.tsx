@@ -64,7 +64,8 @@ import {
   Groups,
   Schedule,
   AccountCircle,
-  Sports
+  Sports,
+  CheckCircle
 } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
 
@@ -156,7 +157,14 @@ interface Match {
   scheduledTime?: string;
   venue?: string;
   round: string;
-  score?: any;
+  group?: string;
+  matchNumber?: number;
+  notes?: string;
+  score?: {
+    team1Sets?: number;
+    team2Sets?: number;
+    winner?: 'team1' | 'team2' | null;
+  };
   team1Players?: Player[];
   team2Players?: Player[];
 }
@@ -604,81 +612,246 @@ export default function AdminTournamentManagement() {
 
             {editType === 'match' && (
               <Grid container spacing={2}>
+                {/* Match Basic Info */}
+                <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom color="primary">
+                    📅 Match Details
+                  </Typography>
+                </Grid>
+                
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    label="Team 1"
-                    value={editItem.team1 || ''}
-                    onChange={(e) => setEditItem({ ...editItem, team1: e.target.value })}
+                    label="Match Number"
+                    type="number"
+                    value={editItem.matchNumber || ''}
+                    onChange={(e) => setEditItem({ ...editItem, matchNumber: e.target.value })}
                   />
                 </Grid>
+                
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    label="Team 2"
-                    value={editItem.team2 || ''}
-                    onChange={(e) => setEditItem({ ...editItem, team2: e.target.value })}
+                    label="Group Name"
+                    value={editItem.group || editItem.round || ''}
+                    onChange={(e) => setEditItem({ ...editItem, group: e.target.value, round: e.target.value })}
+                    placeholder="e.g., Group Stage, Quarter Final, etc."
                   />
                 </Grid>
+
+                {/* Date and Time */}
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    type="datetime-local"
+                    label="Scheduled Date & Time"
+                    value={editItem.scheduledTime ? new Date(editItem.scheduledTime).toISOString().slice(0, 16) : ''}
+                    onChange={(e) => setEditItem({ ...editItem, scheduledTime: e.target.value })}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Court Number"
+                    value={editItem.venue || ''}
+                    onChange={(e) => setEditItem({ ...editItem, venue: e.target.value })}
+                    placeholder="Court 1, Hall A, etc."
+                  />
+                </Grid>
+
+                {/* Team 1 Players */}
+                <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom color="secondary">
+                    👥 Team 1 Players
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Player 1 Name"
+                    value={editItem.team1?.split(' & ')[0] || ''}
+                    onChange={(e) => {
+                      const team1Players = editItem.team1?.split(' & ') || ['', ''];
+                      team1Players[0] = e.target.value;
+                      setEditItem({ ...editItem, team1: team1Players.filter(p => p.trim()).join(' & ') });
+                    }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Player 1 Partner (Optional)"
+                    value={editItem.team1?.split(' & ')[1] || ''}
+                    onChange={(e) => {
+                      const team1Players = editItem.team1?.split(' & ') || [''];
+                      team1Players[1] = e.target.value;
+                      setEditItem({ ...editItem, team1: team1Players.filter(p => p.trim()).join(' & ') });
+                    }}
+                  />
+                </Grid>
+
+                {/* Team 2 Players */}
+                <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom color="secondary">
+                    👥 Team 2 Players
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Player 2 Name"
+                    value={editItem.team2?.split(' & ')[0] || ''}
+                    onChange={(e) => {
+                      const team2Players = editItem.team2?.split(' & ') || ['', ''];
+                      team2Players[0] = e.target.value;
+                      setEditItem({ ...editItem, team2: team2Players.filter(p => p.trim()).join(' & ') });
+                    }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Player 2 Partner (Optional)"
+                    value={editItem.team2?.split(' & ')[1] || ''}
+                    onChange={(e) => {
+                      const team2Players = editItem.team2?.split(' & ') || [''];
+                      team2Players[1] = e.target.value;
+                      setEditItem({ ...editItem, team2: team2Players.filter(p => p.trim()).join(' & ') });
+                    }}
+                  />
+                </Grid>
+
+                {/* Match Status and Category */}
+                <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom color="primary">
+                    🏆 Match Status & Category
+                  </Typography>
+                </Grid>
+                
                 <Grid item xs={12} md={4}>
                   <FormControl fullWidth>
-                    <InputLabel>Status</InputLabel>
+                    <InputLabel>Match Status</InputLabel>
                     <Select
                       value={editItem.status || ''}
-                      label="Status"
+                      label="Match Status"
                       onChange={(e) => setEditItem({ ...editItem, status: e.target.value })}
                     >
-                      <MenuItem value="scheduled">Scheduled</MenuItem>
-                      <MenuItem value="live">Live</MenuItem>
-                      <MenuItem value="completed">Completed</MenuItem>
-                      <MenuItem value="cancelled">Cancelled</MenuItem>
+                      <MenuItem value="scheduled">⏰ Scheduled</MenuItem>
+                      <MenuItem value="live">🔴 Live</MenuItem>
+                      <MenuItem value="completed">✅ Completed</MenuItem>
+                      <MenuItem value="cancelled">❌ Cancelled</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
+                
                 <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Venue"
-                    value={editItem.venue || ''}
-                    onChange={(e) => setEditItem({ ...editItem, venue: e.target.value })}
-                  />
+                  <FormControl fullWidth>
+                    <InputLabel>Category</InputLabel>
+                    <Select
+                      value={editItem.category || ''}
+                      label="Category"
+                      onChange={(e) => setEditItem({ ...editItem, category: e.target.value })}
+                    >
+                      <MenuItem value="singles">🎾 Singles</MenuItem>
+                      <MenuItem value="doubles">👥 Doubles</MenuItem>
+                      <MenuItem value="mixed">🤝 Mixed Doubles</MenuItem>
+                    </Select>
+                  </FormControl>
                 </Grid>
+                
                 <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Round"
-                    value={editItem.round || ''}
-                    onChange={(e) => setEditItem({ ...editItem, round: e.target.value })}
-                  />
+                  <FormControl fullWidth>
+                    <InputLabel>Round</InputLabel>
+                    <Select
+                      value={editItem.round || ''}
+                      label="Round"
+                      onChange={(e) => setEditItem({ ...editItem, round: e.target.value })}
+                    >
+                      <MenuItem value="round1">🥉 Round 1</MenuItem>
+                      <MenuItem value="round2">🥉 Round 2</MenuItem>
+                      <MenuItem value="quarterfinal">🏅 Quarter Final</MenuItem>
+                      <MenuItem value="semifinal">🥈 Semi Final</MenuItem>
+                      <MenuItem value="final">🏆 Final</MenuItem>
+                    </Select>
+                  </FormControl>
                 </Grid>
+                {/* Score Management */}
                 <Grid item xs={12}>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Score Management</Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={6}>
-                      <TextField
-                        fullWidth
-                        type="number"
-                        label="Team 1 Sets Won"
-                        value={editItem.score?.team1Sets || 0}
-                        onChange={(e) => setEditItem({
-                          ...editItem,
-                          score: { ...editItem.score, team1Sets: parseInt(e.target.value) }
-                        })}
-                      />
-                    </Grid>
-                    <Grid item xs={6}>
-                      <TextField
-                        fullWidth
-                        type="number"
-                        label="Team 2 Sets Won"
-                        value={editItem.score?.team2Sets || 0}
-                        onChange={(e) => setEditItem({
-                          ...editItem,
-                          score: { ...editItem.score, team2Sets: parseInt(e.target.value) }
-                        })}
-                      />
-                    </Grid>
+                  <Typography variant="h6" gutterBottom color="success.main">
+                    🏆 Score & Result Management
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Team 1 Sets Won"
+                    value={editItem.score?.team1Sets || 0}
+                    onChange={(e) => setEditItem({
+                      ...editItem,
+                      score: { 
+                        ...editItem.score, 
+                        team1Sets: parseInt(e.target.value),
+                        winner: parseInt(e.target.value) > (editItem.score?.team2Sets || 0) ? 'team1' : 
+                               parseInt(e.target.value) < (editItem.score?.team2Sets || 0) ? 'team2' : null
+                      }
+                    })}
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Team 2 Sets Won"
+                    value={editItem.score?.team2Sets || 0}
+                    onChange={(e) => setEditItem({
+                      ...editItem,
+                      score: { 
+                        ...editItem.score, 
+                        team2Sets: parseInt(e.target.value),
+                        winner: parseInt(e.target.value) > (editItem.score?.team1Sets || 0) ? 'team2' : 
+                               parseInt(e.target.value) < (editItem.score?.team1Sets || 0) ? 'team1' : null
+                      }
+                    })}
+                  />
+                </Grid>
+                
+                {editItem.status === 'completed' && (
+                  <Grid item xs={12}>
+                    <Paper sx={{ p: 2, bgcolor: 'success.light', color: 'white' }}>
+                      <Typography variant="h6" gutterBottom>
+                        🎉 Match Result
+                      </Typography>
+                      <Typography variant="body1">
+                        <strong>Winner: </strong>
+                        {editItem.score?.winner === 'team1' ? editItem.team1 : 
+                         editItem.score?.winner === 'team2' ? editItem.team2 : 'TBD'}
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        This match will be added to the Results page when saved.
+                      </Typography>
+                    </Paper>
                   </Grid>
+                )}
+                
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={2}
+                    label="Match Notes (Optional)"
+                    value={editItem.notes || ''}
+                    onChange={(e) => setEditItem({ ...editItem, notes: e.target.value })}
+                    placeholder="Add any notes about the match..."
+                  />
                 </Grid>
               </Grid>
             )}
@@ -773,6 +946,8 @@ export default function AdminTournamentManagement() {
           <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)} sx={{ mb: 3 }}>
             <Tab label={`Players (${players.length})`} />
             <Tab label={`Matches (${matches.length})`} />
+            <Tab label="Tournament Bracket" />
+            <Tab label="Results" />
             <Tab label="Tournament Details" />
           </Tabs>
 
@@ -1045,12 +1220,19 @@ export default function AdminTournamentManagement() {
                               {match.venue || 'TBA'}
                             </Typography>
                           </Grid>
-                          <Grid item xs={6}>
+                          <Grid item xs={12}>
                             <Typography variant="caption" color="text.secondary">
-                              Time:
+                              Date & Time:
                             </Typography>
-                            <Typography variant="body2">
-                              {match.scheduledTime ? new Date(match.scheduledTime).toLocaleTimeString() : 'TBA'}
+                            <Typography variant="body2" fontWeight="bold">
+                              {match.scheduledTime ? 
+                                new Date(match.scheduledTime).toLocaleString('en-US', {
+                                  weekday: 'short',
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : 'TBA'}
                             </Typography>
                           </Grid>
                         </Grid>
@@ -1111,8 +1293,382 @@ export default function AdminTournamentManagement() {
             </Box>
           )}
 
-          {/* Tournament Details Tab */}
+          {/* Tournament Bracket Tab */}
           {activeTab === 2 && selectedTournament && (
+            <Box>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+                <Typography variant="h6">
+                  Tournament Bracket & Fixtures
+                </Typography>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    variant="contained"
+                    startIcon={<Sports />}
+                    onClick={() => setAutoMatchGenOpen(true)}
+                    disabled={players.length < 4}
+                  >
+                    Generate Bracket
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<Schedule />}
+                  >
+                    Update Fixtures
+                  </Button>
+                </Stack>
+              </Box>
+
+              {/* Bracket Visualization */}
+              <Paper sx={{ p: 3, mb: 3, bgcolor: 'grey.50' }}>
+                <Typography variant="h6" gutterBottom>
+                  📊 Current Tournament Bracket
+                </Typography>
+                
+                {matches.length > 0 ? (
+                  <Box>
+                    {/* Group matches by rounds */}
+                    {['round1', 'quarterfinal', 'semifinal', 'final'].map((round) => {
+                      const roundMatches = matches.filter(m => m.round === round);
+                      if (roundMatches.length === 0) return null;
+
+                      return (
+                        <Box key={round} mb={4}>
+                          <Typography variant="h6" gutterBottom sx={{ 
+                            color: 'primary.main', 
+                            textTransform: 'uppercase',
+                            borderBottom: 2,
+                            borderColor: 'primary.main',
+                            pb: 1,
+                            mb: 2
+                          }}>
+                            {round === 'round1' ? '🥉 Round 1' : 
+                             round === 'quarterfinal' ? '🏅 Quarter Finals' :
+                             round === 'semifinal' ? '🥈 Semi Finals' : '🏆 Finals'}
+                          </Typography>
+                          
+                          <Grid container spacing={2}>
+                            {roundMatches.map((match, index) => (
+                              <Grid item xs={12} sm={6} md={4} key={match._id}>
+                                <Card sx={{ 
+                                  border: match.status === 'live' ? '3px solid #ff4444' : '1px solid #e0e0e0',
+                                  boxShadow: match.status === 'completed' ? '0 4px 12px rgba(76, 175, 79, 0.3)' : '0 2px 8px rgba(0,0,0,0.1)'
+                                }}>
+                                  <CardContent sx={{ pb: 1 }}>
+                                    {/* Match Header */}
+                                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                                      <Typography variant="body2" fontWeight="bold" color="primary">
+                                        Match #{roundMatches.indexOf(match) + 1}
+                                      </Typography>
+                                      <Stack direction="row" spacing={1}>
+                                        <Chip 
+                                          label={match.status}
+                                          size="small"
+                                          color={
+                                            match.status === 'live' ? 'error' : 
+                                            match.status === 'completed' ? 'success' : 
+                                            'default'
+                                          }
+                                          icon={
+                                            match.status === 'live' ? <PlayArrow /> : 
+                                            match.status === 'completed' ? <CheckCircle /> :
+                                            <Schedule />
+                                          }
+                                        />
+                                      </Stack>
+                                    </Box>
+
+                                    {/* Teams Display */}
+                                    <Box>
+                                      {/* Team 1 */}
+                                      <Box display="flex" alignItems="center" justifyContent="space-between" p={1} mb={1} 
+                                           bgcolor={match.score && match.score.team1Sets > match.score.team2Sets ? 'success.light' : 'grey.100'} 
+                                           borderRadius={1}>
+                                        <Box display="flex" alignItems="center">
+                                          <Stack direction="row" spacing={-1}>
+                                            {match.team1.split(' & ').map((playerName, i) => (
+                                              <TeamAvatar 
+                                                key={i}
+                                                name={playerName} 
+                                                category={match.category}
+                                                size={30}
+                                              />
+                                            ))}
+                                          </Stack>
+                                          <Typography variant="body2" fontWeight="bold" ml={1}>
+                                            {match.team1}
+                                          </Typography>
+                                        </Box>
+                                        <Typography variant="h6" fontWeight="bold" color="primary">
+                                          {match.score?.team1Sets || 0}
+                                        </Typography>
+                                      </Box>
+
+                                      {/* VS */}
+                                      <Box display="flex" justifyContent="center" my={1}>
+                                        <Chip label="VS" size="small" color="primary" />
+                                      </Box>
+
+                                      {/* Team 2 */}
+                                      <Box display="flex" alignItems="center" justifyContent="space-between" p={1}
+                                           bgcolor={match.score && match.score.team2Sets > match.score.team1Sets ? 'success.light' : 'grey.100'} 
+                                           borderRadius={1}>
+                                        <Box display="flex" alignItems="center">
+                                          <Stack direction="row" spacing={-1}>
+                                            {match.team2.split(' & ').map((playerName, i) => (
+                                              <TeamAvatar 
+                                                key={i}
+                                                name={playerName} 
+                                                category={match.category}
+                                                size={30}
+                                              />
+                                            ))}
+                                          </Stack>
+                                          <Typography variant="body2" fontWeight="bold" ml={1}>
+                                            {match.team2}
+                                          </Typography>
+                                        </Box>
+                                        <Typography variant="h6" fontWeight="bold" color="primary">
+                                          {match.score?.team2Sets || 0}
+                                        </Typography>
+                                      </Box>
+                                    </Box>
+
+                                    {/* Match Details */}
+                                    <Divider sx={{ my: 2 }} />
+                                    <Grid container spacing={1}>
+                                      <Grid item xs={6}>
+                                        <Typography variant="caption" color="text.secondary">
+                                          Venue:
+                                        </Typography>
+                                        <Typography variant="body2">
+                                          {match.venue || 'TBA'}
+                                        </Typography>
+                                      </Grid>
+                                      <Grid item xs={6}>
+                                        <Typography variant="caption" color="text.secondary">
+                                          Time:
+                                        </Typography>
+                                        <Typography variant="body2">
+                                          {match.scheduledTime ? new Date(match.scheduledTime).toLocaleString() : 'TBA'}
+                                        </Typography>
+                                      </Grid>
+                                    </Grid>
+                                  </CardContent>
+                                  
+                                  <CardActions sx={{ pt: 0 }}>
+                                    <Button size="small" onClick={() => handleEdit('match', match)}>
+                                      <Edit fontSize="small" />
+                                    </Button>
+                                    {match.status === 'scheduled' && (
+                                      <Button size="small" color="primary">
+                                        <PlayArrow fontSize="small" />
+                                        Start
+                                      </Button>
+                                    )}
+                                    {match.status === 'live' && (
+                                      <Button size="small" color="success">
+                                        <ScoreboardOutlined fontSize="small" />
+                                        Score
+                                      </Button>
+                                    )}
+                                  </CardActions>
+                                </Card>
+                              </Grid>
+                            ))}
+                          </Grid>
+                        </Box>
+                      );
+                    })}
+                    
+                    {/* Tournament Summary */}
+                    <Paper sx={{ p: 2, bgcolor: 'primary.light', color: 'white' }}>
+                      <Typography variant="h6" gutterBottom>
+                        🏆 Tournament Progress
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={3}>
+                          <Typography variant="body2">Total Matches</Typography>
+                          <Typography variant="h6">{matches.length}</Typography>
+                        </Grid>
+                        <Grid item xs={3}>
+                          <Typography variant="body2">Completed</Typography>
+                          <Typography variant="h6">{matches.filter(m => m.status === 'completed').length}</Typography>
+                        </Grid>
+                        <Grid item xs={3}>
+                          <Typography variant="body2">Live</Typography>
+                          <Typography variant="h6">{matches.filter(m => m.status === 'live').length}</Typography>
+                        </Grid>
+                        <Grid item xs={3}>
+                          <Typography variant="body2">Upcoming</Typography>
+                          <Typography variant="h6">{matches.filter(m => m.status === 'scheduled').length}</Typography>
+                        </Grid>
+                      </Grid>
+                    </Paper>
+                  </Box>
+                ) : (
+                  <Paper sx={{ p: 4, textAlign: 'center' }}>
+                    <SportsTennis sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                      No Tournament Bracket Generated
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" mb={3}>
+                      Create matches manually or generate an automatic tournament bracket
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      size="large"
+                      startIcon={<Sports />}
+                      onClick={() => setAutoMatchGenOpen(true)}
+                      disabled={players.length < 4}
+                    >
+                      Generate Tournament Bracket
+                    </Button>
+                  </Paper>
+                )}
+              </Paper>
+            </Box>
+          )}
+
+          {/* Results Tab */}
+          {activeTab === 3 && selectedTournament && (
+            <Box>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+                <Typography variant="h6">
+                  🏆 Tournament Results
+                </Typography>
+              </Box>
+
+              {/* Completed Matches Results */}
+              <Grid container spacing={2}>
+                {matches.filter(m => m.status === 'completed').map((match, index) => (
+                  <Grid item xs={12} md={6} key={match._id}>
+                    <Card sx={{ border: '2px solid', borderColor: 'success.main' }}>
+                      <CardContent>
+                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                          <Typography variant="h6" fontWeight="bold">
+                            {match.group || match.round} - Match #{index + 1}
+                          </Typography>
+                          <Chip 
+                            label="Completed"
+                            color="success"
+                            icon={<CheckCircle />}
+                          />
+                        </Box>
+
+                        {/* Winner Display */}
+                        <Box mb={2} p={2} bgcolor="success.light" borderRadius={1}>
+                          <Typography variant="h6" color="white" textAlign="center">
+                            🏆 Winner: {match.score?.winner === 'team1' ? match.team1 : 
+                                      match.score?.winner === 'team2' ? match.team2 : 'TBD'}
+                          </Typography>
+                        </Box>
+
+                        {/* Match Summary */}
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <Box display="flex" alignItems="center" mb={1}>
+                              <Stack direction="row" spacing={-1} mr={1}>
+                                {match.team1.split(' & ').map((playerName, i) => (
+                                  <TeamAvatar 
+                                    key={i}
+                                    name={playerName} 
+                                    category={match.category}
+                                    size={25}
+                                  />
+                                ))}
+                              </Stack>
+                              <Typography variant="body2" fontWeight="bold">
+                                {match.team1}
+                              </Typography>
+                            </Box>
+                            <Typography variant="h5" textAlign="center" color="primary">
+                              {match.score?.team1Sets || 0}
+                            </Typography>
+                          </Grid>
+                          
+                          <Grid item xs={6}>
+                            <Box display="flex" alignItems="center" mb={1}>
+                              <Stack direction="row" spacing={-1} mr={1}>
+                                {match.team2.split(' & ').map((playerName, i) => (
+                                  <TeamAvatar 
+                                    key={i}
+                                    name={playerName} 
+                                    category={match.category}
+                                    size={25}
+                                  />
+                                ))}
+                              </Stack>
+                              <Typography variant="body2" fontWeight="bold">
+                                {match.team2}
+                              </Typography>
+                            </Box>
+                            <Typography variant="h5" textAlign="center" color="primary">
+                              {match.score?.team2Sets || 0}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+
+                        <Divider sx={{ my: 2 }} />
+                        
+                        {/* Match Details */}
+                        <Grid container spacing={1}>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary">
+                              Date:
+                            </Typography>
+                            <Typography variant="body2">
+                              {match.scheduledTime ? new Date(match.scheduledTime).toLocaleDateString() : 'TBA'}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary">
+                              Venue:
+                            </Typography>
+                            <Typography variant="body2">
+                              {match.venue || 'TBA'}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={12}>
+                            <Typography variant="caption" color="text.secondary">
+                              Category:
+                            </Typography>
+                            <Typography variant="body2">
+                              {match.category} - {match.round}
+                            </Typography>
+                          </Grid>
+                          {match.notes && (
+                            <Grid item xs={12}>
+                              <Typography variant="caption" color="text.secondary">
+                                Notes:
+                              </Typography>
+                              <Typography variant="body2">
+                                {match.notes}
+                              </Typography>
+                            </Grid>
+                          )}
+                        </Grid>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+
+              {matches.filter(m => m.status === 'completed').length === 0 && (
+                <Paper sx={{ p: 4, textAlign: 'center' }}>
+                  <EmojiEvents sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    No Completed Matches Yet
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Results will appear here as matches are completed
+                  </Typography>
+                </Paper>
+              )}
+            </Box>
+          )}
+
+          {/* Tournament Details Tab */}
+          {activeTab === 4 && selectedTournament && (
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
                 <Paper sx={{ p: 3 }}>
