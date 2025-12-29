@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -45,7 +45,9 @@ import {
   ListItemAvatar,
   ListItemText,
   ListItemSecondaryAction,
-  Tooltip
+  Tooltip,
+  Autocomplete,
+  Checkbox
 } from '@mui/material';
 import {
   Edit,
@@ -65,7 +67,10 @@ import {
   Schedule,
   AccountCircle,
   Sports,
-  CheckCircle
+  CheckCircle,
+  Search,
+  FilterList,
+  ViewList
 } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
 
@@ -210,6 +215,31 @@ export default function AdminTournamentManagement() {
   const [autoMatchGenOpen, setAutoMatchGenOpen] = useState(false);
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   
+  // Enhanced search and filter states
+  const [playerSearchQuery, setPlayerSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [matchSearchQuery, setMatchSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Derived state for filtering
+  const filteredPlayers = useMemo(() => {
+    return players.filter(player => {
+      const matchesSearch = !playerSearchQuery || 
+        player.name.toLowerCase().includes(playerSearchQuery.toLowerCase());
+      const matchesCategory = categoryFilter === 'all' || player.category === categoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+  }, [players, playerSearchQuery, categoryFilter]);
+
+  const filteredMatches = useMemo(() => {
+    return matches.filter(match => {
+      const matchesSearch = !matchSearchQuery || 
+        `${match.team1} ${match.team2}`.toLowerCase().includes(matchSearchQuery.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || match.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [matches, matchSearchQuery, statusFilter]);
+
   const [playerForm, setPlayerForm] = useState<PlayerFormData>({
     name: '',
     phone: '',
@@ -952,12 +982,12 @@ export default function AdminTournamentManagement() {
           </Tabs>
 
 
-          {/* Enhanced Players Tab */}
+          {/* Enhanced Players Tab with Search and Filters */}
           {activeTab === 0 && selectedTournament && (
             <Box>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h6">
-                  Tournament Players ({players.length})
+                  Tournament Players ({filteredPlayers.length}/{players.length})
                 </Typography>
                 <Stack direction="row" spacing={1}>
                   <Button
@@ -985,8 +1015,54 @@ export default function AdminTournamentManagement() {
                 </Stack>
               </Box>
 
+              {/* Search and Filter Controls */}
+              <Paper sx={{ p: 2, mb: 3, bgcolor: 'grey.50' }}>
+                <Grid container spacing={2} alignItems="center">
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      placeholder="Search players by name or phone..."
+                      value={playerSearchQuery}
+                      onChange={(e) => setPlayerSearchQuery(e.target.value)}
+                      InputProps={{
+                        startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />,
+                      }}
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Category</InputLabel>
+                      <Select
+                        value={categoryFilter}
+                        label="Category"
+                        onChange={(e) => setCategoryFilter(e.target.value)}
+                        startAdornment={<FilterList sx={{ mr: 1, color: 'text.secondary' }} />}
+                      >
+                        <MenuItem value="all">All Categories</MenuItem>
+                        <MenuItem value="singles">Singles</MenuItem>
+                        <MenuItem value="doubles">Doubles</MenuItem>
+                        <MenuItem value="mixed">Mixed Doubles</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      onClick={() => {
+                        setPlayerSearchQuery('');
+                        setCategoryFilter('all');
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  </Grid>
+                </Grid>
+              </Paper>
+
               <Grid container spacing={2}>
-                {players.map((player, index) => (
+                {filteredPlayers.map((player, index) => (
                   <Grid item xs={12} sm={6} md={4} key={player._id}>
                     <Card 
                       sx={{ 
@@ -1077,6 +1153,14 @@ export default function AdminTournamentManagement() {
                 ))}
               </Grid>
 
+              {filteredPlayers.length === 0 && playerSearchQuery && (
+                <Grid item xs={12}>
+                  <Alert severity="info">
+                    No players found matching "{playerSearchQuery}". Try adjusting your search terms.
+                  </Alert>
+                </Grid>
+              )}
+
               {players.length === 0 && (
                 <Paper sx={{ p: 4, textAlign: 'center' }}>
                   <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -1098,12 +1182,12 @@ export default function AdminTournamentManagement() {
             </Box>
           )}
 
-          {/* Enhanced Matches Tab */}
+          {/* Enhanced Matches Tab with Search and Filters */}
           {activeTab === 1 && selectedTournament && (
             <Box>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h6">
-                  Tournament Matches ({matches.length})
+                  Tournament Matches ({filteredMatches.length}/{matches.length})
                 </Typography>
                 <Stack direction="row" spacing={1}>
                   <Button
@@ -1124,8 +1208,55 @@ export default function AdminTournamentManagement() {
                 </Stack>
               </Box>
 
+              {/* Search and Filter Controls for Matches */}
+              <Paper sx={{ p: 2, mb: 3, bgcolor: 'grey.50' }}>
+                <Grid container spacing={2} alignItems="center">
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      placeholder="Search matches by team names..."
+                      value={matchSearchQuery}
+                      onChange={(e) => setMatchSearchQuery(e.target.value)}
+                      InputProps={{
+                        startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />,
+                      }}
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Status</InputLabel>
+                      <Select
+                        value={statusFilter}
+                        label="Status"
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        startAdornment={<FilterList sx={{ mr: 1, color: 'text.secondary' }} />}
+                      >
+                        <MenuItem value="all">All Status</MenuItem>
+                        <MenuItem value="scheduled">Scheduled</MenuItem>
+                        <MenuItem value="live">Live</MenuItem>
+                        <MenuItem value="completed">Completed</MenuItem>
+                        <MenuItem value="cancelled">Cancelled</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      onClick={() => {
+                        setMatchSearchQuery('');
+                        setStatusFilter('all');
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  </Grid>
+                </Grid>
+              </Paper>
+
               <Grid container spacing={2}>
-                {matches.map((match, index) => (
+                {filteredMatches.map((match, index) => (
                   <Grid item xs={12} md={6} key={match._id}>
                     <Card 
                       sx={{ 
@@ -1841,7 +1972,7 @@ export default function AdminTournamentManagement() {
         </DialogActions>
       </Dialog>
 
-      {/* Enhanced Match Creation Dialog */}
+      {/* Enhanced Match Creation Dialog with Searchable Dropdowns */}
       <Dialog open={matchFormOpen} onClose={() => setMatchFormOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>
           <Box display="flex" alignItems="center">
@@ -1850,68 +1981,130 @@ export default function AdminTournamentManagement() {
           </Box>
         </DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
+          <Grid container spacing={3} sx={{ mt: 1 }}>
+            {/* Team 1 Player Selection */}
             <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>Select Team 1 Players</Typography>
-              <Paper sx={{ p: 2, bgcolor: 'grey.50', maxHeight: 200, overflow: 'auto' }}>
-                {players.map(player => (
-                  <Box key={player._id} display="flex" alignItems="center" mb={1}>
-                    <input
-                      type="checkbox"
-                      checked={matchForm.team1Players.includes(player._id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setMatchForm({
-                            ...matchForm,
-                            team1Players: [...matchForm.team1Players, player._id]
-                          });
-                        } else {
-                          setMatchForm({
-                            ...matchForm,
-                            team1Players: matchForm.team1Players.filter(id => id !== player._id)
-                          });
-                        }
-                      }}
-                      style={{ marginRight: 8 }}
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Groups color="primary" />
+                Team 1 Players
+              </Typography>
+              <Autocomplete
+                multiple
+                options={players}
+                getOptionLabel={(option) => `${option.name} (${option.category})`}
+                value={players.filter(p => matchForm.team1Players.includes(p._id))}
+                onChange={(event, newValue) => {
+                  setMatchForm({
+                    ...matchForm,
+                    team1Players: newValue.map(p => p._id)
+                  });
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Search and select players for Team 1"
+                    placeholder="Type player name..."
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
+                    }}
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box component="li" {...props} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <TeamAvatar 
+                      name={option.name} 
+                      category={option.category} 
+                      size={32}
                     />
-                    <TeamAvatar name={player.name} category={player.category} size={30} />
-                    <Typography sx={{ ml: 1 }}>{player.name}</Typography>
+                    <Box>
+                      <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                        {option.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {option.category} • {option.paymentStatus}
+                      </Typography>
+                    </Box>
                   </Box>
-                ))}
-              </Paper>
+                )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => (
+                    <Chip
+                      {...getTagProps({ index })}
+                      key={option._id}
+                      label={option.name}
+                      avatar={<TeamAvatar name={option.name} category={option.category} size={24} />}
+                      color="primary"
+                      variant="outlined"
+                    />
+                  ))
+                }
+                sx={{ mb: 2 }}
+              />
             </Grid>
             
+            {/* Team 2 Player Selection */}
             <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>Select Team 2 Players</Typography>
-              <Paper sx={{ p: 2, bgcolor: 'grey.50', maxHeight: 200, overflow: 'auto' }}>
-                {players.map(player => (
-                  <Box key={player._id} display="flex" alignItems="center" mb={1}>
-                    <input
-                      type="checkbox"
-                      checked={matchForm.team2Players.includes(player._id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setMatchForm({
-                            ...matchForm,
-                            team2Players: [...matchForm.team2Players, player._id]
-                          });
-                        } else {
-                          setMatchForm({
-                            ...matchForm,
-                            team2Players: matchForm.team2Players.filter(id => id !== player._id)
-                          });
-                        }
-                      }}
-                      style={{ marginRight: 8 }}
-                      disabled={matchForm.team1Players.includes(player._id)}
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Groups color="secondary" />
+                Team 2 Players
+              </Typography>
+              <Autocomplete
+                multiple
+                options={players.filter(p => !matchForm.team1Players.includes(p._id))}
+                getOptionLabel={(option) => `${option.name} (${option.category})`}
+                value={players.filter(p => matchForm.team2Players.includes(p._id))}
+                onChange={(event, newValue) => {
+                  setMatchForm({
+                    ...matchForm,
+                    team2Players: newValue.map(p => p._id)
+                  });
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Search and select players for Team 2"
+                    placeholder="Type player name..."
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
+                    }}
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box component="li" {...props} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <TeamAvatar 
+                      name={option.name} 
+                      category={option.category} 
+                      size={32}
                     />
-                    <TeamAvatar name={player.name} category={player.category} size={30} />
-                    <Typography sx={{ ml: 1 }}>{player.name}</Typography>
+                    <Box>
+                      <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                        {option.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {option.category} • {option.paymentStatus}
+                      </Typography>
+                    </Box>
                   </Box>
-                ))}
-              </Paper>
+                )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => (
+                    <Chip
+                      {...getTagProps({ index })}
+                      key={option._id}
+                      label={option.name}
+                      avatar={<TeamAvatar name={option.name} category={option.category} size={24} />}
+                      color="secondary"
+                      variant="outlined"
+                    />
+                  ))
+                }
+                sx={{ mb: 3 }}
+              />
             </Grid>
 
+            {/* Match Details */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Category</InputLabel>
@@ -1935,10 +2128,10 @@ export default function AdminTournamentManagement() {
                   label="Round"
                   onChange={(e) => setMatchForm({...matchForm, round: e.target.value})}
                 >
-                  <MenuItem value="round1">Round 1</MenuItem>
-                  <MenuItem value="quarterfinal">Quarter Final</MenuItem>
-                  <MenuItem value="semifinal">Semi Final</MenuItem>
-                  <MenuItem value="final">Final</MenuItem>
+                  <MenuItem value="Round 1">Round 1</MenuItem>
+                  <MenuItem value="Quarter Finals">Quarter Finals</MenuItem>
+                  <MenuItem value="Semi Finals">Semi Finals</MenuItem>
+                  <MenuItem value="Finals">Finals</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -1963,6 +2156,42 @@ export default function AdminTournamentManagement() {
                 placeholder="Court 1, Hall A, etc."
               />
             </Grid>
+
+            {/* Match Preview */}
+            {matchForm.team1Players.length > 0 && matchForm.team2Players.length > 0 && (
+              <Grid item xs={12}>
+                <Paper sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                  <Typography variant="h6" gutterBottom>Match Preview</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {matchForm.team1Players.map(playerId => {
+                        const player = players.find(p => p._id === playerId);
+                        return player ? (
+                          <TeamAvatar key={playerId} name={player.name} category={player.category} size={40} />
+                        ) : null;
+                      })}
+                      <Typography variant="body1" sx={{ ml: 1, fontWeight: 'bold' }}>
+                        {matchForm.team1Players.map(id => players.find(p => p._id === id)?.name).join(' & ')}
+                      </Typography>
+                    </Box>
+                    
+                    <Typography variant="h6" color="primary">VS</Typography>
+                    
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body1" sx={{ mr: 1, fontWeight: 'bold' }}>
+                        {matchForm.team2Players.map(id => players.find(p => p._id === id)?.name).join(' & ')}
+                      </Typography>
+                      {matchForm.team2Players.map(playerId => {
+                        const player = players.find(p => p._id === playerId);
+                        return player ? (
+                          <TeamAvatar key={playerId} name={player.name} category={player.category} size={40} />
+                        ) : null;
+                      })}
+                    </Box>
+                  </Box>
+                </Paper>
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions>
@@ -1971,6 +2200,7 @@ export default function AdminTournamentManagement() {
             variant="contained" 
             onClick={handleCreateMatch}
             disabled={matchForm.team1Players.length === 0 || matchForm.team2Players.length === 0}
+            startIcon={<Add />}
           >
             Create Match
           </Button>

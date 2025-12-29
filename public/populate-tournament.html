@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tournament Results Populator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        button {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px;
+            transition: transform 0.2s ease;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .result {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+        .success { border-left: 4px solid #4CAF50; }
+        .error { border-left: 4px solid #F44336; }
+        .loading { border-left: 4px solid #FF9800; }
+        h1 { text-align: center; margin-bottom: 30px; }
+        .summary { margin-top: 20px; }
+        .summary h3 { color: #FFD700; }
+        .players-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .league-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .match-result {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏆 Sathiyan Sports Tournament Results</h1>
+        
+        <p>This tool will populate the tournament with all 34+ players and match results from the provided match schedules.</p>
+        
+        <div>
+            <button onclick="populateResults()" id="populateBtn">
+                📊 Populate Tournament Results
+            </button>
+            <button onclick="viewTournament()" id="viewBtn" disabled>
+                👁️ View Tournament
+            </button>
+            <button onclick="viewResults()" id="resultsBtn" disabled>
+                🏅 View Results Page
+            </button>
+        </div>
+        
+        <div id="result"></div>
+        
+        <div class="summary">
+            <h3>📋 Tournament Data Summary:</h3>
+            <div class="players-grid">
+                <div class="league-section">
+                    <h4>🥇 A League (6 players)</h4>
+                    <p>Players: A1, A2, A3, A4, A5, A6</p>
+                    <p><strong>Completed Matches:</strong></p>
+                    <div class="match-result">Match 1: A1 vs A2 → Winner: A1</div>
+                    <div class="match-result">Match 7: A2 vs A4 → Winner: A2</div>
+                    <div class="match-result">Match 9: A2 vs A6 → Winner: A6</div>
+                    <div class="match-result">Match 11: A3 vs A5 → Winner: A3</div>
+                    <div class="match-result">Match 12: A3 vs A6 → Winner: A6</div>
+                    <div class="match-result">Match 14: A4 vs A6 → Winner: A6</div>
+                </div>
+                
+                <div class="league-section">
+                    <h4>🥈 C League (5 players)</h4>
+                    <p>Players: C1, C2, C3, C4, C5</p>
+                    <p><strong>Completed Matches:</strong></p>
+                    <div class="match-result">Match 1: C1 vs C2 → Winner: C2</div>
+                    <div class="match-result">Match 2: C1 vs C3 → Winner: C3</div>
+                    <div class="match-result">Match 3: C1 vs C4 → Winner: C4</div>
+                    <div class="match-result">Match 4: C1 vs C5 → Winner: C5</div>
+                    <div class="match-result">Match 5: C2 vs C3 → Winner: C2</div>
+                    <div class="match-result">Match 6: C2 vs C4 → Winner: C2</div>
+                    <div class="match-result">Match 7: C2 vs C5 → Winner: C2</div>
+                    <div class="match-result">Match 9: C3 vs C5 → Winner: C5</div>
+                    <div class="match-result">Match 10: C4 vs C5 → Winner: C4</div>
+                </div>
+                
+                <div class="league-section">
+                    <h4>🥉 B League (24 players)</h4>
+                    <p>Including: Katayee P, Mukesh S, Srinivashen D, Karthi Vel, Balaji P, Vinod S, Sathiyan S, Prasad T, Vineet G, Ragava K, and more...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tournamentId = null;
+        
+        async function populateResults() {
+            const btn = document.getElementById('populateBtn');
+            const result = document.getElementById('result');
+            
+            btn.disabled = true;
+            btn.textContent = '🔄 Populating...';
+            
+            result.className = 'result loading';
+            result.textContent = 'Populating tournament with players and match results...\n\nThis includes:\n✅ 34+ players across A, B, C leagues\n✅ Completed match results from images\n✅ League standings calculation\n\nPlease wait...';
+            
+            try {
+                const response = await fetch('/api/tournaments/populate-results', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    result.className = 'result success';
+                    result.textContent = `🎉 SUCCESS! Tournament populated successfully!\n\n` +
+                        `📊 Summary:\n` +
+                        `- Tournament: ${data.data.tournament}\n` +
+                        `- Total Players: ${data.data.players}\n` +
+                        `- Total Matches: ${data.data.matches}\n` +
+                        `- A League Completed: ${data.data.aLeagueCompleted}/15 matches\n` +
+                        `- C League Completed: ${data.data.cLeagueCompleted}/10 matches\n\n` +
+                        `🏅 A League Standings (Top 5):\n` +
+                        data.data.standings.aLeague.map((p, i) => `${i+1}. ${p.name}: ${p.wins} wins, ${p.winRate.toFixed(1)}% win rate`).join('\n') + '\n\n' +
+                        `🏅 C League Standings (Top 5):\n` +
+                        data.data.standings.cLeague.map((p, i) => `${i+1}. ${p.name}: ${p.wins} wins, ${p.winRate.toFixed(1)}% win rate`).join('\n');
+                    
+                    document.getElementById('viewBtn').disabled = false;
+                    document.getElementById('resultsBtn').disabled = false;
+                    
+                    // Try to extract tournament ID from response or find it
+                    findTournamentId();
+                } else {
+                    result.className = 'result error';
+                    result.textContent = `❌ Error: ${data.error}\n\nDetails: ${data.details || 'Unknown error'}`;
+                }
+            } catch (error) {
+                result.className = 'result error';
+                result.textContent = `❌ Network Error: ${error.message}\n\nMake sure the server is running on http://localhost:3000`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '📊 Populate Tournament Results';
+            }
+        }
+        
+        async function findTournamentId() {
+            try {
+                const response = await fetch('/api/tournaments-native');
+                const data = await response.json();
+                
+                if (data.success && data.tournaments.length > 0) {
+                    // Find Sathiyan tournament
+                    const tournament = data.tournaments.find(t => 
+                        t.name.toLowerCase().includes('sathiyan')
+                    );
+                    
+                    if (tournament) {
+                        tournamentId = tournament._id;
+                        console.log('Found tournament ID:', tournamentId);
+                    }
+                }
+            } catch (error) {
+                console.error('Error finding tournament ID:', error);
+            }
+        }
+        
+        function viewTournament() {
+            if (tournamentId) {
+                window.open(`/tournaments/${tournamentId}`, '_blank');
+            } else {
+                window.open('/tournaments', '_blank');
+            }
+        }
+        
+        function viewResults() {
+            if (tournamentId) {
+                window.open(`/tournaments/${tournamentId}/results`, '_blank');
+            } else {
+                alert('Please populate the tournament first to get the tournament ID.');
+            }
+        }
+        
+        // Try to find existing tournament on page load
+        findTournamentId();
+    </script>
+</body>
+</html>

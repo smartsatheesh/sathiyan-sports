@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Box,
@@ -25,7 +25,14 @@ import {
   Alert,
   CircularProgress,
   Divider,
-  Stack
+  Stack,
+  Badge,
+  IconButton,
+  Tooltip,
+  Fade,
+  Slide,
+  useTheme,
+  Skeleton
 } from '@mui/material';
 import {
   SportsTennis,
@@ -37,9 +44,132 @@ import {
   PlayArrow,
   CheckCircle,
   Cancel,
-  Refresh
+  Refresh,
+  LiveTv,
+  Visibility,
+  Share,
+  FilterList,
+  Search,
+  TrendingUp,
+  Timer,
+  Update,
+  Bookmark,
+  BookmarkBorder,
+  Notifications,
+  NotificationsActive,
+  Groups,
+  EmojiEventsOutlined,
+  AccessTime
 } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
+import { format, formatDistanceToNow, isValid } from 'date-fns';
+
+// Enhanced Avatar generation utility
+const generateCartoonAvatar = (name: string, category: string = 'default') => {
+  if (!name) return { initials: 'TBD', backgroundColor: '#gray' };
+  
+  const initials = name.split(' ').map(n => n[0]).join('').toUpperCase();
+  const colors = {
+    singles: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57'],
+    doubles: ['#6C5CE7', '#FD79A8', '#FDCB6E', '#E17055', '#00B894'],
+    team: ['#0984E3', '#E84393', '#00CEC9', '#6C5CE7', '#FD79A8'],
+    mixed: ['#A29BFE', '#FF7675', '#74B9FF', '#00CEC9', '#FDCB6E'],
+    default: ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe']
+  };
+  
+  const colorSet = colors[category as keyof typeof colors] || colors.default;
+  const colorIndex = name.length % colorSet.length;
+  const backgroundColor = colorSet[colorIndex];
+  
+  return { initials, backgroundColor };
+};
+
+// Enhanced Player Avatar Component
+const PlayerAvatar: React.FC<{
+  name: string;
+  category?: string;
+  size?: number;
+  showBorder?: boolean;
+  isWinner?: boolean;
+  animate?: boolean;
+}> = ({ name, category = 'default', size = 40, showBorder = true, isWinner = false, animate = true }) => {
+  const avatar = generateCartoonAvatar(name, category);
+  
+  return (
+    <Badge
+      overlap="circular"
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      badgeContent={
+        isWinner ? (
+          <Avatar
+            sx={{
+              width: size / 3,
+              height: size / 3,
+              backgroundColor: '#FFD700',
+              fontSize: size / 6,
+              animation: animate ? 'pulse 2s infinite' : 'none',
+              '@keyframes pulse': {
+                '0%': { transform: 'scale(1)' },
+                '50%': { transform: 'scale(1.1)' },
+                '100%': { transform: 'scale(1)' }
+              }
+            }}
+          >
+            🏆
+          </Avatar>
+        ) : null
+      }
+    >
+      <Avatar
+        sx={{
+          width: size,
+          height: size,
+          background: `linear-gradient(135deg, ${avatar.backgroundColor} 0%, ${avatar.backgroundColor}dd 100%)`,
+          border: showBorder ? '3px solid #fff' : 'none',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+          fontWeight: 'bold',
+          fontSize: size / 2.5,
+          transition: 'all 0.3s ease',
+          cursor: 'pointer',
+          '&:hover': {
+            transform: 'scale(1.1)',
+            boxShadow: '0 6px 25px rgba(0,0,0,0.25)',
+            filter: 'brightness(1.1)'
+          }
+        }}
+      >
+        {avatar.initials}
+      </Avatar>
+    </Badge>
+  );
+};
+
+// Live Score Indicator
+const LiveIndicator = ({ isLive }: { isLive: boolean }) => {
+  if (!isLive) return null;
+  
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Box
+        sx={{
+          width: 8,
+          height: 8,
+          borderRadius: '50%',
+          backgroundColor: '#ff4444',
+          animation: 'blink 1s infinite',
+          '@keyframes blink': {
+            '0%': { opacity: 1 },
+            '50%': { opacity: 0.5 },
+            '100%': { opacity: 1 }
+          }
+        }}
+      />
+      <Typography variant="caption" color="error" sx={{ fontWeight: 'bold' }}>
+        LIVE
+      </Typography>
+    </Box>
+  );
+};
 
 interface Tournament {
   _id: string;
@@ -174,9 +304,10 @@ export default function TournamentPage() {
     }
   };
 
-  const fetchTournamentData = async () => {
+  const fetchTournamentData = useCallback(async (showLoading = true) => {
     try {
-      const response = await fetch(`/api/tournaments-native/${params.id}`);
+      if (showLoading) setLoading(true);
+      const response = await fetch(`/api/tournaments-native/${params.id}?_t=${Date.now()}`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch tournament data');
@@ -186,7 +317,7 @@ export default function TournamentPage() {
       
       if (result.success) {
         // Native API returns tournament, players, matches directly
-        setData({
+        const newData = {
           tournament: result.tournament,
           players: result.players,
           matches: result.matches,
@@ -197,7 +328,9 @@ export default function TournamentPage() {
             liveMatches: result.matches.filter((m: any) => m.status === 'live').length,
             upcomingMatches: result.matches.filter((m: any) => m.status === 'scheduled').length,
           }
-        });
+        };
+        
+        setData(newData);
         setError('');
       } else {
         setError(result.error || 'Failed to fetch tournament data');
@@ -208,7 +341,7 @@ export default function TournamentPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.id]);
 
   const handleRegister = async () => {
     if (!session) {
@@ -246,13 +379,13 @@ export default function TournamentPage() {
     fetchTournamentData();
   }, [params.id]);
 
-  // Auto refresh for live updates
+  // Auto refresh for live updates - Enhanced for admin sync
   useEffect(() => {
     if (!autoRefresh || !data) return;
 
     const interval = setInterval(() => {
-      fetchTournamentData();
-    }, 30000); // Refresh every 30 seconds
+      fetchTournamentData(false); // Don't show loading on auto-refresh
+    }, 10000); // Refresh every 10 seconds for better admin sync
 
     return () => clearInterval(interval);
   }, [autoRefresh, data]);
@@ -373,6 +506,16 @@ export default function TournamentPage() {
             {stats.totalPlayers >= tournament.maxParticipants ? 'Tournament Full' : 'Register'}
           </Button>
         )}
+        
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<EmojiEvents />}
+          onClick={() => router.push(`/tournaments/${params.id}/results`)}
+          sx={{ minWidth: 120 }}
+        >
+          View Results
+        </Button>
         
         <Button
           variant="outlined"
