@@ -47,7 +47,7 @@ const SubscriptionPaymentSuccessPage = () => {
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Fetch the subscription to check payment status
-      const response = await fetch(`/api/subscription/${subscriptionId}`);
+      const response = await fetch(`/api/subscriptions/${subscriptionId}`);
       const data = await response.json();
       
       if (response.ok && data.subscription) {

@@ -153,7 +153,7 @@ const SubscriptionPage = () => {
       console.log('🔍 Fetching subscriptions...');
       console.log('🔐 Session details:', session);
       
-      const response = await fetch('/api/subscription');
+      const response = await fetch('/api/subscriptions');
       console.log('📡 Response status:', response.status);
       console.log('📡 Response headers:', response.headers);
       

@@ -16,8 +16,16 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       paymentMethod, 
       transactionId, 
       notes,
-      updatedBy 
+      updatedBy,
+      amount,
+      mode,
+      autoRenewal,
+      selectedCourt,
+      startDate,
+      endDate
     } = body;
+
+    console.log('🔧 Updating subscription with data:', body);
 
     const subscription = await (Subscription.findById as any)(subscriptionId);
     if (!subscription) {
@@ -34,6 +42,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (transactionId) subscription.transactionId = transactionId;
     if (notes) subscription.notes = notes;
     if (updatedBy) subscription.updatedBy = updatedBy;
+    
+    // Update additional fields
+    if (amount !== undefined && amount !== null) subscription.amount = Number(amount);
+    if (mode) subscription.mode = mode;
+    if (autoRenewal !== undefined) subscription.autoRenewal = autoRenewal;
+    if (selectedCourt) subscription.selectedCourt = selectedCourt;
+    if (startDate) subscription.startDate = new Date(startDate);
+    if (endDate) subscription.endDate = new Date(endDate);
 
     // If payment is confirmed, update payment date
     if (paymentStatus === 'Paid' && !subscription.lastPaymentDate) {

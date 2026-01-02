@@ -501,28 +501,58 @@ export default function TournamentPage() {
             variant="contained"
             onClick={handleRegister}
             disabled={stats.totalPlayers >= tournament.maxParticipants}
-            sx={{ minWidth: 120 }}
+            sx={{ 
+              minWidth: 120,
+              background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+              boxShadow: '0 3px 5px 2px rgba(33, 203, 243, .3)',
+              '&:hover': {
+                background: 'linear-gradient(45deg, #1976D2 30%, #1976D2 90%)',
+                transform: 'scale(1.05)',
+              },
+              transition: 'all 0.3s ease'
+            }}
           >
-            {stats.totalPlayers >= tournament.maxParticipants ? 'Tournament Full' : 'Register'}
+            {stats.totalPlayers >= tournament.maxParticipants ? 'Tournament Full' : 'Register Now 🏆'}
           </Button>
         )}
-        
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<EmojiEvents />}
-          onClick={() => router.push(`/tournaments/${params.id}/results`)}
-          sx={{ minWidth: 120 }}
-        >
-          View Results
-        </Button>
         
         <Button
           variant="outlined"
           startIcon={<Refresh />}
           onClick={() => fetchTournamentData()}
+          sx={{
+            borderColor: 'primary.main',
+            color: 'primary.main',
+            '&:hover': {
+              backgroundColor: 'primary.main',
+              color: 'white',
+              transform: 'scale(1.05)',
+            },
+            transition: 'all 0.3s ease'
+          }}
         >
           Refresh
+        </Button>
+
+        <Button
+          variant="outlined"
+          startIcon={<Share />}
+          onClick={() => {
+            navigator.clipboard.writeText(window.location.href);
+            // You could add a toast notification here
+          }}
+          sx={{
+            borderColor: 'success.main',
+            color: 'success.main',
+            '&:hover': {
+              backgroundColor: 'success.main',
+              color: 'white',
+              transform: 'scale(1.05)',
+            },
+            transition: 'all 0.3s ease'
+          }}
+        >
+          Share
         </Button>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
@@ -533,7 +563,15 @@ export default function TournamentPage() {
             size="small"
             variant={autoRefresh ? "contained" : "outlined"}
             onClick={() => setAutoRefresh(!autoRefresh)}
-            sx={{ minWidth: 60 }}
+            sx={{ 
+              minWidth: 60,
+              ...(autoRefresh && {
+                background: 'linear-gradient(45deg, #4CAF50 30%, #8BC34A 90%)',
+                '&:hover': {
+                  background: 'linear-gradient(45deg, #388E3C 30%, #689F38 90%)',
+                }
+              })
+            }}
           >
             {autoRefresh ? 'ON' : 'OFF'}
           </Button>
@@ -612,29 +650,120 @@ export default function TournamentPage() {
         </Card>
       )}
 
-      {/* Tabs */}
-      <Paper sx={{ mb: 2 }}>
+      {/* Enhanced Tabs */}
+      <Paper sx={{ mb: 2, borderRadius: 3, overflow: 'hidden' }}>
         <Tabs 
           value={activeTab} 
           onChange={(e, newValue) => setActiveTab(newValue)}
           variant="scrollable"
           scrollButtons="auto"
+          sx={{
+            '& .MuiTab-root': {
+              fontWeight: 'bold',
+              fontSize: '1rem',
+              minHeight: 60,
+              '&:hover': {
+                backgroundColor: 'rgba(25, 118, 210, 0.04)',
+              }
+            },
+            '& .MuiTabs-indicator': {
+              height: 4,
+              borderRadius: 2,
+            }
+          }}
         >
-          <Tab label="Live Matches" />
-          <Tab label="All Matches" />
-          <Tab label="Players" />
-          <Tab label="Results" />
+          <Tab 
+            label={
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <LiveTv color={activeTab === 0 ? 'primary' : 'inherit'} />
+                <Typography>Live Matches</Typography>
+                {matches.filter(m => m.status === 'live').length > 0 && (
+                  <Chip 
+                    label={matches.filter(m => m.status === 'live').length} 
+                    size="small" 
+                    color="error"
+                    sx={{ animation: 'pulse 2s infinite' }}
+                  />
+                )}
+              </Stack>
+            }
+          />
+          <Tab 
+            label={
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <SportsTennis color={activeTab === 1 ? 'primary' : 'inherit'} />
+                <Typography>All Matches</Typography>
+                <Chip label={matches.length} size="small" color="primary" />
+              </Stack>
+            }
+          />
+          <Tab 
+            label={
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <People color={activeTab === 2 ? 'primary' : 'inherit'} />
+                <Typography>Players</Typography>
+                <Chip label={stats.totalPlayers} size="small" color="success" />
+              </Stack>
+            }
+          />
+          <Tab 
+            label={
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <EmojiEvents color={activeTab === 3 ? 'primary' : 'inherit'} />
+                <Typography>Results</Typography>
+                <Chip 
+                  label={matches.filter(m => m.status === 'completed').length} 
+                  size="small" 
+                  color="warning"
+                />
+              </Stack>
+            }
+          />
         </Tabs>
       </Paper>
 
       {/* Tab Content */}
       {activeTab === 0 && (
         <Box>
-          <Typography variant="h6" gutterBottom>
-            Live & Upcoming Matches
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              ⚡ Live & Upcoming Matches
+              {matches.filter(m => m.status === 'live').length > 0 && (
+                <Chip 
+                  label={`${matches.filter(m => m.status === 'live').length} LIVE`} 
+                  color="error" 
+                  size="small"
+                  sx={{ 
+                    animation: 'pulse 2s infinite',
+                    '@keyframes pulse': {
+                      '0%': { opacity: 1 },
+                      '50%': { opacity: 0.7 },
+                      '100%': { opacity: 1 }
+                    }
+                  }}
+                />
+              )}
+            </Typography>
+            <Button
+              variant="outlined"
+              startIcon={<Refresh />}
+              onClick={() => fetchTournamentData()}
+              size="small"
+            >
+              Refresh Live Status
+            </Button>
+          </Box>
+          
           {matches.filter(m => m.status === 'live' || m.status === 'scheduled').length === 0 ? (
-            <Alert severity="info">No live or scheduled matches at the moment</Alert>
+            <Paper sx={{ p: 4, textAlign: 'center', background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)' }}>
+              <Schedule sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No live or scheduled matches at the moment
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                All matches have been completed or are yet to be scheduled
+              </Typography>
+            </Paper>
           ) : (
             <Grid container spacing={2}>
               {matches
@@ -643,8 +772,16 @@ export default function TournamentPage() {
                   <Grid item xs={12} md={6} key={match._id}>
                     <Card 
                       sx={{ 
-                        border: match.status === 'live' ? '2px solid #f44336' : '1px solid #e0e0e0',
-                        background: match.status === 'live' ? 'linear-gradient(135deg, #fff5f5 0%, #ffffff 100%)' : 'white'
+                        border: match.status === 'live' ? '3px solid #f44336' : '2px solid #2196f3',
+                        background: match.status === 'live' 
+                          ? 'linear-gradient(135deg, #ffebee 0%, #fce4ec 100%)'
+                          : 'linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%)',
+                        boxShadow: match.status === 'live' ? '0 0 20px rgba(244, 67, 54, 0.3)' : '0 4px 12px rgba(0,0,0,0.1)',
+                        '&:hover': {
+                          transform: 'translateY(-4px)',
+                          boxShadow: match.status === 'live' ? '0 0 30px rgba(244, 67, 54, 0.4)' : '0 8px 20px rgba(0,0,0,0.15)',
+                        },
+                        transition: 'all 0.3s ease'
                       }}
                     >
                       <CardContent>
@@ -970,45 +1107,111 @@ export default function TournamentPage() {
 
       {activeTab === 3 && (
         <Box>
-          <Typography variant="h6" gutterBottom>
-            Tournament Results
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              🏆 Tournament Results
+              <Chip 
+                label={`${matches.filter(m => m.status === 'completed').length} completed`} 
+                color="success" 
+                size="small" 
+              />
+            </Typography>
+            
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<EmojiEvents />}
+              onClick={() => router.push(`/tournaments/${params.id}/results`)}
+              sx={{ 
+                minWidth: 140,
+                background: 'linear-gradient(45deg, #FF6B6B 30%, #FF8E8E 90%)',
+                boxShadow: '0 3px 5px 2px rgba(255, 107, 107, .3)',
+                '&:hover': {
+                  background: 'linear-gradient(45deg, #FF5252 30%, #FF6B6B 90%)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 10px 2px rgba(255, 107, 107, .4)',
+                },
+                transition: 'all 0.3s ease',
+                fontSize: '1rem',
+                fontWeight: 'bold'
+              }}
+            >
+              View Full Results
+            </Button>
+          </Box>
+          
           {matches.filter(m => m.status === 'completed').length === 0 ? (
-            <Alert severity="info">No completed matches yet</Alert>
+            <Paper sx={{ p: 4, textAlign: 'center', background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)' }}>
+              <EmojiEventsOutlined sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No completed matches yet
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Once matches are completed, results will appear here
+              </Typography>
+              <Button 
+                variant="outlined" 
+                startIcon={<Refresh />}
+                onClick={() => fetchTournamentData()}
+              >
+                Check for Updates
+              </Button>
+            </Paper>
           ) : (
             <Grid container spacing={2}>
               {matches
                 .filter(m => m.status === 'completed')
+                .slice(0, 6) // Show only first 6 matches, with link to view all
                 .map((match) => (
                   <Grid item xs={12} md={6} key={match._id}>
-                    <Card>
+                    <Card sx={{
+                      background: 'linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%)',
+                      border: '2px solid #4caf50',
+                      borderRadius: 2,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: '0 8px 20px rgba(0,0,0,0.15)',
+                      },
+                      transition: 'all 0.3s ease'
+                    }}>
                       <CardContent>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                          <Typography variant="subtitle2" color="text.secondary">
+                          <Typography variant="subtitle2" color="text.secondary" fontWeight="bold">
                             {match.round} - Match #{match.matchNumber}
                           </Typography>
-                          <Chip label="COMPLETED" color="success" size="small" />
+                          <Chip label="COMPLETED" color="success" size="small" icon={<CheckCircle />} />
                         </Box>
 
                         <Box sx={{ mb: 2 }}>
-                          <Typography variant="body1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body1" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
                             {match.player1Name}
                             {match.player1Partner && (
                               <Typography component="span" variant="body2" color="text.secondary">
                                 / {match.player1Partner}
                               </Typography>
                             )}
+                            {match.winnerName === match.player1Name && (
+                              <Chip label="WINNER" color="success" size="small" />
+                            )}
                             <Typography variant="h6" sx={{ mx: 1 }}>
                               {match.score.player1Sets}
                             </Typography>
                           </Typography>
                           
-                          <Typography variant="body1" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                          <Typography variant="body2" color="text.secondary" sx={{ my: 1, textAlign: 'center' }}>
+                            VS
+                          </Typography>
+                          
+                          <Typography variant="body1" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold', mt: 1 }}>
                             {match.player2Name}
                             {match.player2Partner && (
                               <Typography component="span" variant="body2" color="text.secondary">
                                 / {match.player2Partner}
                               </Typography>
+                            )}
+                            {match.winnerName === match.player2Name && (
+                              <Chip label="WINNER" color="success" size="small" />
                             )}
                             <Typography variant="h6" sx={{ mx: 1 }}>
                               {match.score.player2Sets}
@@ -1028,16 +1231,11 @@ export default function TournamentPage() {
                                   label={`${set.player1Score}-${set.player2Score}`}
                                   size="small"
                                   variant="outlined"
+                                  color="primary"
                                 />
                               ))}
                             </Box>
                           </Box>
-                        )}
-
-                        {match.winnerName && (
-                          <Alert severity="success" sx={{ py: 0 }}>
-                            <strong>Winner:</strong> {match.winnerName}
-                          </Alert>
                         )}
 
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
@@ -1057,6 +1255,32 @@ export default function TournamentPage() {
                   </Grid>
                 ))
               }
+              
+              {matches.filter(m => m.status === 'completed').length > 6 && (
+                <Grid item xs={12}>
+                  <Paper sx={{ p: 3, textAlign: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+                    <Typography variant="h6" gutterBottom>
+                      {matches.filter(m => m.status === 'completed').length - 6} more completed matches
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      color="inherit"
+                      startIcon={<EmojiEvents />}
+                      onClick={() => router.push(`/tournaments/${params.id}/results`)}
+                      sx={{
+                        backgroundColor: 'rgba(255,255,255,0.2)',
+                        '&:hover': {
+                          backgroundColor: 'rgba(255,255,255,0.3)',
+                          transform: 'scale(1.05)',
+                        },
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      View All Results
+                    </Button>
+                  </Paper>
+                </Grid>
+              )}
             </Grid>
           )}
         </Box>
