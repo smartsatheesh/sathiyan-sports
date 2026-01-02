@@ -129,12 +129,31 @@ const AdminSubscriptionsPage = () => {
   const [stats, setStats] = useState<SubscriptionStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [renewDialogOpen, setRenewDialogOpen] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
+  const [renewalData, setRenewalData] = useState<{
+    amount: number;
+    startDate: string;
+    endDate: string;
+    paymentStatus: string;
+    paymentMethod: string;
+    transactionId: string;
+    selectedCourt: string;
+  }>({ 
+    amount: 0, 
+    startDate: '', 
+    endDate: '', 
+    paymentStatus: 'Paid', 
+    paymentMethod: '', 
+    transactionId: '', 
+    selectedCourt: '' 
+  });
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [subscribedDateFrom, setSubscribedDateFrom] = useState<string>('');
   const [subscribedDateTo, setSubscribedDateTo] = useState<string>('');
-  const [nextDueDate, setNextDueDate] = useState<string>('');
+  const [dueDateFrom, setDueDateFrom] = useState<string>('');
+  const [dueDateTo, setDueDateTo] = useState<string>('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [sortBy, setSortBy] = useState<keyof Subscription>('createdAt');
@@ -167,7 +186,7 @@ const AdminSubscriptionsPage = () => {
   // Reset page to 0 when filters change to avoid pagination errors
   useEffect(() => {
     setPage(0);
-  }, [filterStatus, searchTerm, subscribedDateFrom, subscribedDateTo, nextDueDate]);
+  }, [filterStatus, searchTerm, subscribedDateFrom, subscribedDateTo, dueDateFrom, dueDateTo]);
 
   const fetchSubscriptions = async () => {
     setLoading(true);
@@ -416,6 +435,68 @@ const AdminSubscriptionsPage = () => {
     }
   };
 
+  const openRenewDialog = (subscription: Subscription) => {
+    setSelectedSubscription(subscription);
+    
+    // Calculate next period dates
+    const currentEndDate = new Date(subscription.endDate);
+    const nextStartDate = new Date(currentEndDate);
+    nextStartDate.setDate(nextStartDate.getDate() + 1);
+    
+    const nextEndDate = new Date(nextStartDate);
+    const durationMap = {
+      'monthly': 1,
+      'quarterly': 3,
+      'half yearly': 6,
+      'yearly': 12
+    };
+    nextEndDate.setMonth(nextEndDate.getMonth() + durationMap[subscription.subscriptionType]);
+    
+    setRenewalData({
+      amount: subscription.amount,
+      startDate: nextStartDate.toISOString().split('T')[0],
+      endDate: nextEndDate.toISOString().split('T')[0],
+      paymentStatus: 'Paid',
+      paymentMethod: subscription.paymentMethod || '',
+      transactionId: '',
+      selectedCourt: subscription.selectedCourt || ''
+    });
+    
+    setRenewDialogOpen(true);
+  };
+
+  const handleRenewSubscription = async () => {
+    if (!selectedSubscription) return;
+
+    try {
+      console.log('🔄 Renewing subscription:', selectedSubscription._id, renewalData);
+      
+      const response = await fetch(`/api/subscriptions/${selectedSubscription._id}/renew`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(renewalData)
+      });
+
+      const result = await response.json();
+      console.log('🔄 Renewal response:', result);
+
+      if (response.ok) {
+        console.log('✅ Subscription renewed successfully - historical data preserved');
+        await fetchSubscriptions();
+        await fetchStats();
+        setRenewDialogOpen(false);
+        setSelectedSubscription(null);
+        alert('Subscription renewed successfully! Historical data has been preserved.');
+      } else {
+        console.error('❌ Failed to renew subscription:', result);
+        alert('Failed to renew subscription: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('❌ Error renewing subscription:', error);
+      alert('Error renewing subscription: ' + error.message);
+    }
+  };
+
   // Filtering and sorting logic
   const filteredAndSortedSubscriptions = useMemo(() => {
     let filtered = subscriptions.filter(subscription => {
@@ -440,9 +521,9 @@ const AdminSubscriptionsPage = () => {
       }
       
       const matchesSearch = !searchTerm || 
-        subscription.userId.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        subscription.userId.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        subscription.userId.champId.toLowerCase().includes(searchTerm.toLowerCase());
+        (subscription.userId?.name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (subscription.userId?.email?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (subscription.userId?.champId?.toLowerCase().includes(searchTerm.toLowerCase()));
       
       // Subscribed date range filtering (startDate)
       let matchesDateRange = true;
@@ -457,9 +538,14 @@ const AdminSubscriptionsPage = () => {
         matchesDateRange = matchesDateRange && subscriptionStart <= filterDate;
       }
       
-      // Next due date filtering
-      if (nextDueDate && subscription.nextDueDate) {
-        const filterDate = new Date(nextDueDate);
+      // Due date range filtering (From/To)
+      if (dueDateFrom && subscription.nextDueDate) {
+        const filterDate = new Date(dueDateFrom);
+        const subNextDue = new Date(subscription.nextDueDate);
+        matchesDateRange = matchesDateRange && subNextDue >= filterDate;
+      }
+      if (dueDateTo && subscription.nextDueDate) {
+        const filterDate = new Date(dueDateTo);
         const subNextDue = new Date(subscription.nextDueDate);
         matchesDateRange = matchesDateRange && subNextDue <= filterDate;
       }
@@ -484,7 +570,7 @@ const AdminSubscriptionsPage = () => {
     });
 
     return filtered;
-  }, [subscriptions, filterStatus, searchTerm, subscribedDateFrom, subscribedDateTo, nextDueDate, sortBy, sortOrder]);
+  }, [subscriptions, filterStatus, searchTerm, subscribedDateFrom, subscribedDateTo, dueDateFrom, dueDateTo, sortBy, sortOrder]);
 
   // Dynamic stats calculation based on filtered data
   const dynamicStats = useMemo(() => {
@@ -508,16 +594,44 @@ const AdminSubscriptionsPage = () => {
     // Calculate revenue from filtered data
     const totalRevenue = filtered.reduce((sum, sub) => sum + (sub.amount || 0), 0);
     
-    // Calculate current month revenue (Jan 2026)
-    const currentMonthRevenue = filtered
-      .filter(sub => {
-        if (sub.paymentStatus === 'Paid' && sub.startDate) {
-          const startDate = new Date(sub.startDate);
-          return startDate.getMonth() === currentMonth && startDate.getFullYear() === currentYear;
-        }
-        return false;
-      })
-      .reduce((sum, sub) => sum + (sub.amount || 0), 0);
+    // Calculate revenue based on filter period or current month
+    let periodRevenue = 0;
+    let periodLabel = `Revenue ${new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}`;
+    
+    if (subscribedDateFrom || subscribedDateTo) {
+      // If date filters are applied, calculate revenue for filtered period
+      const fromDate = subscribedDateFrom ? new Date(subscribedDateFrom) : new Date(0);
+      const toDate = subscribedDateTo ? new Date(subscribedDateTo) : new Date();
+      
+      periodRevenue = filtered
+        .filter(sub => {
+          if (sub.paymentStatus === 'Paid' && sub.startDate) {
+            const startDate = new Date(sub.startDate);
+            return startDate >= fromDate && startDate <= toDate;
+          }
+          return false;
+        })
+        .reduce((sum, sub) => sum + (sub.amount || 0), 0);
+        
+      if (subscribedDateFrom && subscribedDateTo) {
+        periodLabel = `Revenue (${new Date(subscribedDateFrom).toLocaleDateString()} - ${new Date(subscribedDateTo).toLocaleDateString()})`;
+      } else if (subscribedDateFrom) {
+        periodLabel = `Revenue (From ${new Date(subscribedDateFrom).toLocaleDateString()})`;
+      } else if (subscribedDateTo) {
+        periodLabel = `Revenue (Until ${new Date(subscribedDateTo).toLocaleDateString()})`;
+      }
+    } else {
+      // Default to current month if no date filters applied
+      periodRevenue = filtered
+        .filter(sub => {
+          if (sub.paymentStatus === 'Paid' && sub.startDate) {
+            const startDate = new Date(sub.startDate);
+            return startDate.getMonth() === currentMonth && startDate.getFullYear() === currentYear;
+          }
+          return false;
+        })
+        .reduce((sum, sub) => sum + (sub.amount || 0), 0);
+    }
     
     const averageAmount = totalSubscriptions > 0 ? totalRevenue / totalSubscriptions : 0;
     const collectionRate = totalSubscriptions > 0 ? (paidSubscriptions / totalSubscriptions) * 100 : 0;
@@ -528,7 +642,8 @@ const AdminSubscriptionsPage = () => {
       expiredSubscriptions: overdueSubscriptions,
       overdueSubscriptions,
       totalRevenue,
-      paidThisMonth: currentMonthRevenue,
+      paidThisMonth: periodRevenue,
+      periodLabel,
       averageAmount: Math.round(averageAmount),
       collectionRate: `${Math.round(collectionRate)}%`
     };
@@ -740,7 +855,7 @@ const AdminSubscriptionsPage = () => {
               <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Box>
                   <Typography color="textSecondary" gutterBottom variant="body2">
-                    Revenue January 2026
+                    {dynamicStats.periodLabel}
                   </Typography>
                   <Typography variant="h5" component="h2" color="success.main">
                     {formatCurrency(dynamicStats.paidThisMonth)}
@@ -833,25 +948,38 @@ const AdminSubscriptionsPage = () => {
           />
           
           <TextField
-            label="Next Due Date"
+            label="Due Date From"
             type="date"
             size="small"
-            value={nextDueDate}
-            onChange={(e) => setNextDueDate(e.target.value)}
+            value={dueDateFrom}
+            onChange={(e) => setDueDateFrom(e.target.value)}
+            InputLabelProps={{
+              shrink: true,
+            }}
+            sx={{ minWidth: 160 }}
+          />
+          
+          <TextField
+            label="Due Date To"
+            type="date"
+            size="small"
+            value={dueDateTo}
+            onChange={(e) => setDueDateTo(e.target.value)}
             InputLabelProps={{
               shrink: true,
             }}
             sx={{ minWidth: 160 }}
           />
 
-          {(subscribedDateFrom || subscribedDateTo || nextDueDate) && (
+          {(subscribedDateFrom || subscribedDateTo || dueDateFrom || dueDateTo) && (
             <Button
               size="small"
               variant="outlined"
               onClick={() => {
                 setSubscribedDateFrom('');
                 setSubscribedDateTo('');
-                setNextDueDate('');
+                setDueDateFrom('');
+                setDueDateTo('');
               }}
               sx={{ minHeight: 40 }}
             >
@@ -884,10 +1012,10 @@ const AdminSubscriptionsPage = () => {
                   <TableCell>
                     <Box>
                       <Typography variant="body2" fontWeight="bold">
-                        {subscription.userId.name}
+                        {subscription.userId?.name || 'Unknown User'}
                       </Typography>
                       <Typography variant="caption" color="textSecondary">
-                        {subscription.userId.champId}
+                        {subscription.userId?.champId || 'N/A'}
                       </Typography>
                     </Box>
                   </TableCell>
@@ -971,26 +1099,40 @@ const AdminSubscriptionsPage = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Tooltip title="Edit Subscription">
-                      <IconButton 
-                        size="small" 
-                        onClick={() => {
-                          setSelectedSubscription(subscription);
-                          setEditDialogOpen(true);
-                        }}
-                      >
-                        <Edit />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete Subscription">
-                      <IconButton 
-                        size="small" 
-                        color="error"
-                        onClick={() => handleDeleteSubscription(subscription._id)}
-                      >
-                        <Delete />
-                      </IconButton>
-                    </Tooltip>
+                    <Box display="flex" gap={0.5}>
+                      <Tooltip title="Edit Subscription">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => {
+                            setSelectedSubscription(subscription);
+                            setEditDialogOpen(true);
+                          }}
+                        >
+                          <Edit />
+                        </IconButton>
+                      </Tooltip>
+                      
+                      <Tooltip title="Renew Subscription (Creates New Record)">
+                        <IconButton 
+                          size="small" 
+                          color="success"
+                          onClick={() => openRenewDialog(subscription)}
+                          disabled={subscription.paymentStatus !== 'Paid'}
+                        >
+                          <Refresh />
+                        </IconButton>
+                      </Tooltip>
+                      
+                      <Tooltip title="Delete Subscription">
+                        <IconButton 
+                          size="small" 
+                          color="error"
+                          onClick={() => handleDeleteSubscription(subscription._id)}
+                        >
+                          <Delete />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))}
@@ -1200,6 +1342,138 @@ const AdminSubscriptionsPage = () => {
             </Button>
             <Button variant="contained" onClick={handleEditSubscription}>
               Save Changes
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Renew Subscription Dialog */}
+        <Dialog open={renewDialogOpen} onClose={() => setRenewDialogOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle>Renew Subscription - {selectedSubscription?.userName}</DialogTitle>
+          <DialogContent>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              This will create a new subscription record for the next period, preserving historical data for accurate revenue tracking.
+            </Alert>
+            
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Amount"
+                  type="number"
+                  value={renewalData.amount}
+                  onChange={(e) => setRenewalData({
+                    ...renewalData,
+                    amount: Number(e.target.value)
+                  })}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Payment Status</InputLabel>
+                  <Select
+                    value={renewalData.paymentStatus}
+                    label="Payment Status"
+                    onChange={(e) => setRenewalData({
+                      ...renewalData,
+                      paymentStatus: e.target.value
+                    })}
+                  >
+                    <MenuItem value="Paid">Paid</MenuItem>
+                    <MenuItem value="Pending">Pending</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Start Date"
+                  type="date"
+                  value={renewalData.startDate}
+                  onChange={(e) => setRenewalData({
+                    ...renewalData,
+                    startDate: e.target.value
+                  })}
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="End Date"
+                  type="date"
+                  value={renewalData.endDate}
+                  onChange={(e) => setRenewalData({
+                    ...renewalData,
+                    endDate: e.target.value
+                  })}
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Payment Method</InputLabel>
+                  <Select
+                    value={renewalData.paymentMethod}
+                    label="Payment Method"
+                    onChange={(e) => setRenewalData({
+                      ...renewalData,
+                      paymentMethod: e.target.value
+                    })}
+                  >
+                    <MenuItem value="PhonePe">PhonePe</MenuItem>
+                    <MenuItem value="GPay">GPay</MenuItem>
+                    <MenuItem value="WhatsApp">WhatsApp</MenuItem>
+                    <MenuItem value="Cash">Cash</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Transaction ID (Optional)"
+                  value={renewalData.transactionId}
+                  onChange={(e) => setRenewalData({
+                    ...renewalData,
+                    transactionId: e.target.value
+                  })}
+                />
+              </Grid>
+              
+              {selectedSubscription?.preferredSport === 'Shuttle Badminton' && (
+                <Grid item xs={12}>
+                  <FormControl fullWidth>
+                    <InputLabel>Selected Court</InputLabel>
+                    <Select
+                      value={renewalData.selectedCourt}
+                      label="Selected Court"
+                      onChange={(e) => setRenewalData({
+                        ...renewalData,
+                        selectedCourt: e.target.value
+                      })}
+                    >
+                      <MenuItem value="Court 1">Court 1</MenuItem>
+                      <MenuItem value="Court 2">Court 2</MenuItem>
+                      <MenuItem value="Court 3">Court 3</MenuItem>
+                      <MenuItem value="Court 4">Court 4</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setRenewDialogOpen(false)}>Cancel</Button>
+            <Button variant="contained" onClick={handleRenewSubscription} color="success">
+              Create Renewal
             </Button>
           </DialogActions>
         </Dialog>

@@ -23,6 +23,11 @@ export interface ISubscription extends Document {
   preferredTimeSlot?: string;
   selectedCourt?: string; // Optional, only for badminton players
   notes?: string;
+  // Renewal tracking fields
+  subscriptionPeriodId: string; // Groups all renewals for same user/subscription
+  isRenewal: boolean; // true if this is a renewal, false if original
+  previousSubscriptionId?: mongoose.Types.ObjectId; // Links to previous period
+  renewalNumber: number; // 1 for original, 2 for first renewal, etc.
   notificationsSent: {
     twoDaysBefore: boolean;
     onDueDate: boolean;
@@ -145,6 +150,26 @@ const subscriptionSchema = new Schema<ISubscription>({
   },
   notes: {
     type: String
+  },
+  // Renewal tracking fields
+  subscriptionPeriodId: {
+    type: String,
+    required: true,
+    index: true
+  },
+  isRenewal: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  previousSubscriptionId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Subscription'
+  },
+  renewalNumber: {
+    type: Number,
+    default: 1,
+    index: true
   },
   notificationsSent: {
     twoDaysBefore: {

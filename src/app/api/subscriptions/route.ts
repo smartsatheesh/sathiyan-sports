@@ -94,6 +94,9 @@ export async function POST(request: NextRequest) {
     const endDate = new Date(startDate);
     endDate.setMonth(endDate.getMonth() + durationMap[subscriptionType]);
 
+    // Generate unique subscription period ID (for grouping renewals)
+    const subscriptionPeriodId = `${user.champId}_${Date.now()}`;
+
     // Create subscription entry
     const subscription = await (Subscription.create as any)({
       userId: user._id,
@@ -118,6 +121,10 @@ export async function POST(request: NextRequest) {
       selectedCourt: user.selectedCourt,
       notes,
       autoRenewal: false,
+      // Renewal tracking fields
+      subscriptionPeriodId,
+      isRenewal: false,
+      renewalNumber: 1,
       createdBy: user._id
     });
 
