@@ -153,7 +153,7 @@ export async function POST() {
         matchCode: matchData.matchCode,
         status: "scheduled",
         scheduledTime: new Date(Date.now() + Math.random() * 7 * 24 * 60 * 60 * 1000), // Random time in next week
-        venue: "Court " + Math.ceil(Math.random() * 4),
+        venue: "S" + Math.ceil(Math.random() * 3),
         round: "Group Stage"
       });
       

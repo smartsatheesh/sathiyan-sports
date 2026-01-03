@@ -1460,10 +1460,9 @@ const AdminSubscriptionsPage = () => {
                         selectedCourt: e.target.value
                       })}
                     >
-                      <MenuItem value="Court 1">Court 1</MenuItem>
-                      <MenuItem value="Court 2">Court 2</MenuItem>
-                      <MenuItem value="Court 3">Court 3</MenuItem>
-                      <MenuItem value="Court 4">Court 4</MenuItem>
+                      <MenuItem value="S1">S1</MenuItem>
+                      <MenuItem value="S2">S2</MenuItem>
+                      <MenuItem value="S3">S3</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>

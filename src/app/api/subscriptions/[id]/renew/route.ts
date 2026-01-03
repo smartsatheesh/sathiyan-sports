@@ -22,6 +22,24 @@ export async function POST(
       return NextResponse.json({ error: 'Subscription not found' }, { status: 404 });
     }
 
+    // Ensure required fields exist for legacy subscriptions
+    if (!currentSubscription.subscriptionPeriodId) {
+      currentSubscription.subscriptionPeriodId = `${currentSubscription.champId}_${currentSubscription._id}`;
+      await currentSubscription.save();
+    }
+    
+    if (!currentSubscription.isRenewal) {
+      currentSubscription.isRenewal = false;
+    }
+    
+    if (!currentSubscription.renewalNumber) {
+      currentSubscription.renewalNumber = 1;
+    }
+    
+    if (!currentSubscription.createdBy && currentSubscription.userId) {
+      currentSubscription.createdBy = currentSubscription.userId;
+    }
+
     const {
       paymentStatus = 'Paid',
       paymentMethod,

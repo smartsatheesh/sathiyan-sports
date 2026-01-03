@@ -35,6 +35,34 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       );
     }
 
+    // Ensure subscriptionPeriodId exists for legacy subscriptions
+    if (!subscription.subscriptionPeriodId) {
+      subscription.subscriptionPeriodId = `${subscription.champId}_${subscription._id}`;
+    }
+
+    // Ensure other required fields exist for legacy subscriptions
+    if (!subscription.isRenewal) {
+      subscription.isRenewal = false;
+    }
+    
+    if (!subscription.renewalNumber) {
+      subscription.renewalNumber = 1;
+    }
+    
+    if (!subscription.createdBy && subscription.userId) {
+      subscription.createdBy = subscription.userId;
+    }
+
+    // Ensure nextDueDate exists if missing
+    if (!subscription.nextDueDate && subscription.endDate) {
+      subscription.nextDueDate = subscription.endDate;
+    } else if (!subscription.nextDueDate) {
+      // Default to 30 days from now if both are missing
+      const nextMonth = new Date();
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      subscription.nextDueDate = nextMonth;
+    }
+
     // Update fields
     if (paymentStatus) subscription.paymentStatus = paymentStatus;
     if (status) subscription.status = status;
