@@ -222,7 +222,7 @@ const User = mongoose.models.User || mongoose.model("User", userSchema);
 export async function generateNextChampId(): Promise<string> {
   try {
     const lastUser = await (User as any).findOne(
-      { champId: { $regex: /^S259\d+$/ } },
+      { champId: { $regex: /^S\d+$/ } },
       {},
       { sort: { champId: -1 } }
     );
