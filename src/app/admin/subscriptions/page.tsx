@@ -45,6 +45,7 @@ import {
   GetApp,
   HealthAndSafety,
   TrendingUp,
+  TrendingDown,
   People,
   CheckCircle,
   Cancel,
@@ -154,6 +155,7 @@ const AdminSubscriptionsPage = () => {
   const [subscribedDateTo, setSubscribedDateTo] = useState<string>('');
   const [dueDateFrom, setDueDateFrom] = useState<string>('');
   const [dueDateTo, setDueDateTo] = useState<string>('');
+  const [preferredSportFilter, setPreferredSportFilter] = useState<string>('all');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [sortBy, setSortBy] = useState<keyof Subscription>('createdAt');
@@ -186,7 +188,7 @@ const AdminSubscriptionsPage = () => {
   // Reset page to 0 when filters change to avoid pagination errors
   useEffect(() => {
     setPage(0);
-  }, [filterStatus, searchTerm, subscribedDateFrom, subscribedDateTo, dueDateFrom, dueDateTo]);
+  }, [filterStatus, searchTerm, subscribedDateFrom, subscribedDateTo, dueDateFrom, dueDateTo, preferredSportFilter]);
 
   const fetchSubscriptions = async () => {
     setLoading(true);
@@ -525,6 +527,13 @@ const AdminSubscriptionsPage = () => {
         (subscription.userId?.email?.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (subscription.userId?.champId?.toLowerCase().includes(searchTerm.toLowerCase()));
       
+      // Preferred sport filtering
+      const matchesSport = preferredSportFilter === 'all' || 
+        subscription.preferredSport === preferredSportFilter ||
+        (preferredSportFilter === 'Other' && !subscription.preferredSport) ||
+        (preferredSportFilter === 'Other' && subscription.preferredSport && 
+         !['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events'].includes(subscription.preferredSport));
+      
       // Subscribed date range filtering (startDate)
       let matchesDateRange = true;
       if (subscribedDateFrom) {
@@ -550,7 +559,7 @@ const AdminSubscriptionsPage = () => {
         matchesDateRange = matchesDateRange && subNextDue <= filterDate;
       }
       
-      return matchesStatus && matchesSearch && matchesDateRange;
+      return matchesStatus && matchesSearch && matchesSport && matchesDateRange;
     });
 
     // Sort subscriptions
@@ -570,7 +579,7 @@ const AdminSubscriptionsPage = () => {
     });
 
     return filtered;
-  }, [subscriptions, filterStatus, searchTerm, subscribedDateFrom, subscribedDateTo, dueDateFrom, dueDateTo, sortBy, sortOrder]);
+  }, [subscriptions, filterStatus, searchTerm, subscribedDateFrom, subscribedDateTo, dueDateFrom, dueDateTo, preferredSportFilter, sortBy, sortOrder]);
 
   // Dynamic stats calculation based on filtered data
   const dynamicStats = useMemo(() => {
@@ -814,20 +823,147 @@ const AdminSubscriptionsPage = () => {
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ background: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)' }}>
-              <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography color="textSecondary" gutterBottom variant="body2">
-                    Collection Rate (Filtered)
+            <Card sx={{ background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)' }}>
+              <CardContent>
+                <Typography color="textSecondary" gutterBottom variant="body2">
+                  3-Month Revenue Growth
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <Typography variant="h4" component="h2" color="primary.main">
+                    {(() => {
+                      const threeMonthsAgo = new Date();
+                      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+                      const twoMonthsAgo = new Date();
+                      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+                      const lastMonth = new Date();
+                      lastMonth.setMonth(lastMonth.getMonth() - 1);
+                      const thisMonth = new Date();
+                      
+                      const filtered = filteredAndSortedSubscriptions.filter(sub => {
+                        if (preferredSportFilter !== 'all') {
+                          const matchesSport = sub.preferredSport === preferredSportFilter ||
+                            (preferredSportFilter === 'Other' && !sub.preferredSport) ||
+                            (preferredSportFilter === 'Other' && sub.preferredSport && 
+                             !['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events'].includes(sub.preferredSport));
+                          if (!matchesSport) return false;
+                        }
+                        return true;
+                      });
+                      
+                      const getMonthRevenue = (month: Date) => {
+                        const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
+                        const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+                        return filtered
+                          .filter(sub => {
+                            const subDate = new Date(sub.createdAt);
+                            return subDate >= monthStart && subDate <= monthEnd && sub.paymentStatus === 'Paid';
+                          })
+                          .reduce((sum, sub) => sum + (sub.amount || 0), 0);
+                      };
+                      
+                      const lastMonthRevenue = getMonthRevenue(lastMonth);
+                      const twoMonthsRevenue = getMonthRevenue(twoMonthsAgo);
+                      const growthRate = twoMonthsRevenue > 0 ? ((lastMonthRevenue - twoMonthsRevenue) / twoMonthsRevenue * 100) : 0;
+                      return (growthRate >= 0 ? '+' : '') + growthRate.toFixed(1) + '%';
+                    })()} 
                   </Typography>
-                  <Typography variant="h4" component="h2" color="warning.main">
-                    {dynamicStats.collectionRate}
-                  </Typography>
-                  <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem' }}>
-                    (Paid / Total)
-                  </Typography>
+                  {(() => {
+                    const threeMonthsAgo = new Date();
+                    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+                    const twoMonthsAgo = new Date();
+                    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+                    const lastMonth = new Date();
+                    lastMonth.setMonth(lastMonth.getMonth() - 1);
+                    
+                    const filtered = filteredAndSortedSubscriptions.filter(sub => {
+                      if (preferredSportFilter !== 'all') {
+                        const matchesSport = sub.preferredSport === preferredSportFilter ||
+                          (preferredSportFilter === 'Other' && !sub.preferredSport) ||
+                          (preferredSportFilter === 'Other' && sub.preferredSport && 
+                           !['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events'].includes(sub.preferredSport));
+                        if (!matchesSport) return false;
+                      }
+                      return true;
+                    });
+                    
+                    const getMonthRevenue = (month: Date) => {
+                      const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
+                      const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+                      return filtered
+                        .filter(sub => {
+                          const subDate = new Date(sub.createdAt);
+                          return subDate >= monthStart && subDate <= monthEnd && sub.paymentStatus === 'Paid';
+                        })
+                        .reduce((sum, sub) => sum + (sub.amount || 0), 0);
+                    };
+                    
+                    const lastMonthRevenue = getMonthRevenue(lastMonth);
+                    const twoMonthsRevenue = getMonthRevenue(twoMonthsAgo);
+                    const growthRate = twoMonthsRevenue > 0 ? ((lastMonthRevenue - twoMonthsRevenue) / twoMonthsRevenue * 100) : 0;
+                    return growthRate >= 0 ? 
+                      <TrendingUp color="success" sx={{ fontSize: 30 }} /> : 
+                      <TrendingDown color="error" sx={{ fontSize: 30 }} />;
+                  })()} 
                 </Box>
-                <Warning color="warning" sx={{ fontSize: 40 }} />
+                <Typography variant="caption" color="textSecondary">
+                  {preferredSportFilter === 'all' ? 'All Sports' : preferredSportFilter} vs Previous Month
+                </Typography>
+                
+                {/* Simple bar chart representation */}
+                <Box sx={{ mt: 2, display: 'flex', alignItems: 'end', gap: 0.5, height: 40 }}>
+                  {(() => {
+                    const months = ['3mo ago', '2mo ago', 'Last mo'];
+                    const threeMonthsAgo = new Date(); threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+                    const twoMonthsAgo = new Date(); twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+                    const lastMonth = new Date(); lastMonth.setMonth(lastMonth.getMonth() - 1);
+                    
+                    const filtered = filteredAndSortedSubscriptions.filter(sub => {
+                      if (preferredSportFilter !== 'all') {
+                        const matchesSport = sub.preferredSport === preferredSportFilter ||
+                          (preferredSportFilter === 'Other' && !sub.preferredSport) ||
+                          (preferredSportFilter === 'Other' && sub.preferredSport && 
+                           !['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events'].includes(sub.preferredSport));
+                        if (!matchesSport) return false;
+                      }
+                      return true;
+                    });
+                    
+                    const getMonthRevenue = (month: Date) => {
+                      const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
+                      const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+                      return filtered
+                        .filter(sub => {
+                          const subDate = new Date(sub.createdAt);
+                          return subDate >= monthStart && subDate <= monthEnd && sub.paymentStatus === 'Paid';
+                        })
+                        .reduce((sum, sub) => sum + (sub.amount || 0), 0);
+                    };
+                    
+                    const revenues = [
+                      getMonthRevenue(threeMonthsAgo),
+                      getMonthRevenue(twoMonthsAgo), 
+                      getMonthRevenue(lastMonth)
+                    ];
+                    const maxRevenue = Math.max(...revenues, 1);
+                    
+                    return revenues.map((revenue, index) => {
+                      const height = (revenue / maxRevenue) * 30 + 5;
+                      return (
+                        <Tooltip key={index} title={`${months[index]}: ${formatCurrency(revenue)}`}>
+                          <Box
+                            sx={{
+                              width: 20,
+                              height: `${height}px`,
+                              backgroundColor: index === 2 ? 'primary.main' : 'primary.light',
+                              borderRadius: 1,
+                              cursor: 'pointer'
+                            }}
+                          />
+                        </Tooltip>
+                      );
+                    });
+                  })()} 
+                </Box>
               </CardContent>
             </Card>
           </Grid>
@@ -881,17 +1017,72 @@ const AdminSubscriptionsPage = () => {
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ background: 'linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%)' }}>
-              <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography color="textSecondary" gutterBottom variant="body2">
-                    Filtered Collection Rate
-                  </Typography>
-                  <Typography variant="h5" component="h2" color="info.main">
-                    {dynamicStats.collectionRate}
-                  </Typography>
-                </Box>
-                <Assessment color="info" sx={{ fontSize: 40 }} />
+            <Card sx={{ background: 'linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)' }}>
+              <CardContent>
+                <Typography color="textSecondary" gutterBottom variant="body2">
+                  Sport Revenue Insights
+                </Typography>
+                {(() => {
+                  const sportRevenues: Record<string, number> = {};
+                  const sports = ['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events'];
+                  
+                  sports.forEach(sport => {
+                    sportRevenues[sport] = filteredAndSortedSubscriptions
+                      .filter(sub => sub.preferredSport === sport && sub.paymentStatus === 'Paid')
+                      .reduce((sum, sub) => sum + (sub.amount || 0), 0);
+                  });
+                  
+                  const otherRevenue = filteredAndSortedSubscriptions
+                    .filter(sub => !sports.includes(sub.preferredSport) && sub.paymentStatus === 'Paid')
+                    .reduce((sum, sub) => sum + (sub.amount || 0), 0);
+                  
+                  if (otherRevenue > 0) sportRevenues['Other'] = otherRevenue;
+                  
+                  const topSport = Object.entries(sportRevenues)
+                    .sort(([,a], [,b]) => (b as number) - (a as number))[0];
+                  
+                  if (!topSport) return (
+                    <Box>
+                      <Typography variant="h6" component="h2">
+                        No Data
+                      </Typography>
+                      <Typography variant="caption" color="textSecondary">
+                        No revenue data available
+                      </Typography>
+                    </Box>
+                  );
+                  
+                  return (
+                    <Box>
+                      <Typography variant="h6" component="h2" color="secondary.main">
+                        {topSport[0]}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        Top Revenue: {formatCurrency(topSport[1])}
+                      </Typography>
+                      <Box sx={{ mt: 1 }}>
+                        {Object.entries(sportRevenues).slice(0, 3).map(([sport, revenue], index) => {
+                          const percentage = topSport[1] > 0 ? ((revenue / topSport[1]) * 100) : 0;
+                          return (
+                            <Box key={sport} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                              <Box
+                                sx={{
+                                  width: `${Math.max(percentage, 5)}%`,
+                                  height: 4,
+                                  backgroundColor: index === 0 ? 'secondary.main' : index === 1 ? 'secondary.light' : 'grey.400',
+                                  borderRadius: 1
+                                }}
+                              />
+                              <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
+                                {sport}: {formatCurrency(revenue)}
+                              </Typography>
+                            </Box>
+                          );
+                        })}
+                      </Box>
+                    </Box>
+                  );
+                })()}
               </CardContent>
             </Card>
           </Grid>
@@ -920,6 +1111,22 @@ const AdminSubscriptionsPage = () => {
               <MenuItem value="pending">Pending</MenuItem>
               <MenuItem value="overdue">Overdue</MenuItem>
               <MenuItem value="cancelled">Cancelled</MenuItem>
+            </Select>
+          </FormControl>
+          
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Sport Filter</InputLabel>
+            <Select
+              value={preferredSportFilter}
+              label="Sport Filter"
+              onChange={(e) => setPreferredSportFilter(e.target.value)}
+            >
+              <MenuItem value="all">All Sports</MenuItem>
+              <MenuItem value="Cricket">Cricket</MenuItem>
+              <MenuItem value="Football">Football</MenuItem>
+              <MenuItem value="Shuttle Badminton">Shuttle Badminton</MenuItem>
+              <MenuItem value="Functions and Events">Functions and Events</MenuItem>
+              <MenuItem value="Other">Other</MenuItem>
             </Select>
           </FormControl>
           
@@ -986,6 +1193,22 @@ const AdminSubscriptionsPage = () => {
               Clear Dates
             </Button>
           )}
+          
+          {(filterStatus !== 'all' || preferredSportFilter !== 'all' || searchTerm) && (
+            <Button
+              size="small"
+              variant="outlined"
+              color="secondary"
+              onClick={() => {
+                setFilterStatus('all');
+                setPreferredSportFilter('all');
+                setSearchTerm('');
+              }}
+              sx={{ minHeight: 40 }}
+            >
+              Clear Filters
+            </Button>
+          )}
         </Box>
 
         {/* Subscriptions Table */}
@@ -998,11 +1221,10 @@ const AdminSubscriptionsPage = () => {
                 <SortableHeader column="mode">Mode</SortableHeader>
                 <SortableHeader column="amount">Amount</SortableHeader>
                 <SortableHeader column="paymentStatus">Status</SortableHeader>
-                <TableCell>Payment Method</TableCell>
                 <SortableHeader column="startDate">Subscribed Date</SortableHeader>
                 <SortableHeader column="endDate">Next Due Date</SortableHeader>
                 <TableCell>Auto Renewal</TableCell>
-                <TableCell>Audit Trail</TableCell>
+                <TableCell>Comment</TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -1064,9 +1286,6 @@ const AdminSubscriptionsPage = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    {subscription.paymentMethod || '-'}
-                  </TableCell>
-                  <TableCell>
                     {formatSafeDate(subscription.startDate)}
                   </TableCell>
                   <TableCell>
@@ -1080,23 +1299,9 @@ const AdminSubscriptionsPage = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    <div>
-                      <Typography variant="caption" color="textSecondary">
-                        Created by: {subscription.createdBy?.name || 'Unknown'}
-                      </Typography>
-                      <br />
-                      <Typography variant="caption" color="textSecondary">
-                        {formatSafeDate(subscription.createdAt, 'dd/MM/yyyy HH:mm')}
-                      </Typography>
-                      {subscription.updatedBy && (
-                        <>
-                          <br />
-                          <Typography variant="caption" color="primary">
-                            Updated by: {subscription.updatedBy.name}
-                          </Typography>
-                        </>
-                      )}
-                    </div>
+                    <Typography variant="body2" sx={{ maxWidth: 200, wordWrap: 'break-word' }}>
+                      {subscription.notes || '-'}
+                    </Typography>
                   </TableCell>
                   <TableCell>
                     <Box display="flex" gap={0.5}>
@@ -1192,24 +1397,19 @@ const AdminSubscriptionsPage = () => {
                     </FormControl>
                   </Grid>
                   
-                  <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth>
-                      <InputLabel>Payment Method</InputLabel>
-                      <Select
-                        value={selectedSubscription.paymentMethod || ''}
-                        label="Payment Method"
-                        onChange={(e) => setSelectedSubscription({
-                          ...selectedSubscription,
-                          paymentMethod: e.target.value
-                        })}
-                      >
-                        <MenuItem value="">None</MenuItem>
-                        <MenuItem value="PhonePe">PhonePe</MenuItem>
-                        <MenuItem value="GPay">GPay</MenuItem>
-                        <MenuItem value="WhatsApp">WhatsApp</MenuItem>
-                        <MenuItem value="Cash">Cash</MenuItem>
-                      </Select>
-                    </FormControl>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Comment"
+                      multiline
+                      rows={3}
+                      value={selectedSubscription.notes || ''}
+                      onChange={(e) => setSelectedSubscription({
+                        ...selectedSubscription,
+                        notes: e.target.value
+                      })}
+                      placeholder="Add any comments or notes about this subscription..."
+                    />
                   </Grid>
                   
                   <Grid item xs={12} sm={6}>

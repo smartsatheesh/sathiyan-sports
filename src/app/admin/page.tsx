@@ -293,6 +293,7 @@ export default function AdminDashboard() {
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [champTypeFilter, setChampTypeFilter] = useState('all');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
+  const [preferredSportFilter, setPreferredSportFilter] = useState('all');
   
   // User pagination states
   const [userPage, setUserPage] = useState(0);
@@ -391,8 +392,13 @@ export default function AdminDashboard() {
         
       const matchesChampType = champTypeFilter === 'all' || user.champType === champTypeFilter;
       const matchesPaymentStatus = paymentStatusFilter === 'all' || user.paymentStatus === paymentStatusFilter;
+      const matchesSport = preferredSportFilter === 'all' || 
+        user.preferredSport === preferredSportFilter ||
+        (preferredSportFilter === 'Other' && !user.preferredSport) ||
+        (preferredSportFilter === 'Other' && user.preferredSport && 
+         !['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events'].includes(user.preferredSport));
       
-      return matchesSearch && matchesChampType && matchesPaymentStatus;
+      return matchesSearch && matchesChampType && matchesPaymentStatus && matchesSport;
     });
 
     // Then, sort the filtered users
@@ -420,7 +426,7 @@ export default function AdminDashboard() {
     }
 
     return filtered;
-  }, [users, userSearchTerm, champTypeFilter, paymentStatusFilter, sortConfig]);
+  }, [users, userSearchTerm, champTypeFilter, paymentStatusFilter, preferredSportFilter, sortConfig]);
   
   // Apply pagination to filtered users with useMemo
   const paginatedUsers = React.useMemo(() => {
@@ -506,7 +512,7 @@ export default function AdminDashboard() {
   // Reset user page when filters change to avoid pagination errors
   useEffect(() => {
     setUserPage(0);
-  }, [userSearchTerm, champTypeFilter, paymentStatusFilter]);
+  }, [userSearchTerm, champTypeFilter, paymentStatusFilter, preferredSportFilter]);
 
   // Auto-calculate subscription amount based on time-based pricing
   useEffect(() => {
@@ -1545,6 +1551,23 @@ export default function AdminDashboard() {
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={2}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Sport</InputLabel>
+                  <Select
+                    value={preferredSportFilter}
+                    label="Sport"
+                    onChange={(e) => setPreferredSportFilter(e.target.value)}
+                  >
+                    <MenuItem value="all">All Sports</MenuItem>
+                    <MenuItem value="Cricket">Cricket</MenuItem>
+                    <MenuItem value="Football">Football</MenuItem>
+                    <MenuItem value="Shuttle Badminton">Shuttle Badminton</MenuItem>
+                    <MenuItem value="Functions and Events">Functions and Events</MenuItem>
+                    <MenuItem value="Other">Other</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={2}>
                 <Button
                   fullWidth
                   variant="outlined"
@@ -1552,6 +1575,7 @@ export default function AdminDashboard() {
                     setUserSearchTerm('');
                     setChampTypeFilter('all');
                     setPaymentStatusFilter('all');
+                    setPreferredSportFilter('all');
                   }}
                   size="small"
                 >
