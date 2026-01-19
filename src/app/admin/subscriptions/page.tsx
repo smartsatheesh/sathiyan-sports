@@ -275,7 +275,16 @@ const AdminSubscriptionsPage = () => {
       if (!sub.nextDueDate) return false;
       const dueDate = new Date(sub.nextDueDate);
       dueDate.setHours(0, 0, 0, 0);
-      return today > dueDate;
+      
+      // A subscription is overdue if:
+      // 1. The due date has passed
+      // 2. The subscription is still active (not expired/cancelled)
+      const isPastDue = today > dueDate;
+      const isActive = (sub.status === 'active' || !sub.status) && 
+                      sub.status !== 'expired' && 
+                      sub.status !== 'cancelled';
+      
+      return isPastDue && isActive;
     }).length;
 
     // Enhanced calculations - Active vs Expired subscriptions  
@@ -513,7 +522,18 @@ const AdminSubscriptionsPage = () => {
           today.setHours(0, 0, 0, 0);
           const dueDate = new Date(subscription.nextDueDate);
           dueDate.setHours(0, 0, 0, 0);
-          matchesStatus = today > dueDate;
+          
+          // A subscription is overdue if:
+          // 1. The due date has passed
+          // 2. The subscription is still active (not expired/cancelled)
+          // Note: We don't check payment status because even "Paid" subscriptions
+          // become overdue when their period expires and need renewal
+          const isPastDue = today > dueDate;
+          const isActive = (subscription.status === 'active' || !subscription.status) && 
+                          subscription.status !== 'expired' && 
+                          subscription.status !== 'cancelled';
+          
+          matchesStatus = isPastDue && isActive;
         } else {
           matchesStatus = false;
         }
@@ -594,8 +614,20 @@ const AdminSubscriptionsPage = () => {
     const pendingSubscriptions = filtered.filter(s => s.paymentStatus === 'Pending').length;
     const overdueSubscriptions = filtered.filter(s => {
       if (s.nextDueDate) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         const dueDate = new Date(s.nextDueDate);
-        return today > dueDate;
+        dueDate.setHours(0, 0, 0, 0);
+        
+        // A subscription is overdue if:
+        // 1. The due date has passed
+        // 2. The subscription is still active (not expired/cancelled)
+        const isPastDue = today > dueDate;
+        const isActive = (s.status === 'active' || !s.status) && 
+                        s.status !== 'expired' && 
+                        s.status !== 'cancelled';
+        
+        return isPastDue && isActive;
       }
       return false;
     }).length;
