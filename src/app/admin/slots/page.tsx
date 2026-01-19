@@ -137,7 +137,9 @@ export default function SlotTrackingPage() {
 
   const fetchSlotData = async () => {
     setLoading(true);
+    setAlert(null); // Clear previous alerts
     try {
+      console.log('🔄 Refreshing slot data...');
       const response = await fetch('/api/admin/slots/analytics', {
         method: 'POST',
         headers: {
@@ -152,14 +154,17 @@ export default function SlotTrackingPage() {
 
       const data = await response.json();
       if (data.success) {
+        console.log(`✅ Successfully loaded ${data.slots?.length || 0} slots`);
         setSlotData(data.slots || []);
         calculateStats(data.slots || []);
+        setAlert({ type: 'success', message: `Slot data refreshed successfully. Found ${data.slots?.length || 0} active slots.` });
       } else {
+        console.error('❌ Failed to fetch slot data:', data.message);
         setAlert({ type: 'error', message: data.message || 'Failed to fetch slot data' });
       }
     } catch (error) {
-      console.error('Error fetching slot data:', error);
-      setAlert({ type: 'error', message: 'Failed to fetch slot data' });
+      console.error('❌ Error fetching slot data:', error);
+      setAlert({ type: 'error', message: 'Network error while fetching slot data. Please check your connection.' });
     } finally {
       setLoading(false);
     }
@@ -247,10 +252,18 @@ export default function SlotTrackingPage() {
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Dashboard color="primary" />
-          Slot Tracking Dashboard
-        </Typography>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Typography variant="h4" component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Dashboard color="primary" />
+            Slot Tracking Dashboard
+          </Typography>
+          <Chip 
+            label={`Last Updated: ${new Date().toLocaleTimeString()}`}
+            size="small" 
+            variant="outlined" 
+            color="info"
+          />
+        </Box>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           <Button
             variant="outlined"
@@ -260,11 +273,13 @@ export default function SlotTrackingPage() {
             Court Config
           </Button>
           <Button
-            variant="outlined"
-            startIcon={<Refresh />}
+            variant="contained"
+            startIcon={loading ? <CircularProgress size={16} /> : <Refresh />}
             onClick={fetchSlotData}
+            disabled={loading}
+            color="primary"
           >
-            Refresh
+            {loading ? 'Refreshing...' : 'Refresh Data'}
           </Button>
         </Box>
       </Box>

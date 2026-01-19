@@ -59,14 +59,14 @@ export async function POST(req: NextRequest) {
 
     console.log('🔍 Slot analytics request:', { viewType, date: selectedDate, activeCourts });
 
-    // Get all verified badminton users with preferred slots
+    // Get all verified badminton users with preferred time slots
     const users = await (User as any).find({
       status: "verified",
       paymentStatus: "completed",
       preferredSport: "Shuttle Badminton",
-      preferredTimeSlot: { $exists: true },
-      selectedCourt: { $exists: true }
-    }).select('name email mobile preferredTimeSlot selectedCourt preferredSport').lean();
+      preferredTimeSlot: { $exists: true, $ne: "" },
+      selectedCourt: { $exists: true, $ne: "" }
+    }).select('name email mobile preferredTimeSlot selectedCourt preferredSport subscriptionType subscriptionEndDate createdAt').lean();
 
     console.log(`📊 Found ${users.length} badminton users with preferred slots`);
 
@@ -77,20 +77,26 @@ export async function POST(req: NextRequest) {
     for (const court of activeCourts) {
       for (const timeSlot of TIME_SLOTS) {
         for (const dayOfWeek of DAYS_OF_WEEK) {
-          // Find users for this specific slot (simplified approach)
-          const slotUsers = users.filter(user => 
-            user.selectedCourt === court &&
-            user.preferredTimeSlot === timeSlot
-            // Note: dayOfWeek is not stored in user preferences in simplified model
-          ).map(user => {
-            return {
-              _id: user._id.toString(),
-              name: user.name,
-              email: user.email,
-              mobile: user.mobile,
-              registeredAt: new Date().toISOString(), // Use current date as fallback
-            };
-          });
+          // Find users who have registered for this specific court and time slot
+          // Note: Users register with preferredTimeSlot and selectedCourt (not an array)
+          const slotUsers = users.filter(user => {
+            // Check if user has subscription that's still valid
+            if (user.subscriptionEndDate && new Date(user.subscriptionEndDate) < selectedDate) {
+              return false;
+            }
+            
+            // Match user's preferred court and time slot
+            const userCourt = user.selectedCourt || 'S1';
+            const userTimeSlot = user.preferredTimeSlot;
+            
+            return userCourt === court && userTimeSlot === timeSlot;
+          }).map(user => ({
+            _id: user._id.toString(),
+            name: user.name,
+            email: user.email,
+            mobile: user.mobile,
+            registeredAt: user.createdAt?.toISOString() || new Date().toISOString(),
+          }));
 
           const capacity = DEFAULT_CAPACITY;
           const occupied = slotUsers.length;

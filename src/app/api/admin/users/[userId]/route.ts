@@ -427,38 +427,31 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
                                      updateData.preferredTimeSlot || currentUser.preferredTimeSlot
                                    );
 
-          // Set due date - if payment is pending, set to start of subscription
+          // Calculate next due date based on current date and subscription type
           let dueDate = updateData.nextDueDate || currentUser.nextDueDate;
-          if (!dueDate) {
+          if (!dueDate || isBecomingSubscribed) {
+            const startDate = new Date(); // Use current date as start
+            
             if (subscriptionPaymentStatus === 'Pending') {
-              // For pending payments, set due date to start date or today
-              dueDate = updateData.subscriptionStartDate || new Date();
+              // For pending payments, set due date to immediate (needs payment)
+              dueDate = startDate;
             } else {
-              // For completed payments, calculate next due date
-              const paymentDate = updateData.paymentCompletedDate || new Date();
+              // For completed payments, calculate next due date from today
               switch (subscriptionType) {
                 case 'monthly':
-                  dueDate = new Date(paymentDate.getFullYear(), paymentDate.getMonth() + 1, 1);
+                  dueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate());
                   break;
                 case 'quarterly':
-                  const currentQuarter = Math.floor(paymentDate.getMonth() / 3);
-                  const nextQuarterMonth = (currentQuarter + 1) * 3;
-                  dueDate = nextQuarterMonth >= 12 ? 
-                    new Date(paymentDate.getFullYear() + 1, 0, 1) : 
-                    new Date(paymentDate.getFullYear(), nextQuarterMonth, 1);
+                  dueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 3, startDate.getDate());
                   break;
                 case 'half yearly':
-                  const currentHalf = Math.floor(paymentDate.getMonth() / 6);
-                  const nextHalfMonth = (currentHalf + 1) * 6;
-                  dueDate = nextHalfMonth >= 12 ? 
-                    new Date(paymentDate.getFullYear() + 1, 0, 1) : 
-                    new Date(paymentDate.getFullYear(), nextHalfMonth, 1);
+                  dueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 6, startDate.getDate());
                   break;
                 case 'yearly':
-                  dueDate = new Date(paymentDate.getFullYear() + 1, paymentDate.getMonth(), 1);
+                  dueDate = new Date(startDate.getFullYear() + 1, startDate.getMonth(), startDate.getDate());
                   break;
                 default:
-                  dueDate = new Date(paymentDate.getFullYear(), paymentDate.getMonth() + 1, 1);
+                  dueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate());
               }
             }
           }
