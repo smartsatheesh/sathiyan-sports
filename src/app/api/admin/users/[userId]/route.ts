@@ -150,7 +150,7 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
         subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + duration);
       }
       
-      // Calculate next due date based on subscription type
+      // Calculate next due date based on subscription type - use LAST day of period
       const paymentDate = updateData.paymentCompletedDate || new Date();
       let nextDueDate: Date;
       
@@ -158,38 +158,28 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
       
       switch (subscriptionType) {
         case 'monthly':
-          // Next month, first day
-          nextDueDate = new Date(paymentDate.getFullYear(), paymentDate.getMonth() + 1, 1);
+          // Last day of current month
+          nextDueDate = new Date(paymentDate.getFullYear(), paymentDate.getMonth() + 1, 0);
           break;
         case 'quarterly':
-          // Next quarter, first day of the month
+          // Last day of current quarter
           const currentQuarter = Math.floor(paymentDate.getMonth() / 3);
-          const nextQuarterMonth = (currentQuarter + 1) * 3;
-          if (nextQuarterMonth >= 12) {
-            // Next year's first quarter
-            nextDueDate = new Date(paymentDate.getFullYear() + 1, 0, 1); // January 1st of next year
-          } else {
-            nextDueDate = new Date(paymentDate.getFullYear(), nextQuarterMonth, 1);
-          }
+          const lastMonthOfQuarter = (currentQuarter + 1) * 3;
+          nextDueDate = new Date(paymentDate.getFullYear(), lastMonthOfQuarter, 0);
           break;
         case 'half yearly':
-          // Next half year, first day of the month
+          // Last day of current half-year
           const currentHalf = Math.floor(paymentDate.getMonth() / 6);
-          const nextHalfMonth = (currentHalf + 1) * 6;
-          if (nextHalfMonth >= 12) {
-            // Next year's first half
-            nextDueDate = new Date(paymentDate.getFullYear() + 1, 0, 1); // January 1st of next year
-          } else {
-            nextDueDate = new Date(paymentDate.getFullYear(), nextHalfMonth, 1);
-          }
+          const lastMonthOfHalf = (currentHalf + 1) * 6;
+          nextDueDate = new Date(paymentDate.getFullYear(), lastMonthOfHalf, 0);
           break;
         case 'yearly':
-          // Next year, same month, first day
-          nextDueDate = new Date(paymentDate.getFullYear() + 1, paymentDate.getMonth(), 1);
+          // Last day of current year (December 31)
+          nextDueDate = new Date(paymentDate.getFullYear(), 11, 31);
           break;
         default:
-          // Default to monthly if no subscription type
-          nextDueDate = new Date(paymentDate.getFullYear(), paymentDate.getMonth() + 1, 1);
+          // Default to last day of current month if no subscription type
+          nextDueDate = new Date(paymentDate.getFullYear(), paymentDate.getMonth() + 1, 0);
       }
       
       console.log(`📅 Calculated due date for ${subscriptionType} subscription: ${nextDueDate.toDateString()}`);
@@ -304,6 +294,13 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
       updateData.gender !== currentUser.gender ||
       updateData.preferredTimeSlot !== currentUser.preferredTimeSlot;
 
+    // Check if subscription-related fields have changed (for existing subscriptions)
+    const subscriptionFieldsChanged = 
+      updateData.nextDueDate !== undefined ||
+      updateData.subscriptionStartDate !== undefined ||
+      updateData.subscriptionEndDate !== undefined ||
+      updateData.paymentCompletedDate !== undefined;
+
     // Create subscription entry when: payment completing, missing dates, becoming subscribed, or fixing missing entries
     // IMPORTANT: Always create subscription when user is marked as subscribed
     const shouldCreateSubscription = 
@@ -319,6 +316,13 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
       pricingFieldsChanged &&
       (currentUser.subscribed === 'Yes' || currentUser.subscribed === 'yes');
 
+    // Check if existing subscription needs general update (dates, etc.)
+    const shouldUpdateSubscription = 
+      !shouldDeleteSubscription && 
+      !shouldCreateSubscription && 
+      (subscriptionFieldsChanged || pricingFieldsChanged) &&
+      (currentUser.subscribed === 'Yes' || currentUser.subscribed === 'yes');
+
     console.log(`🔍 Subscription check for user ${currentUser.name}:`, {
       isBecomingSubscribed,
       isBecomingUnsubscribed,
@@ -327,6 +331,8 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
       shouldCreateSubscription,
       shouldDeleteSubscription,
       shouldUpdateSubscriptionAmount,
+      shouldUpdateSubscription,
+      subscriptionFieldsChanged,
       pricingFieldsChanged,
       currentSubscribed: currentUser.subscribed,
       updateSubscribed: updateData.subscribed,
@@ -428,30 +434,39 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
                                    );
 
           // Calculate next due date based on current date and subscription type
+          // RESPECT the user's manual input if provided
           let dueDate = updateData.nextDueDate || currentUser.nextDueDate;
-          if (!dueDate || isBecomingSubscribed) {
+          if (!dueDate) {
             const startDate = new Date(); // Use current date as start
             
             if (subscriptionPaymentStatus === 'Pending') {
               // For pending payments, set due date to immediate (needs payment)
               dueDate = startDate;
             } else {
-              // For completed payments, calculate next due date from today
+              // For completed payments, calculate next due date - use LAST day of period
               switch (subscriptionType) {
                 case 'monthly':
-                  dueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate());
+                  // Last day of current month
+                  dueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
                   break;
                 case 'quarterly':
-                  dueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 3, startDate.getDate());
+                  // Last day of current quarter
+                  const currentQuarter = Math.floor(startDate.getMonth() / 3);
+                  const lastMonthOfQuarter = (currentQuarter + 1) * 3;
+                  dueDate = new Date(startDate.getFullYear(), lastMonthOfQuarter, 0);
                   break;
                 case 'half yearly':
-                  dueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 6, startDate.getDate());
+                  // Last day of current half-year
+                  const currentHalf = Math.floor(startDate.getMonth() / 6);
+                  const lastMonthOfHalf = (currentHalf + 1) * 6;
+                  dueDate = new Date(startDate.getFullYear(), lastMonthOfHalf, 0);
                   break;
                 case 'yearly':
-                  dueDate = new Date(startDate.getFullYear() + 1, startDate.getMonth(), startDate.getDate());
+                  // Last day of current year (December 31)
+                  dueDate = new Date(startDate.getFullYear(), 11, 31);
                   break;
                 default:
-                  dueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate());
+                  dueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
               }
             }
           }
@@ -668,6 +683,84 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
         }
       } catch (amountUpdateError) {
         console.error(`⚠️ Failed to update subscription amount for ${user.name}:`, amountUpdateError);
+      }
+    }
+
+    // Handle subscription field updates (nextDueDate, dates, etc.) for existing subscriptions
+    if (shouldUpdateSubscription) {
+      try {
+        const existingSubscription = await (Subscription.findOne as any)({ 
+          userId: user._id 
+        });
+
+        if (existingSubscription) {
+          console.log(`📝 Updating subscription fields for ${user.name}...`);
+          
+          // Prepare update object with only changed fields
+          const subscriptionUpdate: any = {
+            updatedAt: new Date()
+          };
+
+          // Update dates if provided
+          if (updateData.nextDueDate !== undefined) {
+            subscriptionUpdate.nextDueDate = updateData.nextDueDate;
+            console.log(`  - nextDueDate: ${existingSubscription.nextDueDate} → ${updateData.nextDueDate}`);
+          }
+          
+          if (updateData.subscriptionStartDate !== undefined) {
+            subscriptionUpdate.startDate = updateData.subscriptionStartDate;
+            console.log(`  - startDate: ${existingSubscription.startDate} → ${updateData.subscriptionStartDate}`);
+          }
+          
+          if (updateData.subscriptionEndDate !== undefined) {
+            subscriptionUpdate.endDate = updateData.subscriptionEndDate;
+            console.log(`  - endDate: ${existingSubscription.endDate} → ${updateData.subscriptionEndDate}`);
+          }
+
+          if (updateData.paymentCompletedDate !== undefined) {
+            subscriptionUpdate.lastPaidDate = updateData.paymentCompletedDate;
+            console.log(`  - lastPaidDate: ${existingSubscription.lastPaidDate} → ${updateData.paymentCompletedDate}`);
+          }
+
+          // Update user details if changed
+          if (updateData.name) subscriptionUpdate.userName = updateData.name;
+          if (updateData.email) subscriptionUpdate.userEmail = updateData.email;
+          if (updateData.mobile) subscriptionUpdate.userMobile = updateData.mobile;
+          if (updateData.champId) subscriptionUpdate.champId = updateData.champId;
+          if (updateData.preferredSport) subscriptionUpdate.preferredSport = updateData.preferredSport;
+          if (updateData.preferredTimeSlot) subscriptionUpdate.preferredTimeSlot = updateData.preferredTimeSlot;
+          if (updateData.selectedCourt) subscriptionUpdate.selectedCourt = updateData.selectedCourt;
+          if (updateData.subscriptionType) subscriptionUpdate.subscriptionType = updateData.subscriptionType;
+
+          // Recalculate overdue status if nextDueDate changed
+          if (updateData.nextDueDate !== undefined) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const dueDateObj = new Date(updateData.nextDueDate);
+            dueDateObj.setHours(0, 0, 0, 0);
+            
+            const diffTime = today.getTime() - dueDateObj.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const gracePeriod = user.gracePeriodDays || existingSubscription.gracePeriod || 7;
+            
+            const paymentStatus = existingSubscription.paymentStatus || 'Pending';
+            const isOverdue = diffDays > 0 && paymentStatus !== 'Paid';
+            const isPastGrace = diffDays > gracePeriod && paymentStatus !== 'Paid';
+            const daysPastDue = Math.max(diffDays, 0);
+
+            subscriptionUpdate.isOverdue = isOverdue;
+            subscriptionUpdate.isPastGrace = isPastGrace;
+            subscriptionUpdate.daysPastDue = daysPastDue;
+            subscriptionUpdate.gracePeriod = gracePeriod;
+          }
+
+          await (Subscription.findByIdAndUpdate as any)(existingSubscription._id, subscriptionUpdate);
+          console.log(`✅ SUBSCRIPTION UPDATED: ${user.name} subscription ${existingSubscription._id} updated with new field values`);
+        } else {
+          console.log(`ℹ️ No subscription found for ${user.name} to update`);
+        }
+      } catch (subscriptionUpdateError) {
+        console.error(`⚠️ Failed to update subscription fields for ${user.name}:`, subscriptionUpdateError);
       }
     }
 

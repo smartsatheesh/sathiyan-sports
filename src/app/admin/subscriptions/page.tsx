@@ -449,19 +449,26 @@ const AdminSubscriptionsPage = () => {
   const openRenewDialog = (subscription: Subscription) => {
     setSelectedSubscription(subscription);
     
-    // Calculate next period dates
+    // Calculate next period dates - start from the day after current period ends
     const currentEndDate = new Date(subscription.endDate);
     const nextStartDate = new Date(currentEndDate);
     nextStartDate.setDate(nextStartDate.getDate() + 1);
     
-    const nextEndDate = new Date(nextStartDate);
-    const durationMap = {
+    // Calculate next end date as LAST day of the period
+    const durationMap: { [key: string]: number } = {
       'monthly': 1,
       'quarterly': 3,
       'half yearly': 6,
       'yearly': 12
     };
-    nextEndDate.setMonth(nextEndDate.getMonth() + durationMap[subscription.subscriptionType]);
+    
+    const monthsToAdd = durationMap[subscription.subscriptionType] || 1;
+    
+    // Calculate last day of the period
+    // For monthly: last day of the month that starts from nextStartDate
+    // Using day 0 of next month gives us last day of current month
+    const targetMonth = nextStartDate.getMonth() + monthsToAdd;
+    const nextEndDate = new Date(nextStartDate.getFullYear(), targetMonth, 0);
     
     setRenewalData({
       amount: subscription.amount,
@@ -1651,15 +1658,16 @@ const AdminSubscriptionsPage = () => {
               
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
-                  <InputLabel>Payment Method</InputLabel>
+                  <InputLabel>Payment Method (Optional)</InputLabel>
                   <Select
                     value={renewalData.paymentMethod}
-                    label="Payment Method"
+                    label="Payment Method (Optional)"
                     onChange={(e) => setRenewalData({
                       ...renewalData,
                       paymentMethod: e.target.value
                     })}
                   >
+                    <MenuItem value=""><em>Not Specified</em></MenuItem>
                     <MenuItem value="PhonePe">PhonePe</MenuItem>
                     <MenuItem value="GPay">GPay</MenuItem>
                     <MenuItem value="WhatsApp">WhatsApp</MenuItem>

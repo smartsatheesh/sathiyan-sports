@@ -278,7 +278,7 @@ const SubscriptionPage = () => {
       user.subscriptionType === 'yearly'
     ).length;
     
-    // Revenue calculations
+    // Revenue calculations - ONLY count paid subscriptions
     const totalRevenue = userList.reduce((total, user) => {
       if (user.paymentStatus === 'paid' || user.paymentStatus === 'Paid') {
         const amount = user.subscriptionPrice || user.amount || 
@@ -289,12 +289,15 @@ const SubscriptionPage = () => {
       return total;
     }, 0);
     
-    // This month's payments (simplified - last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Current month's payments - filter by subscription startDate for accurate monthly revenue
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
     const paidThisMonth = userList.filter(user => {
-      if (user.paymentDate && (user.paymentStatus === 'paid' || user.paymentStatus === 'Paid')) {
-        return new Date(user.paymentDate) > thirtyDaysAgo;
+      // Only count paid subscriptions where the subscription started this month
+      if ((user.paymentStatus === 'paid' || user.paymentStatus === 'Paid') && user.createdAt) {
+        const subscriptionDate = new Date(user.createdAt);
+        return subscriptionDate >= currentMonthStart && subscriptionDate <= currentMonthEnd;
       }
       return false;
     }).reduce((total, user) => {

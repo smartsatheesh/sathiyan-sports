@@ -103,7 +103,7 @@ export async function POST(req: Request) {
       subscriptionAmount: body.subscriptionAmount,
       subscriptionEndDate: body.subscriptionEndDate,
       status: "registered", // Set to registered status immediately
-      paymentStatus: "pending", // Will be updated after payment
+      paymentStatus: body.subscribed === 'yes' ? "completed" : "pending", // Auto-complete payment when subscribed=yes
       role: body.role || "customer", // Default to customer role
       provider: "credentials", // Indicates this is a custom registration
       isEmailVerified: false,
@@ -132,31 +132,32 @@ export async function POST(req: Request) {
         const endDate = new Date(startDate);
         endDate.setMonth(endDate.getMonth() + duration);
 
-        // Calculate next due date
+        // Calculate next due date - should be LAST day of the period (not first day of next period)
         let nextDueDate;
         switch (body.subscriptionType) {
           case 'monthly':
-            nextDueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 1);
+            // Last day of current month
+            nextDueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
             break;
           case 'quarterly':
+            // Last day of current quarter
             const currentQuarter = Math.floor(startDate.getMonth() / 3);
-            const nextQuarterMonth = (currentQuarter + 1) * 3;
-            nextDueDate = nextQuarterMonth >= 12 ? 
-              new Date(startDate.getFullYear() + 1, 0, 1) : 
-              new Date(startDate.getFullYear(), nextQuarterMonth, 1);
+            const lastMonthOfQuarter = (currentQuarter + 1) * 3;
+            nextDueDate = new Date(startDate.getFullYear(), lastMonthOfQuarter, 0);
             break;
           case 'half yearly':
+            // Last day of current half-year
             const currentHalf = Math.floor(startDate.getMonth() / 6);
-            const nextHalfMonth = (currentHalf + 1) * 6;
-            nextDueDate = nextHalfMonth >= 12 ? 
-              new Date(startDate.getFullYear() + 1, 0, 1) : 
-              new Date(startDate.getFullYear(), nextHalfMonth, 1);
+            const lastMonthOfHalf = (currentHalf + 1) * 6;
+            nextDueDate = new Date(startDate.getFullYear(), lastMonthOfHalf, 0);
             break;
           case 'yearly':
-            nextDueDate = new Date(startDate.getFullYear() + 1, startDate.getMonth(), 1);
+            // Last day of current year (December 31)
+            nextDueDate = new Date(startDate.getFullYear(), 11, 31);
             break;
           default:
-            nextDueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 1);
+            // Last day of current month
+            nextDueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
         }
 
         // Determine payment status - for new registrations, it's typically pending
