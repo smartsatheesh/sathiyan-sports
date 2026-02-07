@@ -215,7 +215,7 @@ export class SubscriptionNotificationService {
   private static generateWhatsAppMessage(data: NotificationData): string {
     const { userName, subscriptionType, amount, dueDate, type } = data;
     const formattedAmount = `₹${amount.toLocaleString('en-IN')}`;
-    const formattedDate = dueDate.toLocaleDateString('en-IN');
+    const formattedDate = dueDate.toLocaleDateString('en-GB');
 
     switch (type) {
       case 'two_days_before':
@@ -292,7 +292,7 @@ Contact us if you need assistance: ${process.env.SUPPORT_PHONE || '+91-XXXXXXXXX
   private static generateEmailContent(data: NotificationData): string {
     const { userName, subscriptionType, amount, dueDate, type } = data;
     const formattedAmount = `₹${amount.toLocaleString('en-IN')}`;
-    const formattedDate = dueDate.toLocaleDateString('en-IN');
+    const formattedDate = dueDate.toLocaleDateString('en-GB');
     const renewalUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/subscription`;
 
     const baseStyles = `

@@ -424,7 +424,7 @@ const BillingCycleAdmin: React.FC = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+    return new Date(dateString).toLocaleDateString('en-GB');
   };
 
   const getDaysUntilBilling = (nextBillingDate: string) => {
@@ -854,7 +854,7 @@ const BillingCycleAdmin: React.FC = () => {
                           <Box>
                             <Typography variant="subtitle2">User {item}</Typography>
                             <Typography variant="caption" color="text.secondary">
-                              Due: {new Date(Date.now() + item * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                              Due: {new Date(Date.now() + item * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB')}
                             </Typography>
                           </Box>
                           <Chip label="7 days" size="small" color="warning" />

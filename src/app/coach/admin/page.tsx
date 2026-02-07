@@ -315,7 +315,7 @@ const CoachAdminPage = () => {
                             </span>
                           </td>
                           <td style={{ padding: '1rem', fontSize: '0.875rem', color: '#6b7280' }}>
-                            {new Date(user.createdAt).toLocaleDateString()}
+                            {new Date(user.createdAt).toLocaleDateString('en-GB')}
                           </td>
                         </tr>
                       ))}
@@ -365,7 +365,7 @@ const CoachAdminPage = () => {
                       
                       <div style={{ marginBottom: '1rem' }}>
                         <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>
-                          Generated: {new Date(plan.generatedAt).toLocaleDateString()}
+                          Generated: {new Date(plan.generatedAt).toLocaleDateString('en-GB')}
                         </div>
                         <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
                           AI Model: {plan.metadata?.aiModel}

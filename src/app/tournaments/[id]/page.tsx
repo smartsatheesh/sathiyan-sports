@@ -450,8 +450,8 @@ export default function TournamentPage() {
               <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                 <Schedule fontSize="small" />
                 <Typography variant="body1">
-                  {new Date(tournament.startDate).toLocaleDateString()}
-                  {tournament.endDate && ` - ${new Date(tournament.endDate).toLocaleDateString()}`}
+                  {new Date(tournament.startDate).toLocaleDateString('en-GB')}
+                  {tournament.endDate && ` - ${new Date(tournament.endDate).toLocaleDateString('en-GB')}`}
                 </Typography>
               </Stack>
             </Grid>
@@ -1064,7 +1064,7 @@ export default function TournamentPage() {
                             />
                           </TableCell>
                           <TableCell>
-                            {new Date(player.registeredAt).toLocaleDateString()}
+                            {new Date(player.registeredAt).toLocaleDateString('en-GB')}
                           </TableCell>
                         </TableRow>
                       ))}

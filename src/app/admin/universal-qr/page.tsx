@@ -126,7 +126,7 @@ export default function UniversalQRPage() {
                 </div>
                 <p><strong>📍 Post this QR code at the turf entrance</strong></p>
                 <div class="footer">
-                  <p>Generated on ${new Date().toLocaleDateString()}</p>
+                  <p>Generated on ${new Date().toLocaleDateString('en-GB')}</p>
                   <p>For support, contact admin</p>
                 </div>
               </div>

@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       minute: '2-digit'
     });
 
-    const currentDate = new Date().toLocaleDateString('en-IN', {
+    const currentDate = new Date().toLocaleDateString('en-GB', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',

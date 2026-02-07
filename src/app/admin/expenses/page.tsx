@@ -49,6 +49,7 @@ import {
 import { DatePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { enGB } from 'date-fns/locale';
 import { format } from "date-fns";
 
 interface Expense {
@@ -402,7 +403,7 @@ export default function ExpensesPage() {
   }
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enGB}>
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
         {/* Header */}
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -562,6 +563,7 @@ export default function ExpensesPage() {
                 label="Start Date"
                 value={filters.startDate}
                 onChange={(date) => setFilters(prev => ({ ...prev, startDate: date }))}
+                format="dd/MM/yyyy"
                 slotProps={{ textField: { size: 'small', fullWidth: true } }}
               />
             </Grid>
@@ -570,6 +572,7 @@ export default function ExpensesPage() {
                 label="End Date"
                 value={filters.endDate}
                 onChange={(date) => setFilters(prev => ({ ...prev, endDate: date }))}
+                format="dd/MM/yyyy"
                 slotProps={{ textField: { size: 'small', fullWidth: true } }}
               />
             </Grid>
@@ -733,6 +736,7 @@ export default function ExpensesPage() {
                   label="Date"
                   value={formData.date}
                   onChange={(date) => setFormData(prev => ({ ...prev, date }))}
+                  format="dd/MM/yyyy"
                   slotProps={{ textField: { fullWidth: true } }}
                 />
               </Grid>

@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
 async function sendWhatsAppNotifications(booking: any) {
   try {
     // Format date and time for display
-    const bookingDate = new Date(booking.date).toLocaleDateString('en-IN', {
+    const bookingDate = new Date(booking.date).toLocaleDateString('en-GB', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',

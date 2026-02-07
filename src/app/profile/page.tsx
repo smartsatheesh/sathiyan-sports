@@ -499,7 +499,7 @@ export default function ProfilePage() {
                     Member Since:
                   </Typography>
                   <Typography variant="body2">
-                    {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : "N/A"}
+                    {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('en-GB') : "N/A"}
                   </Typography>
                 </Box>
 

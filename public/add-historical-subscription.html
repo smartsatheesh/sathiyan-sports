@@ -250,7 +250,7 @@
                     resultDiv.innerHTML = `
                         <div class="alert alert-success">
                             <strong>Success!</strong> Historical subscription for ${formData.userName} (${formData.champId}) added successfully!<br>
-                            <strong>Period:</strong> ${new Date(formData.startDate).toLocaleDateString()} - ${new Date(formData.endDate).toLocaleDateString()}<br>
+                            <strong>Period:</strong> ${new Date(formData.startDate).toLocaleDateString('en-GB')} - ${new Date(formData.endDate).toLocaleDateString('en-GB')}<br>
                             <strong>Amount:</strong> ₹${formData.amount}<br>
                             <br>
                             Now when you filter for December 2025, this revenue will be included!

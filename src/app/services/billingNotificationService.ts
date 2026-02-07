@@ -47,7 +47,7 @@ export class BillingNotificationService {
       userName: billingCycle.userName,
       amount: billingCycle.currentAmount,
       currency: billingCycle.currency,
-      nextBillingDate: new Date(billingCycle.nextBillingDate).toLocaleDateString(),
+      nextBillingDate: new Date(billingCycle.nextBillingDate).toLocaleDateString('en-GB'),
       daysUntilBilling,
       cycleType: billingCycle.cycleType,
       planName: `${billingCycle.cycleType.charAt(0).toUpperCase() + billingCycle.cycleType.slice(1)} Plan`
@@ -449,7 +449,7 @@ Thank you for choosing Sathiyan Sports! 🙏`;
                         </tr>
                         <tr>
                             <td style="padding: 8px 0; color: #666; font-weight: 500;">Next Billing:</td>
-                            <td style="padding: 8px 0; color: #333; font-weight: bold;">${new Date(billingCycle.nextBillingDate).toLocaleDateString()}</td>
+                            <td style="padding: 8px 0; color: #333; font-weight: bold;">${new Date(billingCycle.nextBillingDate).toLocaleDateString('en-GB')}</td>
                         </tr>
                     </table>
                 </div>
@@ -483,7 +483,7 @@ Payment Summary:
 - Transaction ID: ${transactionId}
 - Amount Paid: ${billingCycle.currency} ${paymentAmount.toLocaleString()}
 - Plan: ${billingCycle.cycleType.charAt(0).toUpperCase() + billingCycle.cycleType.slice(1)} Plan
-- Next Billing: ${new Date(billingCycle.nextBillingDate).toLocaleDateString()}
+- Next Billing: ${new Date(billingCycle.nextBillingDate).toLocaleDateString('en-GB')}
 
 View your account: ${process.env.NEXT_PUBLIC_BASE_URL}/my-bookings
 

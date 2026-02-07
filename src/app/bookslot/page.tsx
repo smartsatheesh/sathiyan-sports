@@ -35,6 +35,7 @@ import { DatePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import QRCode from "react-qr-code";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { enGB } from 'date-fns/locale';
 import { format, setHours, setMinutes } from "date-fns";
 import {
   CreditCard,
@@ -1599,12 +1600,13 @@ export default function BookSlot() {
                   <h3>Select Date and Time</h3>
                   
                   <div className="date-picker-container">
-                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enGB}>
                       <DatePicker
                         label="Select Date"
                         value={selectedDate}
                         onChange={(newValue) => setSelectedDate(newValue)}
                         minDate={new Date()}
+                        format="dd/MM/yyyy"
                         sx={{ width: "100%" }}
                       />
                     </LocalizationProvider>

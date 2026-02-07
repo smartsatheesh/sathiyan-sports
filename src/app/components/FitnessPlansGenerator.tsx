@@ -474,7 +474,7 @@ const FitnessPlansGenerator: React.FC = () => {
                   />
 
                   <Typography variant="caption" color="text.secondary">
-                    Generated: {new Date(plan.generatedAt).toLocaleDateString()} | 
+                    Generated: {new Date(plan.generatedAt).toLocaleDateString('en-GB')} | 
                     AI Model: {plan.geminiModel}
                   </Typography>
                 </CardContent>

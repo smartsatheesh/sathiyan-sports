@@ -207,7 +207,7 @@ export default function QRGeneratorPage() {
             </style>
           </head>
           <body>
-            <h1>Attendance QR Codes - ${new Date().toLocaleDateString()}</h1>
+            <h1>Attendance QR Codes - ${new Date().toLocaleDateString('en-GB')}</h1>
             <div class="qr-grid">
               ${qrCodesHTML}
             </div>

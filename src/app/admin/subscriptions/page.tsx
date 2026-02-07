@@ -662,11 +662,11 @@ const AdminSubscriptionsPage = () => {
         .reduce((sum, sub) => sum + (sub.amount || 0), 0);
         
       if (subscribedDateFrom && subscribedDateTo) {
-        periodLabel = `Revenue (${new Date(subscribedDateFrom).toLocaleDateString()} - ${new Date(subscribedDateTo).toLocaleDateString()})`;
+        periodLabel = `Revenue (${new Date(subscribedDateFrom).toLocaleDateString('en-GB')} - ${new Date(subscribedDateTo).toLocaleDateString('en-GB')})`;
       } else if (subscribedDateFrom) {
-        periodLabel = `Revenue (From ${new Date(subscribedDateFrom).toLocaleDateString()})`;
+        periodLabel = `Revenue (From ${new Date(subscribedDateFrom).toLocaleDateString('en-GB')})`;
       } else if (subscribedDateTo) {
-        periodLabel = `Revenue (Until ${new Date(subscribedDateTo).toLocaleDateString()})`;
+        periodLabel = `Revenue (Until ${new Date(subscribedDateTo).toLocaleDateString('en-GB')})`;
       }
     } else {
       // Default to current month if no date filters applied

@@ -511,7 +511,7 @@ export default function AdminTournamentDashboard() {
                   <Box sx={{ flexGrow: 1 }}>
                     <Typography variant="body1">{tournament.name}</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {tournament.venue} • {new Date(tournament.startDate).toLocaleDateString()}
+                      {tournament.venue} • {new Date(tournament.startDate).toLocaleDateString('en-GB')}
                     </Typography>
                   </Box>
                   <Chip 
@@ -577,7 +577,7 @@ export default function AdminTournamentDashboard() {
                   </TableCell>
                   <TableCell>{tournament.venue}</TableCell>
                   <TableCell>
-                    {new Date(tournament.startDate).toLocaleDateString()}
+                    {new Date(tournament.startDate).toLocaleDateString('en-GB')}
                   </TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={1}>

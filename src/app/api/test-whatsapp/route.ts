@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       const bookingDetails = testBookingDetails || {
         bookingReference: 'TEST-' + Date.now(),
         courtName: 'Test Court S1',
-        date: new Date().toLocaleDateString('en-IN', {
+        date: new Date().toLocaleDateString('en-GB', {
           weekday: 'long',
           year: 'numeric',
           month: 'long',
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
       const adminDetails = testBookingDetails || {
         bookingReference: 'TEST-ADMIN-' + Date.now(),
         courtName: 'Test Court S1',
-        date: new Date().toLocaleDateString('en-IN', {
+        date: new Date().toLocaleDateString('en-GB', {
           weekday: 'long',
           year: 'numeric',
           month: 'long',

@@ -115,7 +115,7 @@ Pay now to continue your membership! 🏸
    * Replace template placeholders with actual data
    */
   private static replaceTemplate(template: string, data: NotificationData, daysRemaining?: number): string {
-    const dueDate = new Date(data.nextDueDate).toLocaleDateString('en-IN', {
+    const dueDate = new Date(data.nextDueDate).toLocaleDateString('en-GB', {
       day: 'numeric',
       month: 'long',
       year: 'numeric'

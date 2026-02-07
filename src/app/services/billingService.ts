@@ -135,7 +135,7 @@ export class BillingService {
     const amount = billingCycle.currentAmount;
     const currency = billingCycle.currency || 'INR';
     const cycleType = billingCycle.cycleType;
-    const billingDate = billingCycle.nextBillingDate.toLocaleDateString();
+    const billingDate = billingCycle.nextBillingDate.toLocaleDateString('en-GB');
     
     if (daysUntilBilling === 1) {
       return `Hi ${billingCycle.userName}! Your ${cycleType} subscription of ${currency} ${amount} is due tomorrow (${billingDate}). Please ensure your payment method is ready.`;

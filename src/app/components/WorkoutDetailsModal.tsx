@@ -127,7 +127,7 @@ const WorkoutDetailsModal: React.FC<WorkoutDetailsModalProps> = ({
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('en-GB', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',

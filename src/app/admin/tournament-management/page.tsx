@@ -1748,7 +1748,7 @@ export default function AdminTournamentManagement() {
                               Date:
                             </Typography>
                             <Typography variant="body2">
-                              {match.scheduledTime ? new Date(match.scheduledTime).toLocaleDateString() : 'TBA'}
+                              {match.scheduledTime ? new Date(match.scheduledTime).toLocaleDateString('en-GB') : 'TBA'}
                             </Typography>
                           </Grid>
                           <Grid item xs={6}>
@@ -1830,9 +1830,9 @@ export default function AdminTournamentManagement() {
                   <Typography><strong>Total Players:</strong> {selectedTournament.playersCount || 0}</Typography>
                   <Typography><strong>Total Matches:</strong> {selectedTournament.matchesCount || 0}</Typography>
                   <Typography><strong>Categories:</strong> {selectedTournament.categories?.join(', ') || 'N/A'}</Typography>
-                  <Typography><strong>Start Date:</strong> {new Date(selectedTournament.startDate).toLocaleDateString()}</Typography>
+                  <Typography><strong>Start Date:</strong> {new Date(selectedTournament.startDate).toLocaleDateString('en-GB')}</Typography>
                   {selectedTournament.endDate && (
-                    <Typography><strong>End Date:</strong> {new Date(selectedTournament.endDate).toLocaleDateString()}</Typography>
+                    <Typography><strong>End Date:</strong> {new Date(selectedTournament.endDate).toLocaleDateString('en-GB')}</Typography>
                   )}
                 </Paper>
               </Grid>

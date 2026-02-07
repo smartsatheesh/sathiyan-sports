@@ -433,8 +433,8 @@ export default function TournamentsPage() {
                         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                           <CalendarToday fontSize="small" color="action" />
                           <Typography variant="body2" color="text.secondary">
-                            {new Date(tournament.startDate).toLocaleDateString()}
-                            {tournament.endDate && ` - ${new Date(tournament.endDate).toLocaleDateString()}`}
+                            {new Date(tournament.startDate).toLocaleDateString('en-GB')}
+                            {tournament.endDate && ` - ${new Date(tournament.endDate).toLocaleDateString('en-GB')}`}
                           </Typography>
                         </Stack>
                         <Stack direction="row" alignItems="center" spacing={1}>

@@ -90,7 +90,7 @@ const EditableWorkoutModal: React.FC<EditableWorkoutModalProps> = ({
   console.log('✅ Editable Modal should be visible now');
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('en-GB', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',

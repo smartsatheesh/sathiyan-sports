@@ -197,7 +197,7 @@ export default function MyBookingsPage() {
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <CalendarToday sx={{ mr: 1, fontSize: 16, color: 'text.secondary' }} />
               <Typography variant="body2" color="text.secondary">
-                {format(new Date(booking.date), 'MMM dd, yyyy')}
+                {format(new Date(booking.date), 'dd MMM yyyy')}
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -404,7 +404,7 @@ export default function MyBookingsPage() {
               <Typography variant="subtitle2">Booking Details:</Typography>
               <Typography variant="body2">Sport: {selectedBooking.sport}</Typography>
               <Typography variant="body2">
-                Date: {format(new Date(selectedBooking.date), 'MMM dd, yyyy')}
+                Date: {format(new Date(selectedBooking.date), 'dd MMM yyyy')}
               </Typography>
               <Typography variant="body2">
                 Time: {selectedBooking.timeSlots.join(', ')}
@@ -466,7 +466,7 @@ export default function MyBookingsPage() {
                     Date:
                   </Typography>
                   <Typography variant="body1">
-                    {format(new Date(selectedBooking.date), 'EEEE, MMMM dd, yyyy')}
+                    {format(new Date(selectedBooking.date), 'EEEE, dd MMMM yyyy')}
                   </Typography>
                 </Box>
                 <Box sx={{ mb: 2 }}>
@@ -516,7 +516,7 @@ export default function MyBookingsPage() {
                     Booked On:
                   </Typography>
                   <Typography variant="body1">
-                    {format(new Date(selectedBooking.createdAt), 'MMM dd, yyyy hh:mm a')}
+                    {format(new Date(selectedBooking.createdAt), 'dd MMM yyyy hh:mm a')}
                   </Typography>
                 </Box>
               </Grid>

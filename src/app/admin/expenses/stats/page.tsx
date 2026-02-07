@@ -484,7 +484,7 @@ export default function ExpenseStatsPage() {
                       </TableCell>
                       <TableCell>
                         <Typography variant="caption">
-                          {new Date(expense.date).toLocaleDateString()}
+                          {new Date(expense.date).toLocaleDateString('en-GB')}
                         </Typography>
                       </TableCell>
                     </TableRow>

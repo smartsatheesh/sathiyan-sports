@@ -77,7 +77,7 @@ export async function POST(
             courtName: updatedBooking.sport === 'Shuttle Badminton' 
               ? `Court ${updatedBooking.court || 'TBD'}` 
               : updatedBooking.sport,
-            date: new Date(updatedBooking.date).toLocaleDateString('en-IN', {
+            date: new Date(updatedBooking.date).toLocaleDateString('en-GB', {
               weekday: 'long',
               year: 'numeric',
               month: 'long',

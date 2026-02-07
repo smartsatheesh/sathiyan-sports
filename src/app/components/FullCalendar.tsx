@@ -525,7 +525,7 @@ const FullCalendar = () => {
       pdf.text(`${plan?.athleteProfile?.name || (plan as any)?.name || 'Athlete'}'s Training Calendar`, 20, 20);
       pdf.setFontSize(12);
       pdf.text(`Sport: ${plan?.athleteProfile?.sport || (plan as any)?.sport || 'Sport'} | Level: ${plan?.athleteProfile?.skillLevel || (plan as any)?.skillLevel || 'Level'}`, 20, 30);
-      pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 40);
+      pdf.text(`Generated: ${new Date().toLocaleDateString('en-GB')}`, 20, 40);
       
       // Add calendar image
       const imgWidth = 257; // A4 landscape width in mm

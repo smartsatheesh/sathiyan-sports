@@ -173,7 +173,7 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ plan, userInfo, onExportPDF }
       pdf.text(`${userInfo.name}'s Training Plan`, 20, 20);
       pdf.setFontSize(12);
       pdf.text(`Sport: ${userInfo.sport} | Level: ${userInfo.skillLevel}`, 20, 30);
-      pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 40);
+      pdf.text(`Generated: ${new Date().toLocaleDateString('en-GB')}`, 20, 40);
       
       position = 50;
       

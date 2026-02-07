@@ -146,7 +146,7 @@ const SubscriptionPaymentSuccessPage = () => {
                       Valid Until:
                     </Typography>
                     <Typography variant="body2" fontWeight="bold">
-                      {new Date(subscription.endDate).toLocaleDateString()}
+                      {new Date(subscription.endDate).toLocaleDateString('en-GB')}
                     </Typography>
                   </Box>
                   
