@@ -4,6 +4,7 @@ import { connectToMongoose } from "@/app/server/mongodb";
 import User, { generateNextChampId } from "@/app/models/User";
 import Subscription from "@/app/models/Subscription";
 import emailService from "@/app/lib/emailService";
+import { BillingCycleService } from "@/app/services/BillingCycleService";
 
 // Utility function to normalize time slot formats
 function normalizeTimeSlot(timeSlot: string): string {
@@ -39,20 +40,28 @@ export async function POST(req: Request) {
       "mode"
     ];
     
+    console.log('🔍 Validating required fields...');
+    
     // Note: preferredTimeSlot and selectedCourt are now optional
     // Users can set these after payment completion
     
     for (const field of requiredFields) {
       if (!body[field]) {
+        const errorMsg = `${field} is required`;
+        console.error(`❌ Validation failed: ${errorMsg}`);
+        console.error('📋 Received data:', JSON.stringify(body, null, 2));
         return NextResponse.json(
-          { success: false, message: `${field} is required` },
+          { success: false, message: errorMsg },
           { status: 400 }
         );
       }
     }
+    
+    console.log('✅ All required fields validated');
 
     // Password validation
     if (body.password !== body.confirmPassword) {
+      console.error('❌ Passwords do not match');
       return NextResponse.json(
         { success: false, message: "Passwords do not match" },
         { status: 400 }
@@ -60,11 +69,14 @@ export async function POST(req: Request) {
     }
 
     if (body.password.length < 6) {
+      console.error('❌ Password too short');
       return NextResponse.json(
         { success: false, message: "Password must be at least 6 characters long" },
         { status: 400 }
       );
     }
+    
+    console.log('✅ Password validation passed');
 
     // Note: Court availability checking removed since preferred slots are now optional
     // Users will select and book their slots after registration and payment
@@ -116,66 +128,84 @@ export async function POST(req: Request) {
 
     const user = await (User.create as any)(userData);
 
+    console.log('👤 USER CREATED:', {
+      id: user._id,
+      champId: user.champId,
+      name: user.name,
+      email: user.email,
+      subscribed: body.subscribed,
+      subscriptionType: body.subscriptionType,
+      subscriptionAmount: body.subscriptionAmount
+    });
+
     // Create subscription entry if user registers with subscribed: "yes"
-    if (body.subscribed === 'yes') {
+    console.log('🔍 SUBSCRIPTION CHECK START');
+    console.log('🔍 body.subscribed value:', body.subscribed);
+    console.log('🔍 body.subscribed type:', typeof body.subscribed);
+    console.log('🔍 Strict equality (=== "yes"):', body.subscribed === 'yes');
+    console.log('🔍 Loose equality (== "yes"):', body.subscribed == 'yes');
+    console.log('🔍 Case insensitive check:', body.subscribed?.toString().toLowerCase() === 'yes');
+    
+    const shouldCreateSubscription = body.subscribed?.toString().toLowerCase() === 'yes';
+    console.log('🔍 FINAL DECISION - shouldCreateSubscription:', shouldCreateSubscription);
+    
+    if (shouldCreateSubscription) {
+      console.log('✅ CREATING SUBSCRIPTION - Condition met!');
+      console.log('📝 User Details:', {
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile
+      });
+      
       try {
         // Calculate subscription dates
         const startDate = new Date();
-        const durationMap = {
+        const durationMap: { [key: string]: number } = {
           'monthly': 1,
           'quarterly': 3,
           'half yearly': 6,
           'yearly': 12
         };
 
-        const duration = durationMap[body.subscriptionType] || 1;
+        const duration = durationMap[body.subscriptionType?.toLowerCase()] || 1;
         const endDate = new Date(startDate);
         endDate.setMonth(endDate.getMonth() + duration);
+        
+        console.log('📅 Subscription dates:', {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          duration: duration
+        });
 
-        // Calculate next due date - should be LAST day of the period (not first day of next period)
+        // Calculate next due date
         let nextDueDate;
-        switch (body.subscriptionType) {
+        switch (body.subscriptionType?.toLowerCase()) {
           case 'monthly':
-            // Last day of current month
             nextDueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
             break;
           case 'quarterly':
-            // Last day of current quarter
             const currentQuarter = Math.floor(startDate.getMonth() / 3);
             const lastMonthOfQuarter = (currentQuarter + 1) * 3;
             nextDueDate = new Date(startDate.getFullYear(), lastMonthOfQuarter, 0);
             break;
           case 'half yearly':
-            // Last day of current half-year
             const currentHalf = Math.floor(startDate.getMonth() / 6);
             const lastMonthOfHalf = (currentHalf + 1) * 6;
             nextDueDate = new Date(startDate.getFullYear(), lastMonthOfHalf, 0);
             break;
           case 'yearly':
-            // Last day of current year (December 31)
             nextDueDate = new Date(startDate.getFullYear(), 11, 31);
             break;
           default:
-            // Last day of current month
             nextDueDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
         }
 
-        // Determine payment status - for new registrations, it's typically pending
-        const paymentStatus = body.paymentStatus === 'completed' ? 'Paid' : 'Pending';
+        // Use same payment status logic as user record
+        const paymentStatus = body.subscribed === 'yes' ? 'Paid' : 'Pending';
 
-        // Calculate overdue status
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const dueDateObj = new Date(nextDueDate);
-        dueDateObj.setHours(0, 0, 0, 0);
-        
-        const diffTime = today.getTime() - dueDateObj.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        const gracePeriod = 7; // Default grace period
-        
-        const isOverdue = diffDays > 0 && paymentStatus !== 'Paid';
-        const isPastGrace = diffDays > gracePeriod && paymentStatus !== 'Paid';
-        const daysPastDue = Math.max(diffDays, 0);
+        // Generate unique subscription period ID for tracking renewals
+        const subscriptionPeriodId = `${user.champId}-${Date.now()}`;
 
         const subscriptionData = {
           userId: user._id,
@@ -184,7 +214,7 @@ export async function POST(req: Request) {
           userEmail: user.email,
           userMobile: user.mobile,
           subscriptionType: body.subscriptionType,
-          amount: body.subscriptionAmount,
+          amount: body.subscriptionAmount || 0,
           mode: body.mode || 'fixed',
           duration: duration,
           startDate: startDate,
@@ -197,6 +227,9 @@ export async function POST(req: Request) {
           preferredTimeSlot: body.preferredTimeSlot || '',
           selectedCourt: body.selectedCourt || '',
           autoRenewal: false,
+          subscriptionPeriodId: subscriptionPeriodId,
+          isRenewal: false,
+          renewalNumber: 1,
           createdBy: user._id,
           notificationsSent: {
             twoDaysBefore: false,
@@ -204,16 +237,30 @@ export async function POST(req: Request) {
             twoDaysAfter: false
           }
         };
+        
+        console.log('📋 ATTEMPTING TO CREATE SUBSCRIPTION WITH DATA:', JSON.stringify(subscriptionData, null, 2));
 
         const subscription = await (Subscription.create as any)(subscriptionData);
-        console.log(`🎉 NEW REGISTRATION SUBSCRIPTION: User ${user.name} registered with subscribed=yes - created subscription ${subscription._id}`);
-        console.log(`📊 Subscription Details: Type=${body.subscriptionType}, Amount=₹${body.subscriptionAmount}, Payment=${paymentStatus}`);
+        
+        console.log('🎉🎉🎉 SUBSCRIPTION CREATED SUCCESSFULLY! 🎉🎉🎉');
+        console.log('📊 Subscription ID:', subscription._id);
+        console.log('📊 Full subscription object:', JSON.stringify(subscription.toObject(), null, 2));
 
-      } catch (subscriptionError) {
-        console.error(`⚠️ Failed to create subscription for new user ${user.name}:`, subscriptionError);
+      } catch (subscriptionError: any) {
+        console.error('❌❌❌ SUBSCRIPTION CREATION FAILED ❌❌❌');
+        console.error('❌ Error message:', subscriptionError.message);
+        console.error('❌ Error name:', subscriptionError.name);
+        console.error('❌ Error code:', subscriptionError.code);
+        console.error('❌ Full error:', JSON.stringify(subscriptionError, null, 2));
+        console.error('❌ Error stack:', subscriptionError.stack);
         // Don't fail registration if subscription creation fails
       }
+    } else {
+      console.log('⏭️ SKIPPING SUBSCRIPTION CREATION');
+      console.log('⏭️ Reason: subscribed value is not "yes"');
+      console.log('⏭️ Received value:', body.subscribed);
     }
+    
     console.log('✅ User registration successful:', user.champId);
 
     // Send welcome email (async, don't wait for it)

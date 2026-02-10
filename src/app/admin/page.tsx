@@ -699,33 +699,28 @@ export default function AdminDashboard() {
       if (data.success) {
         console.log('✅ User update successful');
         
-        // Check if subscription was mentioned in response
-        if (editUserFormData.subscribed === 'Yes') {
-          console.log('🔄 Subscription status set to Yes - checking if subscription entry was created...');
+        // Check if subscription was created
+        if (data.subscriptionCreated) {
+          console.log('🎉 Subscription entry was created - redirecting to subscriptions page');
+          setAlert({ 
+            type: 'success', 
+            message: 'User updated and subscription created! Redirecting to subscriptions page...' 
+          });
+          
+          setEditUserDialogOpen(false);
+          setSelectedUser(null);
+          
+          // Redirect to subscriptions page after 1.5 seconds
+          setTimeout(() => {
+            window.location.href = '/admin/subscriptions';
+          }, 1500);
+          
+          return;
         }
-        setUsers(prev => prev.map(u => 
-          u._id === selectedUser._id 
-            ? { 
-                ...u, 
-                champId: editUserFormData.champId,
-                name: editUserFormData.name,
-                email: editUserFormData.email,
-                mobile: editUserFormData.mobile,
-                phone: editUserFormData.mobile,
-                gender: editUserFormData.gender,
-                champType: editUserFormData.champType,
-                subscribed: editUserFormData.subscribed,
-                preferredSport: editUserFormData.preferredSport,
-                preferredTimeSlot: editUserFormData.preferredTimeSlot,
-                selectedCourt: editUserFormData.selectedCourt,
-                subscriptionType: editUserFormData.subscriptionType,
-                paymentStatus: editUserFormData.paymentStatus,
-                height: editUserFormData.height ? parseFloat(editUserFormData.height) : undefined,
-                weight: editUserFormData.weight ? parseFloat(editUserFormData.weight) : undefined,
-                bmi: editUserFormData.bmi ? parseFloat(editUserFormData.bmi) : undefined,
-              }
-            : u
-        ));
+        
+        // Refresh the users list from server to get the latest data
+        await fetchData();
+        
         setAlert({ 
           type: 'success', 
           message: 'User updated successfully!' 

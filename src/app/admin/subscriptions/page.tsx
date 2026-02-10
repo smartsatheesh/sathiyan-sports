@@ -151,8 +151,33 @@ const AdminSubscriptionsPage = () => {
   });
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [subscribedDateFrom, setSubscribedDateFrom] = useState<string>('');
-  const [subscribedDateTo, setSubscribedDateTo] = useState<string>('');
+  // Initialize date filters to current month by default
+  const getCurrentMonthDates = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    
+    // First day of current month
+    const firstDay = new Date(year, month, 1);
+    // Last day of current month
+    const lastDay = new Date(year, month + 1, 0);
+    
+    // Format as YYYY-MM-DD without timezone issues
+    const formatDate = (date: Date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+    
+    return {
+      from: formatDate(firstDay),
+      to: formatDate(lastDay)
+    };
+  };
+  const currentMonthDates = getCurrentMonthDates();
+  const [subscribedDateFrom, setSubscribedDateFrom] = useState<string>(currentMonthDates.from);
+  const [subscribedDateTo, setSubscribedDateTo] = useState<string>(currentMonthDates.to);
   const [dueDateFrom, setDueDateFrom] = useState<string>('');
   const [dueDateTo, setDueDateTo] = useState<string>('');
   const [preferredSportFilter, setPreferredSportFilter] = useState<string>('all');
@@ -287,6 +312,11 @@ const AdminSubscriptionsPage = () => {
       return isPastDue && isActive;
     }).length;
 
+    // Total revenue from ALL subscriptions (not filtered)
+    const allTimeRevenue = subscriptions.filter(sub => 
+      sub.paymentStatus === 'Paid' || sub.paymentStatus === 'paid' || sub.paymentStatus === 'completed'
+    ).reduce((sum, sub) => sum + (sub.amount || 0), 0);
+
     // Enhanced calculations - Active vs Expired subscriptions  
     const now = new Date();
     const activeByDueDate = subscriptions.filter(sub => {
@@ -355,7 +385,7 @@ const AdminSubscriptionsPage = () => {
         activeSubscriptions,
         pendingSubscriptions,
         overdueSubscriptions,
-        totalRevenue: Math.round(totalRevenue),
+        totalRevenue: Math.round(allTimeRevenue),
         averageAmount: Math.round(averageAmount),
         upcomingRenewals,
         expiredSubscriptions,
@@ -565,24 +595,32 @@ const AdminSubscriptionsPage = () => {
       let matchesDateRange = true;
       if (subscribedDateFrom) {
         const filterDate = new Date(subscribedDateFrom);
+        filterDate.setHours(0, 0, 0, 0);
         const subscriptionStart = new Date(subscription.startDate);
+        subscriptionStart.setHours(0, 0, 0, 0);
         matchesDateRange = matchesDateRange && subscriptionStart >= filterDate;
       }
       if (subscribedDateTo) {
         const filterDate = new Date(subscribedDateTo);
+        filterDate.setHours(23, 59, 59, 999);
         const subscriptionStart = new Date(subscription.startDate);
+        subscriptionStart.setHours(0, 0, 0, 0);
         matchesDateRange = matchesDateRange && subscriptionStart <= filterDate;
       }
       
       // Due date range filtering (From/To)
       if (dueDateFrom && subscription.nextDueDate) {
         const filterDate = new Date(dueDateFrom);
+        filterDate.setHours(0, 0, 0, 0);
         const subNextDue = new Date(subscription.nextDueDate);
+        subNextDue.setHours(0, 0, 0, 0);
         matchesDateRange = matchesDateRange && subNextDue >= filterDate;
       }
       if (dueDateTo && subscription.nextDueDate) {
         const filterDate = new Date(dueDateTo);
+        filterDate.setHours(23, 59, 59, 999);
         const subNextDue = new Date(subscription.nextDueDate);
+        subNextDue.setHours(0, 0, 0, 0);
         matchesDateRange = matchesDateRange && subNextDue <= filterDate;
       }
       
@@ -639,28 +677,31 @@ const AdminSubscriptionsPage = () => {
       return false;
     }).length;
     
-    // Calculate revenue from filtered data
-    const totalRevenue = filtered.reduce((sum, sub) => sum + (sub.amount || 0), 0);
+    // Calculate all-time revenue from ALL subscriptions (not just filtered)
+    const allTimeRevenue = subscriptions
+      .filter(sub => sub.paymentStatus === 'Paid' || sub.paymentStatus === 'paid' || sub.paymentStatus === 'completed')
+      .reduce((sum, sub) => sum + (sub.amount || 0), 0);
     
-    // Calculate revenue based on filter period or current month
+    // Calculate total revenue from filtered subscriptions
+    const filteredRevenue = filtered
+      .filter(sub => sub.paymentStatus === 'Paid' || sub.paymentStatus === 'paid' || sub.paymentStatus === 'completed')
+      .reduce((sum, sub) => sum + (sub.amount || 0), 0);
+    
+    // Calculate revenue based on filter period (subscribed date range)
     let periodRevenue = 0;
-    let periodLabel = `Revenue ${new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}`;
+    let periodLabel = '';
+    
+    // Determine the date range for revenue calculation
+    let fromDate: Date;
+    let toDate: Date;
     
     if (subscribedDateFrom || subscribedDateTo) {
-      // If date filters are applied, calculate revenue for filtered period
-      const fromDate = subscribedDateFrom ? new Date(subscribedDateFrom) : new Date(0);
-      const toDate = subscribedDateTo ? new Date(subscribedDateTo) : new Date();
+      // If date filters are applied, use them
+      fromDate = subscribedDateFrom ? new Date(subscribedDateFrom) : new Date(0);
+      fromDate.setHours(0, 0, 0, 0);
+      toDate = subscribedDateTo ? new Date(subscribedDateTo) : new Date();
+      toDate.setHours(23, 59, 59, 999); // End of day
       
-      periodRevenue = filtered
-        .filter(sub => {
-          if (sub.paymentStatus === 'Paid' && sub.startDate) {
-            const startDate = new Date(sub.startDate);
-            return startDate >= fromDate && startDate <= toDate;
-          }
-          return false;
-        })
-        .reduce((sum, sub) => sum + (sub.amount || 0), 0);
-        
       if (subscribedDateFrom && subscribedDateTo) {
         periodLabel = `Revenue (${new Date(subscribedDateFrom).toLocaleDateString('en-GB')} - ${new Date(subscribedDateTo).toLocaleDateString('en-GB')})`;
       } else if (subscribedDateFrom) {
@@ -669,19 +710,31 @@ const AdminSubscriptionsPage = () => {
         periodLabel = `Revenue (Until ${new Date(subscribedDateTo).toLocaleDateString('en-GB')})`;
       }
     } else {
-      // Default to current month if no date filters applied
-      periodRevenue = filtered
-        .filter(sub => {
-          if (sub.paymentStatus === 'Paid' && sub.startDate) {
-            const startDate = new Date(sub.startDate);
-            return startDate.getMonth() === currentMonth && startDate.getFullYear() === currentYear;
-          }
-          return false;
-        })
-        .reduce((sum, sub) => sum + (sub.amount || 0), 0);
+      // Default to current month (1st to last day)
+      fromDate = new Date(currentYear, currentMonth, 1);
+      fromDate.setHours(0, 0, 0, 0);
+      toDate = new Date(currentYear, currentMonth + 1, 0);
+      toDate.setHours(23, 59, 59, 999); // End of day
+      periodLabel = `Revenue ${today.toLocaleString('default', { month: 'long', year: 'numeric' })}`;
     }
     
-    const averageAmount = totalSubscriptions > 0 ? totalRevenue / totalSubscriptions : 0;
+    // Calculate period revenue from FILTERED subscriptions based on subscription startDate
+    // This respects all filters: sport, status, search, and date range
+    periodRevenue = filtered
+      .filter(sub => {
+        if (sub.paymentStatus !== 'Paid' && sub.paymentStatus !== 'paid' && sub.paymentStatus !== 'completed') {
+          return false;
+        }
+        if (!sub.startDate) {
+          return false;
+        }
+        const startDate = new Date(sub.startDate);
+        startDate.setHours(0, 0, 0, 0);
+        return startDate >= fromDate && startDate <= toDate;
+      })
+      .reduce((sum, sub) => sum + (sub.amount || 0), 0);
+    
+    const averageAmount = totalSubscriptions > 0 ? filteredRevenue / totalSubscriptions : 0;
     const collectionRate = totalSubscriptions > 0 ? (paidSubscriptions / totalSubscriptions) * 100 : 0;
     
     return {
@@ -689,13 +742,14 @@ const AdminSubscriptionsPage = () => {
       activeSubscriptions: paidSubscriptions,
       expiredSubscriptions: overdueSubscriptions,
       overdueSubscriptions,
-      totalRevenue,
+      allTimeRevenue, // All-time revenue from all subscriptions
+      filteredRevenue, // Revenue from filtered subscriptions
       paidThisMonth: periodRevenue,
       periodLabel,
       averageAmount: Math.round(averageAmount),
       collectionRate: `${Math.round(collectionRate)}%`
     };
-  }, [filteredAndSortedSubscriptions]);
+  }, [filteredAndSortedSubscriptions, subscribedDateFrom, subscribedDateTo, subscriptions]);
 
   const paginatedSubscriptions = useMemo(() => {
     const start = page * rowsPerPage;
@@ -806,7 +860,7 @@ const AdminSubscriptionsPage = () => {
             <Typography variant="body2" sx={{ color: 'blue', mb: 2 }}>
               💾 Total Database Records: {stats.overview.totalSubscriptions} | 
               🏷️ Filtered Results: {dynamicStats.totalSubscriptions} | 
-              📅 Current Month: January 2026
+              📅 Date Range: {subscribedDateFrom ? new Date(subscribedDateFrom).toLocaleDateString('en-GB') : 'Start'} - {subscribedDateTo ? new Date(subscribedDateTo).toLocaleDateString('en-GB') : 'End'}
             </Typography>
           )}
         </Box>
@@ -1015,10 +1069,10 @@ const AdminSubscriptionsPage = () => {
               <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Box>
                   <Typography color="textSecondary" gutterBottom variant="body2">
-                    {stats ? 'Total Revenue (All Time)' : 'Revenue (Filtered)'}
+                    Total Revenue (All Time)
                   </Typography>
                   <Typography variant="h5" component="h2" color="primary.main">
-                    {formatCurrency(stats?.overview.totalRevenue || dynamicStats.totalRevenue)}
+                    {formatCurrency(stats?.overview.totalRevenue || dynamicStats.allTimeRevenue)}
                   </Typography>
                 </Box>
                 <AttachMoney color="primary" sx={{ fontSize: 40 }} />
@@ -1222,14 +1276,15 @@ const AdminSubscriptionsPage = () => {
               size="small"
               variant="outlined"
               onClick={() => {
-                setSubscribedDateFrom('');
-                setSubscribedDateTo('');
+                const currentMonth = getCurrentMonthDates();
+                setSubscribedDateFrom(currentMonth.from);
+                setSubscribedDateTo(currentMonth.to);
                 setDueDateFrom('');
                 setDueDateTo('');
               }}
               sx={{ minHeight: 40 }}
             >
-              Clear Dates
+              Reset to Current Month
             </Button>
           )}
           

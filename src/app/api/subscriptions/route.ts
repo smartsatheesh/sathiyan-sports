@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const status = searchParams.get('status');
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const limit = parseInt(searchParams.get('limit') || '1000'); // Increased from 50 to 1000
     const page = parseInt(searchParams.get('page') || '1');
 
     let query: any = {};
@@ -183,13 +183,32 @@ export async function GET(request: NextRequest) {
 
     const skip = (page - 1) * limit;
     
+    console.log('🔍 Fetching subscriptions with query:', query);
+    console.log('📊 Limit:', limit, 'Skip:', skip);
+    
     const subscriptions = await (Subscription.find as any)(query)
-      .populate('userId', 'name email champId')
+      .populate('userId', 'name email champId mobile phone preferredSport preferredTimeSlot selectedCourt gender champType')
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip(skip);
 
+    console.log('✅ Found', subscriptions.length, 'subscriptions');
+    
+    // Log first subscription for debugging
+    if (subscriptions.length > 0) {
+      console.log('📋 First subscription:', {
+        id: subscriptions[0]._id,
+        userId: subscriptions[0].userId,
+        champId: subscriptions[0].champId,
+        userName: subscriptions[0].userName,
+        amount: subscriptions[0].amount,
+        paymentStatus: subscriptions[0].paymentStatus
+      });
+    }
+
     const total = await (Subscription.countDocuments as any)(query);
+    
+    console.log('📊 Total subscriptions in DB:', total);
 
     return NextResponse.json({
       success: true,
@@ -203,7 +222,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching subscriptions:', error);
+    console.error('❌ Error fetching subscriptions:', error);
     return NextResponse.json(
       { error: 'Failed to fetch subscriptions' },
       { status: 500 }

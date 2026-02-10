@@ -430,6 +430,15 @@ export default function RegisterPage() {
     const subscriptionEndDate = calculateEndDate(formData.subscriptionType);
 
     try {
+      console.log('📝 Submitting registration:', {
+        name: formData.name,
+        email: formData.email,
+        mobile: formData.mobile,
+        subscribed: formData.subscribed,
+        subscriptionType: formData.subscriptionType,
+        subscriptionAmount: subscriptionAmount
+      });
+      
       const response = await fetch("/api/register", {
         method: "POST",
         headers: {
@@ -442,12 +451,19 @@ export default function RegisterPage() {
         }),
       });
 
+      console.log('📡 Registration response status:', response.status);
+      
       const data = await response.json();
+      
+      console.log('📊 Registration response data:', data);
 
       if (!response.ok) {
+        console.error('❌ Registration failed:', data.message);
         throw new Error(data.message || "Registration failed");
       }
 
+      console.log('✅ Registration successful!');
+      
       const champIdMessage = data.user?.champId ? ` Your Champion ID is: ${data.user.champId}` : '';
       setSuccess(`Registration successful! Welcome to Sathiyan Sports.${champIdMessage} You can now login with your mobile number and password.`);
       setShowSuccessPopup(true);
@@ -474,6 +490,7 @@ export default function RegisterPage() {
       setCourtAvailability(null);
       setAvailabilityMessage("");
     } catch (err: any) {
+      console.error('❌ Registration error:', err);
       setError(err.message || "Something went wrong");
     } finally {
       setLoading(false);

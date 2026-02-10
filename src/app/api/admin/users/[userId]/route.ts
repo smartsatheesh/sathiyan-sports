@@ -340,6 +340,8 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
       updatePaymentStatus: updateData.paymentStatus
     });
 
+    let subscriptionCreated = false;
+
     if (shouldCreateSubscription) {
       try {
         // Helper function to calculate subscription amount (defined here for use throughout)
@@ -423,21 +425,29 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
             subscriptionPaymentStatus = 'Failed';
           }
 
-          // Calculate subscription price if not already set
-          const subscriptionAmount = updateData.subscriptionAmount || 
-                                   currentUser.subscriptionAmount || 
-                                   calculateSubscriptionAmount(
-                                     updateData.champType || currentUser.champType,
-                                     subscriptionType,
-                                     updateData.gender || currentUser.gender,
-                                     updateData.preferredTimeSlot || currentUser.preferredTimeSlot
-                                   );
+          // PRIORITIZE manually entered subscription amount from the form
+          // Use updateData first (from form), then currentUser, then calculate
+          const subscriptionAmount = updateData.subscriptionAmount !== undefined && updateData.subscriptionAmount !== null
+                                   ? updateData.subscriptionAmount
+                                   : (currentUser.subscriptionAmount || 
+                                      calculateSubscriptionAmount(
+                                        updateData.champType || currentUser.champType,
+                                        subscriptionType,
+                                        updateData.gender || currentUser.gender,
+                                        updateData.preferredTimeSlot || currentUser.preferredTimeSlot
+                                      ));
+
+          console.log('💰 Subscription amount decision:', {
+            fromForm: updateData.subscriptionAmount,
+            fromCurrentUser: currentUser.subscriptionAmount,
+            finalAmount: subscriptionAmount
+          });
 
           // Calculate next due date based on current date and subscription type
-          // RESPECT the user's manual input if provided
-          let dueDate = updateData.nextDueDate || currentUser.nextDueDate;
+          // PRIORITIZE the user's manual input if provided
+          let dueDate = updateData.nextDueDate ? new Date(updateData.nextDueDate) : (currentUser.nextDueDate ? new Date(currentUser.nextDueDate) : null);
           if (!dueDate) {
-            const startDate = new Date(); // Use current date as start
+            const startDate = updateData.subscriptionStartDate || currentUser.subscriptionStartDate || new Date(); // Use subscription start date or current date
             
             if (subscriptionPaymentStatus === 'Pending') {
               // For pending payments, set due date to immediate (needs payment)
@@ -470,6 +480,8 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
               }
             }
           }
+          
+          console.log(`📅 Subscription due date: ${new Date(dueDate).toDateString()} ${updateData.nextDueDate ? '(manually set)' : '(auto-calculated)'}`);
 
           // Calculate overdue status
           const today = new Date();
@@ -501,6 +513,8 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
             lastPaymentDate: subscriptionPaymentStatus === 'Paid' ? 
               (updateData.paymentCompletedDate || currentUser.paymentCompletedDate || new Date()) : null,
             paymentStatus: subscriptionPaymentStatus,
+            paymentMethod: updateData.paymentMethod || currentUser.paymentMethod,
+            transactionId: updateData.transactionId || currentUser.transactionId,
             status: 'active',
             preferredSport: updateData.preferredSport || currentUser.preferredSport,
             preferredTimeSlot: updateData.preferredTimeSlot || currentUser.preferredTimeSlot,
@@ -519,6 +533,7 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
           };
 
           const subscription = await (Subscription.create as any)(subscriptionData);
+          subscriptionCreated = true;
           
           if (isBecomingSubscribed) {
             console.log(`🎉 NEW SUBSCRIPTION: User ${user.name} (${user.email}) marked as subscribed - created subscription record ${subscription._id}`);
@@ -768,6 +783,7 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
       success: true,
       message: "User updated successfully",
       user,
+      subscriptionCreated,
     });
   } catch (error) {
     console.error("Error updating user:", error);
