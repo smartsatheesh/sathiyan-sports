@@ -22,7 +22,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       autoRenewal,
       selectedCourt,
       startDate,
-      endDate
+      endDate,
+      nextDueDate
     } = body;
 
     console.log('🔧 Updating subscription with data:', body);
@@ -68,7 +69,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (status) subscription.status = status;
     if (paymentMethod) subscription.paymentMethod = paymentMethod;
     if (transactionId) subscription.transactionId = transactionId;
-    if (notes) subscription.notes = notes;
+    if (notes !== undefined) subscription.notes = notes; // Allow empty string to clear notes
     if (updatedBy) subscription.updatedBy = updatedBy;
     
     // Update additional fields
@@ -78,6 +79,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (selectedCourt) subscription.selectedCourt = selectedCourt;
     if (startDate) subscription.startDate = new Date(startDate);
     if (endDate) subscription.endDate = new Date(endDate);
+    if (nextDueDate) subscription.nextDueDate = new Date(nextDueDate);
 
     // If payment is confirmed, update payment date
     if (paymentStatus === 'Paid' && !subscription.lastPaymentDate) {

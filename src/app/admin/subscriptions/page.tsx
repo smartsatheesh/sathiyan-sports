@@ -417,14 +417,17 @@ const AdminSubscriptionsPage = () => {
       
       const updateData = {
         paymentStatus: selectedSubscription.paymentStatus,
+        transactionId: selectedSubscription.transactionId,
         paymentMethod: selectedSubscription.paymentMethod,
         mode: selectedSubscription.mode,
         amount: Number(selectedSubscription.amount), // Ensure it's a number
         autoRenewal: selectedSubscription.autoRenewal,
         startDate: selectedSubscription.startDate,
         endDate: selectedSubscription.endDate,
+        nextDueDate: selectedSubscription.nextDueDate, // Add nextDueDate to payload
         status: selectedSubscription.status,
         selectedCourt: selectedSubscription.selectedCourt,
+        notes: selectedSubscription.notes, // Add notes/comments to payload
         updatedBy: session?.user?.id
       };
 
@@ -1599,10 +1602,10 @@ const AdminSubscriptionsPage = () => {
                       fullWidth
                       label="Next Due Date"
                       type="date"
-                      value={selectedSubscription.endDate ? selectedSubscription.endDate.split('T')[0] : ''}
+                      value={selectedSubscription.nextDueDate ? selectedSubscription.nextDueDate.split('T')[0] : ''}
                       onChange={(e) => setSelectedSubscription({
                         ...selectedSubscription,
-                        endDate: e.target.value
+                        nextDueDate: e.target.value
                       })}
                       InputLabelProps={{
                         shrink: true,
