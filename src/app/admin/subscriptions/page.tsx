@@ -656,11 +656,55 @@ const AdminSubscriptionsPage = () => {
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
     
-    // Calculate filtered stats
-    const totalSubscriptions = filtered.length;
-    const paidSubscriptions = filtered.filter(s => s.paymentStatus === 'Paid').length;
-    const pendingSubscriptions = filtered.filter(s => s.paymentStatus === 'Pending').length;
-    const overdueSubscriptions = filtered.filter(s => {
+    // Determine the period for active subscription check
+    let periodStart: Date;
+    let periodEnd: Date;
+    
+    if (subscribedDateFrom || subscribedDateTo) {
+      periodStart = subscribedDateFrom ? new Date(subscribedDateFrom) : new Date(0);
+      periodStart.setHours(0, 0, 0, 0);
+      periodEnd = subscribedDateTo ? new Date(subscribedDateTo) : new Date();
+      periodEnd.setHours(23, 59, 59, 999);
+    } else {
+      // Default to current month
+      periodStart = new Date(currentYear, currentMonth, 1);
+      periodStart.setHours(0, 0, 0, 0);
+      periodEnd = new Date(currentYear, currentMonth + 1, 0);
+      periodEnd.setHours(23, 59, 59, 999);
+    }
+    
+    const gracePeriodDays = 5;
+    const graceDate = new Date(periodStart);
+    graceDate.setDate(graceDate.getDate() - gracePeriodDays);
+    
+    // Helper function to check if subscription is active for the period
+    const isActiveForPeriod = (s: any) => {
+      const startDate = s.startDate ? new Date(s.startDate) : null;
+      if (!startDate) return false;
+      startDate.setHours(0, 0, 0, 0);
+      
+      // Subscription must have started before period ends
+      if (startDate > periodEnd) return false;
+      
+      // Check if subscription covers the period with grace
+      const nextDueDate = s.nextDueDate ? new Date(s.nextDueDate) : null;
+      const endDate = s.endDate ? new Date(s.endDate) : null;
+      const effectiveEndDate = nextDueDate || endDate;
+      
+      if (effectiveEndDate) {
+        effectiveEndDate.setHours(23, 59, 59, 999);
+        return effectiveEndDate >= graceDate;
+      }
+      
+      return true; // No end date means ongoing
+    };
+    
+    // Calculate filtered stats (only count subscriptions active for the selected period)
+    const activeFilteredSubs = filtered.filter(isActiveForPeriod);
+    const totalSubscriptions = activeFilteredSubs.length;
+    const paidSubscriptions = activeFilteredSubs.filter(s => s.paymentStatus === 'Paid').length;
+    const pendingSubscriptions = activeFilteredSubs.filter(s => s.paymentStatus === 'Pending').length;
+    const overdueSubscriptions = activeFilteredSubs.filter(s => {
       if (s.nextDueDate) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -721,19 +765,40 @@ const AdminSubscriptionsPage = () => {
       periodLabel = `Revenue ${today.toLocaleString('default', { month: 'long', year: 'numeric' })}`;
     }
     
-    // Calculate period revenue from FILTERED subscriptions based on subscription startDate
-    // This respects all filters: sport, status, search, and date range
+    // Calculate period revenue from FILTERED subscriptions that are ACTIVE for the period
+    // Check if subscription covers the selected period (startDate <= periodEnd AND (nextDueDate OR endDate) >= periodStart)
     periodRevenue = filtered
       .filter(sub => {
         if (sub.paymentStatus !== 'Paid' && sub.paymentStatus !== 'paid' && sub.paymentStatus !== 'completed') {
           return false;
         }
-        if (!sub.startDate) {
-          return false;
-        }
-        const startDate = new Date(sub.startDate);
+        
+        // Subscription must have started before or during the period
+        const startDate = sub.startDate ? new Date(sub.startDate) : null;
+        if (!startDate) return false;
         startDate.setHours(0, 0, 0, 0);
-        return startDate >= fromDate && startDate <= toDate;
+        
+        // Subscription should start before period ends
+        if (startDate > toDate) return false;
+        
+        // Check if subscription is still active for the period (with 5 day grace period)
+        const gracePeriodDays = 5;
+        const graceDate = new Date(fromDate);
+        graceDate.setDate(graceDate.getDate() - gracePeriodDays);
+        
+        // Use nextDueDate or endDate to check if subscription covers the period
+        const nextDueDate = sub.nextDueDate ? new Date(sub.nextDueDate) : null;
+        const endDate = sub.endDate ? new Date(sub.endDate) : null;
+        
+        const effectiveEndDate = nextDueDate || endDate;
+        if (effectiveEndDate) {
+          effectiveEndDate.setHours(23, 59, 59, 999);
+          // Subscription is valid if its end/due date (+ grace) is within or after the period start
+          return effectiveEndDate >= graceDate;
+        }
+        
+        // If no end date, consider it active if it started before period ended
+        return true;
       })
       .reduce((sum, sub) => sum + (sub.amount || 0), 0);
     
@@ -1386,7 +1451,7 @@ const AdminSubscriptionsPage = () => {
                     {formatSafeDate(subscription.startDate)}
                   </TableCell>
                   <TableCell>
-                    {formatSafeDate(subscription.endDate)}
+                    {formatSafeDate(subscription.nextDueDate)}
                   </TableCell>
                   <TableCell>
                     <Chip 

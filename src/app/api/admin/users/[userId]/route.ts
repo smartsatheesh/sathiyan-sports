@@ -497,6 +497,12 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
           const isPastGrace = diffDays > gracePeriod && subscriptionPaymentStatus !== 'Paid';
           const daysPastDue = Math.max(diffDays, 0);
 
+          // Normalize paymentMethod to match schema enum (capitalize first letter)
+          const rawPaymentMethod = updateData.paymentMethod || currentUser.paymentMethod;
+          const normalizedPaymentMethod = rawPaymentMethod 
+            ? rawPaymentMethod.charAt(0).toUpperCase() + rawPaymentMethod.slice(1).toLowerCase()
+            : undefined;
+
           const subscriptionData = {
             userId: user._id,
             champId: updateData.champId || user.champId,
@@ -513,12 +519,12 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
             lastPaymentDate: subscriptionPaymentStatus === 'Paid' ? 
               (updateData.paymentCompletedDate || currentUser.paymentCompletedDate || new Date()) : null,
             paymentStatus: subscriptionPaymentStatus,
-            paymentMethod: updateData.paymentMethod || currentUser.paymentMethod,
+            ...(normalizedPaymentMethod && { paymentMethod: normalizedPaymentMethod }),
             transactionId: updateData.transactionId || currentUser.transactionId,
             status: 'active',
             preferredSport: updateData.preferredSport || currentUser.preferredSport,
             preferredTimeSlot: updateData.preferredTimeSlot || currentUser.preferredTimeSlot,
-            selectedCourt: updateData.selectedCourt || currentUser.selectedCourt,
+            ...(updateData.selectedCourt || currentUser.selectedCourt ? { selectedCourt: updateData.selectedCourt || currentUser.selectedCourt } : {}),
             autoRenewal: false,
             // Required fields that were missing
             subscriptionPeriodId: `${updateData.champId || user.champId}_${Date.now()}`,

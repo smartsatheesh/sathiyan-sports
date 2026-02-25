@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToMongoose } from "@/app/server/mongodb";
 import User from "@/app/models/User";
+import Subscription from "@/app/models/Subscription";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from "date-fns";
 
 interface SlotAnalytics {
@@ -61,100 +62,50 @@ export async function POST(req: NextRequest) {
 
     // Calculate current month boundaries for filtering active subscriptions
     const currentMonthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+    currentMonthStart.setHours(0, 0, 0, 0);
     const currentMonthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0); // Last day of month
     currentMonthEnd.setHours(23, 59, 59, 999);
     
     // Default grace period in days
-    const DEFAULT_GRACE_PERIOD = 7;
+    const DEFAULT_GRACE_PERIOD = 5;
 
     console.log(`📅 Current month range: ${currentMonthStart.toISOString()} to ${currentMonthEnd.toISOString()}`);
 
-    // Get all verified, SUBSCRIBED badminton users with preferred time slots
-    // Only include users who have subscribed: 'Yes' or 'yes'
+    // Get active subscriptions for the current month (based on startDate overlapping with current month)
+    const activeSubscriptions = await (Subscription.find as any)({
+      preferredSport: "Shuttle Badminton",
+      paymentStatus: "Paid",
+      status: "active",
+      // Subscription should have started before or during current month AND should be valid for current month
+      startDate: { $lte: currentMonthEnd },
+      $or: [
+        // nextDueDate (with grace) is in the future or current month
+        { nextDueDate: { $gte: new Date(currentMonthStart.getTime() - DEFAULT_GRACE_PERIOD * 24 * 60 * 60 * 1000) } },
+        // OR endDate (with grace) covers current month
+        { endDate: { $gte: new Date(currentMonthStart.getTime() - DEFAULT_GRACE_PERIOD * 24 * 60 * 60 * 1000) } }
+      ]
+    }).populate('userId').lean();
+
+    console.log(`📊 Found ${activeSubscriptions.length} active badminton subscriptions for current month`);
+
+    // Extract unique user IDs who have active subscriptions
+    const activeUserIds = [...new Set(activeSubscriptions
+      .filter(sub => sub.userId && sub.userId._id)
+      .map(sub => sub.userId._id.toString()))];
+
+    console.log(`👥 Active users with subscriptions: ${activeUserIds.length}`);
+
+    // Get user details for these active subscribers
     const users = await (User as any).find({
-      status: "verified",
-      paymentStatus: "completed",
-      subscribed: { $in: ['Yes', 'yes'] }, // Only subscribed users
+      _id: { $in: activeUserIds },
       preferredSport: "Shuttle Badminton",
       preferredTimeSlot: { $exists: true, $ne: "" },
       selectedCourt: { $exists: true, $ne: "" }
-    }).select('name email mobile preferredTimeSlot selectedCourt preferredSport subscriptionType subscriptionEndDate nextDueDate subscriptionStartDate gracePeriodDays createdAt').lean();
+    }).select('name email mobile preferredTimeSlot selectedCourt preferredSport createdAt').lean();
 
-    console.log(`📊 Found ${users.length} subscribed badminton users with preferred slots (before active filter)`);
+    console.log(`📊 Found ${users.length} active subscribed badminton users with slots`);
 
-    // Filter users to only include those with ACTIVE subscriptions for the current month
-    // Include grace period consideration
-    const activeUsers = users.filter(user => {
-      const subscriptionType = user.subscriptionType?.toLowerCase() || 'monthly';
-      const nextDueDate = user.nextDueDate ? new Date(user.nextDueDate) : null;
-      const subscriptionEndDate = user.subscriptionEndDate ? new Date(user.subscriptionEndDate) : null;
-      const gracePeriod = user.gracePeriodDays || DEFAULT_GRACE_PERIOD;
-      
-      // Calculate grace period adjusted dates
-      const getGraceAdjustedDate = (date: Date | null): Date | null => {
-        if (!date) return null;
-        const adjusted = new Date(date);
-        adjusted.setDate(adjusted.getDate() + gracePeriod);
-        return adjusted;
-      };
-      
-      // For YEARLY subscriptions: Check if subscription end date (+ grace) is still valid
-      if (subscriptionType === 'yearly') {
-        const graceAdjustedEnd = getGraceAdjustedDate(subscriptionEndDate);
-        if (graceAdjustedEnd && graceAdjustedEnd >= currentMonthStart) {
-          console.log(`✅ Yearly user ${user.name}: Active until ${subscriptionEndDate?.toISOString()} (+${gracePeriod} days grace)`);
-          return true;
-        }
-        console.log(`❌ Yearly user ${user.name}: Expired on ${subscriptionEndDate?.toISOString() || 'N/A'} (past grace period)`);
-        return false;
-      }
-      
-      // For HALF YEARLY subscriptions: Check if subscription end date (+ grace) covers current month
-      if (subscriptionType === 'half yearly') {
-        const graceAdjustedEnd = getGraceAdjustedDate(subscriptionEndDate);
-        if (graceAdjustedEnd && graceAdjustedEnd >= currentMonthStart) {
-          console.log(`✅ Half-yearly user ${user.name}: Active until ${subscriptionEndDate?.toISOString()} (+${gracePeriod} days grace)`);
-          return true;
-        }
-        console.log(`❌ Half-yearly user ${user.name}: Expired on ${subscriptionEndDate?.toISOString() || 'N/A'} (past grace period)`);
-        return false;
-      }
-      
-      // For QUARTERLY subscriptions: Check if subscription end date (+ grace) covers current month
-      if (subscriptionType === 'quarterly') {
-        const graceAdjustedEnd = getGraceAdjustedDate(subscriptionEndDate);
-        if (graceAdjustedEnd && graceAdjustedEnd >= currentMonthStart) {
-          console.log(`✅ Quarterly user ${user.name}: Active until ${subscriptionEndDate?.toISOString()} (+${gracePeriod} days grace)`);
-          return true;
-        }
-        console.log(`❌ Quarterly user ${user.name}: Expired on ${subscriptionEndDate?.toISOString() || 'N/A'} (past grace period)`);
-        return false;
-      }
-      
-      // For MONTHLY subscriptions: nextDueDate (+ grace) must be >= start of current month
-      if (nextDueDate) {
-        const graceAdjustedDue = getGraceAdjustedDate(nextDueDate);
-        // If nextDueDate + grace period is in current month or future, user is still active
-        if (graceAdjustedDue && graceAdjustedDue >= currentMonthStart) {
-          console.log(`✅ Monthly user ${user.name}: Active, due date ${nextDueDate.toISOString()} (+${gracePeriod} days grace)`);
-          return true;
-        }
-        console.log(`❌ Monthly user ${user.name}: NOT renewed, due date was ${nextDueDate.toISOString()} (past grace period)`);
-        return false;
-      }
-      
-      // Fallback: Check subscriptionEndDate with grace period
-      const graceAdjustedEnd = getGraceAdjustedDate(subscriptionEndDate);
-      if (graceAdjustedEnd && graceAdjustedEnd >= currentMonthStart) {
-        console.log(`✅ User ${user.name}: Active via subscriptionEndDate ${subscriptionEndDate.toISOString()}`);
-        return true;
-      }
-      
-      console.log(`❌ User ${user.name}: No valid subscription dates found`);
-      return false;
-    });
-
-    console.log(`📊 Active users for current month: ${activeUsers.length} out of ${users.length}`);
+    const activeUsers = users;
 
     // Create a comprehensive slot analytics array
     const slotAnalytics: SlotAnalytics[] = [];
@@ -229,15 +180,15 @@ export async function POST(req: NextRequest) {
       slots: filteredSlots,
       metadata: {
         totalSlots: filteredSlots.length,
-        totalActiveUsers: activeUsers.length, // Only active subscribed users for current month
-        totalSubscribedUsers: users.length, // All subscribed badminton users (for reference)
+        totalActiveUsers: activeUsers.length, // Only users with active subscriptions for current month
+        totalActiveSubscriptions: activeSubscriptions.length,
         gracePeriodDays: DEFAULT_GRACE_PERIOD,
         viewType,
         dateRange: viewType === 'weekly' 
           ? `${format(startOfWeek(selectedDate), 'yyyy-MM-dd')} to ${format(endOfWeek(selectedDate), 'yyyy-MM-dd')}`
           : `${format(startOfMonth(selectedDate), 'yyyy-MM-dd')} to ${format(endOfMonth(selectedDate), 'yyyy-MM-dd')}`,
         activeCourts,
-        note: `Stats only include SUBSCRIBED badminton users with active subscriptions for the selected month (${DEFAULT_GRACE_PERIOD} days grace period applied)`
+        note: `Stats only include badminton users with PAID, ACTIVE subscriptions for the selected month (${DEFAULT_GRACE_PERIOD} days grace period applied)`
       }
     });
 

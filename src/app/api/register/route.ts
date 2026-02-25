@@ -225,7 +225,7 @@ export async function POST(req: Request) {
           status: 'active',
           preferredSport: body.preferredSport,
           preferredTimeSlot: body.preferredTimeSlot || '',
-          selectedCourt: body.selectedCourt || '',
+          ...(body.selectedCourt && { selectedCourt: body.selectedCourt }), // Only include if not empty
           autoRenewal: false,
           subscriptionPeriodId: subscriptionPeriodId,
           isRenewal: false,
