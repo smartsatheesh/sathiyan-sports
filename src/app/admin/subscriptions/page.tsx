@@ -36,6 +36,21 @@ import {
   ToggleButtonGroup,
 } from "@mui/material";
 import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  Legend,
+  Cell
+} from 'recharts';
+import {
   Edit,
   Delete,
   ArrowBack,
@@ -650,6 +665,62 @@ const AdminSubscriptionsPage = () => {
   }, [subscriptions, filterStatus, searchTerm, subscribedDateFrom, subscribedDateTo, dueDateFrom, dueDateTo, preferredSportFilter, sortBy, sortOrder]);
 
   // Dynamic stats calculation based on filtered data
+  // Calculate monthly revenue data for the chart (last 6 months)
+  const monthlyRevenueData = useMemo(() => {
+    const months = [];
+    const currentDate = new Date();
+    
+    // Get last 6 months including current month
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+      monthStart.setHours(0, 0, 0, 0);
+      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+      monthEnd.setHours(23, 59, 59, 999);
+      
+      const gracePeriodDays = 5;
+      const graceDate = new Date(monthStart);
+      graceDate.setDate(graceDate.getDate() - gracePeriodDays);
+      
+      // Filter active paid subscriptions for this month
+      const monthlyRevenue = subscriptions
+        .filter(sub => {
+          if (sub.paymentStatus !== 'Paid' && sub.paymentStatus !== 'paid' && sub.paymentStatus !== 'completed') {
+            return false;
+          }
+          
+          // Subscription must have started before or during the period
+          const startDate = sub.startDate ? new Date(sub.startDate) : null;
+          if (!startDate) return false;
+          startDate.setHours(0, 0, 0, 0);
+          
+          // Subscription should start before period ends
+          if (startDate > monthEnd) return false;
+          
+          // Check if subscription is still active for the period (with grace period)
+          const nextDueDate = sub.nextDueDate ? new Date(sub.nextDueDate) : null;
+          const endDate = sub.endDate ? new Date(sub.endDate) : null;
+          
+          const effectiveEndDate = nextDueDate || endDate;
+          if (effectiveEndDate) {
+            effectiveEndDate.setHours(23, 59, 59, 999);
+            return effectiveEndDate >= graceDate;
+          }
+          
+          return true;
+        })
+        .reduce((sum, sub) => sum + (sub.amount || 0), 0);
+      
+      months.push({
+        month: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+        revenue: monthlyRevenue,
+        fullDate: date
+      });
+    }
+    
+    return months;
+  }, [subscriptions]);
+
   const dynamicStats = useMemo(() => {
     const filtered = filteredAndSortedSubscriptions;
     const today = new Date();
@@ -818,6 +889,110 @@ const AdminSubscriptionsPage = () => {
       collectionRate: `${Math.round(collectionRate)}%`
     };
   }, [filteredAndSortedSubscriptions, subscribedDateFrom, subscribedDateTo, subscriptions]);
+
+  // Calculate sport-wise revenue data for pie chart
+  const sportWiseRevenueData = useMemo(() => {
+    const sportRevenue: Record<string, number> = {};
+    const sports = ['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events'];
+    
+    subscriptions.forEach(sub => {
+      if (sub.paymentStatus === 'Paid' || sub.paymentStatus === 'paid' || sub.paymentStatus === 'completed') {
+        const sport = sub.preferredSport || 'Other';
+        sportRevenue[sport] = (sportRevenue[sport] || 0) + (sub.amount || 0);
+      }
+    });
+    
+    return Object.entries(sportRevenue)
+      .map(([name, value]) => ({
+        name,
+        value: Math.round(value)
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [subscriptions]);
+
+  // Calculate monthly subscription count (game/sport distribution)
+  const monthlyGameDistributionData = useMemo(() => {
+    const months = [];
+    const currentDate = new Date();
+    
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+      monthStart.setHours(0, 0, 0, 0);
+      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+      monthEnd.setHours(23, 59, 59, 999);
+      
+      const monthData: any = {
+        month: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+        total: 0,
+        Cricket: 0,
+        Football: 0,
+        'Shuttle Badminton': 0,
+        'Functions and Events': 0,
+        Other: 0
+      };
+      
+      subscriptions.forEach(sub => {
+        const startDate = sub.startDate ? new Date(sub.startDate) : null;
+        if (startDate && startDate >= monthStart && startDate <= monthEnd) {
+          const sport = sub.preferredSport || 'Other';
+          if (sport in monthData) {
+            monthData[sport]++;
+          }
+          monthData.total++;
+        }
+      });
+      
+      months.push(monthData);
+    }
+    
+    return months;
+  }, [subscriptions]);
+
+  // Calculate subscription status distribution for pie chart
+  const subscriptionStatusData = useMemo(() => {
+    const statusCount: Record<string, number> = {
+      Active: 0,
+      Expired: 0,
+      Pending: 0,
+      Cancelled: 0
+    };
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    subscriptions.forEach(sub => {
+      if (sub.status === 'active' || !sub.status) {
+        const nextDueDate = sub.nextDueDate ? new Date(sub.nextDueDate) : null;
+        const endDate = sub.endDate ? new Date(sub.endDate) : null;
+        const effectiveDate = nextDueDate || endDate;
+        
+        if (effectiveDate) {
+          effectiveDate.setHours(0, 0, 0, 0);
+          if (effectiveDate < today) {
+            statusCount.Expired++;
+          } else {
+            statusCount.Active++;
+          }
+        } else {
+          statusCount.Active++;
+        }
+      } else if (sub.status === 'expired') {
+        statusCount.Expired++;
+      } else if (sub.status === 'cancelled') {
+        statusCount.Cancelled++;
+      } else if (sub.status === 'pending' || sub.paymentStatus === 'Pending') {
+        statusCount.Pending++;
+      }
+    });
+    
+    return Object.entries(statusCount)
+      .filter(([, count]) => count > 0)
+      .map(([name, value]) => ({
+        name,
+        value
+      }));
+  }, [subscriptions]);
 
   const paginatedSubscriptions = useMemo(() => {
     const start = page * rowsPerPage;
@@ -1248,6 +1423,175 @@ const AdminSubscriptionsPage = () => {
             </Card>
           </Grid>
         </Grid>
+
+        {/* 📊 ADVANCED ANALYTICS SECTION */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold', color: '#1976d2' }}>
+            📊 Advanced Analytics & Insights
+          </Typography>
+          
+          {/* Charts Grid */}
+          <Grid container spacing={3}>
+            {/* Monthly Revenue Bar Chart */}
+            <Grid item xs={12} md={8}>
+              <Card sx={{ height: '100%', boxShadow: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+                    💰 Monthly Revenue Trend (Last 6 Months)
+                  </Typography>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={monthlyRevenueData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="month" 
+                        tick={{ fill: '#666', fontSize: 12 }}
+                      />
+                      <YAxis 
+                        tick={{ fill: '#666', fontSize: 12 }}
+                        label={{ value: 'Revenue (₹)', angle: -90, position: 'insideLeft', offset: 10 }}
+                      />
+                      <RechartsTooltip 
+                        formatter={(value) => formatCurrency(value as number)}
+                        contentStyle={{ backgroundColor: '#f5f5f5', border: '1px solid #ccc', borderRadius: 4 }}
+                      />
+                      <Legend />
+                      <Bar 
+                        dataKey="revenue" 
+                        fill="#1976d2" 
+                        name="Revenue"
+                        radius={[8, 8, 0, 0]}
+                      >
+                        {monthlyRevenueData.map((entry, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={index === monthlyRevenueData.length - 1 ? '#0d47a1' : '#1976d2'} 
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Sport Revenue Distribution Pie Chart */}
+            <Grid item xs={12} md={4}>
+              <Card sx={{ height: '100%', boxShadow: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+                    🎾 Revenue by Sport
+                  </Typography>
+                  {sportWiseRevenueData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={sportWiseRevenueData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, value }) => `${name}: ${formatCurrency(value)}`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {sportWiseRevenueData.map((entry, index) => {
+                            const colors = ['#1976d2', '#d32f2f', '#388e3c', '#f57c00', '#7b1fa2'];
+                            return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                          })}
+                        </Pie>
+                        <RechartsTooltip 
+                          formatter={(value) => formatCurrency(value as number)}
+                          contentStyle={{ backgroundColor: '#f5f5f5', border: '1px solid #ccc', borderRadius: 4 }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+                      <Typography color="textSecondary">No data available</Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Monthly Game/Sport Distribution Stacked Bar Chart */}
+            <Grid item xs={12} md={8}>
+              <Card sx={{ boxShadow: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+                    🏆 Monthly Subscription Distribution by Sport
+                  </Typography>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={monthlyGameDistributionData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="month"
+                        tick={{ fill: '#666', fontSize: 12 }}
+                      />
+                      <YAxis 
+                        tick={{ fill: '#666', fontSize: 12 }}
+                        label={{ value: 'Subscriptions', angle: -90, position: 'insideLeft', offset: 10 }}
+                      />
+                      <RechartsTooltip 
+                        contentStyle={{ backgroundColor: '#f5f5f5', border: '1px solid #ccc', borderRadius: 4 }}
+                      />
+                      <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                      <Bar dataKey="Cricket" stackId="a" fill="#1976d2" />
+                      <Bar dataKey="Football" stackId="a" fill="#d32f2f" />
+                      <Bar dataKey="Shuttle Badminton" stackId="a" fill="#388e3c" />
+                      <Bar dataKey="Functions and Events" stackId="a" fill="#f57c00" />
+                      <Bar dataKey="Other" stackId="a" fill="#7b1fa2" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Subscription Status Distribution Pie Chart */}
+            <Grid item xs={12} md={4}>
+              <Card sx={{ boxShadow: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+                    📈 Subscription Status Distribution
+                  </Typography>
+                  {subscriptionStatusData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={subscriptionStatusData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, value }) => `${name}: ${value}`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {subscriptionStatusData.map((entry, index) => {
+                            const colors = {
+                              'Active': '#388e3c',
+                              'Expired': '#d32f2f',
+                              'Pending': '#f57c00',
+                              'Cancelled': '#9e9e9e'
+                            };
+                            return <Cell key={`cell-${index}`} fill={colors[entry.name as keyof typeof colors]} />;
+                          })}
+                        </Pie>
+                        <RechartsTooltip 
+                          contentStyle={{ backgroundColor: '#f5f5f5', border: '1px solid #ccc', borderRadius: 4 }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+                      <Typography color="textSecondary">No data available</Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </Box>
 
         {/* Filters */}
         <Box display="flex" gap={2} mb={3} alignItems="center" flexWrap="wrap">

@@ -368,13 +368,13 @@ export default function BookSlot() {
     }
   }, [selectedSport, selectedDate, selectedTimeSlots, timeSlots]);
 
-  // Authentication check - ALL HOOKS MUST BE BEFORE CONDITIONAL RETURNS
-  useEffect(() => {
-    if (status !== 'loading' && !session) {
-      // Redirect to login with callback URL
-      router.push(`/auth/login?callbackUrl=${encodeURIComponent('/bookslot')}`);
-    }
-  }, [session, status, router]);
+  // Authentication check - Optional for guests
+  // Removed redirect so guests can book without login
+  // useEffect(() => {
+  //   if (status !== 'loading' && !session) {
+  //     router.push(`/auth/login?callbackUrl=${encodeURIComponent('/bookslot')}`);
+  //   }
+  // }, [session, status, router]);
 
   // Auto-fill customer information for authenticated users
   useEffect(() => {
@@ -496,28 +496,29 @@ export default function BookSlot() {
     return () => clearInterval(interval);
   }, [timerActive, paymentTimer]);
 
-  // Show loading while checking authentication
-  if (status === 'loading') {
-    return (
-      <Container sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '50vh',
-        py: 4 
-      }}>
-        <CircularProgress />
-        <Typography variant="h6" sx={{ ml: 2 }}>
-          Checking authentication...
-        </Typography>
-      </Container>
-    );
-  }
+  // Show loading while checking authentication (optional for guests)
+  // Removed authentication requirement - guests can book without login
+  // if (status === 'loading') {
+  //   return (
+  //     <Container sx={{ 
+  //       display: 'flex', 
+  //       justifyContent: 'center', 
+  //       alignItems: 'center', 
+  //       minHeight: '50vh',
+  //       py: 4 
+  //     }}>
+  //       <CircularProgress />
+  //       <Typography variant="h6" sx={{ ml: 2 }}>
+  //         Checking authentication...
+  //       </Typography>
+  //     </Container>
+  //   );
+  // }
 
-  // Don't render anything if not authenticated (will redirect)
-  if (!session) {
-    return null;
-  }
+  // Guests can book without authentication
+  // if (!session) {
+  //   return null;
+  // }
 
   // Generate payment reference number
   const generatePaymentRef = () => {

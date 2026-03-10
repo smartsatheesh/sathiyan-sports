@@ -73,7 +73,8 @@ export async function POST(
       preferredSport: currentSubscription.preferredSport,
       preferredTimeSlot: currentSubscription.preferredTimeSlot,
       selectedCourt: selectedCourt || currentSubscription.selectedCourt,
-      notes: `Renewal ${currentSubscription.renewalNumber + 1} - Previous period: ${currentSubscription.startDate.toDateString()} to ${currentSubscription.endDate.toDateString()}`,
+      // Always use the immediate previous period for the comment
+      notes: `Renewal ${currentSubscription.renewalNumber + 1} - Previous period: ${currentSubscription.startDate ? new Date(currentSubscription.startDate).toLocaleDateString('en-IN', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) : '-'} to ${currentSubscription.endDate ? new Date(currentSubscription.endDate).toLocaleDateString('en-IN', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) : '-'}`,
       // Renewal tracking
       subscriptionPeriodId: currentSubscription.subscriptionPeriodId,
       isRenewal: true,

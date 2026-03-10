@@ -13,9 +13,8 @@ export default withAuth(
       }
     }
 
-    // Authentication required routes
-    if (pathname.startsWith('/book-slot') || 
-        pathname.startsWith('/my-bookings') ||
+    // Authentication required routes (bookslot is now public, removed from protection)
+    if (pathname.startsWith('/my-bookings') ||
         pathname.startsWith('/profile') ||
         pathname.startsWith('/s3/enrolled')) {
       if (!token) {
@@ -30,13 +29,14 @@ export default withAuth(
       authorized: ({ token, req }) => {
         const pathname = req.nextUrl.pathname;
         
-        // Always allow public routes
+        // Always allow public routes (including bookslot)
         if (
           pathname.startsWith('/api/auth') ||
           pathname.startsWith('/auth/') ||
           pathname === '/' ||
           pathname.startsWith('/contact') ||
           pathname.startsWith('/register') ||
+          pathname.startsWith('/bookslot') || // Allow booking slot for everyone
           pathname.startsWith('/s3') ||
           pathname.startsWith('/_next') ||
           pathname.startsWith('/favicon.ico')
@@ -49,9 +49,8 @@ export default withAuth(
           return token?.role === 'admin';
         }
 
-        // For user-specific routes, just check if authenticated
+        // For user-specific routes, just check if authenticated (bookslot removed - now public)
         if (
-          pathname.startsWith('/book-slot') || 
           pathname.startsWith('/my-bookings') ||
           pathname.startsWith('/profile')
         ) {
@@ -68,9 +67,9 @@ export default withAuth(
 export const config = {
   matcher: [
     '/admin/:path*',
-    '/book-slot/:path*',
     '/my-bookings/:path*',
     '/profile/:path*',
     '/s3/enrolled/:path*'
+    // Removed /book-slot and /bookslot - now publicly accessible
   ]
 };
