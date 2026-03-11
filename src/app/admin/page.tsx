@@ -701,31 +701,23 @@ export default function AdminDashboard() {
         
         // Check if subscription was created
         if (data.subscriptionCreated) {
-          console.log('🎉 Subscription entry was created - redirecting to subscriptions page');
+          console.log('🎉 Subscription entry was created for user. Staying on user page.');
           setAlert({ 
             type: 'success', 
-            message: 'User updated and subscription created! Redirecting to subscriptions page...' 
+            message: 'User updated and subscription created!' 
           });
-          
+          // Refresh the users list from server to get the latest data
+          await fetchData();
           setEditUserDialogOpen(false);
           setSelectedUser(null);
-          
-          // Redirect to subscriptions page after 1.5 seconds
-          setTimeout(() => {
-            window.location.href = '/admin/subscriptions';
-          }, 1500);
-          
           return;
         }
-        
         // Refresh the users list from server to get the latest data
         await fetchData();
-        
         setAlert({ 
           type: 'success', 
           message: 'User updated successfully!' 
         });
-        
         setEditUserDialogOpen(false);
         setSelectedUser(null);
       } else {
