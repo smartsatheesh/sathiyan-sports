@@ -246,6 +246,9 @@ export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   
+  const isAdmin = session?.user?.role === "admin";
+  const attendanceTabIndex = isAdmin ? 5 : 1;
+  
   const [tabValue, setTabValue] = useState(0);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -1179,7 +1182,7 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!session || session.user?.role !== "admin") {
+  if (!session || (session.user?.role !== "admin" && session.user?.role !== "coach")) {
     return null;
   }
 
