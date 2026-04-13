@@ -204,14 +204,13 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
       }
     }
 
-    // Check if user is being verified and payment is completed - populate registered slots
-    const shouldPopulateSlots = 
-      updateData.status === 'verified' && 
-      (updateData.paymentStatus === 'completed' || currentUser.paymentStatus === 'completed') &&
-      currentUser.status !== 'verified' && // Only populate if status is changing to verified
+    // Check if payment status is changing to completed - populate registered slots
+    const isPaymentStatusChanging = 
+      (updateData.paymentStatus === 'completed' || updateData.paymentStatus === 'confirmed') && 
+      (currentUser.paymentStatus !== 'completed' && currentUser.paymentStatus !== 'confirmed') &&
       currentUser.preferredTimeSlot;
 
-    if (shouldPopulateSlots) {
+    if (isPaymentStatusChanging) {
       // Parse preferredTimeSlot (e.g., "6:00 AM - 7:00 AM - S1")
       const timeSlotParts = currentUser.preferredTimeSlot.split(' - ');
       if (timeSlotParts.length >= 2) {

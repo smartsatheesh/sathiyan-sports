@@ -12,11 +12,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is admin
+    // Check if user is admin or coach
     await connectToMongoose();
     const adminUser = await (User as any).findOne({ email: session.user.email });
-    if (!adminUser || adminUser.role !== 'admin') {
-      return NextResponse.json({ message: 'Admin access required' }, { status: 403 });
+    if (!adminUser || (adminUser.role !== 'admin' && adminUser.role !== 'coach')) {
+      return NextResponse.json({ message: 'Admin or Coach access required' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);

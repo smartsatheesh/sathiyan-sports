@@ -31,7 +31,7 @@ const userSchema = new mongoose.Schema({
   role: {
     type: String,
     default: "customer",
-    enum: ["customer", "admin"],
+    enum: ["customer", "admin", "coach"],
   },
   provider: {
     type: String,
@@ -196,6 +196,27 @@ const userSchema = new mongoose.Schema({
     type: Number,
     // Optional field for BMI (calculated from height and weight)
   },
+  // Registered slots for monthly/yearly subscribers (blocks slots for regular bookings)
+  registeredSlots: [{
+    _id: mongoose.Schema.Types.ObjectId,
+    timeSlot: {
+      type: String,
+      required: true,
+    },
+    court: {
+      type: String,
+      enum: ["S1", "S2", "S3"],
+      default: "S1",
+    },
+    dayOfWeek: {
+      type: String,
+      enum: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"],
+    },
+    registeredAt: {
+      type: Date,
+      default: Date.now,
+    }
+  }],
   createdAt: {
     type: Date,
     default: Date.now,

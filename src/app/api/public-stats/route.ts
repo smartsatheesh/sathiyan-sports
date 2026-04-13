@@ -14,16 +14,15 @@ export async function GET() {
 
     // Get total counts for public display
     const totalUsers = await (User.countDocuments as any)({
-      status: { $in: ['verified', 'active'] } // Only count verified/active users
+      paymentStatus: 'completed', // Only count verified users with completed payments
+      isActive: true
     });
     
     const totalBookings = await (Booking.countDocuments as any)({
       paymentStatus: 'completed' // Only completed bookings
     });
     
-    const totalFitnessEnrollments = await (FitnessEnrollment.countDocuments as any)({
-      status: { $in: ['active', 'completed'] } // Only active/completed enrollments
-    });
+    const totalFitnessEnrollments = await (FitnessEnrollment.countDocuments as any)({});
 
     // Calculate total events (assuming functions and events bookings)
     const totalEvents = await (Booking.countDocuments as any)({
@@ -40,7 +39,7 @@ export async function GET() {
     
     const usersThisYear = await (User.countDocuments as any)({
       createdAt: { $gte: yearStart },
-      status: { $in: ['verified', 'active'] }
+      isActive: true
     });
 
     const bookingsThisYear = await (Booking.countDocuments as any)({

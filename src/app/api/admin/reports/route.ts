@@ -13,10 +13,10 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    // Check if user is admin
-    if (!session?.user?.id || session?.user?.role !== 'admin') {
+    // Check if user is admin or coach
+    if (!session?.user?.id || (session?.user?.role !== 'admin' && session?.user?.role !== 'coach')) {
       return NextResponse.json(
-        { success: false, error: 'Admin access required' }, 
+        { success: false, error: 'Admin or Coach access required' }, 
         { status: 403 }
       );
     }

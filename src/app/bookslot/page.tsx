@@ -260,82 +260,42 @@ export default function BookSlot() {
   // Function to handle sport selection and auto-scroll to date selection
   const handleSportSelection = (sportName: "Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events") => {
     setSelectedSport(sportName);
-    setIsScrollingToDate(true); // Show loading state
+    setIsScrollingToDate(true);
     
-    // Auto-scroll to date selection after a brief delay to allow rendering
+    // Immediate scroll attempt for better mobile experience
     setTimeout(() => {
       if (dateTimeSelectionRef.current) {
-        // Add highlight animation
         setIsScrollHighlighted(true);
         
-        // Enhanced mobile detection - multiple checks for better accuracy
-        const isMobile = window.innerWidth <= 768 || 
-                         window.innerHeight <= 1024 || 
-                         /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-                         'ontouchstart' in window || 
-                         navigator.maxTouchPoints > 0;
-        
-        if (isMobile) {
-          // For mobile devices - enhanced scroll behavior
-          const element = dateTimeSelectionRef.current;
-          const elementRect = element.getBoundingClientRect();
-          const absoluteElementTop = elementRect.top + window.pageYOffset;
-          
-          // Calculate better scroll position for mobile - account for mobile browsers' varying UI heights
-          const viewportHeight = window.innerHeight;
-          const headerOffset = 100; // Account for header and some spacing
-          const targetPosition = Math.max(0, absoluteElementTop - headerOffset);
-          
-          // Primary scroll method
-          window.scrollTo({
-            top: targetPosition,
-            behavior: 'smooth'
-          });
-          
-          // Enhanced fallback for problematic mobile browsers
-          setTimeout(() => {
-            const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
-            if (Math.abs(currentScroll - targetPosition) > 100) {
-              // Try alternative scroll method
-              try {
-                element.scrollIntoView({
-                  behavior: 'smooth',
-                  block: 'start',
-                  inline: 'nearest'
-                });
-              } catch (error) {
-                // Final fallback - instant scroll
-                window.scrollTo(0, targetPosition);
-              }
-            }
-          }, 800);
-          
-          // Additional iOS Safari specific fix
-          if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-            setTimeout(() => {
-              window.scrollBy(0, 1); // Force iOS Safari to recognize scroll position
-              window.scrollBy(0, -1);
-            }, 1200);
-          }
-          
-        } else {
-          // For desktop, use standard scrollIntoView
+        // Simplified scroll approach - works better across all devices
+        try {
           dateTimeSelectionRef.current.scrollIntoView({
             behavior: 'smooth',
-            block: 'start',
-            inline: 'nearest'
+            block: 'center'
           });
+        } catch (e) {
+          // Fallback for older browsers
+          dateTimeSelectionRef.current.scrollIntoView(true);
         }
         
-        // Remove highlight after animation
+        // Additional iOS Safari fix
+        setTimeout(() => {
+          if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+            // Force iOS to scroll by updating window position
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            window.scrollTo(0, scrollTop + 1);
+            window.scrollTo(0, scrollTop);
+          }
+        }, 300);
+        
         setTimeout(() => {
           setIsScrollHighlighted(false);
-          setIsScrollingToDate(false); // Remove loading state
-        }, 2500);
+          setIsScrollingToDate(false);
+        }, 2000);
       } else {
-        setIsScrollingToDate(false); // Remove loading state if ref not found
+        setIsScrollingToDate(false);
       }
-    }, 600); // Slightly longer delay for mobile rendering completion
+    }, 100); // Minimal delay for better UX
   };
   const [timerActive, setTimerActive] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);

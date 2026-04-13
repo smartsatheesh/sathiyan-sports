@@ -20,24 +20,24 @@ export async function POST(req: NextRequest) {
 
     console.log(`✅ Updated ${result.modifiedCount} users with default slot values`);
     
-    // Also update status to "registered" for existing users
-    const statusResult = await (User.updateMany as any)(
-      { status: { $in: ['pending', 'verified'] } },
+    // Mark all users as active with completed payment (legacy migration)
+    const paymentResult = await (User.updateMany as any)(
+      { paymentStatus: { $exists: false } },
       {
         $set: {
-          status: "registered",
-          paymentStatus: "completed"
+          paymentStatus: "completed",
+          isActive: true
         }
       }
     );
 
-    console.log(`✅ Updated ${statusResult.modifiedCount} users to registered status`);
+    console.log(`✅ Updated ${paymentResult.modifiedCount} users with payment status`);
     
     return NextResponse.json({
       success: true,
       message: 'Cleanup completed successfully!',
       slotsUpdated: result.modifiedCount,
-      statusUpdated: statusResult.modifiedCount
+      paymentStatusUpdated: paymentResult.modifiedCount
     });
     
   } catch (error) {

@@ -85,10 +85,10 @@ export async function POST(req: NextRequest, { params }: { params: { userId: str
 
     // Check if user is eligible for registered slots
     if (!["monthly", "quarterly", "half yearly", "yearly"].includes(user.subscriptionType) || 
-        user.status !== "verified" || 
-        !["completed"].includes(user.paymentStatus)) {
+        !["completed", "confirmed"].includes(user.paymentStatus) ||
+        !user.isActive) {
       return NextResponse.json(
-        { message: "User is not eligible for registered slots", success: false },
+        { message: "User is not eligible for registered slots. Must have active subscription with completed payment.", success: false },
         { status: 400 }
       );
     }

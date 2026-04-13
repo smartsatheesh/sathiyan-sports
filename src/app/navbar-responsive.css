@@ -162,11 +162,27 @@
 .navbar-drawer-paper {
   width: 280px !important;
   background-color: #fff !important;
+  max-height: 100vh !important;
+  overflow-y: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
 .navbar-drawer-content {
   width: 280px !important;
   padding: 16px !important;
+  padding-bottom: 80px !important;
+  overflow-y: auto !important;
+  max-height: calc(100vh - 120px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+}
+
+.navbar-drawer-content > .MuiList-root {
+  overflow-y: auto !important;
+  flex-shrink: 1 !important;
+  width: 100% !important;
 }
 
 .navbar-drawer-logo {
@@ -174,6 +190,7 @@
   padding: 16px !important;
   text-align: center !important;
   border-bottom: 1px solid #e0e0e0 !important;
+  flex-shrink: 0 !important;
 }
 
 .navbar-drawer-logo-img {
@@ -195,6 +212,7 @@
   padding: 16px !important;
   background-color: var(--primary-teal) !important;
   border-radius: 8px !important;
+  flex-shrink: 0 !important;
 }
 
 .navbar-drawer-user-content {
@@ -221,6 +239,7 @@
   display: flex !important;
   flex-direction: column !important;
   gap: 8px !important;
+  flex-shrink: 0 !important;
 }
 
 .navbar-drawer-login-button {
@@ -230,6 +249,27 @@
 
 .navbar-drawer-login-button:hover {
   border-width: 2px !important;
+}
+
+/* Drawer List Items */
+.navbar-drawer-content .MuiList-root {
+  padding: 0 !important;
+  flex-grow: 1 !important;
+  overflow-y: auto !important;
+}
+
+.navbar-drawer-content .MuiListItem-root {
+  padding: 12px 16px !important;
+  min-height: 48px !important;
+}
+
+.navbar-drawer-content .MuiListItem-button:hover {
+  background-color: #f5f5f5 !important;
+}
+
+.navbar-drawer-content .MuiListItemText-primary {
+  font-size: 0.95rem !important;
+  color: #333 !important;
 }
 
 /* Mobile Responsive Rules */

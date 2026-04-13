@@ -9,8 +9,8 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.id || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    if (!session?.user?.id || (session.user.role !== 'admin' && session.user.role !== 'coach')) {
+      return NextResponse.json({ error: 'Admin or Coach access required' }, { status: 403 });
     }
 
     console.log('Admin triggered subscription notifications test...');

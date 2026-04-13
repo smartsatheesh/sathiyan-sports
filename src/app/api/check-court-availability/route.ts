@@ -54,13 +54,11 @@ export async function POST(request: NextRequest) {
     const normalizedTimeSlot = normalizeTimeSlot(timeSlot);
     console.log('🔍 Normalized time slot:', normalizedTimeSlot);
 
-    // Build query to find users with same sport, time slot (including pending users for real-time availability)
+    // Build query to find users with same sport, time slot (all users for real-time availability)
     const query: any = {
       preferredSport: sport,
       preferredTimeSlot: normalizedTimeSlot,
       selectedCourt: { $exists: true }, // Must have selected a court
-      // Include all users regardless of verification status for real-time availability checking
-      status: { $in: ['pending', 'verified'] }, // Exclude only rejected/suspended users
     };
 
     // Exclude the current user if provided (for edit scenarios)

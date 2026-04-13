@@ -81,20 +81,32 @@ export async function POST(req: NextRequest) {
         ).length;
 
         // Count registered users for this slot and court
-        const registeredUsersQuery = {
+        // Query registered slots
+        const registeredSlotsQuery: any = {
           preferredSport: sport,
-          status: "verified",
           paymentStatus: { $in: ["completed", "confirmed"] },
           subscriptionType: { $in: ["monthly", "quarterly", "half yearly", "yearly"] },
           isActive: true,
           subscriptionEndDate: { $gte: bookingDate },
-          $or: [
-            { "registeredSlots.timeSlot": normalizeTimeSlot(requestedSlot), "registeredSlots.court": court },
-            { preferredTimeSlot: normalizeTimeSlot(requestedSlot), selectedCourt: court }
-          ]
+          "registeredSlots.timeSlot": normalizeTimeSlot(requestedSlot),
+          "registeredSlots.court": court
         };
 
-        const registeredUsersCount = await (User.countDocuments as any)(registeredUsersQuery);
+        const registeredSlotsCount = await (User.countDocuments as any)(registeredSlotsQuery);
+        
+        // Query users registered via preferredTimeSlot/selectedCourt (old method)
+        const legacyRegisteredQuery: any = {
+          preferredSport: sport,
+          preferredTimeSlot: normalizeTimeSlot(requestedSlot),
+          selectedCourt: court,
+          paymentStatus: { $in: ["completed", "confirmed"] },
+          subscriptionType: { $in: ["monthly", "quarterly", "half yearly", "yearly"] },
+          isActive: true,
+          subscriptionEndDate: { $gte: bookingDate }
+        };
+        
+        const legacyRegisteredCount = await (User.countDocuments as any)(legacyRegisteredQuery);
+        const registeredUsersCount = registeredSlotsCount + legacyRegisteredCount;
         
         const totalBookings = slotBookingsCount + registeredUsersCount;
         
@@ -130,7 +142,6 @@ export async function POST(req: NextRequest) {
     if (sport === "Shuttle Badminton") {
       let registeredUsersQuery: any = {
         preferredSport: sport,
-        status: "verified",
         paymentStatus: { $in: ["completed", "confirmed"] },
         subscriptionType: { $in: ["monthly", "quarterly", "half yearly", "yearly"] },
         isActive: true,

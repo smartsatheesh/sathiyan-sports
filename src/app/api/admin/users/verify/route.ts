@@ -11,12 +11,12 @@ export async function POST(request: NextRequest) {
   try {
     await connectToMongoose();
 
-    // Check if user is admin
+    // Check if user is admin or coach
     const session = await getServerSession(authOptions);
-    if (!session || session.user?.role !== 'admin') {
+    if (!session || (session.user?.role !== 'admin' && session.user?.role !== 'coach')) {
       return NextResponse.json({ 
         success: false, 
-        message: 'Unauthorized. Admin access required.' 
+        message: 'Unauthorized. Admin or Coach access required.' 
       }, { status: 401 });
     }
 
@@ -37,15 +37,22 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Update user status
+    // Update user verification status
+    const updateData: any = {
+      updatedAt: new Date()
+    };
+    
+    if (action === 'verify') {
+      updateData.isActive = true;
+      updateData.verifiedAt = new Date();
+      updateData.verifiedBy = session.user.id;
+    } else if (action === 'reject' || action === 'suspend') {
+      updateData.isActive = false;
+    }
+    
     const updatedUser = await (User.findByIdAndUpdate as any)(
       userId,
-      { 
-        status: action === 'verify' ? 'verified' : action === 'reject' ? 'rejected' : 'suspended',
-        verifiedAt: action === 'verify' ? new Date() : undefined,
-        verifiedBy: action === 'verify' ? session.user.id : undefined,
-        updatedAt: new Date()
-      },
+      updateData,
       { new: true }
     ).select('-password');
 
