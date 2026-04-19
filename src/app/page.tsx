@@ -89,24 +89,24 @@ const sportsData = [
   {
     name: "Cricket",
     icon: () => <SportsCricket sx={{ fontSize: 40, color: "#4caf50" }} />,
-    price: "₹699",
-    weekendPrice: "₹899 onwards",
+    price: "₹1000/hr",
+    weekendPrice: "Coaching: ₹1500",
     features: ["Professional Pitch", "Equipment Available", "Changing Rooms"],
     description: "Experience cricket at its finest with our professional-grade facilities"
   },
   {
     name: "Football",
     icon: () => <SportsSoccer sx={{ fontSize: 40, color: "#2196f3" }} />,
-    price: "₹699",
-    weekendPrice: "₹899 onwards",
+    price: "₹1000/hr",
+    weekendPrice: "Coaching: ₹1500",
     features: ["FIFA Standard Turf", "Floodlights", "Goal Posts"],
     description: "Play football on our world-class turf with professional amenities"
   },
   {
     name: "Badminton",
     icon: () => <SportsTennis sx={{ fontSize: 40, color: "#ff9800" }} />,
-    price: "₹699",
-    weekendPrice: "₹899 onwards",
+    price: "₹400/hr",
+    weekendPrice: "Coaching: ₹1500",
     features: ["3 Courts Available", "Professional Nets", "Indoor Facility"],
     description: "Indoor badminton courts with wooden flooring and professional setup"
   },
@@ -117,7 +117,7 @@ const sportsData = [
     weekendPrice: "₹2,499/hr onwards",
     features: ["200+ Capacity", "A/V Equipment", "Catering Facilities"],
     description: "Host your special events in our spacious and well-equipped venue"
-  }
+  },
 ];
 
 // Animated taglines that pop and hide
@@ -179,11 +179,16 @@ export default function Home() {
   // Explore facilities section visibility
   const exploreFacilitiesSection = useIntersectionObserver();
 
-  // Fetch dynamic stats
+  // Fetch dynamic stats with timeout
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch('/api/public-stats');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        
+        const response = await fetch('/api/public-stats', { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
         const data = await response.json();
         if (data.success) {
           setStats(data.stats);
@@ -218,13 +223,14 @@ export default function Home() {
 
   // Progressive loading strategy
   useEffect(() => {
-    // Load main 3D scene after a short delay to prioritize initial content
-    const timer1 = setTimeout(() => {
-      setShouldLoad3D(true);
-    }, 1000); // Load after 1 second
+    // Don't load 3D scene - use static/animated backgrounds instead for better performance
+    // Add a safety timeout to ensure page loads even if something hangs
+    const timer = setTimeout(() => {
+      setShouldLoad3D(false); // Keep 3D disabled
+    }, 3000);
 
     return () => {
-      clearTimeout(timer1);
+      clearTimeout(timer);
     };
   }, []);
 
@@ -311,26 +317,7 @@ export default function Home() {
                   {shouldLoad3D && <ThreeJSSportsScene />}
                 </Box>
                 
-                {/* Loading indicator */}
-                {!shouldLoad3D && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      zIndex: 10,
-                      textAlign: "center",
-                      color: theme.palette.primary.main
-                    }}
-                  >
-                    <CircularProgress size={60} sx={{ color: theme.palette.primary.main, mb: 2 }} />
-                    <Typography variant="h6">Preparing 3D Experience...</Typography>
-                    <Typography variant="body2" sx={{ mt: 1, opacity: 0.7 }}>
-                      This will only take a moment
-                    </Typography>
-                  </Box>
-                )}
+                {/* Loading indicator - disabled for performance */}
                 
                 {/* Minimal overlay for branding */}
                 <Box
@@ -412,6 +399,253 @@ export default function Home() {
                       </Typography>
                     </Fade>
                   </Box>
+
+                  {/* SPECIAL OFFERS SECTION - Inside Hero */}
+                  <Box sx={{ width: '100%', maxWidth: '1200px', mx: 'auto', mb: 4, mt: 4, zIndex: 5 }}>
+                    <Typography
+                      variant="h4"
+                      textAlign="center"
+                      sx={{
+                        mb: 3,
+                        fontWeight: 800,
+                        color: '#FFFFFF',
+                        fontSize: { xs: '1.8rem', md: '2.2rem' },
+                        textShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                        position: 'relative',
+                        '&::after': {
+                          content: '""',
+                          position: 'absolute',
+                          bottom: -10,
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          width: '80px',
+                          height: '3px',
+                          background: '#FFD700',
+                          borderRadius: '2px'
+                        }
+                      }}
+                    >
+                      ⚡ LIMITED TIME OFFERS ⚡
+                    </Typography>
+                    
+                    <Grid container spacing={2} sx={{ mt: 2 }}>
+                      {/* Body Zorb Offer Card */}
+                      <Grid item xs={12} sm={6} md={4} sx={{ display: 'flex' }}>
+                        <Card
+                          sx={{
+                            background: `linear-gradient(135deg, #FF6B6B, #FF8E8E)`,
+                            border: `3px solid #FF3333`,
+                            borderRadius: 3,
+                            p: 2.5,
+                            textAlign: 'center',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            boxShadow: `0 0 30px ${alpha('#FF6B6B', 0.5)}`,
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            width: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            '&:hover': {
+                              transform: 'translateY(-8px)',
+                              boxShadow: `0 0 40px ${alpha('#FF6B6B', 0.7)}`
+                            },
+                            '&::before': {
+                              content: '""',
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: '3px',
+                              background: 'linear-gradient(90deg, transparent, #FFD700, transparent)',
+                              animation: 'shimmer 2s infinite'
+                            }
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              top: 10,
+                              right: 10,
+                              background: 'linear-gradient(45deg, #FFD700, #FFA500)',
+                              color: '#000',
+                              px: 1.5,
+                              py: 0.5,
+                              borderRadius: '50px',
+                              fontWeight: 'bold',
+                              fontSize: '0.7rem',
+                              boxShadow: '0 4px 15px rgba(255, 215, 0, 0.4)',
+                              zIndex: 10,
+                              animation: 'pulse 1.5s ease-in-out infinite'
+                            }}
+                          >
+                            50% OFF
+                          </Box>
+
+                          <FitnessCenter sx={{ fontSize: 40, color: '#FFFFFF', mb: 1, mt: 1 }} />
+                          <Typography variant="h6" fontWeight="bold" sx={{ color: '#FFFFFF', mb: 0.5 }}>
+                            Body Zorb
+                          </Typography>
+                          <Box sx={{ mb: 1, textAlign: 'center' }}>
+                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', textDecoration: 'line-through', mb: 0.5, display: 'block' }}>
+                              Regular: ₹2000
+                            </Typography>
+                            <Typography variant="h5" sx={{ color: '#FFD700', fontWeight: 'bold' }}>
+                              ₹1000
+                            </Typography>
+                          </Box>
+                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.7rem' }}>
+                            Limited Offer
+                          </Typography>
+                        </Card>
+                      </Grid>
+
+                      {/* Cricket Offer Card */}
+                      <Grid item xs={12} sm={6} md={4} sx={{ display: 'flex' }}>
+                        <Card
+                          sx={{
+                            background: `linear-gradient(135deg, #4CAF50, #66BB6A)`,
+                            border: `3px solid #2E7D32`,
+                            borderRadius: 3,
+                            p: 2.5,
+                            textAlign: 'center',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            boxShadow: `0 0 30px ${alpha('#4CAF50', 0.5)}`,
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            width: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            '&:hover': {
+                              transform: 'translateY(-8px)',
+                              boxShadow: `0 0 40px ${alpha('#4CAF50', 0.7)}`
+                            },
+                            '&::before': {
+                              content: '""',
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: '3px',
+                              background: 'linear-gradient(90deg, transparent, #FFD700, transparent)',
+                              animation: 'shimmer 2s infinite'
+                            }
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              top: 10,
+                              right: 10,
+                              background: 'linear-gradient(45deg, #FFD700, #FFA500)',
+                              color: '#000',
+                              px: 1.5,
+                              py: 0.5,
+                              borderRadius: '50px',
+                              fontWeight: 'bold',
+                              fontSize: '0.7rem',
+                              boxShadow: '0 4px 15px rgba(255, 215, 0, 0.4)',
+                              zIndex: 10,
+                              animation: 'pulse 1.5s ease-in-out infinite'
+                            }}
+                          >
+                            40% OFF
+                          </Box>
+
+                          <SportsCricket sx={{ fontSize: 40, color: '#FFFFFF', mb: 1, mt: 1 }} />
+                          <Typography variant="h6" fontWeight="bold" sx={{ color: '#FFFFFF', mb: 0.5 }}>
+                            Cricket
+                          </Typography>
+                          <Box sx={{ mb: 1, textAlign: 'center' }}>
+                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', textDecoration: 'line-through', mb: 0.5, display: 'block' }}>
+                              Regular: ₹1000
+                            </Typography>
+                            <Typography variant="h5" sx={{ color: '#FFD700', fontWeight: 'bold' }}>
+                              ₹600
+                            </Typography>
+                          </Box>
+                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.7rem' }}>
+                            Limited Offer
+                          </Typography>
+                        </Card>
+                      </Grid>
+
+                      {/* Football Offer Card */}
+                      <Grid item xs={12} sm={6} md={4} sx={{ display: 'flex' }}>
+                        <Card
+                          sx={{
+                            background: `linear-gradient(135deg, #2196F3, #42A5F5)`,
+                            border: `3px solid #1565C0`,
+                            borderRadius: 3,
+                            p: 2.5,
+                            textAlign: 'center',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            boxShadow: `0 0 30px ${alpha('#2196F3', 0.5)}`,
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            width: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            '&:hover': {
+                              transform: 'translateY(-8px)',
+                              boxShadow: `0 0 40px ${alpha('#2196F3', 0.7)}`
+                            },
+                            '&::before': {
+                              content: '""',
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: '3px',
+                              background: 'linear-gradient(90deg, transparent, #FFD700, transparent)',
+                              animation: 'shimmer 2s infinite'
+                            }
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              top: 10,
+                              right: 10,
+                              background: 'linear-gradient(45deg, #FFD700, #FFA500)',
+                              color: '#000',
+                              px: 1.5,
+                              py: 0.5,
+                              borderRadius: '50px',
+                              fontWeight: 'bold',
+                              fontSize: '0.7rem',
+                              boxShadow: '0 4px 15px rgba(255, 215, 0, 0.4)',
+                              zIndex: 10,
+                              animation: 'pulse 1.5s ease-in-out infinite'
+                            }}
+                          >
+                            40% OFF
+                          </Box>
+
+                          <SportsSoccer sx={{ fontSize: 40, color: '#FFFFFF', mb: 1, mt: 1 }} />
+                          <Typography variant="h6" fontWeight="bold" sx={{ color: '#FFFFFF', mb: 0.5 }}>
+                            Football
+                          </Typography>
+                          <Box sx={{ mb: 1, textAlign: 'center' }}>
+                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', textDecoration: 'line-through', mb: 0.5, display: 'block' }}>
+                              Regular: ₹1000
+                            </Typography>
+                            <Typography variant="h5" sx={{ color: '#FFD700', fontWeight: 'bold' }}>
+                              ₹600
+                            </Typography>
+                          </Box>
+                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.7rem' }}>
+                            Limited Offer
+                          </Typography>
+                        </Card>
+                      </Grid>
+                    </Grid>
+                  </Box>
                   
                   <Stack 
                     direction={{ xs: 'column', sm: 'row' }} 
@@ -472,6 +706,8 @@ export default function Home() {
                     </Button>
                   </Stack>
                 </Box>
+
+
 
                 {/* Bottom overlay with quick stats */}
                 <Box

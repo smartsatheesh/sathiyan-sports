@@ -36,7 +36,7 @@ import { LocalizationProvider } from "@mui/x-date-pickers";
 import QRCode from "react-qr-code";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { enGB } from 'date-fns/locale';
-import { format, setHours, setMinutes } from "date-fns";
+import { format, setHours, setMinutes, addMinutes } from "date-fns";
 import {
   CreditCard,
   AccountBalance,
@@ -60,7 +60,7 @@ const isWeekend = (date: Date): boolean => {
 // Sports data with proper typing to match selectedSport state
 const sports: Array<{
   id: number;
-  name: "Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events";
+  name: "Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events" | "Body Zorb";
   basePrice: number;
   weekendPrice: number;
   icon: string;
@@ -71,8 +71,8 @@ const sports: Array<{
   {
     id: 1,
     name: "Cricket",
-    basePrice: 699,
-    weekendPrice: 999,
+    basePrice: 1000,
+    weekendPrice: 1000,
     icon: "🏏",
     color: "#4caf50",
     description: "Professional cricket ground with all facilities",
@@ -81,8 +81,8 @@ const sports: Array<{
   {
     id: 2,
     name: "Football",
-    basePrice: 699,
-    weekendPrice: 999,
+    basePrice: 1000,
+    weekendPrice: 1000,
     icon: "⚽",
     color: "#2196f3",
     description: "FIFA standard football turf",
@@ -91,8 +91,8 @@ const sports: Array<{
   {
     id: 3,
     name: "Shuttle Badminton",
-    basePrice: 299,
-    weekendPrice: 399,
+    basePrice: 400,
+    weekendPrice: 400,
     icon: "🏸",
     color: "#ff9800",
     description: "Indoor badminton courts with wooden flooring",
@@ -112,6 +112,21 @@ const sports: Array<{
       "Catering facilities",
       "Parking space",
       "Event coordination support"
+    ]
+  },
+  {
+    id: 5,
+    name: "Body Zorb",
+    basePrice: 1000,
+    weekendPrice: 1000,
+    icon: "⚪",
+    color: "#FF6B6B",
+    description: "Thrilling inflatable bubble football experience",
+    features: [
+      "Waterproof bubble suits",
+      "Safety equipment included",
+      "Professional supervision",
+      "🎉 Launching Offer: 1 hour FREE on weekdays!"
     ]
   },
 ];
@@ -157,10 +172,11 @@ const upiApps = [
   { code: 'WHATSAPP', name: 'WhatsApp Pay', icon: '💚' },
 ];
 
-// Update the timeSlots generation with past date/time filtering
-const generateTimeSlots = (isEvent = false, selectedDate: Date | null = null) => {
+// Update the timeSlots generation with 30-minute intervals and sport-specific blocking
+const generateTimeSlots = (isEvent = false, selectedDate: Date | null = null, sport: string = "") => {
   const now = new Date();
   const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
   const isToday = selectedDate && 
     selectedDate.getDate() === now.getDate() &&
     selectedDate.getMonth() === now.getMonth() &&
@@ -190,29 +206,60 @@ const generateTimeSlots = (isEvent = false, selectedDate: Date | null = null) =>
   }
   
   const slots = [];
+  
+  // Define sport-specific blocked and hidden time ranges
+  // Blocked ranges for specific sports
+  const blockedRanges: Record<string, Array<{ start: number; startMin: number; end: number; endMin: number }>> = {
+    "Shuttle Badminton": [{ start: 17, startMin: 0, end: 19, endMin: 0 }], // 5pm-7pm blocked
+    "Cricket": [{ start: 17, startMin: 0, end: 18, endMin: 0 }], // 5pm-6pm blocked
+    "Football": [{ start: 17, startMin: 0, end: 18, endMin: 0 }] // 5pm-6pm blocked
+  };
+  
+  // Hidden ranges - only Badminton hides 5-8 AM
+  const hiddenRanges: Record<string, Array<{ start: number; startMin: number; end: number; endMin: number }>> = {
+    "Shuttle Badminton": [{ start: 5, startMin: 0, end: 8, endMin: 0 }] // 5am-8am hidden (only for Badminton)
+  };
+  
+  // Generate 30-minute interval slots
   for (let hour = 5; hour <= 24; hour++) {
-    // 5:00 to 24:00 (5-6, 6-7, ..., 23-24)
-    const startTime = format(
-      setHours(setMinutes(new Date(), 0), hour),
-      "HH:mm"
-    );
-    const endTime = format(
-      setHours(setMinutes(new Date(), 0), hour + 1),
-      "HH:mm"
-    );
-    const timeString = `${startTime} - ${endTime}`;
-    
-    // Check if this time slot is in the past for today
-    let available = true;
-    if (isToday) {
-      // Disable slots that have already passed (with 1 hour buffer for booking)
-      available = hour > currentHour;
+    for (let minute = 0; minute < 60; minute += 30) {
+      const startDate = setHours(setMinutes(new Date(), minute), hour);
+      const startTime = format(startDate, "HH:mm");
+      const endTime = format(addMinutes(startDate, 30), "HH:mm");
+      
+      // Skip if this slot should be hidden for this sport
+      const hidden = sport && hiddenRanges[sport] && hiddenRanges[sport].some(range => 
+        (hour > range.start || (hour === range.start && minute >= range.startMin)) &&
+        (hour < range.end || (hour === range.end && minute < range.endMin))
+      );
+      
+      if (hidden) continue;
+      
+      const timeString = `${startTime} - ${endTime}`;
+      
+      // Check if this time slot is in the past for today
+      let available = true;
+      if (isToday) {
+        // Disable slots that have already passed (with 30 min buffer for booking)
+        available = hour > currentHour || (hour === currentHour && (minute + 30) > currentMinute);
+      }
+      
+      // Check if slot is in blocked range for this sport
+      const isBlocked = sport && blockedRanges[sport] && blockedRanges[sport].some(range =>
+        (hour > range.start || (hour === range.start && minute >= range.startMin)) &&
+        (hour < range.end || (hour === range.end && minute < range.endMin))
+      );
+      
+      // If blocked, mark as unavailable
+      if (isBlocked) {
+        available = false;
+      }
+      
+      slots.push({
+        time: timeString,
+        available, // Will be further updated based on API response
+      });
     }
-    
-    slots.push({
-      time: timeString,
-      available, // Will be further updated based on API response
-    });
   }
   return slots;
 };
@@ -222,11 +269,11 @@ export default function BookSlot() {
   const router = useRouter();
 
   // All useState hooks must be at the top level
-  const [selectedSport, setSelectedSport] = useState<"Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events" | "">("");
+  const [selectedSport, setSelectedSport] = useState<"Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events" | "Body Zorb" | "">("");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
   const [selectedCourt, setSelectedCourt] = useState<string>(""); // Court selection for Shuttle Badminton
-  const [timeSlots, setTimeSlots] = useState<Array<{time: string; available: boolean; hours?: number}>>(generateTimeSlots(false, null));
+  const [timeSlots, setTimeSlots] = useState<Array<{time: string; available: boolean; hours?: number}>>(generateTimeSlots(false, null, ""));
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [registeredSlots, setRegisteredSlots] = useState<string[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null); // User data for subscription checking
@@ -258,7 +305,7 @@ export default function BookSlot() {
   const [isScrollingToDate, setIsScrollingToDate] = useState(false);
 
   // Function to handle sport selection and auto-scroll to date selection
-  const handleSportSelection = (sportName: "Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events") => {
+  const handleSportSelection = (sportName: "Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events" | "Body Zorb") => {
     setSelectedSport(sportName);
     setIsScrollingToDate(true);
     
@@ -313,7 +360,12 @@ export default function BookSlot() {
     const sport = sports.find((s) => s.name === selectedSport);
     if (!sport) return null;
     
-    const pricePerUnit = isWeekend(selectedDate) ? sport.weekendPrice : sport.basePrice;
+    let pricePerUnit = isWeekend(selectedDate) ? sport.weekendPrice : sport.basePrice;
+    
+    // Apply 30% discount for Cricket and Football on weekdays
+    if ((selectedSport === "Cricket" || selectedSport === "Football") && !isWeekend(selectedDate)) {
+      pricePerUnit = pricePerUnit * 0.7; // 30% discount = 70% of original price
+    }
     
     if (selectedSport === "Functions and Events") {
       // For events, calculate based on hours
@@ -347,6 +399,82 @@ export default function BookSlot() {
       }));
     }
   }, [session]);
+
+  // Load customer details from localStorage if available
+  useEffect(() => {
+    const loadSavedCustomerDetails = () => {
+      try {
+        const saved = localStorage.getItem('sathiyanSportsCustomers');
+        if (saved) {
+          const customers = JSON.parse(saved);
+          return customers;
+        }
+      } catch (error) {
+        console.log('Could not load saved customers:', error);
+      }
+      return {};
+    };
+
+    // Make it available globally for phone number lookup
+    (window as any).savedCustomers = loadSavedCustomerDetails();
+  }, []);
+
+  // Save customer details to localStorage when they complete a booking
+  const saveCustomerDetails = (customerData: { name: string; email: string; phone: string }) => {
+    try {
+      const saved = localStorage.getItem('sathiyanSportsCustomers');
+      let customers = saved ? JSON.parse(saved) : {};
+      
+      // Save by phone number as unique key
+      if (customerData.phone) {
+        customers[customerData.phone] = {
+          name: customerData.name,
+          email: customerData.email,
+          phone: customerData.phone,
+          lastUsed: new Date().toISOString()
+        };
+        
+        localStorage.setItem('sathiyanSportsCustomers', JSON.stringify(customers));
+      }
+    } catch (error) {
+      console.log('Could not save customer details:', error);
+    }
+  };
+
+  // Load customer details when phone number is entered in the form
+  const handlePhoneChange = (phone: string) => {
+    setCustomerInfo(prev => ({
+      ...prev,
+      phone
+    }));
+
+    // Try to load saved details for this phone number
+    if (phone && phone.length >= 10) {
+      try {
+        const saved = localStorage.getItem('sathiyanSportsCustomers');
+        if (saved) {
+          const customers = JSON.parse(saved);
+          if (customers[phone]) {
+            // Pre-populate the form with saved details
+            setCustomerInfo(prev => ({
+              ...prev,
+              name: customers[phone].name || prev.name,
+              email: customers[phone].email || prev.email,
+              phone: customers[phone].phone || prev.phone,
+            }));
+            
+            // Show a notification that details were loaded
+            setAlert({
+              type: 'info',
+              message: `Welcome back! Your details have been pre-filled.`
+            });
+          }
+        }
+      } catch (error) {
+        console.log('Could not load saved customer details:', error);
+      }
+    }
+  };
 
   // Fetch current user data for subscription checking
   useEffect(() => {
@@ -397,7 +525,7 @@ export default function BookSlot() {
               
               // Update time slots availability for specific court with past time filtering
               // Since we're in Shuttle Badminton block, isEvent is always false
-              const updatedSlots = generateTimeSlots(false, selectedDate).map(slot => ({
+              const updatedSlots = generateTimeSlots(false, selectedDate, selectedSport).map(slot => ({
                 ...slot,
                 available: slot.available && !courtSpecificSlots.includes(slot.time)
               }));
@@ -407,7 +535,7 @@ export default function BookSlot() {
               setBookedSlots(data.bookedSlots || []);
               setRegisteredSlots(data.registeredSlots || []);
               const isEvent = selectedSport === "Functions and Events";
-              const updatedSlots = generateTimeSlots(isEvent, selectedDate).map(slot => ({
+              const updatedSlots = generateTimeSlots(isEvent, selectedDate, selectedSport).map(slot => ({
                 ...slot,
                 available: slot.available && !(data.bookedSlots || []).includes(slot.time)
               }));
@@ -436,7 +564,7 @@ export default function BookSlot() {
     
     if (selectedSport) {
       const isEvent = selectedSport === "Functions and Events";
-      setTimeSlots(generateTimeSlots(isEvent, selectedDate));
+      setTimeSlots(generateTimeSlots(isEvent, selectedDate, selectedSport));
     }
   }, [selectedSport, selectedDate]);
 
@@ -828,6 +956,9 @@ export default function BookSlot() {
       return;
     }
 
+    // Save customer details for future bookings
+    saveCustomerDetails(customerInfo);
+
     // Prepare booking data for payment
     const bookingData = {
       sport: selectedSport,
@@ -892,10 +1023,18 @@ export default function BookSlot() {
     setLoading(true);
     try {
       const sport = sports.find((s) => s.name === selectedSport);
-      const pricePerSlot = isWeekend(selectedDate!) ? sport!.weekendPrice : sport!.basePrice;
+      let pricePerSlot = isWeekend(selectedDate!) ? sport!.weekendPrice : sport!.basePrice;
+      
+      // Apply 30% discount for Cricket and Football on weekdays
+      if ((selectedSport === "Cricket" || selectedSport === "Football") && !isWeekend(selectedDate!)) {
+        pricePerSlot = pricePerSlot * 0.7; // 30% discount = 70% of original price
+      }
       
       const paymentExpiry = new Date();
       paymentExpiry.setMinutes(paymentExpiry.getMinutes() + 5);
+      
+      // Check if user is admin for auto-verification
+      const isAdmin = session?.user?.role === 'admin';
       
       const bookingData: any = {
         sport: selectedSport,
@@ -909,8 +1048,8 @@ export default function BookSlot() {
         customerEmail: customerInfo.email,
         customerPhone: customerInfo.phone,
         paymentExpiry: paymentExpiry.toISOString(),
-        paymentStatus: "pending",
-        bookingStatus: "pending"
+        paymentStatus: isAdmin ? "completed" : "pending", // Auto-complete for admin
+        bookingStatus: isAdmin ? "confirmed" : "pending" // Auto-confirm for admin
       };
 
       // Add Functions and Events specific fields
@@ -939,6 +1078,10 @@ export default function BookSlot() {
 
       if (data.success) {
         setCurrentBookingId(data.bookingId);
+        // Show success message for admin auto-booking
+        if (isAdmin) {
+          setAlert({ type: 'success', message: '✅ Booking auto-verified & payment completed!' });
+        }
         return data.bookingId;
       } else {
         setAlert({ type: 'error', message: data.message || 'Failed to create booking' });
@@ -1505,7 +1648,15 @@ export default function BookSlot() {
                       </div>
                       <div className="sport-pricing">
                         <span className="price-label">Weekday:</span>
-                        <span className="price-amount">₹{sport.basePrice.toLocaleString()}</span>
+                        {(sport.name === "Cricket" || sport.name === "Football") ? (
+                          <>
+                            <span className="price-amount" style={{ textDecoration: 'line-through', color: '#999' }}>₹{sport.basePrice.toLocaleString()}</span>
+                            <span className="price-amount" style={{ color: '#4caf50', marginLeft: '8px' }}>₹{Math.round(sport.basePrice * 0.7).toLocaleString()}</span>
+                            <span style={{ marginLeft: '8px', color: '#4caf50', fontSize: '12px', fontWeight: 'bold' }}>(-30%)</span>
+                          </>
+                        ) : (
+                          <span className="price-amount">₹{sport.basePrice.toLocaleString()}</span>
+                        )}
                         {sport.name === "Functions and Events" ? "/hr" : "/slot"}
                       </div>
                       <div className="sport-pricing">
@@ -1857,7 +2008,8 @@ export default function BookSlot() {
               label="Phone Number"
               fullWidth
               value={customerInfo.phone}
-              onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              helperText="We'll pre-fill your details if you've booked with us before"
               required
             />
 

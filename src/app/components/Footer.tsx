@@ -108,7 +108,7 @@ const Footer = () => {
               <Stack spacing={1}>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <Phone sx={{ fontSize: 16, mr: 1, opacity: 0.8 }} />
-                  <Typography variant="body2">+91 8811090194/9787020525</Typography>
+                  <Typography variant="body2">+91 9342090194</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <Email sx={{ fontSize: 16, mr: 1, opacity: 0.8 }} />

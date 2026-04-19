@@ -69,6 +69,8 @@ import {
   Timeline,
   Receipt,
   Assessment,
+  ArrowUpward,
+  ArrowDownward,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 
@@ -200,6 +202,35 @@ const AdminSubscriptionsPage = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [sortBy, setSortBy] = useState<keyof Subscription>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // Sorting handler
+  const handleSort = (column: keyof Subscription) => {
+    if (sortBy === column && sortOrder === 'asc') {
+      setSortOrder('desc');
+    } else {
+      setSortBy(column);
+      setSortOrder('asc');
+    }
+  };
+
+  // Sortable header component
+  const SortableHeader = ({ column, children }: { column: keyof Subscription; children: React.ReactNode }) => (
+    <TableCell
+      onClick={() => handleSort(column)}
+      sx={{
+        cursor: 'pointer',
+        userSelect: 'none',
+        '&:hover': { backgroundColor: 'action.hover' }
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        {children}
+        {sortBy === column && (
+          sortOrder === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />
+        )}
+      </Box>
+    </TableCell>
+  );
 
   useEffect(() => {
     console.log('🔍 Session check:', session?.user?.email, 'Role:', session?.user?.role, 'Name:', session?.user?.name);
@@ -607,7 +638,7 @@ const AdminSubscriptionsPage = () => {
         subscription.preferredSport === preferredSportFilter ||
         (preferredSportFilter === 'Other' && !subscription.preferredSport) ||
         (preferredSportFilter === 'Other' && subscription.preferredSport && 
-         !['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events'].includes(subscription.preferredSport));
+         !['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events', 'Body Zorb'].includes(subscription.preferredSport));
       
       // Subscribed date range filtering (startDate)
       let matchesDateRange = true;
@@ -893,7 +924,7 @@ const AdminSubscriptionsPage = () => {
   // Calculate sport-wise revenue data for pie chart
   const sportWiseRevenueData = useMemo(() => {
     const sportRevenue: Record<string, number> = {};
-    const sports = ['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events'];
+    const sports = ['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events', 'Body Zorb'];
     
     subscriptions.forEach(sub => {
       if (sub.paymentStatus === 'Paid' || sub.paymentStatus === 'paid' || sub.paymentStatus === 'completed') {
@@ -1013,23 +1044,6 @@ const AdminSubscriptionsPage = () => {
     if (amount == null || isNaN(amount)) return '₹0';
     return `₹${amount.toLocaleString('en-IN')}`;
   };
-
-  const SortableHeader = ({ column, children }: { column: keyof Subscription; children: React.ReactNode }) => (
-    <TableCell
-      onClick={() => {
-        if (sortBy === column) {
-          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-        } else {
-          setSortBy(column);
-          setSortOrder('asc');
-        }
-      }}
-      sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-    >
-      {children}
-      {sortBy === column && (sortOrder === 'asc' ? ' ↑' : ' ↓')}
-    </TableCell>
-  );
 
   if (loading) {
     return (
@@ -1180,7 +1194,7 @@ const AdminSubscriptionsPage = () => {
                           const matchesSport = sub.preferredSport === preferredSportFilter ||
                             (preferredSportFilter === 'Other' && !sub.preferredSport) ||
                             (preferredSportFilter === 'Other' && sub.preferredSport && 
-                             !['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events'].includes(sub.preferredSport));
+                             !['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events', 'Body Zorb'].includes(sub.preferredSport));
                           if (!matchesSport) return false;
                         }
                         return true;
@@ -1360,7 +1374,7 @@ const AdminSubscriptionsPage = () => {
                 </Typography>
                 {(() => {
                   const sportRevenues: Record<string, number> = {};
-                  const sports = ['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events'];
+                  const sports = ['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events', 'Body Zorb'];
                   
                   sports.forEach(sport => {
                     sportRevenues[sport] = filteredAndSortedSubscriptions

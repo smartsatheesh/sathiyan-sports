@@ -321,7 +321,7 @@ export default function ContactPage() {
                 Quick Contact
               </Typography>
               <Typography variant="body2" sx={{ mb: 1 }}>
-                📞 +91 8811090194 / 9787020525
+                📞 +91 9342090194
               </Typography>
               <Typography variant="body2" sx={{ mb: 1 }}>
                 ✉️ info@sathiyansports.com

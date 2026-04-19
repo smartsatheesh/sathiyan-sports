@@ -536,16 +536,30 @@ const ExpensesPage = () => {
       });
 
       if (response.ok) {
+        const data = await response.json();
         setSuccess('Expense added successfully');
         setAddExpenseDialog(false);
-        fetchData();
         resetNewExpense();
+        
+        // Immediately add the new expense to the state instead of waiting for refetch
+        const newExpenseWithId = {
+          ...newExpense,
+          _id: data.expense._id,
+          paymentDate: newExpense.paymentDate
+        };
+        
+        setExpenses(prev => [newExpenseWithId, ...prev]);
+        setFilteredExpenses(prev => [newExpenseWithId, ...prev]);
+        
+        // Also refetch to ensure data consistency
+        setTimeout(() => fetchData(), 500);
       } else {
-        throw new Error('Failed to add expense');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to add expense');
       }
     } catch (error) {
       console.error('Error adding expense:', error);
-      setError('Failed to add expense');
+      setError(error instanceof Error ? error.message : 'Failed to add expense');
     }
   };
 

@@ -160,6 +160,7 @@ if (champType === 'kids') {
 
 interface Booking {
   _id: string;
+  userId?: string;
   sport: string;
   court?: string;
   date: string;
@@ -399,7 +400,7 @@ export default function AdminDashboard() {
         user.preferredSport === preferredSportFilter ||
         (preferredSportFilter === 'Other' && !user.preferredSport) ||
         (preferredSportFilter === 'Other' && user.preferredSport && 
-         !['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events'].includes(user.preferredSport));
+         !['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events', 'Body Zorb'].includes(user.preferredSport));
       
       return matchesSearch && matchesChampType && matchesPaymentStatus && matchesSport;
     });
@@ -464,11 +465,16 @@ export default function AdminDashboard() {
     setError(null);
     
     try {
-      // Fetch bookings and users concurrently for better performance
+      // Fetch bookings and users concurrently for better performance with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const [bookingsRes, usersRes] = await Promise.all([
-        fetch('/api/admin/bookings?limit=100'),
-        fetch('/api/admin/users?limit=100')
+        fetch('/api/admin/bookings?limit=100', { signal: controller.signal }),
+        fetch('/api/admin/users?limit=100', { signal: controller.signal })
       ]);
+      
+      clearTimeout(timeoutId);
 
       const bookingsData = await bookingsRes.json();
       const usersData = await usersRes.json();
@@ -481,18 +487,71 @@ export default function AdminDashboard() {
         setUsers(usersData.users);
       }
 
-      // Calculate stats efficiently
-      const today = new Date().toDateString();
-      const todaysBookings = bookingsData.bookings?.filter(
-        (booking: Booking) => new Date(booking.date).toDateString() === today
-      ).length || 0;
+      // Filter bookings by subscription validity
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Set to start of day for fair comparison
+      
+      // Create a map of user IDs to user objects for quick lookup
+      const userMap = new Map((usersData.users || []).map((user: User) => [user._id, user]));
+      
+      // Filter bookings to only include those with valid subscriptions
+      const validBookings = (bookingsData.bookings || []).filter((booking: Booking) => {
+        // If booking has no userId, include it (guest bookings or legacy data)
+        if (!booking.userId) return true;
+        
+        const user = userMap.get(booking.userId) as User | undefined;
+        if (!user) return true; // Include if user not found
+        
+        // Check if user has active subscription
+        if (!user.subscriptionStartDate || !user.subscriptionEndDate) {
+          return false; // No subscription dates, exclude
+        }
+        
+        const bookingDate = new Date(booking.date);
+        const subscriptionStart = new Date(user.subscriptionStartDate);
+        const subscriptionEnd = new Date(user.subscriptionEndDate);
+        const nextDueDate = user.nextDueDate ? new Date(user.nextDueDate) : null;
+        
+        // Booking must be within subscription period
+        if (bookingDate < subscriptionStart || bookingDate > subscriptionEnd) {
+          return false;
+        }
+        
+        // Subscription must not be expired (nextDueDate > today)
+        if (nextDueDate && nextDueDate <= today) {
+          return false; // Subscription is overdue/expired
+        }
+        
+        return true; // Valid subscription
+      });
 
-      const totalRevenue = bookingsData.bookings?.filter(
+      // Calculate stats efficiently using filtered bookings
+      const todaysBookings = validBookings.filter(
+        (booking: Booking) => new Date(booking.date).toDateString() === today.toDateString()
+      ).length;
+
+      const totalRevenue = validBookings.filter(
         (booking: Booking) => booking.paymentStatus === 'completed'
       ).reduce((sum: number, booking: Booking) => sum + booking.totalAmount, 0) || 0;
 
+      // Console logging for debugging
+      console.log('📊 Slot Stats Debug:', {
+        totalAllBookings: bookingsData.bookings?.length || 0,
+        validBookings: validBookings.length,
+        todaysBookings,
+        totalRevenue,
+        totalUsers: usersData.users?.length || 0,
+        filterDetails: {
+          todayDate: today.toISOString().split('T')[0],
+          validSubscriptions: (usersData.users || []).filter((u: User) => {
+            const nextDue = u.nextDueDate ? new Date(u.nextDueDate) : null;
+            return nextDue && nextDue > today;
+          }).length
+        }
+      });
+
       setStats({
-        totalBookings: bookingsData.bookings?.length || 0,
+        totalBookings: validBookings.length,
         todaysBookings,
         totalRevenue,
         totalUsers: usersData.users?.length || 0,
@@ -771,19 +830,29 @@ export default function AdminDashboard() {
 
   // Handle slot click to show booking details
   const handleSlotClick = (courtId: string, timeSlot: string) => {
-    // Get registered users for this slot and court
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of day
+    
+    // Get registered users ONLY if they have PAID and ACTIVE subscription for current month
     const registeredUsers = users.filter(user => 
       user.selectedCourt === courtId && 
       user.preferredTimeSlot === timeSlot &&
-      user.preferredSport === 'Shuttle Badminton'
+      user.preferredSport === 'Shuttle Badminton' &&
+      user.paymentStatus === 'completed' && // Must have paid
+      user.subscriptionStartDate && // Must have subscription
+      user.subscriptionEndDate &&
+      user.nextDueDate &&
+      new Date(user.nextDueDate) > today && // Subscription must be active (not overdue)
+      new Date(user.subscriptionStartDate) <= today && // Subscription must have started
+      new Date(user.subscriptionEndDate) >= today // Subscription must not have ended
     );
 
     // Get hourly bookings for this slot and court for today
-    const today = new Date().toDateString();
+    const todayString = today.toDateString();
     const hourlyBookings = bookings.filter(booking => 
       booking.court === courtId &&
       booking.sport === 'Shuttle Badminton' &&
-      new Date(booking.date).toDateString() === today &&
+      new Date(booking.date).toDateString() === todayString &&
       booking.timeSlots.some(bookingSlot => {
         // Normalize time slot format for comparison
         const normalizeSlot = (s: string) => s.replace(/\s+/g, ' ').trim();
@@ -1062,15 +1131,15 @@ export default function AdminDashboard() {
         },
         body: JSON.stringify({
           bookingStatus: 'confirmed',
-          paymentStatus: 'paid' // Correct field value based on Booking model
+          paymentStatus: 'completed' // Auto-complete payment when admin verifies
         }),
       });
 
       const data = await response.json();
 
       if (response.ok && data.success) {
-        setAlert({ type: "success", message: "Booking verified successfully" });
-        fetchData(); // Refresh the data
+        setAlert({ type: "success", message: "✅ Booking verified & payment auto-completed" });
+        fetchData(); // Refresh the data including stats
       } else {
         throw new Error(data.message || 'Failed to verify booking');
       }
@@ -1367,6 +1436,19 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </Grid>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ height: "100%", cursor: "pointer", '&:hover': { elevation: 8 } }} 
+                onClick={() => router.push('/admin/subscription-management')}>
+            <CardContent sx={{ textAlign: "center" }}>
+              <Typography variant="h6" gutterBottom>
+                🔄 Subscription Migration
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Migrate users and sync subscriptions, view data integrity status
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
 
       {/* Tabs */}
@@ -1393,6 +1475,7 @@ export default function AdminDashboard() {
           <Tab label="Users" />
           <Tab label="Slots Stats" />
           <Tab label="Expenses" />
+          <Tab label="Inventory" />
         </Tabs>
 
         {/* Bookings Tab */}
@@ -1745,12 +1828,27 @@ export default function AdminDashboard() {
                     
                     <Grid container spacing={1}>
                       {TIME_SLOTS.map((slot) => {
-                        // Get registered users for this slot and court
-                        const registeredUsers = users.filter(user => 
-                          user.selectedCourt === courtId && 
-                          user.preferredTimeSlot === slot &&
-                          user.preferredSport === 'Shuttle Badminton'
-                        );
+                        // Get registered users for this slot and court (only PAID, ACTIVE subscribers)
+                        const todayDate = new Date();
+                        const registeredUsers = users.filter(user => {
+                          if (user.selectedCourt !== courtId || 
+                              user.preferredTimeSlot !== slot ||
+                              user.preferredSport !== 'Shuttle Badminton') {
+                            return false;
+                          }
+                          
+                          // STRICT validation: Must be PAID + SUBSCRIBED for current month
+                          if (user.paymentStatus !== 'completed') return false;
+                          if (!user.nextDueDate || new Date(user.nextDueDate) <= todayDate) return false;
+                          
+                          // Check subscription is active (current month)
+                          const subStartDate = user.subscriptionStartDate ? new Date(user.subscriptionStartDate) : null;
+                          const subEndDate = user.subscriptionEndDate ? new Date(user.subscriptionEndDate) : null;
+                          if (!subStartDate || !subEndDate) return false;
+                          if (todayDate < subStartDate || todayDate > subEndDate) return false;
+                          
+                          return true;
+                        });
 
                         // Get hourly bookings for this slot and court for today
                         const today = new Date().toDateString();
@@ -2053,6 +2151,36 @@ export default function AdminDashboard() {
               onClick={() => router.push('/admin/expenses')}
             >
               Go to Expenses Management
+            </Button>
+          </Box>
+        </TabPanel>
+
+        {/* Inventory Tab */}
+        <TabPanel value={tabValue} index={4}>
+          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">Inventory Management</Typography>
+            <Button 
+              variant="contained" 
+              startIcon={<Add />} 
+              onClick={() => router.push('/admin/inventory')}
+            >
+              Manage Inventory
+            </Button>
+          </Box>
+          
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Typography variant="h6" gutterBottom>
+              Sports Equipment Inventory
+            </Typography>
+            <Typography variant="body1" color="textSecondary" sx={{ mb: 3 }}>
+              Track stock levels, manage inflows and outflows for balls, bats, cork, and body zorbs.
+            </Typography>
+            <Button 
+              variant="contained" 
+              size="large"
+              onClick={() => router.push('/admin/inventory')}
+            >
+              Go to Inventory Management
             </Button>
           </Box>
         </TabPanel>

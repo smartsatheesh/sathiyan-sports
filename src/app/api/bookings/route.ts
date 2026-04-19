@@ -54,8 +54,11 @@ export async function POST(req: NextRequest) {
 
     // Check if any of the selected time slots are already booked
     const bookingDate = new Date(date);
+    
+    // Define cross-turf sports (Cricket, Football, and Functions&Events share same turf)
+    const crossTurfSports = ["Cricket", "Football", "Functions and Events"];
+    
     let existingBookingsQuery: any = {
-      sport,
       date: {
         $gte: startOfDay(bookingDate),
         $lte: endOfDay(bookingDate),
@@ -64,6 +67,14 @@ export async function POST(req: NextRequest) {
       bookingStatus: { $in: ["confirmed", "pending"] }, // Include pending bookings
       paymentStatus: { $ne: "expired" }, // Exclude expired payments
     };
+
+    // If the sport is part of cross-turf sports, check against all cross-turf sports
+    if (crossTurfSports.includes(sport)) {
+      existingBookingsQuery.sport = { $in: crossTurfSports };
+    } else {
+      // For Badminton or others, check only that sport
+      existingBookingsQuery.sport = sport;
+    }
 
     // For Shuttle Badminton, check conflicts only for the specific court
     if (sport === "Shuttle Badminton" && court) {
@@ -185,6 +196,49 @@ export async function POST(req: NextRequest) {
           { status: 409 }
         );
       }
+    } else if (crossTurfSports.includes(sport)) {
+      // For cross-turf sports, check registered users from any of the three sports
+      let registeredUsersQuery: any = {
+        preferredSport: { $in: crossTurfSports },
+        paymentStatus: { $in: ["completed", "confirmed"] },
+        subscriptionType: { $in: ["monthly", "quarterly", "half yearly", "yearly"] },
+        isActive: true,
+        subscriptionEndDate: { $gte: bookingDate },
+        "registeredSlots.0": { $exists: true }, // Has at least one registered slot
+      };
+
+      const registeredUsers = await (User.find as any)(registeredUsersQuery).select("registeredSlots selectedCourt preferredSport");
+
+      // Extract registered time slots for the booking date
+      const registeredTimeSlots: string[] = [];
+      registeredUsers.forEach(user => {
+        // Only include if registered for one of the cross-turf sports
+        if (crossTurfSports.includes(user.preferredSport)) {
+          user.registeredSlots.forEach((slot: any) => {
+            registeredTimeSlots.push(normalizeTimeSlot(slot.timeSlot));
+          });
+        }
+      });
+
+      // Normalize the requested time slots for comparison
+      const normalizedRequestedSlots = timeSlots.map((slot: string) => normalizeTimeSlot(slot));
+
+      // Check if any requested time slots conflict with registered slots
+      const conflictingRegisteredSlots = normalizedRequestedSlots.filter((normalizedSlot: string) => 
+        registeredTimeSlots.includes(normalizedSlot)
+      );
+      
+      if (conflictingRegisteredSlots.length > 0) {
+        return NextResponse.json(
+          { 
+            message: "Some time slots are reserved for registered members", 
+            success: false,
+            conflictingSlots: conflictingRegisteredSlots,
+            type: "registered_conflict"
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // Create the booking
@@ -276,9 +330,11 @@ export async function GET(req: NextRequest) {
 
     const queryDate = new Date(date);
     
+    // Define cross-turf sports (Cricket, Football, and Functions&Events share same turf)
+    const crossTurfSports = ["Cricket", "Football", "Functions and Events"];
+    
     // Build query for finding bookings
     let bookingQuery: any = {
-      sport,
       date: {
         $gte: startOfDay(queryDate),
         $lte: endOfDay(queryDate),
@@ -287,13 +343,21 @@ export async function GET(req: NextRequest) {
       paymentStatus: { $nin: ["expired", "cancelled"] },
     };
 
+    // If the selected sport is part of cross-turf sports, check all cross-turf sports
+    if (crossTurfSports.includes(sport)) {
+      bookingQuery.sport = { $in: crossTurfSports };
+    } else {
+      // For Badminton or others, check only that sport
+      bookingQuery.sport = sport;
+    }
+
     // For Shuttle Badminton, if court is specified, filter by court
     // If no court specified, return slots for ALL courts (for general availability)
     if (sport === "Shuttle Badminton" && court) {
       bookingQuery.court = court;
     }
 
-    const bookings = await (Booking.find as any)(bookingQuery).select("timeSlots court");
+    const bookings = await (Booking.find as any)(bookingQuery).select("timeSlots court sport");
 
     // Fetch registered slots for monthly/quarterly/half yearly/yearly verified users
     let registeredSlots: string[] = [];
@@ -348,6 +412,33 @@ export async function GET(req: NextRequest) {
       Object.keys(registeredCourtSlots).forEach(courtKey => {
         registeredCourtSlots[courtKey] = [...new Set(registeredCourtSlots[courtKey])];
       });
+    } else if (crossTurfSports.includes(sport)) {
+      // For cross-turf sports, also check registered users from any of the three sports
+      let userQuery: any = {
+        preferredSport: { $in: crossTurfSports },
+        status: "verified", // Only verified users
+        paymentStatus: { $in: ["completed", "confirmed"] }, // Only users with confirmed payments
+        subscriptionType: { $in: ["monthly", "quarterly", "half yearly", "yearly"] }, // All subscription types
+        isActive: true,
+        // Check if subscription is still valid
+        subscriptionEndDate: { $gte: queryDate },
+        "registeredSlots.0": { $exists: true }, // Has at least one registered slot
+      };
+
+      const registeredUsers = await (User.find as any)(userQuery).select("registeredSlots preferredSport subscriptionType selectedCourt");
+
+      // Extract registered slots for cross-turf sports
+      registeredUsers.forEach(user => {
+        user.registeredSlots.forEach((slot: any) => {
+          // Only include if the user is registered for one of the cross-turf sports
+          if (crossTurfSports.includes(user.preferredSport)) {
+            registeredSlots.push(normalizeTimeSlot(slot.timeSlot));
+          }
+        });
+      });
+
+      // Remove duplicates
+      registeredSlots = [...new Set(registeredSlots)];
     }
 
     // For Shuttle Badminton without specific court, return court-specific data

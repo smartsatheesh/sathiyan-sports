@@ -55,6 +55,7 @@ import {
   Cancel,
   AttachMoney,
   Receipt,
+  People,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 
@@ -92,6 +93,9 @@ interface User {
 
 interface Stats {
   totalSubscribed: number;
+  totalUsers: number;
+  usersNotSubscribed: number;
+  penetrationRate: number;
   pendingPayments: number;
   overdue: number;
   totalRevenue: number;
@@ -118,6 +122,9 @@ const SubscriptionPage = () => {
   const [filterGame, setFilterGame] = useState<string>('all');
   const [stats, setStats] = useState<Stats>({
     totalSubscribed: 0,
+    totalUsers: 0,
+    usersNotSubscribed: 0,
+    penetrationRate: 0,
     pendingPayments: 0,
     overdue: 0,
     totalRevenue: 0,
@@ -150,28 +157,46 @@ const SubscriptionPage = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      console.log('🔍 Fetching subscriptions...');
+      console.log('🔍 Fetching subscriptions and user count...');
       console.log('🔐 Session details:', session);
       
-      const response = await fetch('/api/subscriptions');
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', response.headers);
+      // Fetch subscriptions and total users count in parallel
+      const [subResponse, usersResponse] = await Promise.all([
+        fetch('/api/subscriptions'),
+        fetch('/api/admin/users?limit=1')
+      ]);
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ API Error:', errorText);
-        throw new Error(`Error: ${response.status} ${response.statusText} - ${errorText}`);
+      console.log('📡 Subscription response status:', subResponse.status);
+      console.log('📡 Users response status:', usersResponse.status);
+      
+      if (!subResponse.ok) {
+        const errorText = await subResponse.text();
+        console.error('❌ Subscription API Error:', errorText);
+        throw new Error(`Error: ${subResponse.status} ${subResponse.statusText} - ${errorText}`);
       }
       
-      const data = await response.json();
-      console.log('📊 Raw subscription response:', data);
-      console.log('📊 Subscription count:', data.subscriptions?.length);
+      const subData = await subResponse.json();
+      let totalUsersCount = 0;
       
-      if (data && data.subscriptions) {
-        console.log('✅ Processing', data.subscriptions.length, 'subscriptions');
+      // Parse total users count from header or response
+      if (usersResponse.ok) {
+        try {
+          const userData = await usersResponse.json();
+          totalUsersCount = userData.total || 0;
+        } catch (err) {
+          console.warn('Could not parse users count:', err);
+        }
+      }
+      
+      console.log('📊 Raw subscription response:', subData);
+      console.log('📊 Subscription count:', subData.subscriptions?.length);
+      console.log('👥 Total users count:', totalUsersCount);
+      
+      if (subData && subData.subscriptions) {
+        console.log('✅ Processing', subData.subscriptions.length, 'subscriptions');
         
         // Transform subscription data to match the expected user data structure
-        const transformedData = data.subscriptions.map((sub: any, index: number) => {
+        const transformedData = subData.subscriptions.map((sub: any, index: number) => {
           console.log(`🔄 Transforming subscription ${index + 1}:`, {
             id: sub._id,
             userName: sub.userId?.name,
@@ -234,10 +259,10 @@ const SubscriptionPage = () => {
         
         setUsers(transformedData);
         setFilteredUsers(transformedData);
-        calculateStats(transformedData);
+        calculateStats(transformedData, totalUsersCount);
         console.log('✅ Subscription data transformed and set successfully:', transformedData.length, 'subscriptions');
       } else {
-        console.error('❌ Unexpected data structure:', data);
+        console.error('❌ Unexpected data structure:', subData);
         setUsers([]);
         setFilteredUsers([]);
       }
@@ -251,10 +276,12 @@ const SubscriptionPage = () => {
     }
   };
 
-  const calculateStats = (userList: User[]) => {
-    console.log('📊 Calculating comprehensive subscription stats for', userList.length, 'users');
+  const calculateStats = (userList: User[], totalUsersCount: number = 0) => {
+    console.log('📊 Calculating comprehensive subscription stats for', userList.length, 'users out of', totalUsersCount, 'total');
     
     const totalSubscribed = userList.length;
+    const usersNotSubscribed = Math.max(0, totalUsersCount - totalSubscribed);
+    const penetrationRate = totalUsersCount > 0 ? (totalSubscribed / totalUsersCount) * 100 : 0;
     const pendingPayments = userList.filter(user => 
       user.paymentStatus === 'pending' || user.paymentStatus === 'Pending'
     ).length;
@@ -312,6 +339,9 @@ const SubscriptionPage = () => {
 
     const newStats = {
       totalSubscribed,
+      totalUsers: totalUsersCount,
+      usersNotSubscribed,
+      penetrationRate,
       pendingPayments,
       overdue,
       totalRevenue,
@@ -326,6 +356,9 @@ const SubscriptionPage = () => {
     
     console.log('📊 Comprehensive subscription stats calculated:', {
       totalSubscribed,
+      totalUsers: totalUsersCount,
+      usersNotSubscribed,
+      penetrationRate: penetrationRate.toFixed(2) + '%',
       pendingPayments,
       overdue,
       totalRevenue,
@@ -670,6 +703,93 @@ const SubscriptionPage = () => {
         📊 Subscription Analytics Dashboard
       </Typography>
       
+      {/* User Coverage Stats Row */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={3}>
+          <Card sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <People sx={{ mr: 2, color: 'white', fontSize: 30 }} />
+                <Box>
+                  <Typography color="white" gutterBottom>
+                    Total Users
+                  </Typography>
+                  <Typography variant="h4" sx={{ color: 'white' }}>
+                    {stats.totalUsers}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)' }}>
+                    In the system
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        <Grid item xs={12} md={3}>
+          <Card sx={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' }}>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <CheckCircle sx={{ mr: 2, color: 'white', fontSize: 30 }} />
+                <Box>
+                  <Typography color="white" gutterBottom>
+                    Subscribed Users
+                  </Typography>
+                  <Typography variant="h4" sx={{ color: 'white' }}>
+                    {stats.totalSubscribed}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)' }}>
+                    Active subscriptions
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        <Grid item xs={12} md={3}>
+          <Card sx={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' }}>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <Cancel sx={{ mr: 2, color: 'white', fontSize: 30 }} />
+                <Box>
+                  <Typography color="white" gutterBottom>
+                    Not Subscribed
+                  </Typography>
+                  <Typography variant="h4" sx={{ color: 'white' }}>
+                    {stats.usersNotSubscribed}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)' }}>
+                    Need subscription
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        <Grid item xs={12} md={3}>
+          <Card sx={{ background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' }}>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <TrendingUp sx={{ mr: 2, color: 'white', fontSize: 30 }} />
+                <Box>
+                  <Typography color="white" gutterBottom>
+                    Penetration Rate
+                  </Typography>
+                  <Typography variant="h4" sx={{ color: 'white' }}>
+                    {stats.penetrationRate.toFixed(1)}%
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)' }}>
+                    Coverage ratio
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+      
       {/* Primary Stats Row */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} md={3}>
@@ -679,13 +799,13 @@ const SubscriptionPage = () => {
                 <FitnessCenter color="primary" sx={{ mr: 2 }} />
                 <Box>
                   <Typography color="text.secondary" gutterBottom>
-                    Total Subscriptions
+                    Active Subscriptions
                   </Typography>
                   <Typography variant="h4">
-                    {stats.totalSubscribed}
+                    {stats.activeSubscriptions}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Active members
+                    Currently active
                   </Typography>
                 </Box>
               </Box>

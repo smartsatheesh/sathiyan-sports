@@ -495,7 +495,7 @@ const FeeCollectionPage = () => {
           message: editingFee ? 'Fee updated successfully!' : 'Fee added successfully!' 
         });
         setFeeDialogOpen(false);
-        fetchFees();
+        
         // Reset form
         setFeeFormData({
           champId: '',
@@ -512,6 +512,13 @@ const FeeCollectionPage = () => {
         });
         setSelectedUserId('');
         setEditingFee(null);
+        
+        // Reset pagination and fetch fresh data
+        setPage(0);
+        
+        // Small delay to ensure database has processed the write
+        await new Promise(resolve => setTimeout(resolve, 300));
+        fetchFees();
       } else {
         setAlert({ type: 'error', message: data.error || 'Failed to save fee' });
       }
@@ -533,6 +540,8 @@ const FeeCollectionPage = () => {
 
       if (data.success) {
         setAlert({ type: 'success', message: 'Fee deleted successfully!' });
+        setPage(0);
+        await new Promise(resolve => setTimeout(resolve, 300));
         fetchFees();
       } else {
         setAlert({ type: 'error', message: data.error || 'Failed to delete fee' });

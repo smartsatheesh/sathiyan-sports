@@ -61,7 +61,7 @@ const TestimonialsSection = () => {
     const fetchUsersForTestimonials = async () => {
       setLoading(true);
       try {
-        const sports = ["Cricket", "Football", "Shuttle Badminton", "Functions and Events"];
+        const sports = ["Cricket", "Football", "Shuttle Badminton", "Functions and Events", "Body Zorb"];
         const userPromises = sports.map(sport => 
           fetch(`/api/users/by-sport?sport=${encodeURIComponent(sport)}&limit=1`)
             .then(res => res.json())

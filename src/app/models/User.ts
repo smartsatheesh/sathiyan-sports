@@ -68,7 +68,7 @@ const userSchema = new mongoose.Schema({
   },
   preferredSport: {
     type: String,
-    enum: ["Cricket", "Football", "Shuttle Badminton", "Functions and Events"],
+    enum: ["Cricket", "Football", "Shuttle Badminton", "Functions and Events", "Body Zorb"],
   },
   preferredTimeSlot: {
     type: String,

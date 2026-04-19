@@ -46,7 +46,7 @@ const attendanceRecordSchema = new mongoose.Schema<IAttendanceRecord>({
   sport: {
     type: String,
     required: [true, 'Sport is required'],
-    enum: ['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events']
+    enum: ['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events', 'Body Zorb']
   },
   timeSlot: {
     type: String,

@@ -19,7 +19,7 @@ export interface ISubscription extends Document {
   lastPaymentDate?: Date;
   nextDueDate: Date;
   autoRenewal: boolean;
-  preferredSport?: 'Cricket' | 'Football' | 'Shuttle Badminton' | 'Functions and Events';
+  preferredSport?: 'Cricket' | 'Football' | 'Shuttle Badminton' | 'Functions and Events' | 'Body Zorb';
   preferredTimeSlot?: string;
   selectedCourt?: string; // Optional, only for badminton players
   notes?: string;
@@ -125,7 +125,7 @@ const subscriptionSchema = new Schema<ISubscription>({
   },
   preferredSport: {
     type: String,
-    enum: ['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events']
+    enum: ['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events', 'Body Zorb']
   },
   preferredTimeSlot: {
     type: String
