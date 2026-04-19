@@ -135,9 +135,9 @@ export default function Home() {
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalBookings: 0,
-    totalEvents: 0,
+    totalEvents: 7,
     totalFitnessEnrollments: 0,
-    averageRating: 4.8,
+    averageRating: 4.9,
   });
   const [currentTaglineIndex, setCurrentTaglineIndex] = useState(0);
   const [showTagline, setShowTagline] = useState(true);

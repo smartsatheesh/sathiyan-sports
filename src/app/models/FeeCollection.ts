@@ -77,35 +77,6 @@ FeeCollectionSchema.index({ status: 1 });
 FeeCollectionSchema.index({ dueDate: 1 });
 FeeCollectionSchema.index({ feeType: 1 });
 
-// Auto-update overdue status based on due date
-FeeCollectionSchema.pre('find', function() {
-  // Update overdue status for pending fees past due date
-  const now = new Date();
-  this.updateMany(
-    { 
-      status: 'pending',
-      dueDate: { $lt: now }
-    },
-    { 
-      $set: { status: 'overdue' }
-    }
-  );
-});
-
-FeeCollectionSchema.pre('findOne', function() {
-  // Update overdue status for pending fees past due date
-  const now = new Date();
-  this.updateMany(
-    { 
-      status: 'pending',
-      dueDate: { $lt: now }
-    },
-    { 
-      $set: { status: 'overdue' }
-    }
-  );
-});
-
 const FeeCollection = mongoose.models.FeeCollection || mongoose.model('FeeCollection', FeeCollectionSchema);
 
 export default FeeCollection;

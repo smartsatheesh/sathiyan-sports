@@ -56,6 +56,8 @@ import {
   AttachMoney,
   Receipt,
   People,
+  ArrowUpward,
+  ArrowDownward,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 
@@ -140,6 +142,10 @@ const SubscriptionPage = () => {
   });
   const [editDialog, setEditDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: keyof User; direction: 'asc' | 'desc' }>({
+    key: 'name',
+    direction: 'asc'
+  });
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -538,6 +544,34 @@ const SubscriptionPage = () => {
     return {}; // No special styling for on-time payments
   };
 
+  // Sorting functions
+  const handleSort = (key: keyof User) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Sortable header component
+  const SortableHeader = ({ column, children }: { column: keyof User; children: React.ReactNode }) => (
+    <TableCell 
+      onClick={() => handleSort(column)}
+      sx={{ 
+        cursor: 'pointer', 
+        userSelect: 'none',
+        '&:hover': { backgroundColor: 'action.hover' }
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        {children}
+        {sortConfig.key === column && (
+          sortConfig.direction === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />
+        )}
+      </Box>
+    </TableCell>
+  );
+
   useEffect(() => {
     let filtered = users;
 
@@ -569,8 +603,32 @@ const SubscriptionPage = () => {
       );
     }
 
+    // Apply sorting
+    if (sortConfig.key) {
+      filtered = [...filtered].sort((a, b) => {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+
+        // Handle null/undefined values
+        if (aValue === null || aValue === undefined) return 1;
+        if (bValue === null || bValue === undefined) return -1;
+
+        // Convert to string for comparison
+        const aStr = String(aValue).toLowerCase();
+        const bStr = String(bValue).toLowerCase();
+
+        if (aStr < bStr) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aStr > bStr) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
     setFilteredUsers(filtered);
-  }, [users, searchTerm, filterStatus, filterGame]);
+  }, [users, searchTerm, filterStatus, filterGame, sortConfig]);
 
   const updateOverdueUsers = async () => {
     try {
@@ -1087,9 +1145,10 @@ const SubscriptionPage = () => {
               <TableRow>
                 <TableCell>Payment Date</TableCell>
                 <TableCell>Next Due Date</TableCell>
-                <TableCell>Champ ID</TableCell>
-                <TableCell>Name</TableCell>
+                <SortableHeader column="champId">Champ ID</SortableHeader>
+                <SortableHeader column="name">Name</SortableHeader>
                 <TableCell>Game</TableCell>
+                <TableCell>Preferred Slot</TableCell>
                 <TableCell>Slot</TableCell>
                 <TableCell>Payment Status</TableCell>
                 <TableCell>Subscription Type</TableCell>
@@ -1101,13 +1160,13 @@ const SubscriptionPage = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={11} align="center">
+                  <TableCell colSpan={12} align="center">
                     <CircularProgress />
                   </TableCell>
                 </TableRow>
               ) : filteredUsers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} align="center">
+                  <TableCell colSpan={12} align="center">
                     <Typography variant="body1" color="text.secondary">
                       No subscribed users found
                     </Typography>
@@ -1144,7 +1203,8 @@ const SubscriptionPage = () => {
                       <TableCell>{user.champId}</TableCell>
                       <TableCell>{user.name}</TableCell>
                       <TableCell>{user.preferredSport || user.game || '-'}</TableCell>
-                      <TableCell>{user.preferredTimeSlot || user.slot || '-'}</TableCell>
+                      <TableCell>{user.preferredTimeSlot || '-'}</TableCell>
+                      <TableCell>{user.slot || '-'}</TableCell>
                       <TableCell>
                         <Chip
                           label={overdueStatus.isOverdue && (user.paymentStatus !== 'paid' && user.paymentStatus !== 'Paid') 

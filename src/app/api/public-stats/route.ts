@@ -30,8 +30,8 @@ export async function GET() {
       paymentStatus: 'completed'
     });
 
-    // Get average rating (if you have a reviews collection, otherwise use fixed 4.8)
-    const averageRating = 4.8; // You can replace this with actual calculation if you have reviews
+    // Get average rating (if you have a reviews collection, otherwise use fixed 4.9)
+    const averageRating = 4.9; // You can replace this with actual calculation if you have reviews
 
     // Calculate some growth metrics
     const currentYear = new Date().getFullYear();
@@ -72,9 +72,9 @@ export async function GET() {
       stats: {
         totalUsers: 50, // Fallback numbers
         totalBookings: 150,
-        totalEvents: 25,
+        totalEvents: 7,
         totalFitnessEnrollments: 30,
-        averageRating: 4.8,
+        averageRating: 4.9,
         usersThisYear: 25,
         bookingsThisYear: 75,
         yearsOfService: 1,
