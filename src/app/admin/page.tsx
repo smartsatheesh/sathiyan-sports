@@ -1585,14 +1585,14 @@ export default function AdminDashboard() {
                         >
                           <Delete />
                         </IconButton>
-                        {booking.bookingStatus === 'pending' && booking.paymentStatus === 'pending' && (
+                        {booking.bookingStatus === 'confirmed' && booking.paymentStatus === 'pending' && (
                           <IconButton 
                             size="small" 
                             color="success"
                             onClick={() => handleVerifyBooking(booking._id)}
-                            title="Verify Booking"
+                            title="Mark Payment Complete"
                           >
-                            <Check />
+                            <CheckCircle />
                           </IconButton>
                         )}
                       </Box>

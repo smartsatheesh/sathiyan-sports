@@ -89,6 +89,7 @@ interface Subscription {
     name: string;
     email: string;
     champId: string;
+    preferredTimeSlot?: string;
   };
   champId: string;
   userName: string;
@@ -200,11 +201,11 @@ const AdminSubscriptionsPage = () => {
   const [preferredSportFilter, setPreferredSportFilter] = useState<string>('all');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [sortBy, setSortBy] = useState<keyof Subscription>('createdAt');
+  const [sortBy, setSortBy] = useState<string>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // Sorting handler
-  const handleSort = (column: keyof Subscription) => {
+  const handleSort = (column: string) => {
     if (sortBy === column && sortOrder === 'asc') {
       setSortOrder('desc');
     } else {
@@ -214,7 +215,7 @@ const AdminSubscriptionsPage = () => {
   };
 
   // Sortable header component
-  const SortableHeader = ({ column, children }: { column: keyof Subscription; children: React.ReactNode }) => (
+  const SortableHeader = ({ column, children }: { column: string; children: React.ReactNode }) => (
     <TableCell
       onClick={() => handleSort(column)}
       sx={{
@@ -676,10 +677,22 @@ const AdminSubscriptionsPage = () => {
       return matchesStatus && matchesSearch && matchesSport && matchesDateRange;
     });
 
-    // Sort subscriptions
+    // Sort subscriptions with support for nested properties
     filtered.sort((a, b) => {
-      const aValue = a[sortBy];
-      const bValue = b[sortBy];
+      let aValue: any;
+      let bValue: any;
+      
+      // Handle special sortable columns
+      if (sortBy === 'name') {
+        aValue = a.userId?.name || '';
+        bValue = b.userId?.name || '';
+      } else if (sortBy === 'champId') {
+        aValue = a.userId?.champId || '';
+        bValue = b.userId?.champId || '';
+      } else {
+        aValue = (a as any)[sortBy];
+        bValue = (b as any)[sortBy];
+      }
       
       if (typeof aValue === 'string' && typeof bValue === 'string') {
         return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
@@ -1736,10 +1749,12 @@ const AdminSubscriptionsPage = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <SortableHeader column="userId">User</SortableHeader>
+                <SortableHeader column="name">Name</SortableHeader>
+                <SortableHeader column="champId">Champ ID</SortableHeader>
                 <SortableHeader column="subscriptionType">Plan</SortableHeader>
                 <SortableHeader column="mode">Mode</SortableHeader>
                 <SortableHeader column="amount">Amount</SortableHeader>
+                <TableCell>Preferred Slot</TableCell>
                 <SortableHeader column="paymentStatus">Status</SortableHeader>
                 <SortableHeader column="startDate">Subscribed Date</SortableHeader>
                 <SortableHeader column="endDate">Next Due Date</SortableHeader>
@@ -1752,14 +1767,14 @@ const AdminSubscriptionsPage = () => {
               {paginatedSubscriptions.map((subscription) => (
                 <TableRow key={subscription._id}>
                   <TableCell>
-                    <Box>
-                      <Typography variant="body2" fontWeight="bold">
-                        {subscription.userId?.name || 'Unknown User'}
-                      </Typography>
-                      <Typography variant="caption" color="textSecondary">
-                        {subscription.userId?.champId || 'N/A'}
-                      </Typography>
-                    </Box>
+                    <Typography variant="body2" fontWeight="bold">
+                      {subscription.userId?.name || 'Unknown User'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {subscription.userId?.champId || 'N/A'}
+                    </Typography>
                   </TableCell>
                   <TableCell>
                     <Chip 
@@ -1796,6 +1811,11 @@ const AdminSubscriptionsPage = () => {
                     </Typography>
                     <Typography variant="caption" color="textSecondary">
                       {subscription.duration} month{subscription.duration > 1 ? 's' : ''}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {subscription.userId?.preferredTimeSlot || '-'}
                     </Typography>
                   </TableCell>
                   <TableCell>

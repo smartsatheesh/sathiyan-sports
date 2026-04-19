@@ -64,8 +64,8 @@ export async function POST(req: NextRequest) {
         $lte: endOfDay(bookingDate),
       },
       timeSlots: { $in: timeSlots },
-      bookingStatus: { $in: ["confirmed", "pending"] }, // Include pending bookings
-      paymentStatus: { $ne: "expired" }, // Exclude expired payments
+      bookingStatus: "confirmed", // Only confirmed bookings
+      paymentStatus: { $in: ["completed", "paid"] }, // Only paid/completed payments
     };
 
     // If the sport is part of cross-turf sports, check against all cross-turf sports
@@ -339,8 +339,8 @@ export async function GET(req: NextRequest) {
         $gte: startOfDay(queryDate),
         $lte: endOfDay(queryDate),
       },
-      bookingStatus: { $nin: ["cancelled", "expired"] },
-      paymentStatus: { $nin: ["expired", "cancelled"] },
+      bookingStatus: "confirmed", // Only show confirmed bookings as booked
+      paymentStatus: { $in: ["completed", "paid"] }, // Only show paid bookings as blocked
     };
 
     // If the selected sport is part of cross-turf sports, check all cross-turf sports
@@ -461,30 +461,20 @@ export async function GET(req: NextRequest) {
         courtBookings[courtKey] = [...new Set(courtBookings[courtKey])];
       });
 
-      // Merge registered slots with booked slots for each court
-      Object.keys(courtBookings).forEach(courtKey => {
-        if (registeredCourtSlots[courtKey]) {
-          courtBookings[courtKey] = [...new Set([...courtBookings[courtKey], ...registeredCourtSlots[courtKey]])];
-        }
-      });
-
       return NextResponse.json({
         success: true,
-        courtBookings,
+        courtBookings, // Only actual booked slots - regardless of payment status
         bookedSlots: [], // Keep for backward compatibility
-        registeredSlots: registeredCourtSlots,
+        registeredSlots: registeredCourtSlots, // Separate array for registered slots info
       });
     }
 
     // Extract all booked time slots (for other sports or specific court)
     const bookedSlots = bookings.flatMap(booking => booking.timeSlots);
     
-    // Merge booked slots with registered slots
-    const allBlockedSlots = [...new Set([...bookedSlots, ...registeredSlots])];
-
     return NextResponse.json({
       success: true,
-      bookedSlots: allBlockedSlots, // Now includes both booked and registered slots
+      bookedSlots: [...new Set(bookedSlots)], // Only actual booked slots - regardless of payment status
       registeredSlots: registeredSlots, // Separate array for registered slots info
     });
   } catch (error) {

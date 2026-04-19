@@ -997,7 +997,7 @@ export default function BookSlot() {
       if (result.success) {
         setAlert({ 
           type: 'success', 
-          message: `Booking created successfully! Reference: ${result.booking.bookingReference}. Payment verification in progress.` 
+          message: `✅ Booking confirmed! Ref: ${result.booking.bookingReference}. Pay now or settle later.` 
         });
         
         // Reset form
@@ -1048,8 +1048,8 @@ export default function BookSlot() {
         customerEmail: customerInfo.email,
         customerPhone: customerInfo.phone,
         paymentExpiry: paymentExpiry.toISOString(),
-        paymentStatus: isAdmin ? "completed" : "pending", // Auto-complete for admin
-        bookingStatus: isAdmin ? "confirmed" : "pending" // Auto-confirm for admin
+        paymentStatus: isAdmin ? "completed" : "pending", // Admin pays immediately, customers can pay later
+        bookingStatus: "confirmed" // All bookings confirmed immediately - no wait for payment
       };
 
       // Add Functions and Events specific fields

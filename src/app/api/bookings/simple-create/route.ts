@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     // Generate booking reference
     const bookingReference = `BK_${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
-    // Create booking with payment pending verification
+    // Create booking with payment pending (can be collected later)
     const bookingData = {
       bookingReference,
       sport,
@@ -50,11 +50,11 @@ export async function POST(request: NextRequest) {
       customerEmail: customerInfo.email,
       customerPhone: customerInfo.phone,
       totalAmount: totalPrice,
-      paymentStatus: 'pending_verification', // Manual verification required
+      paymentStatus: 'pending', // Payment can be collected later after customer plays
       paymentMethod: paymentMethod || 'manual',
       transactionId: transactionId || '',
       paymentReference: paymentReference || '',
-      bookingStatus: 'pending', // Use proper enum value
+      bookingStatus: 'confirmed', // Booking confirmed immediately - no wait for payment
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Booking created successfully! Payment verification in progress.',
+      message: '✅ Booking confirmed! You can play now and settle payment later.',
       booking: {
         id: booking._id,
         bookingReference: booking.bookingReference,
@@ -78,10 +78,10 @@ export async function POST(request: NextRequest) {
         paymentStatus: booking.paymentStatus
       },
       nextSteps: [
-        'Your booking has been created with pending payment verification',
-        'Our team will verify your payment within 30 minutes during business hours',
-        'You will receive a confirmation call/WhatsApp once verified',
-        'Keep your transaction ID safe for reference'
+        '✅ Your booking is confirmed - you can play the slot',
+        '💰 Payment due before or after playing (flexible)',
+        '📱 We\'ll send you payment reminder via WhatsApp',
+        '🎫 Keep your booking reference safe'
       ]
     });
 
