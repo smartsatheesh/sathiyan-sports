@@ -89,6 +89,8 @@ interface User {
   gracePeriod?: number;
   createdAt?: string;
   updatedAt?: string;
+  comments?: string;
+  registeredSlots?: Array<{ timeSlot: string; court?: string }>;
 }
 
 interface Stats {
@@ -239,7 +241,9 @@ const SubscriptionPage = () => {
             isPastGrace: sub.isPastGrace,
             gracePeriod: sub.gracePeriod,
             createdAt: sub.createdAt,
-            updatedAt: sub.updatedAt
+            updatedAt: sub.updatedAt,
+            comments: sub.userId?.comments || '',
+            registeredSlots: sub.userId?.registeredSlots || []
           };
           
           console.log(`✅ Transformed user ${index + 1}:`, {
@@ -1408,6 +1412,67 @@ const SubscriptionPage = () => {
                     onChange={(e) => setSelectedUser({
                       ...selectedUser,
                       court: e.target.value
+                    })}
+                  />
+                </Grid>
+                {/* Slot Selection - Only for Badminton */}
+                {selectedUser.preferredSport === 'Shuttle Badminton' && (
+                  <>
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        Registered Slots (Badminton Only)
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <FormControl fullWidth>
+                        <InputLabel>Select Courts & Slots</InputLabel>
+                        <Select
+                          multiple
+                          value={selectedUser.registeredSlots?.map(s => `${s.court}-${s.timeSlot}`) || []}
+                          label="Select Courts & Slots"
+                          onChange={(e) => {
+                            const values = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value;
+                            const slots = values.map(val => {
+                              const [court, timeSlot] = val.split('-');
+                              return { court, timeSlot };
+                            });
+                            setSelectedUser({
+                              ...selectedUser,
+                              registeredSlots: slots
+                            });
+                          }}
+                        >
+                          {['S1', 'S2', 'S3'].map(court =>
+                            [
+                              "06:00 AM - 07:00 AM", "07:00 AM - 08:00 AM", "08:00 AM - 09:00 AM",
+                              "09:00 AM - 10:00 AM", "10:00 AM - 11:00 AM", "11:00 AM - 12:00 PM",
+                              "12:00 PM - 01:00 PM", "01:00 PM - 02:00 PM", "02:00 PM - 03:00 PM",
+                              "03:00 PM - 04:00 PM", "04:00 PM - 05:00 PM", "05:00 PM - 06:00 PM",
+                              "06:00 PM - 07:00 PM", "07:00 PM - 08:00 PM", "08:00 PM - 09:00 PM",
+                              "09:00 PM - 10:00 PM"
+                            ].map(slot => (
+                              <MenuItem key={`${court}-${slot}`} value={`${court}-${slot}`}>
+                                {court} - {slot}
+                              </MenuItem>
+                            ))
+                          )}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  </>
+                )}
+                {/* Comments/Notes Field */}
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={3}
+                    label="Comments / Notes"
+                    placeholder="Add any notes or comments about this user..."
+                    value={selectedUser.comments || ''}
+                    onChange={(e) => setSelectedUser({
+                      ...selectedUser,
+                      comments: e.target.value
                     })}
                   />
                 </Grid>

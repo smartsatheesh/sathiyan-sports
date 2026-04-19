@@ -1664,6 +1664,21 @@ export default function BookSlot() {
                         <span className="price-amount">₹{sport.weekendPrice.toLocaleString()}</span>
                         {sport.name === "Functions and Events" ? "/hr" : "/slot"}
                       </div>
+                      {(sport.name === "Cricket" || sport.name === "Football") && (
+                        <div style={{
+                          marginTop: '12px',
+                          padding: '10px',
+                          backgroundColor: '#fff3e0',
+                          border: '2px solid #ff9800',
+                          borderRadius: '6px',
+                          textAlign: 'center',
+                          fontWeight: 'bold',
+                          color: '#e65100',
+                          fontSize: '13px'
+                        }}>
+                          🎉 Launching Offer: 1 hour FREE on weekdays!
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

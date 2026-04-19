@@ -347,17 +347,17 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
         function calculateSubscriptionAmount(champType?: string, subscriptionType?: string, gender?: string, preferredTimeSlot?: string) {
           // Default pricing structure
           const ADULT_MALE_PRICING = {
-            monthly: 1499,
-            quarterly: 4299, 
-            'half yearly': 8099,
+            monthly: 1199,
+            quarterly: 3399, 
+            'half yearly': 6299,
             yearly: 11499
           };
 
           const ADULT_FEMALE_PRICING = {
-            monthly: 1199,
-            quarterly: 3599,
-            'half yearly': 6899,
-            yearly: 10999
+            monthly: 799,
+            quarterly: 2099,
+            'half yearly': 4099,
+            yearly: 8399
           };
 
           const KIDS_PRICING = {
@@ -635,17 +635,17 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
           function calculateSubscriptionAmount(champType?: string, subscriptionType?: string, gender?: string, preferredTimeSlot?: string) {
             // Default pricing structure
             const ADULT_MALE_PRICING = {
-              monthly: 1499,
-              quarterly: 4299, 
-              'half yearly': 8099,
+              monthly: 1199,
+              quarterly: 3399, 
+              'half yearly': 6299,
               yearly: 11499
             };
 
             const ADULT_FEMALE_PRICING = {
-              monthly: 1199,
-              quarterly: 3599,
-              'half yearly': 6899,
-              yearly: 10999
+              monthly: 799,
+              quarterly: 2099,
+              'half yearly': 4099,
+              yearly: 8399
             };
 
             const KIDS_PRICING = {

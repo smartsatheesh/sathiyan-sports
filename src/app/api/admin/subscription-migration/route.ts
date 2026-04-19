@@ -80,9 +80,9 @@ export async function POST(request: NextRequest) {
       for (const user of usersToMigrate) {
         try {
           const ADULT_MALE_PRICING = {
-            monthly: 1499,
-            quarterly: 4299,
-            'half yearly': 8099,
+            monthly: 1199,
+            quarterly: 3399,
+            'half yearly': 6299,
             yearly: 11499
           };
 

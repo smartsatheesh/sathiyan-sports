@@ -177,6 +177,10 @@ interface Booking {
   paymentMethod?: string;
   notes?: string;
   updatedAt?: string;
+  cancellationReason?: string;
+  cancellationDate?: string;
+  refundAmount?: number;
+  refundStatus?: string;
 }
 
 interface User {
@@ -284,14 +288,17 @@ export default function AdminDashboard() {
     sport: '',
     court: '',
     date: '',
-    timeSlot: '',
+    timeSlots: [] as string[],
     bookingStatus: '',
     paymentStatus: '',
     totalAmount: 0,
     receivedBy: '',
     paymentMethod: '',
-    notes: ''
+    notes: '',
+    cancellationReason: '',
+    isCancelling: false
   });
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   
   // User filtering states
   const [userSearchTerm, setUserSearchTerm] = useState('');
@@ -1049,13 +1056,15 @@ export default function AdminDashboard() {
       sport: booking.sport || '',
       court: booking.court || '',
       date: booking.date ? new Date(booking.date).toISOString().split('T')[0] : '',
-      timeSlot: booking.timeSlot || booking.timeSlots?.[0] || '',
+      timeSlots: booking.timeSlots || [],
       bookingStatus: booking.bookingStatus || '',
       paymentStatus: booking.paymentStatus || '',
       totalAmount: booking.totalAmount || 0,
       receivedBy: booking.receivedBy || '',
       paymentMethod: booking.paymentMethod || '',
-      notes: booking.notes || ''
+      notes: booking.notes || '',
+      cancellationReason: '',
+      isCancelling: false
     });
     setBookingEditOpen(true);
   };
@@ -1064,25 +1073,25 @@ export default function AdminDashboard() {
     if (!editingBooking) return;
 
     try {
+      // When admin saves a booking, auto-verify and mark as completed
       const updateData = {
         ...editForm,
-        timeSlots: editForm.timeSlot ? [editForm.timeSlot] : [],
+        timeSlots: editForm.timeSlots,
+        paymentStatus: 'completed', // Auto-mark as completed for admin
+        bookingStatus: editForm.bookingStatus === 'cancelled' ? 'cancelled' : 'confirmed', // Auto-confirm unless cancelling
         updatedAt: new Date().toISOString()
       };
-      
-      // Remove timeSlot from update data since we're using timeSlots array
-      const { timeSlot, ...finalUpdateData } = updateData;
 
       const response = await fetch(`/api/admin/bookings/${editingBooking._id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(finalUpdateData)
+        body: JSON.stringify(updateData)
       });
 
       const data = await response.json();
 
       if (response.ok && data.success) {
-        setAlert({ type: "success", message: "Booking updated successfully" });
+        setAlert({ type: "success", message: "Booking updated successfully and auto-verified" });
         setBookingEditOpen(false);
         setEditingBooking(null);
         fetchData(); // Refresh the data
@@ -1090,13 +1099,44 @@ export default function AdminDashboard() {
         throw new Error(data.message || 'Failed to update booking');
       }
     } catch (error) {
-      console.error('Error updating booking:', error);
-      setAlert({ 
-        type: "error", 
-        message: error instanceof Error ? error.message : 'Failed to update booking' 
+      console.error('Error saving booking:', error);
+      setAlert({ type: "error", message: `Failed to save booking: ${error instanceof Error ? error.message : 'Unknown error'}` });
+    }
+  };
+
+  const handleCancelBooking = async (bookingId: string, currentStatus: string) => {
+    // If already cancelled, just show a message
+    if (currentStatus === 'cancelled') {
+      setAlert({ type: "info", message: "This booking is already cancelled" });
+      return;
+    }
+
+    if (!confirm('Are you sure you want to cancel this booking? This action can be undone by editing.')) return;
+    
+    try {
+      const response = await fetch(`/api/admin/bookings/${bookingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingStatus: 'cancelled',
+          paymentStatus: 'refunded',
+          cancellationDate: new Date().toISOString(),
+          cancellationReason: 'Cancelled by admin',
+          updatedAt: new Date().toISOString()
+        })
       });
-    } finally {
-      setTimeout(() => setAlert(null), 3000);
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setAlert({ type: "success", message: "Booking cancelled successfully (record saved)" });
+        fetchData(); // Refresh the data
+      } else {
+        throw new Error(data.message || 'Failed to cancel booking');
+      }
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      setAlert({ type: "error", message: `Failed to cancel booking: ${error instanceof Error ? error.message : 'Unknown error'}` });
     }
   };
 
@@ -1488,6 +1528,7 @@ export default function AdminDashboard() {
                   <TableCell>Sport</TableCell>
                   <TableCell>Court</TableCell>
                   <TableCell>Date</TableCell>
+                  <TableCell>Slots</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Payment</TableCell>
                   <TableCell>Amount</TableCell>
@@ -1501,6 +1542,16 @@ export default function AdminDashboard() {
                     <TableCell>{booking.sport}</TableCell>
                     <TableCell>{booking.court || 'N/A'}</TableCell>
                     <TableCell>{format(new Date(booking.date), 'MMM dd, yyyy')}</TableCell>
+                    <TableCell>
+                      <Box sx={{ fontSize: '0.85rem', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {booking.timeSlots && booking.timeSlots.length > 0 
+                          ? booking.timeSlots.map((slot, idx) => (
+                              <div key={idx}>{slot}</div>
+                            ))
+                          : 'N/A'
+                        }
+                      </Box>
+                    </TableCell>
                     <TableCell>
                       <Chip 
                         label={booking.bookingStatus} 
@@ -1529,12 +1580,12 @@ export default function AdminDashboard() {
                         <IconButton 
                           size="small" 
                           color="error"
-                          onClick={() => handleDeleteBooking(booking._id)}
-                          title="Delete Booking"
+                          onClick={() => handleCancelBooking(booking._id, booking.bookingStatus)}
+                          title="Cancel Booking"
                         >
                           <Delete />
                         </IconButton>
-                        {booking.bookingStatus === 'pending' && (
+                        {booking.bookingStatus === 'pending' && booking.paymentStatus === 'pending' && (
                           <IconButton 
                             size="small" 
                             color="success"
@@ -2833,11 +2884,12 @@ export default function AdminDashboard() {
             </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Time Slot</InputLabel>
+                <InputLabel>Time Slots</InputLabel>
                 <Select
-                  value={editForm.timeSlot}
-                  label="Time Slot"
-                  onChange={(e) => setEditForm(prev => ({ ...prev, timeSlot: e.target.value }))}
+                  multiple
+                  value={editForm.timeSlots}
+                  label="Time Slots"
+                  onChange={(e) => setEditForm(prev => ({ ...prev, timeSlots: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value }))}
                 >
                   {TIME_SLOTS.map((slot) => (
                     <MenuItem key={slot} value={slot}>{slot}</MenuItem>
@@ -2910,14 +2962,31 @@ export default function AdminDashboard() {
                 onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
               />
             </Grid>
+            {editForm.bookingStatus === 'cancelled' && (
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={2}
+                  label="Cancellation Reason"
+                  value={editForm.cancellationReason}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, cancellationReason: e.target.value }))}
+                  placeholder="Enter reason for cancellation"
+                />
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setBookingEditOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSaveBooking} variant="contained">
-            Save Changes
+          <Button 
+            onClick={handleSaveBooking} 
+            variant="contained"
+            color={editForm.bookingStatus === 'cancelled' ? 'error' : 'primary'}
+          >
+            {editForm.bookingStatus === 'cancelled' ? 'Save & Cancel Booking' : 'Save Changes'}
           </Button>
         </DialogActions>
       </Dialog>
