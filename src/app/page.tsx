@@ -287,13 +287,13 @@ export default function Home() {
         {/* Home Section - Full Screen 3D Hero + Original Content */}
         <Box>
             {/* Full Screen 3D Hero Section */}
-            <Box sx={{ height: "100vh", width: "100vw", position: "relative" }}>
+            <Box sx={{ height: { xs: 'auto', md: '100vh' }, minHeight: { xs: '100vh', md: '100vh' }, width: "100vw", position: "relative" }}>
               <Box sx={{ 
                 height: "100%",
                 width: "100%",
                 background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)}, ${alpha(theme.palette.secondary.main, 0.05)})`,
                 position: 'relative',
-                overflow: 'hidden'
+                overflow: { xs: 'visible', md: 'hidden' }
               }}>
                 {/* Static background loads immediately */}
                 <StaticHeroBackground />
@@ -322,10 +322,10 @@ export default function Home() {
                 {/* Minimal overlay for branding */}
                 <Box
                   sx={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
+                    position: { xs: 'relative', md: 'absolute' },
+                    top: { xs: 'auto', md: '50%' },
+                    left: { xs: 'auto', md: '50%' },
+                    transform: { xs: 'none', md: 'translate(-50%, -50%)' },
                     zIndex: 10,
                     textAlign: 'center',
                     width: { xs: '100%', md: '90%' },
@@ -335,6 +335,7 @@ export default function Home() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     padding: { xs: '20px', md: '40px' },
+                    py: { xs: 6, md: '40px' },
                     overflow: 'visible'
                   }}
                 >

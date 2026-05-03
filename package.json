@@ -42,7 +42,6 @@
     "next-auth": "^4.24.11",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.7",
-    "pg-sdk-node": "https://phonepe.mycloudrepo.io/public/repositories/phonepe-pg-sdk-node/releases/v2/phonepe-pg-sdk-node.tgz",
     "razorpay": "^2.9.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

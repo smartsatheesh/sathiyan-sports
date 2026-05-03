@@ -71,22 +71,22 @@ const sports: Array<{
   {
     id: 1,
     name: "Cricket",
-    basePrice: 1000,
-    weekendPrice: 1000,
+    basePrice: 175,
+    weekendPrice: 350,
     icon: "🏏",
     color: "#4caf50",
     description: "Professional cricket ground with all facilities",
-    features: ["Full-size pitch", "Changing rooms", "Equipment available"]
+    features: ["Full-size pitch", "Changing rooms", "🏏 Ball extra (₹80)"]
   },
   {
     id: 2,
     name: "Football",
-    basePrice: 1000,
-    weekendPrice: 1000,
+    basePrice: 175,
+    weekendPrice: 350,
     icon: "⚽",
     color: "#2196f3",
     description: "FIFA standard football turf",
-    features: ["Professional turf", "Floodlights", "Goal posts included"]
+    features: ["Professional turf", "Floodlights", "⚽ Ball extra (₹80)"]
   },
   {
     id: 3,
@@ -200,7 +200,8 @@ const generateTimeSlots = (isEvent = false, selectedDate: Date | null = null, sp
       return {
         time: session.time,
         hours: session.hours,
-        available
+        available,
+        isPast: !available && isToday // For event sessions, past means unavailable
       };
     });
   }
@@ -239,9 +240,11 @@ const generateTimeSlots = (isEvent = false, selectedDate: Date | null = null, sp
       
       // Check if this time slot is in the past for today
       let available = true;
+      let isPast = false;
       if (isToday) {
-        // Disable slots that have already passed (with 30 min buffer for booking)
-        available = hour > currentHour || (hour === currentHour && (minute + 30) > currentMinute);
+        // Mark slots that have already passed (with 30 min buffer for booking)
+        isPast = !(hour > currentHour || (hour === currentHour && (minute + 30) > currentMinute));
+        available = !isPast;
       }
       
       // Check if slot is in blocked range for this sport
@@ -258,6 +261,7 @@ const generateTimeSlots = (isEvent = false, selectedDate: Date | null = null, sp
       slots.push({
         time: timeString,
         available, // Will be further updated based on API response
+        isPast, // Track if slot is in the past
       });
     }
   }
@@ -273,7 +277,7 @@ export default function BookSlot() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
   const [selectedCourt, setSelectedCourt] = useState<string>(""); // Court selection for Shuttle Badminton
-  const [timeSlots, setTimeSlots] = useState<Array<{time: string; available: boolean; hours?: number}>>(generateTimeSlots(false, null, ""));
+  const [timeSlots, setTimeSlots] = useState<Array<{time: string; available: boolean; hours?: number; isPast?: boolean}>>(generateTimeSlots(false, null, ""));
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [registeredSlots, setRegisteredSlots] = useState<string[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null); // User data for subscription checking
@@ -353,32 +357,35 @@ export default function BookSlot() {
   const [simplePaymentOpen, setSimplePaymentOpen] = useState(false);
   const [currentBookingData, setCurrentBookingData] = useState<any>(null);
 
-  // Calculate total price based on sport type and hours/slots - MOVED TO TOP
-  const totalPrice = useMemo(() => {
+  // Ball extras state
+  const [ballCount, setBallCount] = useState(0);
+  const BALL_PRICE = 80;
+  const [editableAmount, setEditableAmount] = useState<number | null>(null);
+
+  // Calculate base price (slots only, no balls) based on sport type and hours/slots
+  const baseSlotPrice = useMemo(() => {
     if (!selectedSport || !selectedDate || selectedTimeSlots.length === 0)
       return null;
     const sport = sports.find((s) => s.name === selectedSport);
     if (!sport) return null;
-    
-    let pricePerUnit = isWeekend(selectedDate) ? sport.weekendPrice : sport.basePrice;
-    
-    // Apply 30% discount for Cricket and Football on weekdays
-    if ((selectedSport === "Cricket" || selectedSport === "Football") && !isWeekend(selectedDate)) {
-      pricePerUnit = pricePerUnit * 0.7; // 30% discount = 70% of original price
-    }
-    
+    const pricePerUnit = isWeekend(selectedDate) ? sport.weekendPrice : sport.basePrice;
     if (selectedSport === "Functions and Events") {
-      // For events, calculate based on hours
       const totalHours = selectedTimeSlots.reduce((acc, timeSlot) => {
         const slot = timeSlots.find(s => s.time === timeSlot);
         return acc + (slot?.hours || 1);
       }, 0);
       return pricePerUnit * totalHours;
     } else {
-      // For sports, calculate based on number of slots
       return pricePerUnit * selectedTimeSlots.length;
     }
   }, [selectedSport, selectedDate, selectedTimeSlots, timeSlots]);
+
+  // Total price = slot price + ball extras (or manual override)
+  const totalPrice = useMemo(() => {
+    if (editableAmount !== null) return editableAmount + ballCount * BALL_PRICE;
+    if (baseSlotPrice === null) return null;
+    return baseSlotPrice + ballCount * BALL_PRICE;
+  }, [baseSlotPrice, ballCount, editableAmount]);
 
   // Authentication check - Optional for guests
   // Removed redirect so guests can book without login
@@ -621,8 +628,8 @@ export default function BookSlot() {
   };
 
   const generateUpiUrl = (amount: number, reference: string) => {
-    const upiId = 'smartsatheesh7-1@okhdfcbank';
-    const name = 'Smart Satheesh';
+    const upiId = process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'Vyapar.175693786746@hdfcbank';
+    const name = process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club';
     const note = `Booking payment for ${selectedSport} - Ref: ${reference}`;
     return `upi://pay?pa=${upiId}&pn=${encodeURIComponent(name)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
   };
@@ -936,10 +943,21 @@ export default function BookSlot() {
   };
 
   // Handle time slot selection/deselection
+  const isBallSport = (sport: string) => sport === "Cricket" || sport === "Football";
+
   const handleTimeSlotToggle = (time: string) => {
-    setSelectedTimeSlots((prev) =>
-      prev.includes(time) ? prev.filter((t) => t !== time) : [...prev, time]
-    );
+    setSelectedTimeSlots((prev) => {
+      if (prev.includes(time)) {
+        const next = prev.filter((t) => t !== time);
+        // Enforce minimum 2 slots (1 hour) for Cricket & Football
+        if (isBallSport(selectedSport) && next.length === 1) {
+          setAlert({ type: 'info', message: 'Minimum 1 hour (2 slots) required for ' + selectedSport + '. Please select at least 2 slots.' });
+          return prev; // Don't allow deselect below 2
+        }
+        return next;
+      }
+      return [...prev, time];
+    });
   };
 
   // Handle booking submission - Open simplified payment dialog
@@ -1307,7 +1325,7 @@ export default function BookSlot() {
               <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1, mb: 2, minHeight: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {totalPrice ? (
                   <QRCode 
-                    value={`upi://pay?pa=smartsatheesh7-1@okhdfcbank&pn=Smart Satheesh&am=${totalPrice}&cu=INR&tn=Sports Booking Payment`}
+                    value={`upi://pay?pa=${process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'Vyapar.175693786746@hdfcbank'}&pn=${encodeURIComponent(process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club')}&am=${totalPrice}&cu=INR&tn=Sports Booking Payment`}
                     size={160}
                     style={{ height: "auto", maxWidth: "100%", width: "100%" }}
                   />
@@ -1333,9 +1351,9 @@ export default function BookSlot() {
               {/* UPI Details */}
               <Box sx={{ textAlign: 'left', p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                 <Typography variant="subtitle2" gutterBottom>Payment Details:</Typography>
-                <Typography variant="body2">• UPI ID: smartsatheesh7-1@okhdfcbank</Typography>
+                <Typography variant="body2">• UPI ID: {process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'Vyapar.175693786746@hdfcbank'}</Typography>
                 <Typography variant="body2">• Amount: ₹{totalPrice?.toLocaleString()}</Typography>
-                <Typography variant="body2">• To: Smart Satheesh</Typography>
+                <Typography variant="body2">• To: {process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club'}</Typography>
               </Box>
             </Paper>
             
@@ -1471,7 +1489,7 @@ export default function BookSlot() {
               variant="outlined"
               size="small"
               startIcon={<ContentCopy />}
-              onClick={() => copyToClipboard('smartsatheesh7-1@okhdfcbank', 'UPI ID copied!')}
+              onClick={() => copyToClipboard(process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'Vyapar.175693786746@hdfcbank', 'UPI ID copied!')}
             >
               Copy UPI ID
             </Button>
@@ -1646,38 +1664,44 @@ export default function BookSlot() {
                           </span>
                         ))}
                       </div>
-                      <div className="sport-pricing">
-                        <span className="price-label">Weekday:</span>
-                        {(sport.name === "Cricket" || sport.name === "Football") ? (
-                          <>
-                            <span className="price-amount" style={{ textDecoration: 'line-through', color: '#999' }}>₹{sport.basePrice.toLocaleString()}</span>
-                            <span className="price-amount" style={{ color: '#4caf50', marginLeft: '8px' }}>₹{Math.round(sport.basePrice * 0.7).toLocaleString()}</span>
-                            <span style={{ marginLeft: '8px', color: '#4caf50', fontSize: '12px', fontWeight: 'bold' }}>(-30%)</span>
-                          </>
-                        ) : (
-                          <span className="price-amount">₹{sport.basePrice.toLocaleString()}</span>
-                        )}
-                        {sport.name === "Functions and Events" ? "/hr" : "/slot"}
-                      </div>
-                      <div className="sport-pricing">
-                        <span className="price-label">Weekend (Fri-Sun):</span>
-                        <span className="price-amount">₹{sport.weekendPrice.toLocaleString()}</span>
-                        {sport.name === "Functions and Events" ? "/hr" : "/slot"}
-                      </div>
-                      {(sport.name === "Cricket" || sport.name === "Football") && (
-                        <div style={{
-                          marginTop: '12px',
-                          padding: '10px',
-                          backgroundColor: '#fff3e0',
-                          border: '2px solid #ff9800',
-                          borderRadius: '6px',
-                          textAlign: 'center',
-                          fontWeight: 'bold',
-                          color: '#e65100',
-                          fontSize: '13px'
-                        }}>
-                          🎉 Launching Offer: 1 hour FREE on weekdays!
-                        </div>
+                      {(sport.name === "Cricket" || sport.name === "Football") ? (
+                        <>
+                          <div className="sport-pricing">
+                            <span className="price-label">Weekend (Fri-Sun):</span>
+                            <span className="price-amount" style={{ color: '#e65100', fontWeight: 'bold' }}>₹700/hr</span>
+                            <span style={{ marginLeft: '6px', color: '#888', fontSize: '12px' }}>(₹350 per 30 min)</span>
+                          </div>
+                          <div className="sport-pricing">
+                            <span className="price-label">Weekday:</span>
+                            <span className="price-amount" style={{ color: '#4caf50', fontWeight: 'bold' }}>₹700 / 2 hrs</span>
+                            <span style={{ marginLeft: '6px', color: '#4caf50', fontSize: '12px', fontWeight: 'bold' }}>🎉 50% off</span>
+                          </div>
+                          <div style={{
+                            marginTop: '10px',
+                            padding: '8px 10px',
+                            backgroundColor: '#fff8e1',
+                            border: '1.5px solid #ffb300',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            color: '#e65100',
+                            fontWeight: 600
+                          }}>
+                            🏐 Ball extra • ₹80 per ball • Min 1 hr booking
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="sport-pricing">
+                            <span className="price-label">Weekday:</span>
+                            <span className="price-amount">₹{sport.basePrice.toLocaleString()}</span>
+                            {sport.name === "Functions and Events" ? "/hr" : "/slot"}
+                          </div>
+                          <div className="sport-pricing">
+                            <span className="price-label">Weekend (Fri-Sun):</span>
+                            <span className="price-amount">₹{sport.weekendPrice.toLocaleString()}</span>
+                            {sport.name === "Functions and Events" ? "/hr" : "/slot"}
+                          </div>
+                        </>
                       )}
                     </div>
                   </div>
@@ -1818,7 +1842,8 @@ export default function BookSlot() {
                         <Grid container spacing={1.5} sx={{ mb: 3 }}>
                           {timeSlots.map((slot, index) => {
                             const isSelected = selectedTimeSlots.includes(slot.time);
-                            const isBooked = !slot.available;
+                            const isPastSlot = slot.isPast || false;
+                            const isBooked = !slot.available && !isPastSlot;
                             const isRegistered = registeredSlots.includes(slot.time);
                             
                             // Check if user is yearly Shuttle Badminton subscriber who should be blocked from registered slots
@@ -1839,13 +1864,15 @@ export default function BookSlot() {
                                     borderRadius: '8px',
                                     background: isSelected 
                                       ? 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)'
-                                      : isBlockedRegisteredSlot
-                                        ? 'linear-gradient(135deg, #e91e63 0%, #f06292 100%)' // Pink/Purple for blocked registered
-                                        : isRegistered
-                                          ? 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)' // Orange for registered but not blocked
-                                          : isBooked 
-                                            ? 'linear-gradient(135deg, #f44336 0%, #ef5350 100%)' // Red for booked
-                                            : 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)', // Green for available
+                                      : isPastSlot
+                                        ? 'linear-gradient(135deg, #9e9e9e 0%, #bdbdbd 100%)' // Gray for past slots
+                                        : isBlockedRegisteredSlot
+                                          ? 'linear-gradient(135deg, #e91e63 0%, #f06292 100%)' // Pink/Purple for blocked registered
+                                          : isRegistered
+                                            ? 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)' // Orange for registered but not blocked
+                                            : isBooked 
+                                              ? 'linear-gradient(135deg, #f44336 0%, #ef5350 100%)' // Red for booked
+                                              : 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)', // Green for available
                                     '&:hover': isClickable ? {
                                       transform: isSelected ? 'scale(1.02)' : 'scale(1.01)',
                                       boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
@@ -1867,6 +1894,8 @@ export default function BookSlot() {
                                     <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
                                       {isSelected ? (
                                         <CheckCircle sx={{ fontSize: 14, color: 'white' }} />
+                                      ) : isPastSlot ? (
+                                        <Typography sx={{ fontSize: '10px' }}>⏰</Typography>
                                       ) : isBlockedRegisteredSlot ? (
                                         <Typography sx={{ fontSize: '10px' }}>🚫</Typography>
                                       ) : isRegistered ? (
@@ -1977,12 +2006,23 @@ export default function BookSlot() {
                               }, 0)} hours</p>
                             )}
                             <p className="total-amount"><strong>Total Amount: ₹{totalPrice?.toLocaleString()}</strong></p>
+                            {isBallSport(selectedSport) && selectedTimeSlots.length < 2 && (
+                              <p style={{ color: '#ff9800', fontSize: '13px', marginTop: '6px' }}>⚠️ Minimum 2 slots (1 hour) required</p>
+                            )}
                           </div>
                           <Button
                             variant="contained"
                             color="primary"
                             className="proceed-button"
-                            onClick={() => setBookingDialogOpen(true)}
+                            onClick={() => {
+                              if (isBallSport(selectedSport) && selectedTimeSlots.length < 2) {
+                                setAlert({ type: 'error', message: 'Minimum 1 hour (2 slots) required for ' + selectedSport });
+                                return;
+                              }
+                              setEditableAmount(null);
+                              setBallCount(0);
+                              setBookingDialogOpen(true);
+                            }}
                           >
                             Proceed to Book
                           </Button>
@@ -2078,7 +2118,37 @@ export default function BookSlot() {
                   </Typography>
                 </>
               )}
-              <Typography variant="h6" sx={{ mt: 1 }}>Total: ₹{totalPrice?.toLocaleString()}</Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>Slot charges: ₹{baseSlotPrice?.toLocaleString()}</Typography>
+
+              {/* Ball extras for Cricket & Football */}
+              {isBallSport(selectedSport) && (
+                <Box sx={{ mt: 1.5, p: 1.5, bgcolor: '#fff8e1', borderRadius: 1, border: '1px solid #ffb300' }}>
+                  <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>🏐 Add Ball (₹80 each)</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Button size="small" variant="outlined" onClick={() => setBallCount(c => Math.max(0, c - 1))} sx={{ minWidth: 32, px: 0 }}>−</Button>
+                    <Typography variant="body1" fontWeight="bold">{ballCount}</Typography>
+                    <Button size="small" variant="outlined" onClick={() => setBallCount(c => c + 1)} sx={{ minWidth: 32, px: 0 }}>+</Button>
+                    <Typography variant="body2" color="text.secondary">ball{ballCount !== 1 ? 's' : ''} × ₹80 = ₹{ballCount * BALL_PRICE}</Typography>
+                  </Box>
+                </Box>
+              )}
+
+              {/* Editable total amount */}
+              <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <TextField
+                  label="Total Amount (₹)"
+                  type="number"
+                  size="small"
+                  value={editableAmount !== null ? editableAmount + ballCount * BALL_PRICE : (totalPrice ?? '')}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val)) setEditableAmount(Math.max(0, val - ballCount * BALL_PRICE));
+                  }}
+                  helperText="You can adjust the amount if needed"
+                  sx={{ flex: 1 }}
+                  inputProps={{ min: 0 }}
+                />
+              </Box>
             </Box>
           </Box>
         </DialogContent>

@@ -38,6 +38,7 @@ import {
   RadioGroup,
   Radio,
   IconButton,
+  Tooltip,
 } from "@mui/material";
 import { format } from "date-fns";
 import {
@@ -52,6 +53,7 @@ import {
   ArrowDownward,
   Search,
   FilterList,
+  Block,
 } from "@mui/icons-material";
 
 // Utility function for safe date formatting
@@ -477,8 +479,8 @@ export default function AdminDashboard() {
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
       const [bookingsRes, usersRes] = await Promise.all([
-        fetch('/api/admin/bookings?limit=100', { signal: controller.signal }),
-        fetch('/api/admin/users?limit=100', { signal: controller.signal })
+        fetch('/api/admin/bookings?limit=1000', { signal: controller.signal }),
+        fetch('/api/admin/users?limit=1000', { signal: controller.signal })
       ]);
       
       clearTimeout(timeoutId);
@@ -1536,7 +1538,7 @@ export default function AdminDashboard() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {bookings.slice(0, 10).map((booking) => (
+                {bookings.map((booking) => (
                   <TableRow key={booking._id}>
                     <TableCell>{booking.customerName}</TableCell>
                     <TableCell>{booking.sport}</TableCell>
@@ -1568,33 +1570,66 @@ export default function AdminDashboard() {
                     </TableCell>
                     <TableCell>₹{booking.totalAmount}</TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <IconButton 
-                          size="small" 
-                          color="primary"
-                          onClick={() => handleEditBooking(booking)}
-                          title="Edit Booking"
-                        >
-                          <Edit />
-                        </IconButton>
-                        <IconButton 
-                          size="small" 
-                          color="error"
-                          onClick={() => handleCancelBooking(booking._id, booking.bookingStatus)}
-                          title="Cancel Booking"
-                        >
-                          <Delete />
-                        </IconButton>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        {/* Verify Button - Only for pending payments */}
                         {booking.bookingStatus === 'confirmed' && booking.paymentStatus === 'pending' && (
+                          <Tooltip title="Mark Payment Complete">
+                            <IconButton 
+                              size="small" 
+                              sx={{ 
+                                color: '#4caf50',
+                                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                                '&:hover': { backgroundColor: 'rgba(76, 175, 80, 0.2)' }
+                              }}
+                              onClick={() => handleVerifyBooking(booking._id)}
+                            >
+                              <CheckCircle fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+
+                        {/* Cancel Button - Only for active bookings */}
+                        {booking.bookingStatus !== 'cancelled' && booking.bookingStatus !== 'completed' && (
+                          <Tooltip title="Cancel Booking">
+                            <IconButton 
+                              size="small" 
+                              sx={{ 
+                                color: '#ff9800',
+                                backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                                '&:hover': { backgroundColor: 'rgba(255, 152, 0, 0.2)' }
+                              }}
+                              onClick={() => handleCancelBooking(booking._id, booking.bookingStatus)}
+                            >
+                              <Block fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+
+                        {/* Delete Button - Permanently remove */}
+                        <Tooltip title="Delete Booking">
                           <IconButton 
                             size="small" 
-                            color="success"
-                            onClick={() => handleVerifyBooking(booking._id)}
-                            title="Mark Payment Complete"
+                            sx={{ 
+                              color: '#f44336',
+                              backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                              '&:hover': { backgroundColor: 'rgba(244, 67, 54, 0.2)' }
+                            }}
+                            onClick={() => handleDeleteBooking(booking._id)}
                           >
-                            <CheckCircle />
+                            <Delete fontSize="small" />
                           </IconButton>
-                        )}
+                        </Tooltip>
+
+                        {/* Edit Button */}
+                        <Tooltip title="Edit Booking">
+                          <IconButton 
+                            size="small" 
+                            color="primary"
+                            onClick={() => handleEditBooking(booking)}
+                          >
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -2858,9 +2893,11 @@ export default function AdminDashboard() {
                   label="Sport"
                   onChange={(e) => setEditForm(prev => ({ ...prev, sport: e.target.value }))}
                 >
-                  <MenuItem value="Badminton">Badminton</MenuItem>
-                  <MenuItem value="Table Tennis">Table Tennis</MenuItem>
-                  <MenuItem value="Tennis">Tennis</MenuItem>
+                  <MenuItem value="Cricket">Cricket</MenuItem>
+                  <MenuItem value="Football">Football</MenuItem>
+                  <MenuItem value="Shuttle Badminton">Shuttle Badminton</MenuItem>
+                  <MenuItem value="Functions and Events">Functions and Events</MenuItem>
+                  <MenuItem value="Body Zorb">Body Zorb</MenuItem>
                 </Select>
               </FormControl>
             </Grid>

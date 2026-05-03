@@ -64,8 +64,8 @@ export async function POST(req: NextRequest) {
         $lte: endOfDay(bookingDate),
       },
       timeSlots: { $in: timeSlots },
-      bookingStatus: "confirmed", // Only confirmed bookings
-      paymentStatus: { $in: ["completed", "paid"] }, // Only paid/completed payments
+      bookingStatus: "confirmed", // Only confirmed bookings block slots
+      // Payment status doesn't matter - confirmed is confirmed
     };
 
     // If the sport is part of cross-turf sports, check against all cross-turf sports
@@ -340,7 +340,7 @@ export async function GET(req: NextRequest) {
         $lte: endOfDay(queryDate),
       },
       bookingStatus: "confirmed", // Only show confirmed bookings as booked
-      paymentStatus: { $in: ["completed", "paid"] }, // Only show paid bookings as blocked
+      // Payment status doesn't matter - confirmed is confirmed
     };
 
     // If the selected sport is part of cross-turf sports, check all cross-turf sports

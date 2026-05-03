@@ -107,8 +107,8 @@ export default function SimplePaymentDialog({
   });
 
   // GPay UPI details
-  const upiId = process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'smartsatheesh7-1@okhdfcbank';
-  const merchantName = process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Sports';
+  const upiId = process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'Vyapar.175693786746@hdfcbank';
+  const merchantName = process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club';
   const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(merchantName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(`Payment for ${bookingReference}`)}`;
 
   const handleMethodSelect = (method: 'whatsapp' | 'gpay') => {

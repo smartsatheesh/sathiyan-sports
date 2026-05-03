@@ -112,8 +112,8 @@ async function handleGPayPayment(amount: number, customerInfo: any, bookingRefer
     const paymentReference = `GP_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     // GPay details (you'll need to replace with your actual GPay details)
-    const gpayUpiId = process.env.GPAY_UPI_ID || 'smartsatheesh7-1@okhdfcbank'; // Your GPay UPI ID
-    const merchantName = process.env.MERCHANT_NAME || 'Sathiyan Sports';
+    const gpayUpiId = process.env.GPAY_UPI_ID || process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'Vyapar.175693786746@hdfcbank'; // Your GPay UPI ID
+    const merchantName = process.env.MERCHANT_NAME || process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club';
     
     // Generate UPI payment URL
     const upiUrl = `upi://pay?pa=${gpayUpiId}&pn=${encodeURIComponent(merchantName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(`Payment for ${bookingReference} - ${customerInfo.name}`)}`;

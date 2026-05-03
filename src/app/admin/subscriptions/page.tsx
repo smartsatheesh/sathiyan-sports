@@ -90,6 +90,8 @@ interface Subscription {
     email: string;
     champId: string;
     preferredTimeSlot?: string;
+    champType?: string;
+    gender?: string;
   };
   champId: string;
   userName: string;
@@ -199,6 +201,8 @@ const AdminSubscriptionsPage = () => {
   const [dueDateFrom, setDueDateFrom] = useState<string>('');
   const [dueDateTo, setDueDateTo] = useState<string>('');
   const [preferredSportFilter, setPreferredSportFilter] = useState<string>('all');
+  const [champTypeFilter, setChampTypeFilter] = useState<string>('all');
+  const [genderFilter, setGenderFilter] = useState<string>('all');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [sortBy, setSortBy] = useState<string>('createdAt');
@@ -260,7 +264,7 @@ const AdminSubscriptionsPage = () => {
   // Reset page to 0 when filters change to avoid pagination errors
   useEffect(() => {
     setPage(0);
-  }, [filterStatus, searchTerm, subscribedDateFrom, subscribedDateTo, dueDateFrom, dueDateTo, preferredSportFilter]);
+  }, [filterStatus, searchTerm, subscribedDateFrom, subscribedDateTo, dueDateFrom, dueDateTo, preferredSportFilter, champTypeFilter, genderFilter]);
 
   const fetchSubscriptions = async () => {
     setLoading(true);
@@ -640,6 +644,18 @@ const AdminSubscriptionsPage = () => {
         (preferredSportFilter === 'Other' && !subscription.preferredSport) ||
         (preferredSportFilter === 'Other' && subscription.preferredSport && 
          !['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events', 'Body Zorb'].includes(subscription.preferredSport));
+
+      // Champ type filtering (kids / adult / veteran) - matches registration page values
+      let matchesChampType = true;
+      if (champTypeFilter !== 'all') {
+        matchesChampType = subscription.userId?.champType?.toLowerCase() === champTypeFilter;
+      }
+
+      // Gender filtering (male / female)
+      let matchesGender = true;
+      if (genderFilter !== 'all') {
+        matchesGender = subscription.userId?.gender?.toLowerCase() === genderFilter;
+      }
       
       // Subscribed date range filtering (startDate)
       let matchesDateRange = true;
@@ -674,7 +690,7 @@ const AdminSubscriptionsPage = () => {
         matchesDateRange = matchesDateRange && subNextDue <= filterDate;
       }
       
-      return matchesStatus && matchesSearch && matchesSport && matchesDateRange;
+      return matchesStatus && matchesSearch && matchesSport && matchesChampType && matchesGender && matchesDateRange;
     });
 
     // Sort subscriptions with support for nested properties
@@ -706,7 +722,7 @@ const AdminSubscriptionsPage = () => {
     });
 
     return filtered;
-  }, [subscriptions, filterStatus, searchTerm, subscribedDateFrom, subscribedDateTo, dueDateFrom, dueDateTo, preferredSportFilter, sortBy, sortOrder]);
+  }, [subscriptions, filterStatus, searchTerm, subscribedDateFrom, subscribedDateTo, dueDateFrom, dueDateTo, preferredSportFilter, champTypeFilter, genderFilter, sortBy, sortOrder]);
 
   // Dynamic stats calculation based on filtered data
   // Calculate monthly revenue data for the chart (last 6 months)
@@ -722,36 +738,20 @@ const AdminSubscriptionsPage = () => {
       const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
       monthEnd.setHours(23, 59, 59, 999);
       
-      const gracePeriodDays = 5;
-      const graceDate = new Date(monthStart);
-      graceDate.setDate(graceDate.getDate() - gracePeriodDays);
-      
-      // Filter active paid subscriptions for this month
+      // Revenue for the month = sum of amounts for paid subscriptions
+      // whose payment/start date falls within this month.
+      // (Avoids double-counting an active subscription across multiple months.)
       const monthlyRevenue = subscriptions
         .filter(sub => {
           if (sub.paymentStatus !== 'Paid' && sub.paymentStatus !== 'paid' && sub.paymentStatus !== 'completed') {
             return false;
           }
-          
-          // Subscription must have started before or during the period
+
           const startDate = sub.startDate ? new Date(sub.startDate) : null;
           if (!startDate) return false;
           startDate.setHours(0, 0, 0, 0);
-          
-          // Subscription should start before period ends
-          if (startDate > monthEnd) return false;
-          
-          // Check if subscription is still active for the period (with grace period)
-          const nextDueDate = sub.nextDueDate ? new Date(sub.nextDueDate) : null;
-          const endDate = sub.endDate ? new Date(sub.endDate) : null;
-          
-          const effectiveEndDate = nextDueDate || endDate;
-          if (effectiveEndDate) {
-            effectiveEndDate.setHours(23, 59, 59, 999);
-            return effectiveEndDate >= graceDate;
-          }
-          
-          return true;
+
+          return startDate >= monthStart && startDate <= monthEnd;
         })
         .reduce((sum, sub) => sum + (sub.amount || 0), 0);
       
@@ -880,40 +880,20 @@ const AdminSubscriptionsPage = () => {
       periodLabel = `Revenue ${today.toLocaleString('default', { month: 'long', year: 'numeric' })}`;
     }
     
-    // Calculate period revenue from FILTERED subscriptions that are ACTIVE for the period
-    // Check if subscription covers the selected period (startDate <= periodEnd AND (nextDueDate OR endDate) >= periodStart)
+    // Calculate period revenue from FILTERED subscriptions whose payment
+    // (startDate) falls within the selected period. Counting "active for
+    // the period" was double-counting long-running subscriptions.
     periodRevenue = filtered
       .filter(sub => {
         if (sub.paymentStatus !== 'Paid' && sub.paymentStatus !== 'paid' && sub.paymentStatus !== 'completed') {
           return false;
         }
-        
-        // Subscription must have started before or during the period
+
         const startDate = sub.startDate ? new Date(sub.startDate) : null;
         if (!startDate) return false;
         startDate.setHours(0, 0, 0, 0);
-        
-        // Subscription should start before period ends
-        if (startDate > toDate) return false;
-        
-        // Check if subscription is still active for the period (with 5 day grace period)
-        const gracePeriodDays = 5;
-        const graceDate = new Date(fromDate);
-        graceDate.setDate(graceDate.getDate() - gracePeriodDays);
-        
-        // Use nextDueDate or endDate to check if subscription covers the period
-        const nextDueDate = sub.nextDueDate ? new Date(sub.nextDueDate) : null;
-        const endDate = sub.endDate ? new Date(sub.endDate) : null;
-        
-        const effectiveEndDate = nextDueDate || endDate;
-        if (effectiveEndDate) {
-          effectiveEndDate.setHours(23, 59, 59, 999);
-          // Subscription is valid if its end/due date (+ grace) is within or after the period start
-          return effectiveEndDate >= graceDate;
-        }
-        
-        // If no end date, consider it active if it started before period ended
-        return true;
+
+        return startDate >= fromDate && startDate <= toDate;
       })
       .reduce((sum, sub) => sum + (sub.amount || 0), 0);
     
@@ -1659,6 +1639,34 @@ const AdminSubscriptionsPage = () => {
               <MenuItem value="Shuttle Badminton">Shuttle Badminton</MenuItem>
               <MenuItem value="Functions and Events">Functions and Events</MenuItem>
               <MenuItem value="Other">Other</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Champ Type</InputLabel>
+            <Select
+              value={champTypeFilter}
+              label="Champ Type"
+              onChange={(e) => setChampTypeFilter(e.target.value)}
+            >
+              <MenuItem value="all">All Types</MenuItem>
+              <MenuItem value="kids">Kids</MenuItem>
+              <MenuItem value="adult">Adult</MenuItem>
+              <MenuItem value="veteran">Veteran</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <InputLabel>Gender</InputLabel>
+            <Select
+              value={genderFilter}
+              label="Gender"
+              onChange={(e) => setGenderFilter(e.target.value)}
+            >
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="male">Male</MenuItem>
+              <MenuItem value="female">Female</MenuItem>
+              <MenuItem value="other">Other</MenuItem>
             </Select>
           </FormControl>
           

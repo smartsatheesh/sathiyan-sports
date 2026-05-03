@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import {
   Container,
   Grid,
@@ -29,62 +31,24 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Checkbox,
+  Tabs,
+  Tab,
 } from '@mui/material';
+import { format } from 'date-fns';
 import {
   Refresh,
   Download,
-  Visibility,
   AccessTime,
   People,
   TrendingUp,
   Warning,
   CheckCircle,
   ExitToApp,
-  History
+  History,
+  SaveOutlined
 } from '@mui/icons-material';
-
-interface AttendanceStats {
-  date: string;
-  dailyStats: {
-    totalSessions: number;
-    activeSessions: number;
-    completedSessions: number;
-    totalDuration: number;
-    averageDuration: number;
-    autoLogouts: number;
-  };
-  activeUsers: Array<{
-    champId: string;
-    loginTime: string;
-    duration: number;
-    sessionId: string;
-  }>;
-  recentActivity: Array<{
-    champId: string;
-    action: 'login' | 'logout';
-    time: string;
-    duration?: number;
-    isAutoLogout?: boolean;
-  }>;
-  weeklyStats: Array<{
-    _id: string;
-    totalSessions: number;
-    completedSessions: number;
-    totalDuration: number;
-    uniqueUserCount: number;
-  }>;
-  hourlyDistribution: Array<{
-    _id: number;
-    count: number;
-  }>;
-  summary: {
-    currentlyActive: number;
-    totalToday: number;
-    averageSessionTime: number;
-    totalTimeToday: number;
-  };
-}
 
 interface AttendanceRecord {
   _id: string;
@@ -97,25 +61,157 @@ interface AttendanceRecord {
   date: string;
 }
 
+interface Student {
+  _id: string;
+  champId: string;
+  name: string;
+  email: string;
+  sport: string;
+  timeSlot: string;
+  isPresent: boolean;
+  notes: string;
+}
+
+interface Filters {
+  sports: string[];
+  timeSlots: string[];
+}
+
 export default function AdminAttendancePage() {
-  const [stats, setStats] = useState<AttendanceStats | null>(null);
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [tabValue, setTabValue] = useState(0);
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [selectedSport, setSelectedSport] = useState("");
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
+  const [students, setStudents] = useState<Student[]>([]);
+  const [filters, setFilters] = useState<Filters>({ sports: [], timeSlots: [] });
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [selectAll, setSelectAll] = useState(false);
+  const [summary, setSummary] = useState({ total: 0, present: 0, absent: 0 });
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error" | "info">("info");
+  const [stats, setStats] = useState<any>(null);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [filterChampId, setFilterChampId] = useState('');
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [userHistory, setUserHistory] = useState<AttendanceRecord[]>([]);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
+  useEffect(() => {
+    if (status === "loading") return;
+    if (!session) {
+      router.push("/auth/signin?callbackUrl=/admin/attendance");
+      return;
+    }
+    if (session.user?.role !== "admin" && session.user?.role !== "coach") {
+      router.push("/");
+    }
+  }, [session, status, router]);
+
+  const fetchStudents = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        date: selectedDate,
+        ...(selectedSport && { sport: selectedSport }),
+        ...(selectedTimeSlot && { timeSlot: selectedTimeSlot }),
+      });
+      const response = await fetch(`/api/attendance/record?${params}`);
+      const data = await response.json();
+      if (data.success) {
+        setStudents(data.students || []);
+        setFilters(data.filters || { sports: [], timeSlots: [] });
+        setSelectAll(false);
+        updateSummary(data.students || []);
+        setMessage(`Loaded ${data.students?.length || 0} students`);
+        setMessageType("info");
+      } else {
+        setMessage(data.error || "Failed to load students");
+        setMessageType("error");
+      }
+    } catch (error) {
+      setMessage("Error loading students");
+      setMessageType("error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateSummary = (studentList: Student[]) => {
+    const total = studentList.length;
+    const present = studentList.filter((s) => s.isPresent).length;
+    setSummary({ total, present, absent: total - present });
+  };
+
+  const toggleStudent = (index: number) => {
+    const updated = [...students];
+    updated[index].isPresent = !updated[index].isPresent;
+    setStudents(updated);
+    updateSummary(updated);
+  };
+
+  const handleSelectAll = () => {
+    const newState = !selectAll;
+    setSelectAll(newState);
+    const updated = students.map((s) => ({ ...s, isPresent: newState }));
+    setStudents(updated);
+    updateSummary(updated);
+  };
+
+  const updateNotes = (index: number, notes: string) => {
+    const updated = [...students];
+    updated[index].notes = notes;
+    setStudents(updated);
+  };
+
+  const saveAttendance = async () => {
+    setSaving(true);
+    try {
+      const response = await fetch("/api/attendance/record", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: selectedDate,
+          attendanceRecords: students.map((s) => ({
+            champId: s.champId,
+            studentName: s.name,
+            studentEmail: s.email,
+            sport: s.sport,
+            timeSlot: s.timeSlot,
+            isPresent: s.isPresent,
+            notes: s.notes,
+          })),
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setMessage(`✅ Attendance saved for ${data.count} students on ${selectedDate}`);
+        setMessageType("success");
+      } else {
+        setMessage(data.error || "Failed to save attendance");
+        setMessageType("error");
+      }
+    } catch (error) {
+      setMessage("Error saving attendance");
+      setMessageType("error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedDate && tabValue === 0) fetchStudents();
+  }, [selectedDate, selectedSport, selectedTimeSlot, tabValue]);
+
   const fetchStats = async () => {
     try {
       const response = await fetch(`/api/attendance/stats?date=${selectedDate}`);
       const result = await response.json();
-      
-      if (result.success) {
-        setStats(result.data);
-      }
+      if (result.success) setStats(result.data);
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
@@ -123,21 +219,11 @@ export default function AdminAttendancePage() {
 
   const fetchRecords = async () => {
     try {
-      const params = new URLSearchParams({
-        date: selectedDate,
-        limit: '100'
-      });
-      
-      if (filterChampId) {
-        params.append('champId', filterChampId);
-      }
-      
+      const params = new URLSearchParams({ date: selectedDate, limit: '100' });
+      if (filterChampId) params.append('champId', filterChampId);
       const response = await fetch(`/api/attendance?${params}`);
       const result = await response.json();
-      
-      if (result.success) {
-        setRecords(result.data);
-      }
+      if (result.success) setRecords(result.data);
     } catch (error) {
       console.error('Error fetching records:', error);
     }
@@ -147,7 +233,6 @@ export default function AdminAttendancePage() {
     try {
       const response = await fetch(`/api/attendance?champId=${champId}&limit=30`);
       const result = await response.json();
-      
       if (result.success) {
         setUserHistory(result.data);
         setSelectedUser(champId);
@@ -160,425 +245,219 @@ export default function AdminAttendancePage() {
 
   const handleAutoLogout = async () => {
     try {
-      const response = await fetch('/api/attendance/auto-logout', {
-        method: 'POST'
-      });
-      
+      const response = await fetch('/api/attendance/auto-logout', { method: 'POST' });
       const result = await response.json();
-      
-      if (result.success) {
-        await refreshData();
-      }
+      if (result.success) await Promise.all([fetchStats(), fetchRecords()]);
     } catch (error) {
       console.error('Error processing auto-logout:', error);
     }
   };
 
-  const refreshData = async () => {
-    setLoading(true);
-    await Promise.all([fetchStats(), fetchRecords()]);
-    setLoading(false);
-  };
-
   const exportData = () => {
     const csvContent = [
-      ['ChampID', 'Login Time', 'Logout Time', 'Duration (minutes)', 'Status', 'Date', 'Auto Logout'],
-      ...records.map(record => [
-        record.champId,
-        new Date(record.loginTime).toLocaleString(),
-        record.logoutTime ? new Date(record.logoutTime).toLocaleString() : '-',
-        record.duration || '-',
-        record.status,
-        record.date,
-        record.isAutoLogout ? 'Yes' : 'No'
-      ])
-    ].map(row => row.join(',')).join('\n');
-    
+      ['ChampID', 'Login Time', 'Logout Time', 'Duration', 'Status', 'Date'],
+      ...records.map((r) => [r.champId, new Date(r.loginTime).toLocaleString(), r.logoutTime ? new Date(r.logoutTime).toLocaleString() : '-', r.duration || '-', r.status, r.date])
+    ].map((r) => r.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `attendance_${selectedDate}.csv`;
     a.click();
-    window.URL.revokeObjectURL(url);
+    URL.revokeObjectURL(url);
   };
 
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString();
-  };
-
-  const formatDuration = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  const formatTime = (d: string) => new Date(d).toLocaleTimeString();
+  const formatDuration = (m: number) => {
+    const h = Math.floor(m / 60);
+    return h > 0 ? `${h}h ${m % 60}m` : `${m}m`;
   };
 
   useEffect(() => {
-    refreshData();
-  }, [selectedDate, filterChampId]);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (autoRefresh) {
-      interval = setInterval(() => {
-        fetchStats();
-      }, 30000); // Refresh every 30 seconds
+    if (tabValue === 1 && selectedDate) {
+      setStatsLoading(true);
+      Promise.all([fetchStats(), fetchRecords()]).then(() => setStatsLoading(false));
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [autoRefresh, selectedDate]);
+  }, [selectedDate, filterChampId, tabValue]);
 
-  if (loading && !stats) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
-    );
-  }
+  if (status === "loading") return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}><CircularProgress /></Box>;
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box mb={4}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Attendance Management
-        </Typography>
-        
-        <Grid container spacing={2} alignItems="center" mb={3}>
-          <Grid item xs={12} md={3}>
-            <TextField
-              label="Date"
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              fullWidth
-              size="small"
-            />
-          </Grid>
-          
-          <Grid item xs={12} md={3}>
-            <TextField
-              label="Filter by ChampID"
-              value={filterChampId}
-              onChange={(e) => setFilterChampId(e.target.value)}
-              fullWidth
-              size="small"
-            />
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Box display="flex" gap={1}>
-              <Button
-                variant="contained"
-                startIcon={<Refresh />}
-                onClick={refreshData}
-                disabled={loading}
-              >
-                Refresh
-              </Button>
-              
-              <Button
-                variant="outlined"
-                startIcon={<Download />}
-                onClick={exportData}
-              >
-                Export CSV
-              </Button>
-              
-              <Button
-                variant="outlined"
-                startIcon={<Warning />}
-                onClick={handleAutoLogout}
-                color="warning"
-              >
-                Auto Logout
-              </Button>
-              
-              <Button
-                variant={autoRefresh ? "contained" : "outlined"}
-                onClick={() => setAutoRefresh(!autoRefresh)}
-                size="small"
-              >
-                Auto Refresh: {autoRefresh ? 'ON' : 'OFF'}
-              </Button>
-            </Box>
-          </Grid>
-        </Grid>
+    <Container maxWidth="lg" sx={{ py: 4, mt: 8 }}>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" sx={{ mb: 2, fontWeight: 600 }}>📋 Attendance Management</Typography>
+        <Typography variant="subtitle2" color="text.secondary">Role: {session?.user?.role} • {session?.user?.name}</Typography>
       </Box>
 
-      {stats && (
-        <>
-          {/* Stats Cards */}
-          <Grid container spacing={3} mb={4}>
-            <Grid item xs={12} md={3}>
-              <Card>
-                <CardContent>
-                  <Box display="flex" alignItems="center">
-                    <People sx={{ fontSize: 40, color: 'primary.main', mr: 2 }} />
-                    <Box>
-                      <Typography color="text.secondary" gutterBottom>
-                        Currently Active
-                      </Typography>
-                      <Typography variant="h4">
-                        {stats.summary.currentlyActive}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            
-            <Grid item xs={12} md={3}>
-              <Card>
-                <CardContent>
-                  <Box display="flex" alignItems="center">
-                    <CheckCircle sx={{ fontSize: 40, color: 'success.main', mr: 2 }} />
-                    <Box>
-                      <Typography color="text.secondary" gutterBottom>
-                        Total Sessions Today
-                      </Typography>
-                      <Typography variant="h4">
-                        {stats.summary.totalToday}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            
-            <Grid item xs={12} md={3}>
-              <Card>
-                <CardContent>
-                  <Box display="flex" alignItems="center">
-                    <AccessTime sx={{ fontSize: 40, color: 'info.main', mr: 2 }} />
-                    <Box>
-                      <Typography color="text.secondary" gutterBottom>
-                        Avg Session Time
-                      </Typography>
-                      <Typography variant="h4">
-                        {formatDuration(stats.summary.averageSessionTime)}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            
-            <Grid item xs={12} md={3}>
-              <Card>
-                <CardContent>
-                  <Box display="flex" alignItems="center">
-                    <TrendingUp sx={{ fontSize: 40, color: 'warning.main', mr: 2 }} />
-                    <Box>
-                      <Typography color="text.secondary" gutterBottom>
-                        Total Time Today
-                      </Typography>
-                      <Typography variant="h4">
-                        {formatDuration(stats.summary.totalTimeToday)}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
+      {message && <Alert severity={messageType} sx={{ mb: 2 }} onClose={() => setMessage("")}>{message}</Alert>}
 
-          <Grid container spacing={3} mb={4}>
-            {/* Currently Active Users */}
-            <Grid item xs={12} md={6}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Currently Active ({stats.activeUsers.length})
-                </Typography>
-                
-                {stats.activeUsers.length > 0 ? (
-                  <Box>
-                    {stats.activeUsers.map((user, index) => (
-                      <Card key={index} variant="outlined" sx={{ mb: 1 }}>
-                        <CardContent sx={{ py: 1.5 }}>
-                          <Box display="flex" justifyContent="space-between" alignItems="center">
-                            <Box>
-                              <Typography variant="subtitle2">
-                                {user.champId}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                In for {formatDuration(user.duration)}
-                              </Typography>
-                            </Box>
-                            <Chip 
-                              label={formatTime(user.loginTime)} 
-                              size="small" 
-                              color="success"
-                            />
-                          </Box>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </Box>
-                ) : (
-                  <Alert severity="info">No users currently active</Alert>
-                )}
-              </Paper>
-            </Grid>
-
-            {/* Recent Activity */}
-            <Grid item xs={12} md={6}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Recent Activity
-                </Typography>
-                
-                {stats.recentActivity.length > 0 ? (
-                  <Box>
-                    {stats.recentActivity.slice(0, 10).map((activity, index) => (
-                      <Box key={index} display="flex" alignItems="center" py={0.5}>
-                        {activity.action === 'login' ? (
-                          <CheckCircle sx={{ color: 'success.main', mr: 1, fontSize: 20 }} />
-                        ) : (
-                          <ExitToApp sx={{ color: 'info.main', mr: 1, fontSize: 20 }} />
-                        )}
-                        
-                        <Box flexGrow={1}>
-                          <Typography variant="body2">
-                            {activity.champId} {activity.action === 'login' ? 'checked in' : 'checked out'}
-                            {activity.isAutoLogout && ' (auto)'}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {formatTime(activity.time)}
-                            {activity.duration && ` • ${formatDuration(activity.duration)}`}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    ))}
-                  </Box>
-                ) : (
-                  <Alert severity="info">No recent activity</Alert>
-                )}
-              </Paper>
-            </Grid>
-          </Grid>
-        </>
-      )}
-
-      {/* Attendance Records Table */}
-      <Paper sx={{ p: 3 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h6">
-            Attendance Records ({records.length})
-          </Typography>
-          {loading && <CircularProgress size={24} />}
-        </Box>
-        
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>ChampID</TableCell>
-                <TableCell>Login Time</TableCell>
-                <TableCell>Logout Time</TableCell>
-                <TableCell>Duration</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {records.map((record) => (
-                <TableRow key={record._id}>
-                  <TableCell>
-                    <Typography variant="subtitle2">
-                      {record.champId}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{formatTime(record.loginTime)}</TableCell>
-                  <TableCell>
-                    {record.logoutTime ? (
-                      <Box>
-                        {formatTime(record.logoutTime)}
-                        {record.isAutoLogout && (
-                          <Chip label="Auto" size="small" color="warning" sx={{ ml: 1 }} />
-                        )}
-                      </Box>
-                    ) : (
-                      <Chip label="Active" color="success" size="small" />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {record.duration ? formatDuration(record.duration) : '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={record.status} 
-                      color={record.status === 'active' ? 'success' : 'default'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip title="View History">
-                      <IconButton
-                        size="small"
-                        onClick={() => fetchUserHistory(record.champId)}
-                      >
-                        <History />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+      <Paper sx={{ mb: 3, borderRadius: 2 }}>
+        <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ borderBottom: 1, borderColor: "divider" }}>
+          <Tab label="📅 Bulk Mark Attendance" />
+          <Tab label="📊 Attendance Stats" />
+        </Tabs>
       </Paper>
 
-      {/* User History Dialog */}
-      <Dialog 
-        open={viewDialogOpen} 
-        onClose={() => setViewDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          Attendance History - {selectedUser}
-        </DialogTitle>
-        <DialogContent>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Login</TableCell>
-                  <TableCell>Logout</TableCell>
-                  <TableCell>Duration</TableCell>
-                  <TableCell>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {userHistory.map((record) => (
-                  <TableRow key={record._id}>
-                    <TableCell>{record.date}</TableCell>
-                    <TableCell>{formatTime(record.loginTime)}</TableCell>
-                    <TableCell>
-                      {record.logoutTime ? formatTime(record.logoutTime) : '-'}
-                    </TableCell>
-                    <TableCell>
-                      {record.duration ? formatDuration(record.duration) : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={record.status} 
-                        size="small"
-                        color={record.status === 'active' ? 'success' : 'default'}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      {tabValue === 0 && (
+        <Box>
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2 }}>Select Date & Filters</Typography>
+              <Grid container spacing={2} alignItems="flex-end">
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField fullWidth label="Date" type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} size="small" />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Sport</InputLabel>
+                    <Select value={selectedSport} onChange={(e) => setSelectedSport(e.target.value)} label="Sport">
+                      <MenuItem value="">All Sports</MenuItem>
+                      {filters.sports.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Time Slot</InputLabel>
+                    <Select value={selectedTimeSlot} onChange={(e) => setSelectedTimeSlot(e.target.value)} label="Time Slot">
+                      <MenuItem value="">All Times</MenuItem>
+                      {filters.timeSlots.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Button variant="outlined" fullWidth onClick={fetchStudents} disabled={loading} startIcon={<Refresh />}>Reload</Button>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+          {students.length > 0 && (
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={4}><Card><CardContent sx={{ textAlign: "center" }}><Typography color="textSecondary" variant="body2">Total Students</Typography><Typography variant="h4" sx={{ color: "primary.main" }}>{summary.total}</Typography></CardContent></Card></Grid>
+              <Grid item xs={12} sm={4}><Card><CardContent sx={{ textAlign: "center" }}><Typography color="textSecondary" variant="body2">Present</Typography><Typography variant="h4" sx={{ color: "success.main" }}>{summary.present}</Typography></CardContent></Card></Grid>
+              <Grid item xs={12} sm={4}><Card><CardContent sx={{ textAlign: "center" }}><Typography color="textSecondary" variant="body2">Absent</Typography><Typography variant="h4" sx={{ color: "error.main" }}>{summary.absent}</Typography></CardContent></Card></Grid>
+            </Grid>
+          )}
+
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
+          ) : students.length === 0 ? (
+            <Alert severity="info">No students found for selected date and filters</Alert>
+          ) : (
+            <Paper sx={{ mb: 3 }}>
+              <TableContainer>
+                <Table>
+                  <TableHead sx={{ backgroundColor: "#f5f5f5" }}>
+                    <TableRow><TableCell><Checkbox checked={selectAll} onChange={handleSelectAll} /></TableCell><TableCell>ChampID</TableCell><TableCell>Name</TableCell><TableCell>Sport</TableCell><TableCell>Time Slot</TableCell><TableCell>Status</TableCell><TableCell>Notes</TableCell></TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {students.map((s, i) => (
+                      <TableRow key={s._id} sx={{ backgroundColor: s.isPresent ? "rgba(76, 175, 80, 0.05)" : "rgba(244, 67, 54, 0.05)" }}>
+                        <TableCell><Checkbox checked={s.isPresent} onChange={() => toggleStudent(i)} /></TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>{s.champId}</TableCell>
+                        <TableCell>{s.name}</TableCell>
+                        <TableCell>{s.sport}</TableCell>
+                        <TableCell>{s.timeSlot}</TableCell>
+                        <TableCell><Chip label={s.isPresent ? "Present" : "Absent"} color={s.isPresent ? "success" : "error"} size="small" /></TableCell>
+                        <TableCell><TextField size="small" variant="outlined" value={s.notes} onChange={(e) => updateNotes(i, e.target.value)} placeholder="Add notes..." sx={{ maxWidth: "150px" }} /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <Box sx={{ p: 2, display: "flex", gap: 2, justifyContent: "flex-end" }}>
+                <Button variant="outlined" onClick={() => setSelectAll(false)} disabled={summary.present === 0}>Clear All</Button>
+                <Button variant="outlined" color="success" onClick={handleSelectAll} disabled={summary.present === summary.total}>Select All</Button>
+                <Button variant="contained" color="success" onClick={saveAttendance} disabled={saving || students.length === 0} startIcon={<SaveOutlined />}>{saving ? "Saving..." : "Save Attendance"}</Button>
+              </Box>
+            </Paper>
+          )}
+        </Box>
+      )}
+
+      {tabValue === 1 && (
+        <Box>
+          <Box mb={4}>
+            <Grid container spacing={2} alignItems="center" mb={3}>
+              <Grid item xs={12} md={3}><TextField label="Date" type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} fullWidth size="small" /></Grid>
+              <Grid item xs={12} md={3}><TextField label="Filter by ChampID" value={filterChampId} onChange={(e) => setFilterChampId(e.target.value)} fullWidth size="small" /></Grid>
+              <Grid item xs={12} md={6}>
+                <Box display="flex" gap={1}>
+                  <Button variant="contained" startIcon={<Refresh />} onClick={() => Promise.all([fetchStats(), fetchRecords()])} disabled={statsLoading}>Refresh</Button>
+                  <Button variant="outlined" startIcon={<Download />} onClick={exportData}>Export CSV</Button>
+                  <Button variant="outlined" startIcon={<Warning />} onClick={handleAutoLogout} color="warning">Auto Logout</Button>
+                  <Button variant={autoRefresh ? "contained" : "outlined"} onClick={() => setAutoRefresh(!autoRefresh)} size="small">Auto Refresh: {autoRefresh ? 'ON' : 'OFF'}</Button>
+                </Box>
+              </Grid>
+            </Grid>
+          </Box>
+
+          {statsLoading && stats === null ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
+          ) : (
+            <>
+              {stats && (
+                <Grid container spacing={3} mb={4}>
+                  <Grid item xs={12} md={3}><Card><CardContent><Box display="flex" alignItems="center"><People sx={{ fontSize: 40, color: 'primary.main', mr: 2 }} /><Box><Typography color="text.secondary" gutterBottom>Currently Active</Typography><Typography variant="h4">{stats.summary.currentlyActive}</Typography></Box></Box></CardContent></Card></Grid>
+                  <Grid item xs={12} md={3}><Card><CardContent><Box display="flex" alignItems="center"><CheckCircle sx={{ fontSize: 40, color: 'success.main', mr: 2 }} /><Box><Typography color="text.secondary" gutterBottom>Total Sessions Today</Typography><Typography variant="h4">{stats.summary.totalToday}</Typography></Box></Box></CardContent></Card></Grid>
+                  <Grid item xs={12} md={3}><Card><CardContent><Box display="flex" alignItems="center"><AccessTime sx={{ fontSize: 40, color: 'info.main', mr: 2 }} /><Box><Typography color="text.secondary" gutterBottom>Avg Session Time</Typography><Typography variant="h4">{formatDuration(stats.summary.averageSessionTime)}</Typography></Box></Box></CardContent></Card></Grid>
+                  <Grid item xs={12} md={3}><Card><CardContent><Box display="flex" alignItems="center"><TrendingUp sx={{ fontSize: 40, color: 'warning.main', mr: 2 }} /><Box><Typography color="text.secondary" gutterBottom>Total Time Today</Typography><Typography variant="h4">{formatDuration(stats.summary.totalTimeToday)}</Typography></Box></Box></CardContent></Card></Grid>
+                </Grid>
+              )}
+
+              <Paper sx={{ p: 3 }}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                  <Typography variant="h6">Attendance Records ({records.length})</Typography>
+                  {statsLoading && <CircularProgress size={24} />}
+                </Box>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead><TableRow sx={{ backgroundColor: "#f5f5f5" }}><TableCell>ChampID</TableCell><TableCell>Login Time</TableCell><TableCell>Logout Time</TableCell><TableCell>Duration</TableCell><TableCell>Status</TableCell><TableCell>Actions</TableCell></TableRow></TableHead>
+                    <TableBody>
+                      {records.map((r) => (
+                        <TableRow key={r._id}>
+                          <TableCell><Typography variant="subtitle2">{r.champId}</Typography></TableCell>
+                          <TableCell>{formatTime(r.loginTime)}</TableCell>
+                          <TableCell>{r.logoutTime ? (<Box>{formatTime(r.logoutTime)}{r.isAutoLogout && <Chip label="Auto" size="small" color="warning" sx={{ ml: 1 }} />}</Box>) : <Chip label="Active" color="success" size="small" />}</TableCell>
+                          <TableCell>{r.duration ? formatDuration(r.duration) : '-'}</TableCell>
+                          <TableCell><Chip label={r.status} color={r.status === 'active' ? 'success' : 'default'} size="small" /></TableCell>
+                          <TableCell><Tooltip title="View History"><IconButton size="small" onClick={() => fetchUserHistory(r.champId)}><History /></IconButton></Tooltip></TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </>
+          )}
+
+          <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} maxWidth="md" fullWidth>
+            <DialogTitle>Attendance History - {selectedUser}</DialogTitle>
+            <DialogContent>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead><TableRow><TableCell>Date</TableCell><TableCell>Login</TableCell><TableCell>Logout</TableCell><TableCell>Duration</TableCell><TableCell>Status</TableCell></TableRow></TableHead>
+                  <TableBody>
+                    {userHistory.map((r) => (
+                      <TableRow key={r._id}>
+                        <TableCell>{r.date}</TableCell>
+                        <TableCell>{formatTime(r.loginTime)}</TableCell>
+                        <TableCell>{r.logoutTime ? formatTime(r.logoutTime) : '-'}</TableCell>
+                        <TableCell>{r.duration ? formatDuration(r.duration) : '-'}</TableCell>
+                        <TableCell><Chip label={r.status} size="small" color={r.status === 'active' ? 'success' : 'default'} /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
+            </DialogActions>
+          </Dialog>
+        </Box>
+      )}
     </Container>
   );
 }

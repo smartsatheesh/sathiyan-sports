@@ -56,9 +56,9 @@ export class SMSService {
 📋 Booking ID: ${bookingDetails.bookingId}
 
 Complete payment within 5 minutes to secure your slot.
-UPI: smartsatheesh7-1@okhdfcbank
+UPI: Vyapar.175693786746@hdfcbank
 
-- Sathiyan Sports`;
+- Sathiyan Multi Sport Club`;
 
     return this.sendSMS({
       to: phone,
@@ -74,8 +74,8 @@ Your booking expires in 2 minutes!
 🏆 ${bookingDetails.sport} - ₹${bookingDetails.totalAmount}
 📋 ID: ${bookingDetails.bookingId}
 
-Pay now: UPI - smartsatheesh7-1@okhdfcbank
-- Sathiyan Sports`;
+Pay now: UPI - Vyapar.175693786746@hdfcbank
+- Sathiyan Multi Sport Club`;
 
     return this.sendSMS({
       to: phone,
