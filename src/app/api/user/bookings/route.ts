@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
         { customerEmail: session.user.email },
         { customerPhone: session.user.mobile }
       ]
-    }).sort({ createdAt: -1 });
+    }).sort({ createdAt: -1 }).lean();
 
     return NextResponse.json({
       success: true,

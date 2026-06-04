@@ -4,6 +4,19 @@ import { authOptions } from '../../../../lib/authConfig';
 import { connectToMongoose } from '@/app/server/mongodb';
 import Booking from "../../../../models/Booking";
 
+const CRICKET_DEFAULT_SLOT = '12:00 AM - 01:00 AM';
+
+const normalizePaymentStatus = (paymentStatus?: string) => {
+  if (!paymentStatus) return paymentStatus;
+
+  const normalized = paymentStatus.toLowerCase();
+  if (normalized === 'completed' || normalized === 'confirmed') {
+    return 'paid';
+  }
+
+  return normalized;
+};
+
 // DELETE - Delete a specific booking
 export async function DELETE(
   req: NextRequest,
@@ -69,6 +82,27 @@ export async function PATCH(
 
     const { bookingId } = params;
     const updateData = await req.json();
+    const normalizedUpdateData = { ...updateData };
+
+    if (typeof normalizedUpdateData.paymentStatus === 'string') {
+      normalizedUpdateData.paymentStatus = normalizePaymentStatus(normalizedUpdateData.paymentStatus);
+    }
+
+    if (typeof normalizedUpdateData.sport === 'string' && normalizedUpdateData.sport !== 'Shuttle Badminton') {
+      normalizedUpdateData.court = undefined;
+    }
+
+    if (typeof normalizedUpdateData.court === 'string' && normalizedUpdateData.court.trim() === '') {
+      normalizedUpdateData.court = undefined;
+    }
+
+    if (
+      normalizedUpdateData.sport === 'Cricket' &&
+      Array.isArray(normalizedUpdateData.timeSlots) &&
+      normalizedUpdateData.timeSlots.length === 0
+    ) {
+      normalizedUpdateData.timeSlots = [CRICKET_DEFAULT_SLOT];
+    }
 
     // Validate bookingId
     if (!bookingId) {
@@ -78,7 +112,7 @@ export async function PATCH(
     // Find and update the booking
     const updatedBooking = await (Booking.findByIdAndUpdate as any)(
       bookingId,
-      updateData,
+      normalizedUpdateData,
       { new: true, runValidators: true }
     );
 

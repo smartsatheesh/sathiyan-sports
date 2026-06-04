@@ -553,7 +553,7 @@ export default function Home() {
                               animation: 'pulse 1.5s ease-in-out infinite'
                             }}
                           >
-                            40% OFF
+                            30% OFF
                           </Box>
 
                           <SportsCricket sx={{ fontSize: 40, color: '#FFFFFF', mb: 1, mt: 1 }} />
@@ -565,7 +565,7 @@ export default function Home() {
                               Regular: ₹1000
                             </Typography>
                             <Typography variant="h5" sx={{ color: '#FFD700', fontWeight: 'bold' }}>
-                              ₹600
+                              ₹700
                             </Typography>
                           </Box>
                           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.7rem' }}>
@@ -625,7 +625,7 @@ export default function Home() {
                               animation: 'pulse 1.5s ease-in-out infinite'
                             }}
                           >
-                            40% OFF
+                            30% OFF
                           </Box>
 
                           <SportsSoccer sx={{ fontSize: 40, color: '#FFFFFF', mb: 1, mt: 1 }} />
@@ -637,7 +637,7 @@ export default function Home() {
                               Regular: ₹1000
                             </Typography>
                             <Typography variant="h5" sx={{ color: '#FFD700', fontWeight: 'bold' }}>
-                              ₹600
+                              ₹700
                             </Typography>
                           </Box>
                           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.7rem' }}>

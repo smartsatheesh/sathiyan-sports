@@ -2,16 +2,122 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToMongoose } from '@/app/server/mongodb';
 import Booking from '@/app/models/Booking';
 import whatsAppCloudService from '@/app/services/WhatsAppCloudService';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/lib/authConfig';
+import { startOfDay, endOfDay } from 'date-fns';
+
+const CROSS_TURF_SPORTS = ['Cricket', 'Football', 'Functions and Events'];
+
+function parseTimeSlots(timeSlot?: string, timeSlots?: string[]): string[] {
+  if (Array.isArray(timeSlots) && timeSlots.length > 0) {
+    return [...new Set(timeSlots.map((slot) => slot.trim()).filter(Boolean))];
+  }
+
+  if (!timeSlot) return [];
+  return [...new Set(timeSlot.split(',').map((slot) => slot.trim()).filter(Boolean))];
+}
+
+function expandStoredSlots(timeSlots: string[] = []): string[] {
+  return [...new Set(
+    timeSlots
+      .flatMap((slot) => String(slot || '').split(','))
+      .map((slot) => slot.trim())
+      .filter(Boolean)
+  )];
+}
+
+function splitCrossMidnightSlots(slots: string[]): {
+  spansMidnight: boolean;
+  sameDaySlots: string[];
+  nextDaySlots: string[];
+} {
+  const earlyMorningSlots: string[] = [];
+  const regularSlots: string[] = [];
+
+  slots.forEach((slot) => {
+    const [start] = slot.split(' - ');
+    const [hourText] = (start || '').split(':');
+    const hour = Number(hourText);
+
+    if (!Number.isNaN(hour) && hour >= 1 && hour < 5) {
+      earlyMorningSlots.push(slot);
+    } else {
+      regularSlots.push(slot);
+    }
+  });
+
+  const spansMidnight = regularSlots.length > 0 && earlyMorningSlots.length > 0;
+
+  if (!spansMidnight) {
+    return {
+      spansMidnight: false,
+      sameDaySlots: slots,
+      nextDaySlots: [],
+    };
+  }
+
+  return {
+    spansMidnight: true,
+    sameDaySlots: regularSlots,
+    nextDaySlots: earlyMorningSlots,
+  };
+}
+
+async function findBlockingConflicts(
+  sport: string,
+  date: Date,
+  slots: string[],
+  court?: string
+) {
+  if (slots.length === 0) return [];
+
+  const dayStart = startOfDay(date);
+  const dayEnd = endOfDay(date);
+
+  const sportFilter = CROSS_TURF_SPORTS.includes(sport)
+    ? { $in: CROSS_TURF_SPORTS }
+    : sport;
+
+  const query: any = {
+    bookingStatus: 'confirmed',
+    sport: sportFilter,
+    $or: [
+      { date: { $gte: dayStart, $lte: dayEnd } },
+      { nextDayDate: { $gte: dayStart, $lte: dayEnd } },
+    ],
+  };
+
+  if (sport === 'Shuttle Badminton' && court) {
+    query.court = court;
+  }
+
+  const bookings = await (Booking.find as any)(query).select('date nextDayDate timeSlots nextDayTimeSlots');
+
+  return bookings.filter((booking: any) => {
+    const sameDaySlots = booking.date && booking.date >= dayStart && booking.date <= dayEnd
+      ? expandStoredSlots(booking.timeSlots || [])
+      : [];
+    const nextDaySlots = booking.nextDayDate && booking.nextDayDate >= dayStart && booking.nextDayDate <= dayEnd
+      ? expandStoredSlots(booking.nextDayTimeSlots || [])
+      : [];
+
+    const blockedSlots = new Set([...sameDaySlots, ...nextDaySlots]);
+    return slots.some((slot) => blockedSlots.has(slot));
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
     await connectToMongoose();
+    const session = await getServerSession(authOptions);
+    const isAdmin = session?.user?.role === 'admin';
     
     const body = await request.json();
     const { 
       sport,
       date,
       timeSlot,
+      timeSlots,
       court,
       customerInfo,
       totalPrice,
@@ -29,22 +135,70 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate required fields
-    if (!sport || !date || !timeSlot || !customerInfo || !totalPrice) {
+    if (!sport || !date || (!timeSlot && (!Array.isArray(timeSlots) || timeSlots.length === 0)) || !customerInfo || !totalPrice) {
       return NextResponse.json(
         { success: false, message: 'Missing required booking information' },
         { status: 400 }
       );
     }
 
+    const parsedSlots = parseTimeSlots(timeSlot, timeSlots);
+    if (parsedSlots.length === 0) {
+      return NextResponse.json(
+        { success: false, message: 'No valid time slots selected' },
+        { status: 400 }
+      );
+    }
+
+    const bookingDate = new Date(date);
+    const { spansMidnight, sameDaySlots, nextDaySlots } = splitCrossMidnightSlots(parsedSlots);
+
+    const sameDayConflicts = await findBlockingConflicts(sport, bookingDate, sameDaySlots, court);
+    if (sameDayConflicts.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Selected slot is already blocked by a confirmed booking',
+        },
+        { status: 409 }
+      );
+    }
+
+    let nextDayDate: Date | undefined;
+    if (spansMidnight && nextDaySlots.length > 0) {
+      nextDayDate = new Date(bookingDate);
+      nextDayDate.setDate(nextDayDate.getDate() + 1);
+
+      const nextDayConflicts = await findBlockingConflicts(sport, nextDayDate, nextDaySlots, court);
+      if (nextDayConflicts.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Next-day slot is already blocked by a confirmed booking',
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     // Generate booking reference
     const bookingReference = `BK_${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
-    // Create booking with payment pending (can be collected later)
+    const finalBookingStatus = isAdmin ? 'confirmed' : 'pending';
+
+    const primaryDate = spansMidnight && nextDayDate ? nextDayDate : bookingDate;
+    const primarySlots = spansMidnight ? nextDaySlots : sameDaySlots;
+    const secondaryDate = spansMidnight ? bookingDate : undefined;
+    const secondarySlots = spansMidnight ? sameDaySlots : undefined;
+
+    // Blocking is based only on bookingStatus.
     const bookingData = {
       bookingReference,
       sport,
-      date: new Date(date),
-      timeSlots: [timeSlot], // Convert single timeSlot to array format
+      date: primaryDate,
+      timeSlots: primarySlots,
+      nextDayDate: secondaryDate,
+      nextDayTimeSlots: secondarySlots,
       court: court || undefined, // Include court for Shuttle Badminton
       customerName: customerInfo.name,
       customerEmail: customerInfo.email,
@@ -54,7 +208,7 @@ export async function POST(request: NextRequest) {
       paymentMethod: paymentMethod || 'manual',
       transactionId: transactionId || '',
       paymentReference: paymentReference || '',
-      bookingStatus: 'confirmed', // Booking confirmed immediately - no wait for payment
+      bookingStatus: finalBookingStatus,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -66,13 +220,17 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: '✅ Booking confirmed! You can play now and settle payment later.',
+      message: isAdmin
+        ? '✅ Admin booking confirmed and blocked immediately.'
+        : '✅ Booking created as pending. Slot will be blocked after admin approval.',
       booking: {
         id: booking._id,
         bookingReference: booking.bookingReference,
         sport: booking.sport,
         date: booking.date,
+        nextDayDate: booking.nextDayDate,
         timeSlots: booking.timeSlots, // Use timeSlots (plural) from the model
+        nextDayTimeSlots: booking.nextDayTimeSlots,
         totalAmount: booking.totalAmount,
         bookingStatus: booking.bookingStatus, // Use bookingStatus from the model
         paymentStatus: booking.paymentStatus

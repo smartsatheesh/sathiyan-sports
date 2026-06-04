@@ -71,7 +71,7 @@ const sports: Array<{
   {
     id: 1,
     name: "Cricket",
-    basePrice: 175,
+    basePrice: 200,
     weekendPrice: 350,
     icon: "🏏",
     color: "#4caf50",
@@ -81,7 +81,7 @@ const sports: Array<{
   {
     id: 2,
     name: "Football",
-    basePrice: 175,
+    basePrice: 200,
     weekendPrice: 350,
     icon: "⚽",
     color: "#2196f3",
@@ -221,8 +221,16 @@ const generateTimeSlots = (isEvent = false, selectedDate: Date | null = null, sp
     "Shuttle Badminton": [{ start: 5, startMin: 0, end: 8, endMin: 0 }] // 5am-8am hidden (only for Badminton)
   };
   
-  // Generate 30-minute interval slots
-  for (let hour = 5; hour <= 24; hour++) {
+  // Generate 30-minute interval slots:
+  // Same-day: 05:00 to 23:30
+  // Next-day early morning: 00:00 to 04:30
+  const slotRanges = [
+    { startHour: 5, endHour: 23 },
+    { startHour: 0, endHour: 4 },
+  ];
+
+  for (const range of slotRanges) {
+    for (let hour = range.startHour; hour <= range.endHour; hour++) {
     for (let minute = 0; minute < 60; minute += 30) {
       const startDate = setHours(setMinutes(new Date(), minute), hour);
       const startTime = format(startDate, "HH:mm");
@@ -242,9 +250,13 @@ const generateTimeSlots = (isEvent = false, selectedDate: Date | null = null, sp
       let available = true;
       let isPast = false;
       if (isToday) {
-        // Mark slots that have already passed (with 30 min buffer for booking)
-        isPast = !(hour > currentHour || (hour === currentHour && (minute + 30) > currentMinute));
-        available = !isPast;
+        // Don't mark next-day early slots as past (they belong to tomorrow)
+        const isNextDaySlot = hour < 5;
+        if (!isNextDaySlot) {
+          // Mark slots that have already passed (with 30 min buffer for booking)
+          isPast = !(hour > currentHour || (hour === currentHour && (minute + 30) > currentMinute));
+          available = !isPast;
+        }
       }
       
       // Check if slot is in blocked range for this sport
@@ -264,8 +276,55 @@ const generateTimeSlots = (isEvent = false, selectedDate: Date | null = null, sp
         isPast, // Track if slot is in the past
       });
     }
+    }
   }
   return slots;
+};
+
+// Check if selected time slots span across midnight
+const checkCrossMidnightBooking = (slots: string[]) => {
+  if (slots.length === 0) return { spansMidnight: false, beforeMidnight: [], afterMidnight: [] };
+  
+  const beforeMidnight: string[] = [];
+  const afterMidnight: string[] = [];
+  
+  slots.forEach(slot => {
+    const [startTime] = slot.split(' - ');
+    const [hours] = startTime.split(':').map(Number);
+    
+    // Early morning slots (00:00 - 04:59) are considered next-day slots.
+    if (hours >= 0 && hours < 5) {
+      afterMidnight.push(slot);
+    } else {
+      // Everything else (5 AM - 12:00 AM) is on the same day
+      beforeMidnight.push(slot);
+    }
+  });
+  
+  const spansMidnight = beforeMidnight.length > 0 && afterMidnight.length > 0;
+  
+  return { spansMidnight, beforeMidnight, afterMidnight };
+};
+
+const isNextDayEarlySlot = (slot: string) => {
+  const [startTime] = slot.split(' - ');
+  const [hours] = startTime.split(':').map(Number);
+  return hours >= 0 && hours < 5;
+};
+
+const resolveBookingDateForSelection = (baseDate: Date, slots: string[]) => {
+  const hasSameDaySlots = slots.some((slot) => !isNextDayEarlySlot(slot));
+  const hasNextDaySlots = slots.some((slot) => isNextDayEarlySlot(slot));
+
+  // If user selected only next-day early slots, shift booking anchor date to latest day.
+  if (!hasSameDaySlots && hasNextDaySlots) {
+    const shifted = new Date(baseDate);
+    shifted.setDate(shifted.getDate() + 1);
+    return shifted;
+  }
+
+  // For mixed selections (e.g., 22:00-02:00), keep base date and use cross-midnight split.
+  return baseDate;
 };
 
 export default function BookSlot() {
@@ -978,9 +1037,11 @@ export default function BookSlot() {
     saveCustomerDetails(customerInfo);
 
     // Prepare booking data for payment
+    const resolvedBookingDate = resolveBookingDateForSelection(selectedDate, selectedTimeSlots);
+
     const bookingData = {
       sport: selectedSport,
-      date: selectedDate,
+      date: resolvedBookingDate,
       timeSlot: selectedTimeSlots.join(', '),
       court: selectedSport === "Shuttle Badminton" ? selectedCourt : null,
       customerInfo,
@@ -1043,32 +1104,42 @@ export default function BookSlot() {
       const sport = sports.find((s) => s.name === selectedSport);
       let pricePerSlot = isWeekend(selectedDate!) ? sport!.weekendPrice : sport!.basePrice;
       
-      // Apply 30% discount for Cricket and Football on weekdays
-      if ((selectedSport === "Cricket" || selectedSport === "Football") && !isWeekend(selectedDate!)) {
-        pricePerSlot = pricePerSlot * 0.7; // 30% discount = 70% of original price
-      }
-      
       const paymentExpiry = new Date();
       paymentExpiry.setMinutes(paymentExpiry.getMinutes() + 5);
       
       // Check if user is admin for auto-verification
       const isAdmin = session?.user?.role === 'admin';
       
+      // Check for cross-midnight bookings
+      const { spansMidnight, beforeMidnight, afterMidnight } = checkCrossMidnightBooking(selectedTimeSlots);
+      
+      // Calculate next day for cross-midnight bookings
+      const nextDay = new Date(selectedDate!);
+      nextDay.setDate(nextDay.getDate() + 1);
+      
+      const resolvedBookingDate = resolveBookingDateForSelection(selectedDate!, selectedTimeSlots);
+
       const bookingData: any = {
         sport: selectedSport,
-        date: selectedDate!.toISOString(),
-        timeSlots: selectedTimeSlots,
+        date: resolvedBookingDate.toISOString(),
+        timeSlots: spansMidnight ? beforeMidnight : selectedTimeSlots,
         totalAmount: totalPrice,
         pricePerSlot,
-        isWeekend: isWeekend(selectedDate!),
+        isWeekend: isWeekend(resolvedBookingDate),
         userId: session?.user?.id, // Add user reference for authenticated bookings
         customerName: customerInfo.name,
         customerEmail: customerInfo.email,
         customerPhone: customerInfo.phone,
         paymentExpiry: paymentExpiry.toISOString(),
-        paymentStatus: isAdmin ? "completed" : "pending", // Admin pays immediately, customers can pay later
-        bookingStatus: "confirmed" // All bookings confirmed immediately - no wait for payment
+        paymentStatus: "pending", // Payment can be validated later for both admin and customers
+        bookingStatus: "confirmed" // Confirm immediately so turf slots are blocked
       };
+      
+      // Add next day slots if booking spans midnight
+      if (spansMidnight && afterMidnight.length > 0) {
+        bookingData.nextDayDate = nextDay.toISOString();
+        bookingData.nextDayTimeSlots = afterMidnight;
+      }
 
       // Add Functions and Events specific fields
       if (selectedSport === "Functions and Events") {
@@ -1098,7 +1169,10 @@ export default function BookSlot() {
         setCurrentBookingId(data.bookingId);
         // Show success message for admin auto-booking
         if (isAdmin) {
-          setAlert({ type: 'success', message: '✅ Booking auto-verified & payment completed!' });
+          const dateMessage = spansMidnight 
+            ? `Admin booking confirmed for ${format(selectedDate!, 'dd MMM')} & ${format(nextDay, 'dd MMM')} with slots blocked on both dates.`
+            : '✅ Admin booking confirmed and slot blocked. Payment can be updated later.';
+          setAlert({ type: 'success', message: dateMessage });
         }
         return data.bookingId;
       } else {
@@ -1673,8 +1747,7 @@ export default function BookSlot() {
                           </div>
                           <div className="sport-pricing">
                             <span className="price-label">Weekday:</span>
-                            <span className="price-amount" style={{ color: '#4caf50', fontWeight: 'bold' }}>₹700 / 2 hrs</span>
-                            <span style={{ marginLeft: '6px', color: '#4caf50', fontSize: '12px', fontWeight: 'bold' }}>🎉 50% off</span>
+                            <span className="price-amount" style={{ color: '#4caf50', fontWeight: 'bold' }}>₹800 / 2 hrs</span>
                           </div>
                           <div style={{
                             marginTop: '10px',
@@ -1839,97 +1912,131 @@ export default function BookSlot() {
                           </Alert>
                         )}
                         
-                        <Grid container spacing={1.5} sx={{ mb: 3 }}>
-                          {timeSlots.map((slot, index) => {
-                            const isSelected = selectedTimeSlots.includes(slot.time);
-                            const isPastSlot = slot.isPast || false;
-                            const isBooked = !slot.available && !isPastSlot;
-                            const isRegistered = registeredSlots.includes(slot.time);
-                            
-                            // Check if user is yearly Shuttle Badminton subscriber who should be blocked from registered slots
-                            const isYearlyBadmintonUser = currentUser?.preferredSport === "Shuttle Badminton" && 
-                                                         currentUser?.subscriptionType === "yearly";
-                            const isBlockedRegisteredSlot = isRegistered && isYearlyBadmintonUser;
-                            const isClickable = slot.available && !isBlockedRegisteredSlot;
-                            
-                            return (
-                              <Grid item xs={6} sm={4} md={3} lg={2.4} key={index}>
-                                <Card
-                                  elevation={isSelected ? 6 : (isBooked || isBlockedRegisteredSlot) ? 1 : 2}
-                                  sx={{
-                                    cursor: isClickable ? 'pointer' : 'not-allowed',
-                                    transition: 'all 0.2s ease-in-out',
-                                    transform: isSelected ? 'scale(1.02)' : 'scale(1)',
-                                    height: '48px',
-                                    borderRadius: '8px',
-                                    background: isSelected 
-                                      ? 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)'
-                                      : isPastSlot
-                                        ? 'linear-gradient(135deg, #9e9e9e 0%, #bdbdbd 100%)' // Gray for past slots
-                                        : isBlockedRegisteredSlot
-                                          ? 'linear-gradient(135deg, #e91e63 0%, #f06292 100%)' // Pink/Purple for blocked registered
-                                          : isRegistered
-                                            ? 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)' // Orange for registered but not blocked
-                                            : isBooked 
-                                              ? 'linear-gradient(135deg, #f44336 0%, #ef5350 100%)' // Red for booked
-                                              : 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)', // Green for available
-                                    '&:hover': isClickable ? {
-                                      transform: isSelected ? 'scale(1.02)' : 'scale(1.01)',
-                                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                    } : {},
-                                    border: isSelected ? '2px solid #fff' : 'none',
-                                  }}
-                                  onClick={() => isClickable && handleTimeSlotToggle(slot.time)}
-                                >
-                                  <CardContent sx={{ 
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: 'white',
-                                    p: 1,
-                                    height: '100%',
-                                    '&:last-child': { pb: 1 }
-                                  }}>
-                                    {/* Status Icon */}
-                                    <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
-                                      {isSelected ? (
-                                        <CheckCircle sx={{ fontSize: 14, color: 'white' }} />
-                                      ) : isPastSlot ? (
-                                        <Typography sx={{ fontSize: '10px' }}>⏰</Typography>
-                                      ) : isBlockedRegisteredSlot ? (
-                                        <Typography sx={{ fontSize: '10px' }}>🚫</Typography>
-                                      ) : isRegistered ? (
-                                        <Typography sx={{ fontSize: '10px' }}>👑</Typography>
-                                      ) : isBooked ? (
-                                        <Typography sx={{ fontSize: '10px' }}>🔒</Typography>
-                                      ) : (
-                                        <Typography sx={{ fontSize: '10px' }}>✨</Typography>
-                                      )}
-                                    </Box>
-                                    
-                                    {/* Time Display - single line */}
-                                    <Typography 
-                                      variant="body2" 
-                                      fontWeight="bold" 
-                                      sx={{ 
-                                        fontSize: '0.75rem',
-                                        lineHeight: 1,
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis'
+                        {(() => {
+                          const sameDaySlots = selectedSport === "Functions and Events"
+                            ? timeSlots
+                            : timeSlots.filter((slot) => !isNextDayEarlySlot(slot.time));
+                          const nextDayEarlySlots = selectedSport === "Functions and Events"
+                            ? []
+                            : timeSlots.filter((slot) => isNextDayEarlySlot(slot.time));
+
+                          const renderSlotGrid = (slotsToRender: typeof timeSlots) => (
+                            <Grid container spacing={1.5} sx={{ mb: 3 }}>
+                              {slotsToRender.map((slot, index) => {
+                                const isSelected = selectedTimeSlots.includes(slot.time);
+                                const isPastSlot = slot.isPast || false;
+                                const isBooked = !slot.available && !isPastSlot;
+                                const isRegistered = registeredSlots.includes(slot.time);
+
+                                // Check if user is yearly Shuttle Badminton subscriber who should be blocked from registered slots
+                                const isYearlyBadmintonUser = currentUser?.preferredSport === "Shuttle Badminton" &&
+                                                             currentUser?.subscriptionType === "yearly";
+                                const isBlockedRegisteredSlot = isRegistered && isYearlyBadmintonUser;
+                                const isClickable = slot.available && !isBlockedRegisteredSlot;
+
+                                return (
+                                  <Grid item xs={6} sm={4} md={3} lg={2.4} key={`${slot.time}-${index}`}>
+                                    <Card
+                                      elevation={isSelected ? 6 : (isBooked || isBlockedRegisteredSlot) ? 1 : 2}
+                                      sx={{
+                                        cursor: isClickable ? 'pointer' : 'not-allowed',
+                                        transition: 'all 0.2s ease-in-out',
+                                        transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+                                        height: '48px',
+                                        borderRadius: '8px',
+                                        background: isSelected
+                                          ? 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)'
+                                          : isPastSlot
+                                            ? 'linear-gradient(135deg, #9e9e9e 0%, #bdbdbd 100%)' // Gray for past slots
+                                            : isBlockedRegisteredSlot
+                                              ? 'linear-gradient(135deg, #e91e63 0%, #f06292 100%)' // Pink/Purple for blocked registered
+                                              : isRegistered
+                                                ? 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)' // Orange for registered but not blocked
+                                                : isBooked
+                                                  ? 'linear-gradient(135deg, #f44336 0%, #ef5350 100%)' // Red for booked
+                                                  : 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)', // Green for available
+                                        '&:hover': isClickable ? {
+                                          transform: isSelected ? 'scale(1.02)' : 'scale(1.01)',
+                                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                        } : {},
+                                        border: isSelected ? '2px solid #fff' : 'none',
                                       }}
+                                      onClick={() => isClickable && handleTimeSlotToggle(slot.time)}
                                     >
-                                      {selectedSport === "Functions and Events" 
-                                        ? `${slot.time.split(' ')[0]} ${slot.time.split(' ')[1]} (${slot.hours}h)`
-                                        : slot.time
-                                      }
+                                      <CardContent sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: 'white',
+                                        p: 1,
+                                        height: '100%',
+                                        '&:last-child': { pb: 1 }
+                                      }}>
+                                        {/* Status Icon */}
+                                        <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
+                                          {isSelected ? (
+                                            <CheckCircle sx={{ fontSize: 14, color: 'white' }} />
+                                          ) : isPastSlot ? (
+                                            <Typography sx={{ fontSize: '10px' }}>⏰</Typography>
+                                          ) : isBlockedRegisteredSlot ? (
+                                            <Typography sx={{ fontSize: '10px' }}>🚫</Typography>
+                                          ) : isRegistered ? (
+                                            <Typography sx={{ fontSize: '10px' }}>👑</Typography>
+                                          ) : isBooked ? (
+                                            <Typography sx={{ fontSize: '10px' }}>🔒</Typography>
+                                          ) : (
+                                            <Typography sx={{ fontSize: '10px' }}>✨</Typography>
+                                          )}
+                                        </Box>
+
+                                        {/* Time Display - single line */}
+                                        <Typography
+                                          variant="body2"
+                                          fontWeight="bold"
+                                          sx={{
+                                            fontSize: '0.75rem',
+                                            lineHeight: 1,
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis'
+                                          }}
+                                        >
+                                          {selectedSport === "Functions and Events"
+                                            ? `${slot.time.split(' ')[0]} ${slot.time.split(' ')[1]} (${slot.hours}h)`
+                                            : slot.time
+                                          }
+                                        </Typography>
+                                      </CardContent>
+                                    </Card>
+                                  </Grid>
+                                );
+                              })}
+                            </Grid>
+                          );
+
+                          return (
+                            <>
+                              {renderSlotGrid(sameDaySlots)}
+
+                              {nextDayEarlySlots.length > 0 && (
+                                <>
+                                  <Alert
+                                    severity="info"
+                                    sx={{ mb: 2 }}
+                                  >
+                                    <Typography variant="body2" fontWeight="medium">
+                                      🌙 Next Day Early Slots (00:00 - 05:00)
                                     </Typography>
-                                  </CardContent>
-                                </Card>
-                              </Grid>
-                            );
-                          })}
-                        </Grid>
+                                    <Typography variant="caption" color="text.secondary">
+                                      These slots belong to the next calendar day.
+                                    </Typography>
+                                  </Alert>
+                                  {renderSlotGrid(nextDayEarlySlots)}
+                                </>
+                              )}
+                            </>
+                          );
+                        })()}
 
                         {/* Legend - compact */}
                         <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mb: 3 }}>
@@ -1992,7 +2099,28 @@ export default function BookSlot() {
                             {selectedSport === "Shuttle Badminton" && selectedCourt && (
                               <p><strong>Court:</strong> {selectedCourt}</p>
                             )}
-                            <p><strong>Date:</strong> {format(selectedDate, "dd MMM yyyy")}</p>
+                            {(() => {
+                              const { spansMidnight, beforeMidnight, afterMidnight } = checkCrossMidnightBooking(selectedTimeSlots);
+                              const nextDay = new Date(selectedDate!);
+                              nextDay.setDate(nextDay.getDate() + 1);
+                              const resolvedDate = resolveBookingDateForSelection(selectedDate!, selectedTimeSlots);
+                              
+                              if (spansMidnight) {
+                                return (
+                                  <>
+                                    <p><strong>📅 Booking Spans Two Days:</strong></p>
+                                    <p style={{ marginLeft: '16px', color: '#1976d2', fontWeight: '500' }}>
+                                      • {format(selectedDate!, "dd MMM yyyy")}: {beforeMidnight.length} slot(s)
+                                    </p>
+                                    <p style={{ marginLeft: '16px', color: '#1976d2', fontWeight: '500' }}>
+                                      • {format(nextDay, "dd MMM yyyy")}: {afterMidnight.length} slot(s) (Early morning)
+                                    </p>
+                                  </>
+                                );
+                              } else {
+                                return <p><strong>Date:</strong> {format(resolvedDate, "dd MMM yyyy")}</p>;
+                              }
+                            })()}
                             <p><strong>Selected Time{selectedTimeSlots.length > 1 ? 's' : ''}:</strong></p>
                             <ul>
                               {selectedTimeSlots.map((slot, index) => (

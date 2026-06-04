@@ -84,6 +84,43 @@ const TIME_SLOTS = [
   "09:00 PM - 10:00 PM",
 ];
 
+const CRICKET_FULL_DAY_TIME_SLOTS = Array.from({ length: 48 }, (_, index) => {
+  const startMinutes = index * 30;
+  const endMinutes = ((index + 1) * 30) % (24 * 60);
+
+  const to24HourLabel = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+  };
+
+  return `${to24HourLabel(startMinutes)} - ${to24HourLabel(endMinutes)}`;
+});
+
+const CRICKET_DEFAULT_SLOT = CRICKET_FULL_DAY_TIME_SLOTS[0];
+
+const normalizeBookedTimeSlots = (booking: Booking): string[] => {
+  const rawTimeSlots = (booking as unknown as { timeSlots?: string[] | string }).timeSlots;
+  const rawTimeSlot = (booking as unknown as { timeSlot?: string }).timeSlot;
+
+  const directSlots = Array.isArray(rawTimeSlots)
+    ? rawTimeSlots
+    : typeof rawTimeSlots === 'string'
+      ? rawTimeSlots.split(',')
+      : [];
+
+  const legacySlots = typeof rawTimeSlot === 'string'
+    ? rawTimeSlot.split(',')
+    : [];
+
+  const combined = [...directSlots, ...legacySlots]
+    .flatMap(slot => slot.split(','))
+    .map(slot => slot.trim())
+    .filter(Boolean);
+
+  return Array.from(new Set(combined));
+};
+
 // Memoized pricing calculation function with time-based logic for females
 const calculateSubscriptionAmount = (
   champType: string,
@@ -179,6 +216,8 @@ interface Booking {
   paymentMethod?: string;
   notes?: string;
   updatedAt?: string;
+  nextDayDate?: string;
+  nextDayTimeSlots?: string[];
   cancellationReason?: string;
   cancellationDate?: string;
   refundAmount?: number;
@@ -489,7 +528,13 @@ export default function AdminDashboard() {
       const usersData = await usersRes.json();
 
       if (bookingsData.success) {
-        setBookings(bookingsData.bookings);
+        // Sort bookings by date in chronological order (oldest first)
+        const sortedBookings = [...bookingsData.bookings].sort((a, b) => {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          return dateA - dateB; // Ascending order (oldest first)
+        });
+        setBookings(sortedBookings);
       }
 
       if (usersData.success) {
@@ -1027,7 +1072,7 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           bookingStatus: 'completed',
-          paymentStatus: 'completed',
+          paymentStatus: 'paid',
           updatedAt: new Date().toISOString()
         })
       });
@@ -1052,15 +1097,21 @@ export default function AdminDashboard() {
 
   // Booking management handlers
   const handleEditBooking = (booking: Booking) => {
+    const isCricket = booking.sport === 'Cricket';
+    const bookedTimeSlots = normalizeBookedTimeSlots(booking);
+    const normalizedTimeSlots = bookedTimeSlots.length > 0
+      ? bookedTimeSlots
+      : (isCricket ? [CRICKET_DEFAULT_SLOT] : []);
+
     setEditingBooking(booking);
     setEditForm({
       customerName: booking.customerName || '',
       sport: booking.sport || '',
-      court: booking.court || '',
+      court: booking.sport === 'Shuttle Badminton' ? (booking.court || '') : '',
       date: booking.date ? new Date(booking.date).toISOString().split('T')[0] : '',
-      timeSlots: booking.timeSlots || [],
+      timeSlots: normalizedTimeSlots,
       bookingStatus: booking.bookingStatus || '',
-      paymentStatus: booking.paymentStatus || '',
+      paymentStatus: booking.paymentStatus === 'completed' ? 'paid' : (booking.paymentStatus || ''),
       totalAmount: booking.totalAmount || 0,
       receivedBy: booking.receivedBy || '',
       paymentMethod: booking.paymentMethod || '',
@@ -1075,12 +1126,21 @@ export default function AdminDashboard() {
     if (!editingBooking) return;
 
     try {
-      // When admin saves a booking, auto-verify and mark as completed
+      const normalizedSport = editForm.sport || editingBooking.sport;
+      const normalizedTimeSlots = editForm.timeSlots.length > 0
+        ? editForm.timeSlots
+        : (normalizedSport === 'Cricket' ? [CRICKET_DEFAULT_SLOT] : []);
+
+      const normalizedPaymentStatus = editForm.paymentStatus || editingBooking.paymentStatus || 'pending';
+      const normalizedBookingStatus = editForm.bookingStatus || editingBooking.bookingStatus || 'confirmed';
+
       const updateData = {
         ...editForm,
-        timeSlots: editForm.timeSlots,
-        paymentStatus: 'completed', // Auto-mark as completed for admin
-        bookingStatus: editForm.bookingStatus === 'cancelled' ? 'cancelled' : 'confirmed', // Auto-confirm unless cancelling
+        sport: normalizedSport,
+        court: normalizedSport === 'Shuttle Badminton' ? (editForm.court || undefined) : undefined,
+        timeSlots: normalizedTimeSlots,
+        paymentStatus: normalizedPaymentStatus,
+        bookingStatus: normalizedBookingStatus,
         updatedAt: new Date().toISOString()
       };
 
@@ -1093,7 +1153,7 @@ export default function AdminDashboard() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        setAlert({ type: "success", message: "Booking updated successfully and auto-verified" });
+        setAlert({ type: "success", message: "Booking updated successfully" });
         setBookingEditOpen(false);
         setEditingBooking(null);
         fetchData(); // Refresh the data
@@ -1173,7 +1233,7 @@ export default function AdminDashboard() {
         },
         body: JSON.stringify({
           bookingStatus: 'confirmed',
-          paymentStatus: 'completed' // Auto-complete payment when admin verifies
+          paymentStatus: 'paid' // Auto-complete payment when admin verifies
         }),
       });
 
@@ -1198,6 +1258,7 @@ export default function AdminDashboard() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
+      case 'paid':
       case 'verified':
         return 'success';
       case 'pending':
@@ -1213,6 +1274,33 @@ export default function AdminDashboard() {
       default:
         return 'default';
     }
+  };
+
+  // Helper function to sort time slots chronologically by date first, then time
+  // Same-day slots (05:00-23:59) first, then next-day early slots (00:00-04:59)
+  const sortTimeSlots = (slots: string[]): string[] => {
+    return [...slots].sort((a, b) => {
+      const getTimeInMinutes = (slot: string): number => {
+        const startTime = slot.split(' - ')[0]; // Get "HH:MM"
+        const [hours, minutes] = startTime.split(':').map(Number);
+        return hours * 60 + minutes;
+      };
+      
+      const aMinutes = getTimeInMinutes(a);
+      const bMinutes = getTimeInMinutes(b);
+      
+      // Separate same-day (05:00-23:59 = 300-1439 minutes) from next-day (00:00-04:59 = 0-299 minutes)
+      const aIsSameDay = aMinutes >= 300; // 5:00 AM onwards
+      const bIsSameDay = bMinutes >= 300;
+      
+      // If one is same-day and the other is next-day, same-day comes first
+      if (aIsSameDay !== bIsSameDay) {
+        return aIsSameDay ? -1 : 1;
+      }
+      
+      // Both same-day or both next-day, sort by time
+      return aMinutes - bMinutes;
+    });
   };
 
   // Enhanced function to get payment status display with overdue highlighting
@@ -1249,6 +1337,10 @@ export default function AdminDashboard() {
       />
     );
   };
+
+  const bookingSlotOptions = editForm.sport === 'Cricket'
+    ? Array.from(new Set([...editForm.timeSlots, ...CRICKET_FULL_DAY_TIME_SLOTS]))
+    : TIME_SLOTS;
 
   // Function to format and display due dates
   const formatDueDate = (dueDateStr: string | undefined) => {
@@ -1543,15 +1635,34 @@ export default function AdminDashboard() {
                     <TableCell>{booking.customerName}</TableCell>
                     <TableCell>{booking.sport}</TableCell>
                     <TableCell>{booking.court || 'N/A'}</TableCell>
-                    <TableCell>{format(new Date(booking.date), 'MMM dd, yyyy')}</TableCell>
                     <TableCell>
-                      <Box sx={{ fontSize: '0.85rem', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          Primary Date: {formatSafeDate(booking.date, 'MMM dd, yyyy')}
+                        </Typography>
+                        {booking.nextDayDate && booking.nextDayTimeSlots && booking.nextDayTimeSlots.length > 0 && (
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            Includes previous-day slots ({formatSafeDate(booking.nextDayDate, 'MMM dd, yyyy')})
+                          </Typography>
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ fontSize: '0.85rem', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {booking.timeSlots && booking.timeSlots.length > 0 
-                          ? booking.timeSlots.map((slot, idx) => (
+                          ? sortTimeSlots(booking.timeSlots).map((slot, idx) => (
                               <div key={idx}>{slot}</div>
                             ))
                           : 'N/A'
                         }
+                        {booking.nextDayTimeSlots && booking.nextDayTimeSlots.length > 0 && (
+                          <>
+                            <div style={{ marginTop: '6px', fontWeight: 600, color: '#616161' }}>Prev day:</div>
+                            {sortTimeSlots(booking.nextDayTimeSlots).map((slot, idx) => (
+                              <div key={`next-${idx}`}>{slot}</div>
+                            ))}
+                          </>
+                        )}
                       </Box>
                     </TableCell>
                     <TableCell>
@@ -1571,8 +1682,8 @@ export default function AdminDashboard() {
                     <TableCell>₹{booking.totalAmount}</TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        {/* Verify Button - Only for pending payments */}
-                        {booking.bookingStatus === 'confirmed' && booking.paymentStatus === 'pending' && (
+                        {/* Verify Button - Show for confirmed bookings that are not marked paid */}
+                        {booking.bookingStatus === 'confirmed' && booking.paymentStatus !== 'paid' && booking.paymentStatus !== 'completed' && (
                           <Tooltip title="Mark Payment Complete">
                             <IconButton 
                               size="small" 
@@ -2891,7 +3002,17 @@ export default function AdminDashboard() {
                 <Select
                   value={editForm.sport}
                   label="Sport"
-                  onChange={(e) => setEditForm(prev => ({ ...prev, sport: e.target.value }))}
+                  onChange={(e) => {
+                    const nextSport = e.target.value;
+                    setEditForm(prev => ({
+                      ...prev,
+                      sport: nextSport,
+                      court: nextSport === 'Shuttle Badminton' ? prev.court : '',
+                      timeSlots: nextSport === 'Cricket' && prev.timeSlots.length === 0
+                        ? [CRICKET_DEFAULT_SLOT]
+                        : prev.timeSlots,
+                    }));
+                  }}
                 >
                   <MenuItem value="Cricket">Cricket</MenuItem>
                   <MenuItem value="Football">Football</MenuItem>
@@ -2901,14 +3022,22 @@ export default function AdminDashboard() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Court"
-                value={editForm.court}
-                onChange={(e) => setEditForm(prev => ({ ...prev, court: e.target.value }))}
-              />
-            </Grid>
+            {editForm.sport === 'Shuttle Badminton' && (
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Court</InputLabel>
+                  <Select
+                    value={editForm.court}
+                    label="Court"
+                    onChange={(e) => setEditForm(prev => ({ ...prev, court: e.target.value }))}
+                  >
+                    <MenuItem value="S1">S1</MenuItem>
+                    <MenuItem value="S2">S2</MenuItem>
+                    <MenuItem value="S3">S3</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -2928,7 +3057,7 @@ export default function AdminDashboard() {
                   label="Time Slots"
                   onChange={(e) => setEditForm(prev => ({ ...prev, timeSlots: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value }))}
                 >
-                  {TIME_SLOTS.map((slot) => (
+                  {bookingSlotOptions.map((slot) => (
                     <MenuItem key={slot} value={slot}>{slot}</MenuItem>
                   ))}
                 </Select>
@@ -2967,7 +3096,7 @@ export default function AdminDashboard() {
                   onChange={(e) => setEditForm(prev => ({ ...prev, paymentStatus: e.target.value }))}
                 >
                   <MenuItem value="pending">Pending</MenuItem>
-                  <MenuItem value="completed">Completed</MenuItem>
+                  <MenuItem value="paid">Paid</MenuItem>
                   <MenuItem value="failed">Failed</MenuItem>
                   <MenuItem value="refunded">Refunded</MenuItem>
                 </Select>

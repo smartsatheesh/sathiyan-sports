@@ -3,6 +3,8 @@ import { connectToMongoose } from "@/app/server/mongodb";
 import Booking from "../../models/Booking";
 import User from "../../models/User";
 import { format, startOfDay, endOfDay } from "date-fns";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/lib/authConfig";
 // COMMENTED OUT: Notification services (Twilio/Firebase)
 // import { NotificationService } from "../../services/notificationService";
 
@@ -14,16 +16,29 @@ function normalizeTimeSlot(timeSlot: string): string {
   return timeSlot.replace(/\b(\d):/g, '0$1:');
 }
 
+function expandStoredSlots(timeSlots: string[] = []): string[] {
+  return [...new Set(
+    timeSlots
+      .flatMap((slot) => String(slot || '').split(','))
+      .map((slot) => slot.trim())
+      .filter(Boolean)
+  )];
+}
+
 // POST - Create a new booking
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     await connectToMongoose();
+    const session = await getServerSession(authOptions);
+    const isAdmin = session?.user?.role === 'admin';
 
     const {
       sport,
       date,
       timeSlots,
+      nextDayDate, // For cross-midnight bookings
+      nextDayTimeSlots, // For cross-midnight bookings
       court, // Add court field for Shuttle Badminton
       totalAmount,
       pricePerSlot,
@@ -33,7 +48,6 @@ export async function POST(req: NextRequest) {
       customerPhone,
       paymentExpiry,
       paymentStatus = "pending",
-      bookingStatus = "pending",
     } = body;
 
     // Validate required fields
@@ -59,13 +73,24 @@ export async function POST(req: NextRequest) {
     const crossTurfSports = ["Cricket", "Football", "Functions and Events"];
     
     let existingBookingsQuery: any = {
-      date: {
-        $gte: startOfDay(bookingDate),
-        $lte: endOfDay(bookingDate),
-      },
-      timeSlots: { $in: timeSlots },
       bookingStatus: "confirmed", // Only confirmed bookings block slots
       // Payment status doesn't matter - confirmed is confirmed
+      $or: [
+        {
+          date: {
+            $gte: startOfDay(bookingDate),
+            $lte: endOfDay(bookingDate),
+          },
+          timeSlots: { $in: timeSlots },
+        },
+        {
+          nextDayDate: {
+            $gte: startOfDay(bookingDate),
+            $lte: endOfDay(bookingDate),
+          },
+          nextDayTimeSlots: { $in: timeSlots },
+        },
+      ],
     };
 
     // If the sport is part of cross-turf sports, check against all cross-turf sports
@@ -136,7 +161,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (existingBookings.length > 0) {
-      const bookedSlots = existingBookings.flatMap(booking => booking.timeSlots);
+      const bookedSlots = existingBookings.flatMap((booking: any) => [
+        ...(booking.timeSlots || []),
+        ...(booking.nextDayTimeSlots || []),
+      ]);
       const conflictingSlots = timeSlots.filter((slot: string) => bookedSlots.includes(slot));
       
       return NextResponse.json(
@@ -147,6 +175,60 @@ export async function POST(req: NextRequest) {
         },
         { status: 409 }
       );
+    }
+
+    // Check for conflicts on next day if cross-midnight booking
+    if (nextDayDate && nextDayTimeSlots && nextDayTimeSlots.length > 0) {
+      const nextDay = new Date(nextDayDate);
+      
+      let nextDayConflictQuery: any = {
+        bookingStatus: "confirmed",
+        $or: [
+          {
+            date: {
+              $gte: startOfDay(nextDay),
+              $lte: endOfDay(nextDay),
+            },
+            timeSlots: { $in: nextDayTimeSlots },
+          },
+          {
+            nextDayDate: {
+              $gte: startOfDay(nextDay),
+              $lte: endOfDay(nextDay),
+            },
+            nextDayTimeSlots: { $in: nextDayTimeSlots },
+          },
+        ],
+      };
+
+      if (crossTurfSports.includes(sport)) {
+        nextDayConflictQuery.sport = { $in: crossTurfSports };
+      } else {
+        nextDayConflictQuery.sport = sport;
+      }
+
+      if (sport === "Shuttle Badminton" && court) {
+        nextDayConflictQuery.court = court;
+      }
+
+      const nextDayConflicts = await (Booking.find as any)(nextDayConflictQuery);
+
+      if (nextDayConflicts.length > 0) {
+        const nextDayBookedSlots = nextDayConflicts.flatMap((booking: any) => [
+          ...(booking.timeSlots || []),
+          ...(booking.nextDayTimeSlots || []),
+        ]);
+        const nextDayConflictingSlots = nextDayTimeSlots.filter((slot: string) => nextDayBookedSlots.includes(slot));
+        
+        return NextResponse.json(
+          { 
+            message: "Some time slots on the next day are already booked", 
+            success: false,
+            conflictingSlots: nextDayConflictingSlots 
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // Check for registered slots conflict (monthly/quarterly/half yearly/yearly subscribers)
@@ -241,11 +323,28 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // For cross-day bookings, lock the booking to latest day while keeping earlier-day slots in secondary fields.
+    let primaryDate = bookingDate;
+    let primaryTimeSlots = timeSlots;
+    let secondaryDate = nextDayDate ? new Date(nextDayDate) : undefined;
+    let secondaryTimeSlots = nextDayTimeSlots;
+
+    if (nextDayDate && nextDayTimeSlots && nextDayTimeSlots.length > 0) {
+      primaryDate = new Date(nextDayDate);
+      primaryTimeSlots = nextDayTimeSlots;
+      secondaryDate = bookingDate;
+      secondaryTimeSlots = timeSlots;
+    }
+
     // Create the booking
+    // Booking block rule: only bookingStatus controls blocking.
+    // Admin -> confirmed immediately; others -> pending until admin approval.
+    const finalBookingStatus = isAdmin ? "confirmed" : "pending";
+
     const bookingData: any = {
       sport,
-      date: bookingDate,
-      timeSlots,
+      date: primaryDate,
+      timeSlots: primaryTimeSlots,
       totalAmount,
       pricePerSlot,
       isWeekend,
@@ -255,8 +354,14 @@ export async function POST(req: NextRequest) {
       bookingReference: `BK_${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
       paymentExpiry: paymentExpiry ? new Date(paymentExpiry) : undefined,
       paymentStatus,
-      bookingStatus,
+      bookingStatus: finalBookingStatus,
     };
+
+    // Add cross-midnight booking fields if present
+    if (secondaryDate && secondaryTimeSlots && secondaryTimeSlots.length > 0) {
+      bookingData.nextDayDate = secondaryDate;
+      bookingData.nextDayTimeSlots = secondaryTimeSlots;
+    }
 
     // Add court field for Shuttle Badminton
     if (sport === "Shuttle Badminton" && court) {
@@ -333,14 +438,27 @@ export async function GET(req: NextRequest) {
     // Define cross-turf sports (Cricket, Football, and Functions&Events share same turf)
     const crossTurfSports = ["Cricket", "Football", "Functions and Events"];
     
+    const dayStart = startOfDay(queryDate);
+    const dayEnd = endOfDay(queryDate);
+
     // Build query for finding bookings
     let bookingQuery: any = {
-      date: {
-        $gte: startOfDay(queryDate),
-        $lte: endOfDay(queryDate),
-      },
       bookingStatus: "confirmed", // Only show confirmed bookings as booked
       // Payment status doesn't matter - confirmed is confirmed
+      $or: [
+        {
+          date: {
+            $gte: dayStart,
+            $lte: dayEnd,
+          },
+        },
+        {
+          nextDayDate: {
+            $gte: dayStart,
+            $lte: dayEnd,
+          },
+        },
+      ],
     };
 
     // If the selected sport is part of cross-turf sports, check all cross-turf sports
@@ -357,7 +475,7 @@ export async function GET(req: NextRequest) {
       bookingQuery.court = court;
     }
 
-    const bookings = await (Booking.find as any)(bookingQuery).select("timeSlots court sport");
+    const bookings = await (Booking.find as any)(bookingQuery).select("timeSlots nextDayDate nextDayTimeSlots date court sport");
 
     // Fetch registered slots for monthly/quarterly/half yearly/yearly verified users
     let registeredSlots: string[] = [];
@@ -451,8 +569,17 @@ export async function GET(req: NextRequest) {
 
       bookings.forEach(booking => {
         const bookingCourt = booking.court || 'S1'; // Default to S1 for legacy bookings
+
+        const hasSameDaySlots = booking.date && booking.date >= dayStart && booking.date <= dayEnd;
+        const hasNextDaySlots = booking.nextDayDate && booking.nextDayDate >= dayStart && booking.nextDayDate <= dayEnd;
+
         if (courtBookings[bookingCourt]) {
-          courtBookings[bookingCourt].push(...booking.timeSlots);
+          if (hasSameDaySlots) {
+            courtBookings[bookingCourt].push(...expandStoredSlots(booking.timeSlots || []));
+          }
+          if (hasNextDaySlots) {
+            courtBookings[bookingCourt].push(...expandStoredSlots(booking.nextDayTimeSlots || []));
+          }
         }
       });
 
@@ -469,8 +596,22 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Extract all booked time slots (for other sports or specific court)
-    const bookedSlots = bookings.flatMap(booking => booking.timeSlots);
+    // Extract all booked time slots (for other sports or specific court), including cross-midnight nextDay slots
+    const bookedSlots = bookings.flatMap(booking => {
+      const slots: string[] = [];
+      const hasSameDaySlots = booking.date && booking.date >= dayStart && booking.date <= dayEnd;
+      const hasNextDaySlots = booking.nextDayDate && booking.nextDayDate >= dayStart && booking.nextDayDate <= dayEnd;
+
+      if (hasSameDaySlots) {
+        slots.push(...expandStoredSlots(booking.timeSlots || []));
+      }
+
+      if (hasNextDaySlots) {
+        slots.push(...expandStoredSlots(booking.nextDayTimeSlots || []));
+      }
+
+      return slots;
+    });
     
     return NextResponse.json({
       success: true,

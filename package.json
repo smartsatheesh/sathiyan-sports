@@ -9,7 +9,9 @@
     "debug:client": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "migrate:cricket-slots:dry": "node -r dotenv/config src/scripts/migrate-cricket-booking-slots.js",
+    "migrate:cricket-slots:apply": "node -r dotenv/config src/scripts/migrate-cricket-booking-slots.js --apply"
   },
   "dependencies": {
     "@emotion/react": "^11.11.3",

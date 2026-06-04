@@ -14,6 +14,15 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     required: true,
   }],
+  // Cross-midnight booking support: slots on next day
+  nextDayDate: {
+    type: Date,
+    required: false, // Only set if booking spans midnight
+  },
+  nextDayTimeSlots: [{
+    type: String,
+    required: false,
+  }],
   // Court selection for Shuttle Badminton
   court: {
     type: String,
@@ -66,10 +75,17 @@ const bookingSchema = new mongoose.Schema({
   specialRequirements: {
     type: String,
   },
+  receivedBy: {
+    type: String,
+  },
+  notes: {
+    type: String,
+  },
   paymentStatus: {
     type: String,
     default: "pending",
-    enum: ["pending", "pending_verification", "paid", "failed", "refunded", "cancelled", "expired"],
+    // Keep legacy values for backward compatibility with existing admin flows.
+    enum: ["pending", "pending_verification", "paid", "completed", "confirmed", "failed", "refunded", "cancelled", "expired"],
   },
   paymentMethod: {
     type: String,
