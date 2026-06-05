@@ -14,9 +14,9 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: "/sathiyanlogo.jpeg",
+        url: "/sathiyanlogo.png",
         sizes: "any",
-        type: "image/jpeg",
+        type: "image/png",
       },
       {
         url: "/icon.png", 
@@ -26,8 +26,8 @@ export const metadata: Metadata = {
     ],
     shortcut: [
       {
-        url: "/sathiyanlogo.jpeg",
-        type: "image/jpeg",
+        url: "/sathiyanlogo.png",
+        type: "image/png",
       }
     ],
     apple: [
@@ -52,8 +52,8 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
         
         {/* Additional favicon fallbacks for better browser compatibility */}
-        <link rel="icon" href="/sathiyanlogo.jpeg" type="image/jpeg" />
-        <link rel="shortcut icon" href="/sathiyanlogo.jpeg" type="image/jpeg" />
+        <link rel="icon" href="/sathiyanlogo.png" type="image/png" />
+        <link rel="shortcut icon" href="/sathiyanlogo.png" type="image/png" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon.png" />
         

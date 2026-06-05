@@ -67,7 +67,7 @@ const isMobile = useMediaQuery(theme.breakpoints.down("xl")); // Changed to xl f
 #### Enhanced Logo Styling
 ```tsx
 <img
-  src="/logo2.jpeg"
+  src="/sathiyanlogo.png"
   alt="Sathiyan Sports Logo"
   style={{
     height: isMobile ? '32px' : '40px',

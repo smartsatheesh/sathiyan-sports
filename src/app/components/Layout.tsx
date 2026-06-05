@@ -17,15 +17,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/sathiyanlogo.jpeg" type="image/jpeg" />
-        <link rel="shortcut icon" href="/sathiyanlogo.jpeg" type="image/jpeg" />
+        <link rel="icon" href="/sathiyanlogo.png" type="image/png" />
+        <link rel="shortcut icon" href="/sathiyanlogo.png" type="image/png" />
       </head>
       <body className="Arial">
         <AppBar position="sticky" color="primary" elevation={3}>
           <Toolbar>
             <Button href="/" component="a" sx={{ p: 0, minWidth: 40, mr: 2 }}>
               <img
-                src="/sathiyanlogo.jpeg"
+                src="/sathiyanlogo.png"
                 alt="Sathiyan Logo"
                 style={{ height: 40, width: 40, borderRadius: 8 }}
               />

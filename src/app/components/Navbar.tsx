@@ -116,7 +116,7 @@ const Navbar = () => {
           <Link href="/" className="navbar-logo-section">
             <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <img
-                src="/logo2.jpeg"
+                src="/sathiyanlogo.png"
                 alt="Sathiyan Sports Logo"
                 className="navbar-logo-img"
                 style={{
@@ -333,7 +333,7 @@ const Navbar = () => {
                   {/* Logo Section for Mobile */}
                   <div className="navbar-drawer-logo">
                     <img
-                      src="/logo2.jpeg"
+                      src="/sathiyanlogo.png"
                       alt="Sathiyan Sports Logo"
                       className="navbar-drawer-logo-img"
                     />

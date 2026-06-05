@@ -68,7 +68,7 @@ const Footer = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          background: `url('/sathiyanlogo.jpeg')`,
+          background: `url('/sathiyanlogo.png')`,
           backgroundSize: 'contain',
           backgroundRepeat: 'no-repeat',
           backgroundPosition: 'center',
@@ -85,7 +85,7 @@ const Footer = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <Box
                   component="img"
-                  src="/sathiyanlogo.jpeg"
+                  src="/sathiyanlogo.png"
                   alt="Sathiyan Sports"
                   sx={{
                     width: 50,
