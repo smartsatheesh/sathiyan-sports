@@ -40,7 +40,7 @@ import {
   IconButton,
   Tooltip,
 } from "@mui/material";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import {
   Dashboard,
   Edit,
@@ -62,6 +62,14 @@ const formatSafeDate = (dateString: string | undefined | null, formatPattern: st
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return 'Invalid date';
   return format(date, formatPattern);
+};
+
+// Format date for <input type="date"> using local timezone (avoids UTC day shift)
+const formatDateForInput = (dateString: string | undefined | null): string => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '';
+  return format(date, 'yyyy-MM-dd');
 };
 
 // Time slots constant to match registration page format
@@ -263,7 +271,7 @@ interface Stats {
   totalBookings: number;
   todaysBookings: number;
   totalRevenue: number;
-  totalUsers: number;
+  monthlyRevenue: number;
 }
 
 interface TabPanelProps {
@@ -302,7 +310,7 @@ export default function AdminDashboard() {
     totalBookings: 0,
     todaysBookings: 0,
     totalRevenue: 0,
-    totalUsers: 0,
+    monthlyRevenue: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -346,6 +354,11 @@ export default function AdminDashboard() {
   const [champTypeFilter, setChampTypeFilter] = useState('all');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
   const [preferredSportFilter, setPreferredSportFilter] = useState('all');
+  
+  // Booking date filter states for alerts
+  const [bookingStartDateFilter, setBookingStartDateFilter] = useState('');
+  const [bookingEndDateFilter, setBookingEndDateFilter] = useState('');
+  const [showBookingAlerts, setShowBookingAlerts] = useState(false);
   
   // User pagination states
   const [userPage, setUserPage] = useState(0);
@@ -585,7 +598,18 @@ export default function AdminDashboard() {
       ).length;
 
       const totalRevenue = validBookings.filter(
-        (booking: Booking) => booking.paymentStatus === 'completed'
+        (booking: Booking) => booking.paymentStatus === 'paid'
+      ).reduce((sum: number, booking: Booking) => sum + booking.totalAmount, 0) || 0;
+
+      // Calculate monthly revenue for current month
+      const monthStart = startOfMonth(new Date());
+      const monthEnd = endOfMonth(new Date());
+      const monthlyRevenue = validBookings.filter(
+        (booking: Booking) => {
+          if (booking.paymentStatus !== 'paid') return false;
+          const bookingDate = new Date(booking.date);
+          return isWithinInterval(bookingDate, { start: monthStart, end: monthEnd });
+        }
       ).reduce((sum: number, booking: Booking) => sum + booking.totalAmount, 0) || 0;
 
       // Console logging for debugging
@@ -594,7 +618,7 @@ export default function AdminDashboard() {
         validBookings: validBookings.length,
         todaysBookings,
         totalRevenue,
-        totalUsers: usersData.users?.length || 0,
+        monthlyRevenue,
         filterDetails: {
           todayDate: today.toISOString().split('T')[0],
           validSubscriptions: (usersData.users || []).filter((u: User) => {
@@ -608,7 +632,7 @@ export default function AdminDashboard() {
         totalBookings: validBookings.length,
         todaysBookings,
         totalRevenue,
-        totalUsers: usersData.users?.length || 0,
+        monthlyRevenue,
       });
 
     } catch (err) {
@@ -1108,7 +1132,7 @@ export default function AdminDashboard() {
       customerName: booking.customerName || '',
       sport: booking.sport || '',
       court: booking.sport === 'Shuttle Badminton' ? (booking.court || '') : '',
-      date: booking.date ? new Date(booking.date).toISOString().split('T')[0] : '',
+      date: formatDateForInput(booking.date),
       timeSlots: normalizedTimeSlots,
       bookingStatus: booking.bookingStatus || '',
       paymentStatus: booking.paymentStatus === 'completed' ? 'paid' : (booking.paymentStatus || ''),
@@ -1525,7 +1549,7 @@ export default function AdminDashboard() {
           { title: "Total Bookings", value: stats.totalBookings, color: "primary.main" },
           { title: "Today's Bookings", value: stats.todaysBookings, color: "success.main" },
           { title: "Total Revenue", value: `₹${stats.totalRevenue.toFixed(2)}`, color: "warning.main" },
-          { title: "Total Users", value: stats.totalUsers, color: "info.main" },
+          { title: "Monthly Revenue", value: `₹${stats.monthlyRevenue.toFixed(2)}`, color: "info.main" },
         ].map((stat, index) => (
           <Grid item xs={12} sm={6} md={3} key={index}>
             <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -1614,6 +1638,78 @@ export default function AdminDashboard() {
 
         {/* Bookings Tab */}
         <TabPanel value={tabValue} index={0}>
+          {/* Booking Date Filters & Alerts */}
+          <Paper sx={{ p: 2, mb: 3, bgcolor: 'background.paper' }} elevation={1}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 1 }}>
+              <FilterList sx={{ color: 'primary.main' }} />
+              <Typography variant="h6">Booking Filters & Alerts</Typography>
+            </Box>
+            
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  label="Start Date"
+                  type="date"
+                  value={bookingStartDateFilter}
+                  onChange={(e) => setBookingStartDateFilter(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  size="small"
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  label="End Date"
+                  type="date"
+                  value={bookingEndDateFilter}
+                  onChange={(e) => setBookingEndDateFilter(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  size="small"
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={3}>
+                <FormControlLabel
+                  control={
+                    <Radio
+                      checked={!showBookingAlerts}
+                      onChange={() => setShowBookingAlerts(false)}
+                      size="small"
+                    />
+                  }
+                  label="All Bookings"
+                />
+                <FormControlLabel
+                  control={
+                    <Radio
+                      checked={showBookingAlerts}
+                      onChange={() => setShowBookingAlerts(true)}
+                      size="small"
+                    />
+                  }
+                  label="Pending/Alert Only"
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={3}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  fullWidth
+                  onClick={() => {
+                    setBookingStartDateFilter('');
+                    setBookingEndDateFilter('');
+                    setShowBookingAlerts(false);
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              </Grid>
+            </Grid>
+          </Paper>
+
           <TableContainer>
             <Table>
               <TableHead>
@@ -1630,7 +1726,27 @@ export default function AdminDashboard() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {bookings.map((booking) => (
+                {bookings.filter(booking => {
+                  // Filter by date range
+                  if (bookingStartDateFilter || bookingEndDateFilter) {
+                    const bookingDate = new Date(booking.date);
+                    if (bookingStartDateFilter) {
+                      const startDate = new Date(bookingStartDateFilter);
+                      if (bookingDate < startDate) return false;
+                    }
+                    if (bookingEndDateFilter) {
+                      const endDate = new Date(bookingEndDateFilter);
+                      if (bookingDate > endDate) return false;
+                    }
+                  }
+
+                  // Filter by alert status (pending or failed payments)
+                  if (showBookingAlerts) {
+                    return booking.paymentStatus === 'pending' || booking.paymentStatus === 'failed';
+                  }
+
+                  return true;
+                }).map((booking) => (
                   <TableRow key={booking._id}>
                     <TableCell>{booking.customerName}</TableCell>
                     <TableCell>{booking.sport}</TableCell>

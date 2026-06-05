@@ -68,6 +68,15 @@ export async function POST(req: NextRequest) {
 
     // Check if any of the selected time slots are already booked
     const bookingDate = new Date(date);
+    const todayStart = startOfDay(new Date());
+
+    // Only admins can create bookings for past dates
+    if (!isAdmin && bookingDate < todayStart) {
+      return NextResponse.json(
+        { message: "Past-date booking is allowed only for admins", success: false },
+        { status: 403 }
+      );
+    }
     
     // Define cross-turf sports (Cricket, Football, and Functions&Events share same turf)
     const crossTurfSports = ["Cricket", "Football", "Functions and Events"];

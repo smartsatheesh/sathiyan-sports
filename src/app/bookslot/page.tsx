@@ -173,7 +173,12 @@ const upiApps = [
 ];
 
 // Update the timeSlots generation with 30-minute intervals and sport-specific blocking
-const generateTimeSlots = (isEvent = false, selectedDate: Date | null = null, sport: string = "") => {
+const generateTimeSlots = (
+  isEvent = false,
+  selectedDate: Date | null = null,
+  sport: string = "",
+  allowPastBooking = false
+) => {
   const now = new Date();
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
@@ -187,7 +192,7 @@ const generateTimeSlots = (isEvent = false, selectedDate: Date | null = null, sp
       let available = true;
       
       // If it's today, check if the session time has passed
-      if (isToday) {
+      if (isToday && !allowPastBooking) {
         // Extract start hour from session time
         const sessionMatch = session.time.match(/\((\d{2}):00/);
         if (sessionMatch) {
@@ -249,7 +254,7 @@ const generateTimeSlots = (isEvent = false, selectedDate: Date | null = null, sp
       // Check if this time slot is in the past for today
       let available = true;
       let isPast = false;
-      if (isToday) {
+      if (isToday && !allowPastBooking) {
         // Don't mark next-day early slots as past (they belong to tomorrow)
         const isNextDaySlot = hour < 5;
         if (!isNextDaySlot) {
@@ -330,13 +335,14 @@ const resolveBookingDateForSelection = (baseDate: Date, slots: string[]) => {
 export default function BookSlot() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const isAdminUser = session?.user?.role === 'admin';
 
   // All useState hooks must be at the top level
   const [selectedSport, setSelectedSport] = useState<"Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events" | "Body Zorb" | "">("");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
   const [selectedCourt, setSelectedCourt] = useState<string>(""); // Court selection for Shuttle Badminton
-  const [timeSlots, setTimeSlots] = useState<Array<{time: string; available: boolean; hours?: number; isPast?: boolean}>>(generateTimeSlots(false, null, ""));
+  const [timeSlots, setTimeSlots] = useState<Array<{time: string; available: boolean; hours?: number; isPast?: boolean}>>(generateTimeSlots(false, null, "", false));
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [registeredSlots, setRegisteredSlots] = useState<string[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null); // User data for subscription checking
@@ -562,6 +568,33 @@ export default function BookSlot() {
     fetchCurrentUser();
   }, [session]);
 
+  // Re-populate customer info when booking dialog opens
+  useEffect(() => {
+    if (bookingDialogOpen) {
+      // Refresh customer info from session and saved data
+      if (session?.user) {
+        setCustomerInfo(prev => ({
+          ...prev,
+          name: prev.name || session.user.name || '',
+          email: prev.email || session.user.email || '',
+          phone: prev.phone || session.user.mobile || '',
+        }));
+      }
+      
+      // Ensure form is ready for input
+      // If customer info is empty, keep it empty for user to fill in
+      if (!customerInfo.name && !customerInfo.phone && !session?.user) {
+        setCustomerInfo({
+          name: '',
+          email: '',
+          phone: '',
+          eventType: 'Corporate Event',
+          specialRequirements: ''
+        });
+      }
+    }
+  }, [bookingDialogOpen, session?.user?.name, session?.user?.email, session?.user?.mobile]);
+
   // Fetch booked slots when sport, date, or court change
   useEffect(() => {
     const fetchBookedSlots = async () => {
@@ -591,7 +624,7 @@ export default function BookSlot() {
               
               // Update time slots availability for specific court with past time filtering
               // Since we're in Shuttle Badminton block, isEvent is always false
-              const updatedSlots = generateTimeSlots(false, selectedDate, selectedSport).map(slot => ({
+              const updatedSlots = generateTimeSlots(false, selectedDate, selectedSport, isAdminUser).map(slot => ({
                 ...slot,
                 available: slot.available && !courtSpecificSlots.includes(slot.time)
               }));
@@ -601,7 +634,7 @@ export default function BookSlot() {
               setBookedSlots(data.bookedSlots || []);
               setRegisteredSlots(data.registeredSlots || []);
               const isEvent = selectedSport === "Functions and Events";
-              const updatedSlots = generateTimeSlots(isEvent, selectedDate, selectedSport).map(slot => ({
+              const updatedSlots = generateTimeSlots(isEvent, selectedDate, selectedSport, isAdminUser).map(slot => ({
                 ...slot,
                 available: slot.available && !(data.bookedSlots || []).includes(slot.time)
               }));
@@ -630,9 +663,9 @@ export default function BookSlot() {
     
     if (selectedSport) {
       const isEvent = selectedSport === "Functions and Events";
-      setTimeSlots(generateTimeSlots(isEvent, selectedDate, selectedSport));
+      setTimeSlots(generateTimeSlots(isEvent, selectedDate, selectedSport, isAdminUser));
     }
-  }, [selectedSport, selectedDate]);
+  }, [selectedSport, selectedDate, isAdminUser]);
 
   // Payment timer effect
   useEffect(() => {
@@ -1829,7 +1862,7 @@ export default function BookSlot() {
                         label="Select Date"
                         value={selectedDate}
                         onChange={(newValue) => setSelectedDate(newValue)}
-                        minDate={new Date()}
+                        minDate={isAdminUser ? undefined : new Date()}
                         format="dd/MM/yyyy"
                         sx={{ width: "100%" }}
                       />

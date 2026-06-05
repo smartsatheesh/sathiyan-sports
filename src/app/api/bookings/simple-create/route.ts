@@ -151,6 +151,16 @@ export async function POST(request: NextRequest) {
     }
 
     const bookingDate = new Date(date);
+    const todayStart = startOfDay(new Date());
+
+    // Only admins can create bookings for past dates
+    if (!isAdmin && bookingDate < todayStart) {
+      return NextResponse.json(
+        { success: false, message: 'Past-date booking is allowed only for admins' },
+        { status: 403 }
+      );
+    }
+
     const { spansMidnight, sameDaySlots, nextDaySlots } = splitCrossMidnightSlots(parsedSlots);
 
     const sameDayConflicts = await findBlockingConflicts(sport, bookingDate, sameDaySlots, court);

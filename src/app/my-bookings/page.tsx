@@ -23,6 +23,11 @@ import {
   Divider,
   IconButton,
   Tooltip,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  TextField,
 } from "@mui/material";
 import {
   BookOnline,
@@ -34,8 +39,10 @@ import {
   Visibility,
   Receipt,
   ContactSupport,
+  FilterList,
+  ClearAll,
 } from "@mui/icons-material";
-import { format, isAfter, isBefore, startOfDay } from "date-fns";
+import { format, isAfter, isBefore, startOfDay, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 
 interface Booking {
   _id: string;
@@ -78,6 +85,14 @@ export default function MyBookingsPage() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+
+  // Filter states
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>('all');
+  const [paymentConfirmationFilter, setPaymentConfirmationFilter] = useState<string>('all');
+  const [startDateFilter, setStartDateFilter] = useState<string>('');
+  const [endDateFilter, setEndDateFilter] = useState<string>('');
+  const [monthYearFilter, setMonthYearFilter] = useState<string>(format(new Date(), 'yyyy-MM'));
+  const [useMonthFilter, setUseMonthFilter] = useState<boolean>(false);
 
   // Authentication check
   useEffect(() => {
@@ -151,6 +166,62 @@ export default function MyBookingsPage() {
       }
       return booking.bookingStatus === status;
     });
+  };
+
+  const applyFilters = (bookingsToFilter: Booking[]) => {
+    let filtered = bookingsToFilter;
+
+    // Apply payment status filter
+    if (paymentStatusFilter !== 'all') {
+      filtered = filtered.filter(b => b.paymentStatus === paymentStatusFilter);
+    }
+
+    // Apply payment confirmation filter
+    if (paymentConfirmationFilter === 'paid') {
+      filtered = filtered.filter(b => b.paymentStatus === 'paid');
+    } else if (paymentConfirmationFilter === 'unpaid') {
+      filtered = filtered.filter(b => b.paymentStatus !== 'paid');
+    }
+
+    // Apply date range filter
+    if (useMonthFilter && monthYearFilter) {
+      const [year, month] = monthYearFilter.split('-');
+      const monthStart = startOfMonth(new Date(parseInt(year), parseInt(month) - 1, 1));
+      const monthEnd = endOfMonth(monthStart);
+      filtered = filtered.filter(b => 
+        isWithinInterval(new Date(b.date), { start: monthStart, end: monthEnd })
+      );
+    } else {
+      if (startDateFilter) {
+        filtered = filtered.filter(b => 
+          isAfter(new Date(b.date), new Date(startDateFilter)) ||
+          format(new Date(b.date), 'yyyy-MM-dd') === startDateFilter
+        );
+      }
+      if (endDateFilter) {
+        filtered = filtered.filter(b => 
+          isBefore(new Date(b.date), new Date(endDateFilter)) ||
+          format(new Date(b.date), 'yyyy-MM-dd') === endDateFilter
+        );
+      }
+    }
+
+    return filtered;
+  };
+
+  const calculateMonthlyRevenue = (bookingsToCalc: Booking[]) => {
+    return bookingsToCalc
+      .filter(b => b.paymentStatus === 'paid')
+      .reduce((total, b) => total + b.totalAmount, 0);
+  };
+
+  const resetFilters = () => {
+    setPaymentStatusFilter('all');
+    setPaymentConfirmationFilter('all');
+    setStartDateFilter('');
+    setEndDateFilter('');
+    setMonthYearFilter(format(new Date(), 'yyyy-MM'));
+    setUseMonthFilter(false);
   };
 
   const getStatusColor = (status: string) => {
@@ -296,6 +367,12 @@ export default function MyBookingsPage() {
   const pastBookings = getBookingsByStatus('past');
   const cancelledBookings = getBookingsByStatus('cancelled');
 
+  const filteredUpcomingBookings = applyFilters(upcomingBookings);
+  const filteredPastBookings = applyFilters(pastBookings);
+  const filteredCancelledBookings = applyFilters(cancelledBookings);
+
+  const monthlyRevenue = calculateMonthlyRevenue(filteredPastBookings);
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
@@ -317,6 +394,135 @@ export default function MyBookingsPage() {
         </Alert>
       )}
 
+      {/* Filters Section */}
+      <Paper elevation={1} sx={{ p: 2, mb: 3, bgcolor: 'background.paper' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <FilterList sx={{ mr: 1 }} />
+          <Typography variant="h6">Filters & Analytics</Typography>
+        </Box>
+
+        {/* Monthly Revenue Summary */}
+        {useMonthFilter && (
+          <Box sx={{ mb: 2, p: 2, bgcolor: 'success.light', borderRadius: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Monthly Revenue (Paid Bookings Only)
+            </Typography>
+            <Typography variant="h5" sx={{ color: 'success.main', fontWeight: 'bold' }}>
+              ₹{monthlyRevenue.toLocaleString()}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {format(new Date(monthYearFilter + '-01'), 'MMMM yyyy')}
+            </Typography>
+          </Box>
+        )}
+
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          {/* Payment Status Filter */}
+          <Grid item xs={12} sm={6} md={2.4}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Payment Status</InputLabel>
+              <Select
+                value={paymentStatusFilter}
+                label="Payment Status"
+                onChange={(e) => setPaymentStatusFilter(e.target.value)}
+              >
+                <MenuItem value="all">All Statuses</MenuItem>
+                <MenuItem value="paid">Paid</MenuItem>
+                <MenuItem value="pending">Pending</MenuItem>
+                <MenuItem value="failed">Failed</MenuItem>
+                <MenuItem value="refunded">Refunded</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          {/* Payment Confirmation Filter */}
+          <Grid item xs={12} sm={6} md={2.4}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Payment Confirmation</InputLabel>
+              <Select
+                value={paymentConfirmationFilter}
+                label="Payment Confirmation"
+                onChange={(e) => setPaymentConfirmationFilter(e.target.value)}
+              >
+                <MenuItem value="all">All</MenuItem>
+                <MenuItem value="paid">Confirmed (Paid)</MenuItem>
+                <MenuItem value="unpaid">Unconfirmed (Unpaid)</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          {/* Month Filter Toggle */}
+          <Grid item xs={12} sm={6} md={2.4}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Filter Type</InputLabel>
+              <Select
+                value={useMonthFilter ? 'month' : 'date-range'}
+                label="Filter Type"
+                onChange={(e) => setUseMonthFilter(e.target.value === 'month')}
+              >
+                <MenuItem value="date-range">Date Range</MenuItem>
+                <MenuItem value="month">By Month</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          {/* Conditional Date Filters */}
+          {useMonthFilter ? (
+            <Grid item xs={12} sm={6} md={2.4}>
+              <TextField
+                fullWidth
+                size="small"
+                type="month"
+                value={monthYearFilter}
+                onChange={(e) => setMonthYearFilter(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                inputProps={{
+                  max: format(new Date(), 'yyyy-MM'),
+                }}
+              />
+            </Grid>
+          ) : (
+            <>
+              <Grid item xs={12} sm={6} md={2.2}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="date"
+                  label="Start Date"
+                  value={startDateFilter}
+                  onChange={(e) => setStartDateFilter(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={2.2}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="date"
+                  label="End Date"
+                  value={endDateFilter}
+                  onChange={(e) => setEndDateFilter(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+            </>
+          )}
+
+          {/* Clear Filters Button */}
+          <Grid item xs={12} md="auto" sx={{ display: 'flex', alignItems: 'flex-end' }}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<ClearAll />}
+              onClick={resetFilters}
+              fullWidth
+            >
+              Clear Filters
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
+
       <Paper elevation={2}>
         <Tabs
           value={tabValue}
@@ -324,25 +530,25 @@ export default function MyBookingsPage() {
           sx={{ borderBottom: 1, borderColor: 'divider' }}
         >
           <Tab 
-            label={`Upcoming (${upcomingBookings.length})`}
+            label={`Upcoming (${filteredUpcomingBookings.length})`}
             icon={<CalendarToday />}
           />
           <Tab 
-            label={`Past (${pastBookings.length})`}
+            label={`Past (${filteredPastBookings.length})`}
             icon={<AccessTime />}
           />
           <Tab 
-            label={`Cancelled (${cancelledBookings.length})`}
+            label={`Cancelled (${filteredCancelledBookings.length})`}
             icon={<Cancel />}
           />
         </Tabs>
 
         <TabPanel value={tabValue} index={0}>
-          {upcomingBookings.length === 0 ? (
+          {filteredUpcomingBookings.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <BookOnline sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
               <Typography variant="h6" color="text.secondary" gutterBottom>
-                No upcoming bookings
+                {upcomingBookings.length === 0 ? 'No upcoming bookings' : 'No bookings match the filters'}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                 Ready to play? Book your next session now!
@@ -356,33 +562,33 @@ export default function MyBookingsPage() {
               </Button>
             </Box>
           ) : (
-            upcomingBookings.map(renderBookingCard)
+            filteredUpcomingBookings.map(renderBookingCard)
           )}
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
-          {pastBookings.length === 0 ? (
+          {filteredPastBookings.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <AccessTime sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
               <Typography variant="h6" color="text.secondary">
-                No past bookings
+                {pastBookings.length === 0 ? 'No past bookings' : 'No bookings match the filters'}
               </Typography>
             </Box>
           ) : (
-            pastBookings.map(renderBookingCard)
+            filteredPastBookings.map(renderBookingCard)
           )}
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>
-          {cancelledBookings.length === 0 ? (
+          {filteredCancelledBookings.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <Cancel sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
               <Typography variant="h6" color="text.secondary">
-                No cancelled bookings
+                {cancelledBookings.length === 0 ? 'No cancelled bookings' : 'No bookings match the filters'}
               </Typography>
             </Box>
           ) : (
-            cancelledBookings.map(renderBookingCard)
+            filteredCancelledBookings.map(renderBookingCard)
           )}
         </TabPanel>
       </Paper>
