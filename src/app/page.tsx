@@ -339,45 +339,142 @@ export default function Home() {
                     overflow: 'visible'
                   }}
                 >
+                  {/* ===== SPORTS ANIMATION HERO ===== */}
+                  <Box
+                    sx={{
+                      position: 'relative',
+                      width: { xs: '280px', md: '420px', lg: '480px' },
+                      height: { xs: '280px', md: '420px', lg: '480px' },
+                      mx: 'auto',
+                      mb: 3,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {/* Outer pulsing ring */}
+                    {[0, 1, 2].map((i) => (
+                      <Box key={i} sx={{
+                        position: 'absolute',
+                        borderRadius: '50%',
+                        border: `2px solid rgba(255,215,0,${0.5 - i * 0.15})`,
+                        width: `${100 + i * 40}%`,
+                        height: `${100 + i * 40}%`,
+                        animation: `ringExpand 2.4s ease-out ${i * 0.8}s infinite`,
+                      }} />
+                    ))}
+
+                    {/* Starburst background */}
+                    <Box sx={{
+                      position: 'absolute',
+                      width: '100%',
+                      height: '100%',
+                      animation: 'starburstRotate 12s linear infinite',
+                      opacity: 0.15,
+                      background: 'conic-gradient(from 0deg, transparent 0deg, rgba(255,215,0,0.8) 10deg, transparent 20deg, transparent 40deg, rgba(255,107,53,0.8) 50deg, transparent 60deg, transparent 80deg, rgba(255,215,0,0.8) 90deg, transparent 100deg, transparent 120deg, rgba(32,178,170,0.8) 130deg, transparent 140deg, transparent 160deg, rgba(255,215,0,0.8) 170deg, transparent 180deg, transparent 200deg, rgba(255,107,53,0.8) 210deg, transparent 220deg, transparent 240deg, rgba(255,215,0,0.8) 250deg, transparent 260deg, transparent 280deg, rgba(32,178,170,0.8) 290deg, transparent 300deg, transparent 320deg, rgba(255,215,0,0.8) 330deg, transparent 340deg, transparent 360deg)',
+                      borderRadius: '50%',
+                    }} />
+
+                    {/* Orbiting footballs */}
+                    {[
+                      { delay: '0s', size: '38px', emoji: '⚽', animDuration: '3.5s' },
+                      { delay: '-1.17s', size: '30px', emoji: '🏸', animDuration: '3.5s' },
+                      { delay: '-2.33s', size: '32px', emoji: '🏏', animDuration: '3.5s' },
+                    ].map((ball, i) => (
+                      <Box key={i} sx={{
+                        position: 'absolute',
+                        width: '100%',
+                        height: '100%',
+                        animation: `sportOrbit ${ball.animDuration} linear ${ball.delay} infinite`,
+                      }}>
+                        <Box sx={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          fontSize: ball.size,
+                          transform: 'translate(-50%, -50%)',
+                          filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))',
+                          lineHeight: 1,
+                        }}>
+                          {ball.emoji}
+                        </Box>
+                      </Box>
+                    ))}
+
+                    {/* Main kicking football */}
+                    <Box sx={{
+                      position: 'absolute',
+                      fontSize: { xs: '52px', md: '72px' },
+                      animation: 'footballKick 2.8s cubic-bezier(0.4,0,0.2,1) infinite',
+                      filter: 'drop-shadow(0 6px 18px rgba(0,0,0,0.7))',
+                      zIndex: 5,
+                      lineHeight: 1,
+                    }}>
+                      ⚽
+                    </Box>
+
+                    {/* Kick flash effect */}
+                    <Box sx={{
+                      position: 'absolute',
+                      width: '80%',
+                      height: '80%',
+                      borderRadius: '50%',
+                      background: 'radial-gradient(circle, rgba(255,220,0,0.9) 0%, rgba(255,107,53,0.5) 40%, transparent 70%)',
+                      animation: 'kickFlash 2.8s ease-in-out infinite',
+                      zIndex: 4,
+                    }} />
+
+                    {/* Center Logo */}
+                    <Box sx={{
+                      position: 'relative',
+                      zIndex: 10,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: { xs: '130px', md: '180px' },
+                      height: { xs: '130px', md: '180px' },
+                      borderRadius: '50%',
+                      background: 'radial-gradient(circle at 35% 35%, rgba(255,255,255,0.18), rgba(0,0,0,0.6))',
+                      backdropFilter: 'blur(12px)',
+                      border: '3px solid rgba(255,215,0,0.7)',
+                      animation: 'logo3DPulse 4s ease-in-out infinite',
+                      boxShadow: '0 0 40px rgba(255,215,0,0.3), inset 0 0 30px rgba(0,0,0,0.4)',
+                    }}>
+                      <Box
+                        component="img"
+                        src="/sathiyanlogo.png"
+                        alt="Sathiyan Sports"
+                        sx={{
+                          width: { xs: '80px', md: '110px' },
+                          height: { xs: '80px', md: '110px' },
+                          objectFit: 'contain',
+                          animation: 'logoFloat 5s ease-in-out infinite',
+                          filter: 'drop-shadow(0 4px 12px rgba(255,215,0,0.5))',
+                          borderRadius: '50%',
+                        }}
+                      />
+                    </Box>
+                  </Box>
+
+                  {/* Club name with animated reveal */}
                   <Zoom in={true} timeout={1000}>
                     <Typography
                       variant="h2"
-                      className="animated-welcome military-green-3d"
                       sx={{
                         fontWeight: 900,
-                        mb: 3,
-                        fontSize: { xs: '2.2rem', md: '3.8rem', lg: '4.2rem' },
+                        mb: 1,
+                        fontSize: { xs: '1.7rem', md: '2.8rem', lg: '3.2rem' },
                         lineHeight: 1.2,
                         textAlign: 'center',
                         fontFamily: '"Orbitron", "Roboto", "Arial Black", sans-serif',
                         textTransform: 'uppercase',
-                        letterSpacing: '0.08em',
+                        animation: 'sportsTextGlow 3s ease-in-out infinite',
+                        color: '#FFD700',
                         position: 'relative',
-                        maxWidth: '100%',
-                        margin: '0 auto',
-                        width: 'fit-content',
-                        padding: '10px 20px',
-                        display: 'block',
-                        '&::before': {
-                          content: '""',
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          background: 'linear-gradient(45deg, rgba(34, 139, 34, 0.2), rgba(0, 100, 0, 0.15), rgba(85, 107, 47, 0.1))',
-                          borderRadius: '20px',
-                          filter: 'blur(30px)',
-                          zIndex: -1,
-                          animation: 'pulse 3s ease-in-out infinite'
-                        },
-                        '&:hover': {
-                          transform: 'scale(1.03) rotateX(5deg)',
-                          transition: 'transform 0.4s ease'
-                        }
                       }}
                     >
-                      WELCOME TO SATHIYAN MULTISPORT CLUB
+                      SATHIYAN MULTISPORT CLUB
                     </Typography>
                   </Zoom>
                   

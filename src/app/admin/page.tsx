@@ -40,7 +40,7 @@ import {
   IconButton,
   Tooltip,
 } from "@mui/material";
-import { format, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
+import { format, startOfMonth, endOfMonth, isWithinInterval, startOfDay, addDays } from "date-fns";
 import {
   Dashboard,
   Edit,
@@ -359,6 +359,7 @@ export default function AdminDashboard() {
   const [bookingStartDateFilter, setBookingStartDateFilter] = useState('');
   const [bookingEndDateFilter, setBookingEndDateFilter] = useState('');
   const [showBookingAlerts, setShowBookingAlerts] = useState(false);
+  const [bookingDateFilter, setBookingDateFilter] = useState<'today' | 'tomorrow' | 'all'>('today');
   
   // User pagination states
   const [userPage, setUserPage] = useState(0);
@@ -1629,7 +1630,7 @@ export default function AdminDashboard() {
           variant="scrollable"
           scrollButtons="auto"
         >
-          <Tab label="Recent Bookings" />
+          <Tab label="Booking" />
           <Tab label="Users" />
           <Tab label="Slots Stats" />
           <Tab label="Expenses" />
@@ -1646,6 +1647,45 @@ export default function AdminDashboard() {
             </Box>
             
             <Grid container spacing={2} alignItems="center">
+              {/* Date Filter - Today/Tomorrow/All */}
+              <Grid item xs={12} sm={6} md={3}>
+                <FormControl component="fieldset" size="small">
+                  <FormLabel component="legend" sx={{ fontSize: '0.9rem', mb: 1 }}>Date Filter</FormLabel>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    <FormControlLabel
+                      control={
+                        <Radio
+                          checked={bookingDateFilter === 'today'}
+                          onChange={() => setBookingDateFilter('today')}
+                          size="small"
+                        />
+                      }
+                      label="Today"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Radio
+                          checked={bookingDateFilter === 'tomorrow'}
+                          onChange={() => setBookingDateFilter('tomorrow')}
+                          size="small"
+                        />
+                      }
+                      label="Tomorrow"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Radio
+                          checked={bookingDateFilter === 'all'}
+                          onChange={() => setBookingDateFilter('all')}
+                          size="small"
+                        />
+                      }
+                      label="All Bookings"
+                    />
+                  </Box>
+                </FormControl>
+              </Grid>
+
               <Grid item xs={12} sm={6} md={3}>
                 <TextField
                   fullWidth
@@ -1679,7 +1719,7 @@ export default function AdminDashboard() {
                       size="small"
                     />
                   }
-                  label="All Bookings"
+                  label="All Statuses"
                 />
                 <FormControlLabel
                   control={
@@ -1689,7 +1729,7 @@ export default function AdminDashboard() {
                       size="small"
                     />
                   }
-                  label="Pending/Alert Only"
+                  label="Alerts Only"
                 />
               </Grid>
 
@@ -1699,12 +1739,13 @@ export default function AdminDashboard() {
                   size="small"
                   fullWidth
                   onClick={() => {
+                    setBookingDateFilter('today');
                     setBookingStartDateFilter('');
                     setBookingEndDateFilter('');
                     setShowBookingAlerts(false);
                   }}
                 >
-                  Clear Filters
+                  Reset Filters
                 </Button>
               </Grid>
             </Grid>
@@ -1727,9 +1768,19 @@ export default function AdminDashboard() {
               </TableHead>
               <TableBody>
                 {bookings.filter(booking => {
-                  // Filter by date range
+                  const bookingDate = new Date(booking.date);
+                  const today = startOfDay(new Date());
+                  const tomorrow = addDays(today, 1);
+
+                  // Filter by date type
+                  if (bookingDateFilter === 'today') {
+                    if (startOfDay(bookingDate).getTime() !== today.getTime()) return false;
+                  } else if (bookingDateFilter === 'tomorrow') {
+                    if (startOfDay(bookingDate).getTime() !== tomorrow.getTime()) return false;
+                  }
+
+                  // Filter by custom date range
                   if (bookingStartDateFilter || bookingEndDateFilter) {
-                    const bookingDate = new Date(booking.date);
                     if (bookingStartDateFilter) {
                       const startDate = new Date(bookingStartDateFilter);
                       if (bookingDate < startDate) return false;
@@ -1746,7 +1797,12 @@ export default function AdminDashboard() {
                   }
 
                   return true;
-                }).map((booking) => (
+                })
+                .sort((a, b) => {
+                  // Sort by date descending (newest first)
+                  return new Date(b.date).getTime() - new Date(a.date).getTime();
+                })
+                .map((booking) => (
                   <TableRow key={booking._id}>
                     <TableCell>{booking.customerName}</TableCell>
                     <TableCell>{booking.sport}</TableCell>
