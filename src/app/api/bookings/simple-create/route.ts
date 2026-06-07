@@ -4,7 +4,7 @@ import Booking from '@/app/models/Booking';
 import whatsAppCloudService from '@/app/services/WhatsAppCloudService';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/lib/authConfig';
-import { startOfDay, endOfDay } from 'date-fns';
+import { addDaysFromISTDayStart, getISTDayRange, getISTDayStart, getISTTodayStart } from '@/app/lib/istDate';
 
 const CROSS_TURF_SPORTS = ['Cricket', 'Football', 'Functions and Events'];
 
@@ -71,8 +71,7 @@ async function findBlockingConflicts(
 ) {
   if (slots.length === 0) return [];
 
-  const dayStart = startOfDay(date);
-  const dayEnd = endOfDay(date);
+  const { dayStart, dayEnd } = getISTDayRange(date);
 
   const sportFilter = CROSS_TURF_SPORTS.includes(sport)
     ? { $in: CROSS_TURF_SPORTS }
@@ -150,8 +149,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const bookingDate = new Date(date);
-    const todayStart = startOfDay(new Date());
+    const bookingDate = getISTDayStart(date);
+    const todayStart = getISTTodayStart();
 
     // Only admins can create bookings for past dates
     if (!isAdmin && bookingDate < todayStart) {
@@ -176,8 +175,7 @@ export async function POST(request: NextRequest) {
 
     let nextDayDate: Date | undefined;
     if (spansMidnight && nextDaySlots.length > 0) {
-      nextDayDate = new Date(bookingDate);
-      nextDayDate.setDate(nextDayDate.getDate() + 1);
+      nextDayDate = addDaysFromISTDayStart(bookingDate, 1);
 
       const nextDayConflicts = await findBlockingConflicts(sport, nextDayDate, nextDaySlots, court);
       if (nextDayConflicts.length > 0) {
@@ -274,7 +272,8 @@ async function sendWhatsAppNotifications(booking: any) {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      timeZone: 'Asia/Kolkata',
     });
 
     const timeSlot = Array.isArray(booking.timeSlots) ? booking.timeSlots.join(', ') : booking.timeSlots || 'N/A';

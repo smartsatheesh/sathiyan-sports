@@ -40,7 +40,7 @@ import {
   IconButton,
   Tooltip,
 } from "@mui/material";
-import { format, startOfMonth, endOfMonth, isWithinInterval, startOfDay, addDays } from "date-fns";
+import { format, startOfMonth, endOfMonth, isWithinInterval, startOfDay, endOfDay, addDays } from "date-fns";
 import {
   Dashboard,
   Edit,
@@ -1779,14 +1779,14 @@ export default function AdminDashboard() {
                     if (startOfDay(bookingDate).getTime() !== tomorrow.getTime()) return false;
                   }
 
-                  // Filter by custom date range
+                  // Filter by custom date range (inclusive on both start and end)
                   if (bookingStartDateFilter || bookingEndDateFilter) {
                     if (bookingStartDateFilter) {
-                      const startDate = new Date(bookingStartDateFilter);
+                      const startDate = startOfDay(new Date(bookingStartDateFilter));
                       if (bookingDate < startDate) return false;
                     }
                     if (bookingEndDateFilter) {
-                      const endDate = new Date(bookingEndDateFilter);
+                      const endDate = endOfDay(new Date(bookingEndDateFilter));
                       if (bookingDate > endDate) return false;
                     }
                   }

@@ -378,32 +378,59 @@ export default function BookSlot() {
     setSelectedSport(sportName);
     setIsScrollingToDate(true);
     
-    // Immediate scroll attempt for better mobile experience
+    // Wait for state update and DOM re-render (150ms gives React time to update)
     setTimeout(() => {
       if (dateTimeSelectionRef.current) {
         setIsScrollHighlighted(true);
         
-        // Simplified scroll approach - works better across all devices
+        // Method 1: Primary scroll method - scrollIntoView
         try {
           dateTimeSelectionRef.current.scrollIntoView({
             behavior: 'smooth',
-            block: 'center'
+            block: 'start'
           });
         } catch (e) {
           // Fallback for older browsers
           dateTimeSelectionRef.current.scrollIntoView(true);
         }
         
-        // Additional iOS Safari fix
+        // Method 2: Window scroll backup - more reliable on mobile
         setTimeout(() => {
-          if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-            // Force iOS to scroll by updating window position
-            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-            window.scrollTo(0, scrollTop + 1);
-            window.scrollTo(0, scrollTop);
+          const element = dateTimeSelectionRef.current;
+          if (element) {
+            const elementRect = element.getBoundingClientRect();
+            const absoluteElementTop = elementRect.top + window.pageYOffset;
+            const scrollTarget = Math.max(0, absoluteElementTop - 80); // 80px offset from top
+            
+            // Use requestAnimationFrame for smoother mobile scrolling
+            if (window.requestAnimationFrame) {
+              requestAnimationFrame(() => {
+                window.scrollTo({
+                  top: scrollTarget,
+                  behavior: 'smooth'
+                });
+              });
+            } else {
+              window.scrollTo({
+                top: scrollTarget,
+                behavior: 'smooth'
+              });
+            }
+            
+            // iOS Safari specific: force scroll by triggering movement
+            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+              setTimeout(() => {
+                const currentScroll = window.pageYOffset;
+                window.scrollTo(0, currentScroll + 1);
+                setTimeout(() => {
+                  window.scrollTo(0, currentScroll);
+                }, 10);
+              }, 300);
+            }
           }
-        }, 300);
+        }, 150);
         
+        // Remove highlight after animation completes
         setTimeout(() => {
           setIsScrollHighlighted(false);
           setIsScrollingToDate(false);
@@ -411,7 +438,7 @@ export default function BookSlot() {
       } else {
         setIsScrollingToDate(false);
       }
-    }, 100); // Minimal delay for better UX
+    }, 150); // Increased delay to allow React state update
   };
   const [timerActive, setTimerActive] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
@@ -607,7 +634,8 @@ export default function BookSlot() {
         setLoading(true);
         try {
           // Build API URL with court parameter for Shuttle Badminton
-          let apiUrl = `/api/bookings?sport=${encodeURIComponent(selectedSport)}&date=${selectedDate.toISOString()}`;
+          const selectedDateParam = format(selectedDate, 'yyyy-MM-dd');
+          let apiUrl = `/api/bookings?sport=${encodeURIComponent(selectedSport)}&date=${selectedDateParam}`;
           if (selectedSport === "Shuttle Badminton" && selectedCourt) {
             apiUrl += `&court=${selectedCourt}`;
           }
@@ -1154,7 +1182,7 @@ export default function BookSlot() {
 
       const bookingData: any = {
         sport: selectedSport,
-        date: resolvedBookingDate.toISOString(),
+        date: format(resolvedBookingDate, 'yyyy-MM-dd'),
         timeSlots: spansMidnight ? beforeMidnight : selectedTimeSlots,
         totalAmount: totalPrice,
         pricePerSlot,
@@ -1170,7 +1198,7 @@ export default function BookSlot() {
       
       // Add next day slots if booking spans midnight
       if (spansMidnight && afterMidnight.length > 0) {
-        bookingData.nextDayDate = nextDay.toISOString();
+        bookingData.nextDayDate = format(nextDay, 'yyyy-MM-dd');
         bookingData.nextDayTimeSlots = afterMidnight;
       }
 
@@ -2266,7 +2294,27 @@ export default function BookSlot() {
               {selectedSport === "Shuttle Badminton" && selectedCourt && (
                 <Typography variant="body2">Court: {selectedCourt}</Typography>
               )}
-              <Typography variant="body2">Date: {selectedDate ? format(selectedDate, "dd MMM yyyy") : ""}</Typography>
+              {(() => {
+                if (!selectedDate) return null;
+
+                const { spansMidnight, beforeMidnight, afterMidnight } = checkCrossMidnightBooking(selectedTimeSlots);
+                const nextDay = new Date(selectedDate);
+                nextDay.setDate(nextDay.getDate() + 1);
+                const resolvedDate = resolveBookingDateForSelection(selectedDate, selectedTimeSlots);
+
+                if (spansMidnight) {
+                  return (
+                    <>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>Primary Date: {format(nextDay, "dd MMM yyyy")}</Typography>
+                      <Typography variant="body2" color="text.secondary">Primary Slots: {afterMidnight.join(', ') || '-'}</Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 600 }}>Secondary Date: {format(selectedDate, "dd MMM yyyy")}</Typography>
+                      <Typography variant="body2" color="text.secondary">Secondary Slots: {beforeMidnight.join(', ') || '-'}</Typography>
+                    </>
+                  );
+                }
+
+                return <Typography variant="body2">Date: {format(resolvedDate, "dd MMM yyyy")}</Typography>;
+              })()}
               <Typography variant="body2">Time: {selectedTimeSlots.join(", ")}</Typography>
               {selectedSport === "Functions and Events" && (
                 <>

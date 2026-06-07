@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToMongoose } from "@/app/server/mongodb";
 import Booking from "../../models/Booking";
 import User from "../../models/User";
-import { format, startOfDay, endOfDay } from "date-fns";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/lib/authConfig";
+import { getISTDayRange, getISTDayStart, getISTTodayStart } from "@/app/lib/istDate";
 // COMMENTED OUT: Notification services (Twilio/Firebase)
 // import { NotificationService } from "../../services/notificationService";
 
@@ -67,8 +67,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if any of the selected time slots are already booked
-    const bookingDate = new Date(date);
-    const todayStart = startOfDay(new Date());
+    const { dayStart: bookingDayStart, dayEnd: bookingDayEnd } = getISTDayRange(date);
+    const bookingDate = bookingDayStart;
+    const todayStart = getISTTodayStart();
 
     // Only admins can create bookings for past dates
     if (!isAdmin && bookingDate < todayStart) {
@@ -87,15 +88,15 @@ export async function POST(req: NextRequest) {
       $or: [
         {
           date: {
-            $gte: startOfDay(bookingDate),
-            $lte: endOfDay(bookingDate),
+            $gte: bookingDayStart,
+            $lte: bookingDayEnd,
           },
           timeSlots: { $in: timeSlots },
         },
         {
           nextDayDate: {
-            $gte: startOfDay(bookingDate),
-            $lte: endOfDay(bookingDate),
+            $gte: bookingDayStart,
+            $lte: bookingDayEnd,
           },
           nextDayTimeSlots: { $in: timeSlots },
         },
@@ -188,22 +189,22 @@ export async function POST(req: NextRequest) {
 
     // Check for conflicts on next day if cross-midnight booking
     if (nextDayDate && nextDayTimeSlots && nextDayTimeSlots.length > 0) {
-      const nextDay = new Date(nextDayDate);
+      const { dayStart: nextDayStart, dayEnd: nextDayEnd } = getISTDayRange(nextDayDate);
       
       let nextDayConflictQuery: any = {
         bookingStatus: "confirmed",
         $or: [
           {
             date: {
-              $gte: startOfDay(nextDay),
-              $lte: endOfDay(nextDay),
+              $gte: nextDayStart,
+              $lte: nextDayEnd,
             },
             timeSlots: { $in: nextDayTimeSlots },
           },
           {
             nextDayDate: {
-              $gte: startOfDay(nextDay),
-              $lte: endOfDay(nextDay),
+              $gte: nextDayStart,
+              $lte: nextDayEnd,
             },
             nextDayTimeSlots: { $in: nextDayTimeSlots },
           },
@@ -335,11 +336,11 @@ export async function POST(req: NextRequest) {
     // For cross-day bookings, lock the booking to latest day while keeping earlier-day slots in secondary fields.
     let primaryDate = bookingDate;
     let primaryTimeSlots = timeSlots;
-    let secondaryDate = nextDayDate ? new Date(nextDayDate) : undefined;
+    let secondaryDate = nextDayDate ? getISTDayStart(nextDayDate) : undefined;
     let secondaryTimeSlots = nextDayTimeSlots;
 
     if (nextDayDate && nextDayTimeSlots && nextDayTimeSlots.length > 0) {
-      primaryDate = new Date(nextDayDate);
+      primaryDate = getISTDayStart(nextDayDate);
       primaryTimeSlots = nextDayTimeSlots;
       secondaryDate = bookingDate;
       secondaryTimeSlots = timeSlots;
@@ -395,7 +396,12 @@ export async function POST(req: NextRequest) {
       const bookingDetails = {
         bookingId: booking._id.toString(),
         sport,
-        date: format(bookingDate, 'dd MMM yyyy'),
+        date: new Intl.DateTimeFormat('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          timeZone: 'Asia/Kolkata',
+        }).format(bookingDate),
         timeSlots,
         totalAmount,
       };
@@ -442,14 +448,12 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const queryDate = new Date(date);
+    const { dayStart, dayEnd } = getISTDayRange(date);
+    const queryDate = dayStart;
     
     // Define cross-turf sports (Cricket, Football, and Functions&Events share same turf)
     const crossTurfSports = ["Cricket", "Football", "Functions and Events"];
     
-    const dayStart = startOfDay(queryDate);
-    const dayEnd = endOfDay(queryDate);
-
     // Build query for finding bookings
     let bookingQuery: any = {
       bookingStatus: "confirmed", // Only show confirmed bookings as booked
