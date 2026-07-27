@@ -88,16 +88,16 @@ const sportsData = [
   {
     name: "Cricket",
     icon: () => <SportsCricket sx={{ fontSize: 40, color: "#4caf50" }} />,
-    price: "₹1000/hr",
-    weekendPrice: "Coaching: ₹1500",
+    price: "₹1000 / 2 hrs",
+    weekendPrice: "Weekend: ₹800 / hr",
     features: ["Professional Pitch", "Equipment Available", "Changing Rooms"],
     description: "Experience cricket at its finest with our professional-grade facilities"
   },
   {
     name: "Football",
     icon: () => <SportsSoccer sx={{ fontSize: 40, color: "#2196f3" }} />,
-    price: "₹1000/hr",
-    weekendPrice: "Coaching: ₹1500",
+    price: "₹1000 / 2 hrs",
+    weekendPrice: "Weekend: ₹800 / hr",
     features: ["FIFA Standard Turf", "Floodlights", "Goal Posts"],
     description: "Play football on our world-class turf with professional amenities"
   },
@@ -221,8 +221,7 @@ export default function Home() {
               sx={{
                 width: "100vw",
                 position: "relative",
-                pt: { xs: '72px', md: '88px' },
-                minHeight: { xs: 'calc(100vh - 72px)', md: 'calc(100vh - 88px)' },
+                minHeight: '100vh',
               }}
             >
               <Box sx={{ 
@@ -269,6 +268,7 @@ export default function Home() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     padding: { xs: '20px', md: '40px' },
+                    pt: { xs: '92px', md: '112px' },
                     py: { xs: 4, md: 6 },
                     mx: 'auto',
                     overflow: 'visible'
@@ -585,7 +585,7 @@ export default function Home() {
                               animation: 'pulse 1.5s ease-in-out infinite'
                             }}
                           >
-                            30% OFF
+                            20% OFF
                           </Box>
 
                           <SportsCricket sx={{ fontSize: 40, color: '#FFFFFF', mb: 1, mt: 1 }} />
@@ -594,10 +594,10 @@ export default function Home() {
                           </Typography>
                           <Box sx={{ mb: 1, textAlign: 'center' }}>
                             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', textDecoration: 'line-through', mb: 0.5, display: 'block' }}>
-                              Regular: ₹1000
+                              Weekday (2 hrs): ₹1000
                             </Typography>
                             <Typography variant="h5" sx={{ color: '#FFD700', fontWeight: 'bold' }}>
-                              ₹700
+                              ₹800/hr
                             </Typography>
                           </Box>
                           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.7rem' }}>
@@ -657,7 +657,7 @@ export default function Home() {
                               animation: 'pulse 1.5s ease-in-out infinite'
                             }}
                           >
-                            30% OFF
+                            20% OFF
                           </Box>
 
                           <SportsSoccer sx={{ fontSize: 40, color: '#FFFFFF', mb: 1, mt: 1 }} />
@@ -666,10 +666,10 @@ export default function Home() {
                           </Typography>
                           <Box sx={{ mb: 1, textAlign: 'center' }}>
                             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', textDecoration: 'line-through', mb: 0.5, display: 'block' }}>
-                              Regular: ₹1000
+                              Weekday (2 hrs): ₹1000
                             </Typography>
                             <Typography variant="h5" sx={{ color: '#FFD700', fontWeight: 'bold' }}>
-                              ₹700
+                              ₹800/hr
                             </Typography>
                           </Box>
                           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.7rem' }}>

@@ -71,22 +71,22 @@ const sports: Array<{
   {
     id: 1,
     name: "Cricket",
-    basePrice: 200,
-    weekendPrice: 350,
+    basePrice: 250,
+    weekendPrice: 400,
     icon: "🏏",
     color: "#4caf50",
     description: "Professional cricket ground with all facilities",
-    features: ["Full-size pitch", "Changing rooms", "🏏 Ball extra (₹80)"]
+    features: ["Full-size pitch", "Changing rooms", "🏏 Ball extra optional (₹80)"]
   },
   {
     id: 2,
     name: "Football",
-    basePrice: 200,
-    weekendPrice: 350,
+    basePrice: 250,
+    weekendPrice: 400,
     icon: "⚽",
     color: "#2196f3",
     description: "FIFA standard football turf",
-    features: ["Professional turf", "Floodlights", "⚽ Ball extra (₹80)"]
+    features: ["Professional turf", "Floodlights", "⚽ Ball extra optional (₹80)"]
   },
   {
     id: 3,
@@ -366,6 +366,15 @@ export default function BookSlot() {
   const [upiTransactionId, setUpiTransactionId] = useState('');
   const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
   const [paymentTimer, setPaymentTimer] = useState(300); // 5 minutes
+  const [whatsAppShare, setWhatsAppShare] = useState<{
+    open: boolean;
+    message: string;
+    url: string;
+  }>({
+    open: false,
+    message: '',
+    url: ''
+  });
 
   // Ref for date-time selection area to enable auto-scroll
   const dateTimeSelectionRef = useRef<HTMLDivElement>(null);
@@ -1186,7 +1195,7 @@ export default function BookSlot() {
   };
 
   // Handle payment completion from SimplePaymentDialog
-  const handlePaymentComplete = async (transactionId: string, paymentMethod: string) => {
+  const handlePaymentComplete = async (transactionId: string, paymentMethod: string, paidAmount?: number) => {
     if (!currentBookingData) return;
 
     try {
@@ -1206,9 +1215,28 @@ export default function BookSlot() {
       const result = await response.json();
 
       if (result.success) {
+        const bookingDateText = currentBookingData.date
+          ? format(new Date(currentBookingData.date), 'd MMM yyyy (EEEE)')
+          : 'N/A';
+        const timeText = currentBookingData.timeSlot || (Array.isArray(currentBookingData.timeSlots) ? currentBookingData.timeSlots.join(', ') : 'N/A');
+        const slotText = currentBookingData.court
+          ? `${currentBookingData.sport} (${currentBookingData.court})`
+          : `${currentBookingData.sport}${currentBookingData.sport === 'Cricket' || currentBookingData.sport === 'Football' ? ' (Full Ground)' : ''}`;
+        const totalAmount = Number(currentBookingData.totalPrice || totalPrice || 0);
+        const confirmedPaidAmount = Number.isFinite(Number(paidAmount)) ? Number(paidAmount) : 0;
+        const pendingAmount = Math.max(totalAmount - confirmedPaidAmount, 0);
+
+        const bookingMessage = `Dear ${customerInfo.name || 'Customer'},\n\nYour booking has been confirmed.\n\n*Booking Details*\n\n• Booking ID: *${result.booking.bookingReference}*\n• Venue: *Sathiyan Multisport Sport Club*\n• Slot: *${slotText}*\n• Date: *${bookingDateText}*\n• Time: *${timeText}*\n\n*Payment Summary*\n\n• Slot Amount: *₹${totalAmount}*\n• Discount: *₹0*\n\n• Final Amount: *₹${totalAmount}*\n• Paid Amount: *₹${confirmedPaidAmount}*\n• Pending Amount: *₹${pendingAmount}*\n\nThank you for booking with us!\nWe look forward to seeing you!\n\nFor more information visit\nwww.sathiyansports.fit\n\nBest regards,\nSathiyan Multisport Sport Club`;
+
+        setWhatsAppShare({
+          open: true,
+          message: bookingMessage,
+          url: `https://wa.me/?text=${encodeURIComponent(bookingMessage)}`
+        });
+
         setAlert({ 
           type: 'success', 
-          message: `✅ Booking confirmed! Ref: ${result.booking.bookingReference}. Pay now or settle later.` 
+          message: `✅ Booking confirmed! Ref: ${result.booking.bookingReference}. Use WhatsApp share below.` 
         });
         
         // Reset form
@@ -1870,13 +1898,14 @@ export default function BookSlot() {
                       {(sport.name === "Cricket" || sport.name === "Football") ? (
                         <>
                           <div className="sport-pricing">
-                            <span className="price-label">Weekend (Fri-Sun):</span>
-                            <span className="price-amount" style={{ color: '#e65100', fontWeight: 'bold' }}>₹700/hr</span>
-                            <span style={{ marginLeft: '6px', color: '#888', fontSize: '12px' }}>(₹350 per 30 min)</span>
+                            <span className="price-label">Weekday:</span>
+                            <span className="price-amount" style={{ color: '#4caf50', fontWeight: 'bold' }}>₹1000 / 2 hrs</span>
+                            <span style={{ marginLeft: '6px', color: '#888', fontSize: '12px' }}>(₹250 per 30 min)</span>
                           </div>
                           <div className="sport-pricing">
-                            <span className="price-label">Weekday:</span>
-                            <span className="price-amount" style={{ color: '#4caf50', fontWeight: 'bold' }}>₹800 / 2 hrs</span>
+                            <span className="price-label">Weekend (Fri-Sun):</span>
+                            <span className="price-amount" style={{ color: '#e65100', fontWeight: 'bold' }}>₹800 / hr</span>
+                            <span style={{ marginLeft: '6px', color: '#888', fontSize: '12px' }}>(₹400 per 30 min)</span>
                           </div>
                           <div style={{
                             marginTop: '10px',
@@ -1888,7 +1917,7 @@ export default function BookSlot() {
                             color: '#e65100',
                             fontWeight: 600
                           }}>
-                            🏐 Ball extra • ₹80 per ball • Min 1 hr booking
+                            🏐 Ball extra optional • ₹80 per ball
                           </div>
                         </>
                       ) : (
@@ -2406,7 +2435,7 @@ export default function BookSlot() {
               {/* Ball extras for Cricket & Football */}
               {isBallSport(selectedSport) && (
                 <Box sx={{ mt: 1.5, p: 1.5, bgcolor: '#fff8e1', borderRadius: 1, border: '1px solid #ffb300' }}>
-                  <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>🏐 Add Ball (₹80 each)</Typography>
+                  <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>🏐 Add Ball (Optional, ₹80 each)</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <Button size="small" variant="outlined" onClick={() => setBallCount(c => Math.max(0, c - 1))} sx={{ minWidth: 32, px: 0 }}>−</Button>
                     <Typography variant="body1" fontWeight="bold">{ballCount}</Typography>
@@ -2543,6 +2572,44 @@ export default function BookSlot() {
               </>
             )}
           </Box>
+        </DialogActions>
+      </Dialog>
+
+      {/* Post-booking WhatsApp share dialog */}
+      <Dialog
+        open={whatsAppShare.open}
+        onClose={() => setWhatsAppShare(prev => ({ ...prev, open: false }))}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Booking Confirmed - Share on WhatsApp</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 1.5, color: 'text.secondary' }}>
+            Copy this message and send it to your mobile WhatsApp.
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            minRows={10}
+            value={whatsAppShare.message}
+            InputProps={{ readOnly: true }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setWhatsAppShare(prev => ({ ...prev, open: false }))}>Close</Button>
+          <Button
+            variant="outlined"
+            startIcon={<ContentCopy />}
+            onClick={() => copyToClipboard(whatsAppShare.message, 'WhatsApp message copied')}
+          >
+            Copy Message
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => window.open(whatsAppShare.url, '_blank')}
+          >
+            Open WhatsApp
+          </Button>
         </DialogActions>
       </Dialog>
 

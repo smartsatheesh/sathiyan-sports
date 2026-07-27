@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Transaction submitted for verification successfully!',
       verificationId: paymentReference,
+      paidAmount: Number(amount),
       status: 'pending_verification',
       instructions: [
         'Your transaction has been submitted for manual verification',

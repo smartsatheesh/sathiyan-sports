@@ -95,7 +95,7 @@ const AnimatedSportsBackground: React.FC = () => {
         bottom: 0,
         overflow: 'hidden',
         pointerEvents: 'none',
-        zIndex: 2,
+        zIndex: 0,
       }}
     >
       {elements.map((element) => (
@@ -111,7 +111,7 @@ const AnimatedSportsBackground: React.FC = () => {
             transform: 'translate(-50%, -50%)',
             filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
             // Make elements semi-transparent
-            opacity: 0.6,
+            opacity: 0.25,
             // Add subtle glow effect
             textShadow: '0 0 10px rgba(255,255,255,0.3)',
             // Ensure they don't interfere with text readability

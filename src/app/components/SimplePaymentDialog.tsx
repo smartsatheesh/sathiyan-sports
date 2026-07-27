@@ -35,7 +35,7 @@ interface SimplePaymentDialogProps {
   amount: number;
   customerInfo: any;
   bookingReference: string;
-  onPaymentComplete: (transactionId: string, paymentMethod: string) => void;
+  onPaymentComplete: (transactionId: string, paymentMethod: string, paidAmount?: number) => void;
 }
 
 export default function SimplePaymentDialog({
@@ -145,7 +145,8 @@ export default function SimplePaymentDialog({
         setStep(2);
         // Call the parent callback to proceed with booking
         setTimeout(() => {
-          onPaymentComplete(transactionId, paymentMethod!);
+          const verifiedPaidAmount = Number(result.paidAmount ?? amount);
+          onPaymentComplete(transactionId, paymentMethod!, Number.isFinite(verifiedPaidAmount) ? verifiedPaidAmount : amount);
         }, 2000);
       } else {
         alert('Failed to submit transaction: ' + result.message);
