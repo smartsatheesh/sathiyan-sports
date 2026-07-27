@@ -176,28 +176,51 @@ class WhatsAppCloudService {
       time: string;
       amount: number;
       customerName: string;
+      venue?: string;
+      slotAmount?: number;
+      discountAmount?: number;
+      finalAmount?: number;
+      paidAmount?: number;
+      pendingAmount?: number;
     }
   ): Promise<boolean> {
     try {
-      const message = `🏸 *Booking Confirmed - Sathiyan Sports*
+      const slotAmount = bookingDetails.slotAmount ?? bookingDetails.amount;
+      const discountAmount = bookingDetails.discountAmount ?? 0;
+      const finalAmount = bookingDetails.finalAmount ?? bookingDetails.amount;
+      const paidAmount = bookingDetails.paidAmount ?? bookingDetails.amount;
+      const pendingAmount = bookingDetails.pendingAmount ?? Math.max(finalAmount - paidAmount, 0);
+      const venueName = bookingDetails.venue || 'Sathiyan Multisport Sport Club';
 
-Hi ${bookingDetails.customerName}! 👋
+      const message = `Dear ${bookingDetails.customerName},
 
-✅ *Booking Reference:* ${bookingDetails.bookingReference}
-🏟️ *Court:* ${bookingDetails.courtName}
-📅 *Date:* ${bookingDetails.date}
-⏰ *Time:* ${bookingDetails.time}
-💰 *Amount:* ₹${bookingDetails.amount}
+Your booking has been confirmed.
 
-💳 *Pay Now via WhatsApp:*
-https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_PAYMENT_NUMBER}?text=Hi!%20I%20want%20to%20make%20a%20payment%20of%20₹${bookingDetails.amount}%20for%20booking%20${bookingDetails.bookingReference}.%20Customer:%20${encodeURIComponent(bookingDetails.customerName)}
+*Booking Details*
 
-📋 *Payment via UPI:*
-UPI ID: ${process.env.NEXT_PUBLIC_GPAY_UPI_ID}
+• Booking ID: *${bookingDetails.bookingReference}*
+• Venue: *${venueName}*
+• Slot: *${bookingDetails.courtName}*
+• Date: *${bookingDetails.date}*
+• Time: *${bookingDetails.time}*
 
-Please complete payment within 24 hours to confirm your slot.
+*Payment Summary*
 
-Thank you for choosing Sathiyan Sports! 🙏`;
+• Slot Amount: *₹${slotAmount}*
+• Discount: *₹${discountAmount}*
+
+• Final Amount: *₹${finalAmount}*
+• Paid Amount: *₹${paidAmount}*
+• Pending Amount: *₹${pendingAmount}*
+
+Thank you for booking with us!
+We look forward to seeing you!
+
+For more information visit
+www.sathiyansports.fit
+
+Best regards,
+Sathiyan Multisport Sport Club`;
 
       const result = await this.sendOTPText(phoneNumber, message);
       return result.success;

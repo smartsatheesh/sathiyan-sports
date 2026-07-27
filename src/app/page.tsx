@@ -41,7 +41,6 @@ import TestimonialsSection from "./components/TestimonialsSection";
 import FeaturesSection from "./components/FeaturesSection";
 import StaticHeroBackground from "./components/StaticHeroBackground";
 import AnimatedSportsBackground from "./components/AnimatedSportsBackground";
-import ScrollSportsBackground from "./components/ScrollSportsBackground";
 
 const Carousel = dynamic(() => import("./components/Slider"), { ssr: false });
 const ThreeJSSportsScene = dynamic(() => import("./components/ThreeJSSportsScene"), { 
@@ -141,43 +140,7 @@ export default function Home() {
   });
   const [currentTaglineIndex, setCurrentTaglineIndex] = useState(0);
   const [showTagline, setShowTagline] = useState(true);
-  const carouselRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
-
-  // Intersection Observer Hook for scroll animations
-  const useIntersectionObserver = (options = {}) => {
-    const [isIntersecting, setIsIntersecting] = useState(false);
-    const [hasIntersected, setHasIntersected] = useState(false);
-    const ref = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-      const element = ref.current;
-      if (!element) return;
-
-      const observer = new IntersectionObserver(([entry]) => {
-        setIsIntersecting(entry.isIntersecting);
-        if (entry.isIntersecting) {
-          setHasIntersected(true);
-        }
-      }, {
-        threshold: 0.1,
-        rootMargin: '50px 0px -50px 0px',
-        ...options
-      });
-
-      observer.observe(element);
-      return () => observer.unobserve(element);
-    }, []);
-
-    return { ref, isIntersecting, hasIntersected };
-  };
-
-  // Sports facilities section visibility
-  const sportsFacilitiesSection = useIntersectionObserver();
-  const [visibleCards, setVisibleCards] = useState<number[]>([]);
-  
-  // Explore facilities section visibility
-  const exploreFacilitiesSection = useIntersectionObserver();
 
   // Fetch dynamic stats with timeout
   useEffect(() => {
@@ -234,50 +197,17 @@ export default function Home() {
     };
   }, []);
 
-  // Intersection Observer for carousel 3D
+  // Keep facilities section static while preserving deferred 3D carousel loading.
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setShouldLoadCarousel3D(true);
-            observer.disconnect(); // Stop observing once loaded
-          }
-        });
-      },
-      {
-        threshold: 0.1, // Load when 10% of the element is visible
-        rootMargin: '100px', // Start loading 100px before it comes into view
-      }
-    );
+    const timer = setTimeout(() => {
+      setShouldLoadCarousel3D(true);
+    }, 300);
 
-    if (exploreFacilitiesSection.ref.current) {
-      observer.observe(exploreFacilitiesSection.ref.current);
-    }
-
-    return () => observer.disconnect();
+    return () => clearTimeout(timer);
   }, []);
-
-  // Handle staggered card animations when sports section comes into view
-  useEffect(() => {
-    if (sportsFacilitiesSection.isIntersecting && visibleCards.length === 0) {
-      // Stagger the card animations
-      sportsData.forEach((_, index) => {
-        setTimeout(() => {
-          setVisibleCards(prev => [...prev, index]);
-        }, index * 150); // 150ms delay between each card
-      });
-    } else if (!sportsFacilitiesSection.isIntersecting && sportsFacilitiesSection.hasIntersected) {
-      // Reset animations when scrolling away (optional - you can remove this if you want them to stay visible)
-      setVisibleCards([]);
-    }
-  }, [sportsFacilitiesSection.isIntersecting, sportsFacilitiesSection.hasIntersected, visibleCards.length]);
 
   return (
     <>
-      {/* Scroll-triggered sports background */}
-      <ScrollSportsBackground />
-      
       <Box
         sx={{
           minHeight: "100vh",
@@ -287,13 +217,20 @@ export default function Home() {
         {/* Home Section - Full Screen 3D Hero + Original Content */}
         <Box>
             {/* Full Screen 3D Hero Section */}
-            <Box sx={{ height: { xs: 'auto', md: '100vh' }, minHeight: { xs: '100vh', md: '100vh' }, width: "100vw", position: "relative" }}>
+            <Box
+              sx={{
+                width: "100vw",
+                position: "relative",
+                pt: { xs: '72px', md: '88px' },
+                minHeight: { xs: 'calc(100vh - 72px)', md: 'calc(100vh - 88px)' },
+              }}
+            >
               <Box sx={{ 
                 height: "100%",
                 width: "100%",
                 background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)}, ${alpha(theme.palette.secondary.main, 0.05)})`,
                 position: 'relative',
-                overflow: { xs: 'visible', md: 'hidden' }
+                overflow: 'visible'
               }}>
                 {/* Static background loads immediately */}
                 <StaticHeroBackground />
@@ -322,10 +259,7 @@ export default function Home() {
                 {/* Minimal overlay for branding */}
                 <Box
                   sx={{
-                    position: { xs: 'relative', md: 'absolute' },
-                    top: { xs: 'auto', md: '50%' },
-                    left: { xs: 'auto', md: '50%' },
-                    transform: { xs: 'none', md: 'translate(-50%, -50%)' },
+                    position: 'relative',
                     zIndex: 10,
                     textAlign: 'center',
                     width: { xs: '100%', md: '90%' },
@@ -335,7 +269,8 @@ export default function Home() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     padding: { xs: '20px', md: '40px' },
-                    py: { xs: 6, md: '40px' },
+                    py: { xs: 4, md: 6 },
+                    mx: 'auto',
                     overflow: 'visible'
                   }}
                 >
@@ -499,7 +434,7 @@ export default function Home() {
                   </Box>
 
                   {/* SPECIAL OFFERS SECTION - Inside Hero */}
-                  <Box sx={{ width: '100%', maxWidth: '1200px', mx: 'auto', mb: 4, mt: 4, zIndex: 5 }}>
+                  <Box sx={{ width: '100%', maxWidth: '1200px', mx: 'auto', mb: 8, mt: 4, zIndex: 5 }}>
                     <Typography
                       variant="h4"
                       textAlign="center"
@@ -803,73 +738,80 @@ export default function Home() {
                       Book Now
                     </Button>
                   </Stack>
-                </Box>
 
-
-
-                {/* Bottom overlay with quick stats */}
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    bottom: 32,
-                    left: 32,
-                    right: 32,
-                    background: `linear-gradient(90deg, ${alpha('#000000', 0.6)}, ${alpha('#000000', 0.3)})`,
-                    borderRadius: 3,
-                    p: 3,
-                    backdropFilter: 'blur(15px)',
-                    border: `1px solid ${alpha('#ffffff', 0.2)}`
-                  }}
-                >
-                  <Grid container spacing={3}>
-                    {statsData.map((stat, index) => (
-                      <Grid item xs={6} sm={3} key={index}>
-                        <Zoom in={true} timeout={1000 + (index * 200)}>
-                          <Box sx={{ 
-                            textAlign: 'center', 
-                            color: 'white',
-                            '&:hover': {
-                              transform: 'scale(1.05)',
-                              transition: 'transform 0.3s ease'
-                            }
-                          }}>
-                            <Box sx={{ 
-                              color: theme.palette.primary.light, 
-                              mb: 1,
-                              fontSize: '2rem',
-                              animation: 'pulse 2s infinite'
-                            }}>
-                              {stat.icon}
-                            </Box>
-                            <Typography 
-                              variant="h5" 
-                              fontWeight="bold"
+                  {/* Quick stats in content flow to avoid overlap with decorative layers */}
+                  <Box
+                    sx={{
+                      mt: { xs: 4, md: 5 },
+                      mx: 'auto',
+                      width: '100%',
+                      maxWidth: '1200px',
+                      background: `linear-gradient(90deg, ${alpha('#000000', 0.6)}, ${alpha('#000000', 0.35)})`,
+                      borderRadius: 3,
+                      p: { xs: 2, md: 3 },
+                      backdropFilter: 'blur(15px)',
+                      border: `1px solid ${alpha('#ffffff', 0.2)}`,
+                      position: 'relative',
+                      zIndex: 12,
+                    }}
+                  >
+                    <Grid container spacing={3}>
+                      {statsData.map((stat, index) => (
+                        <Grid item xs={6} sm={3} key={index}>
+                          <Zoom in={true} timeout={1000 + (index * 200)}>
+                            <Box
                               sx={{
-                                background: `linear-gradient(45deg, ${theme.palette.primary.light}, ${theme.palette.secondary.light})`,
-                                backgroundClip: 'text',
-                                WebkitBackgroundClip: 'text',
-                                WebkitTextFillColor: 'transparent',
-                                textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                                fontSize: { xs: '1.2rem', md: '1.5rem' }
+                                textAlign: 'center',
+                                color: 'white',
+                                '&:hover': {
+                                  transform: 'scale(1.05)',
+                                  transition: 'transform 0.3s ease'
+                                }
                               }}
                             >
-                              {stat.number}
-                            </Typography>
-                            <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 500 }}>
-                              {stat.label}
-                            </Typography>
-                          </Box>
-                        </Zoom>
-                      </Grid>
-                    ))}
-                  </Grid>
+                              <Box
+                                sx={{
+                                  color: theme.palette.primary.light,
+                                  mb: 1,
+                                  fontSize: '2rem',
+                                  animation: 'pulse 2s infinite'
+                                }}
+                              >
+                                {stat.icon}
+                              </Box>
+                              <Typography
+                                variant="h5"
+                                fontWeight="bold"
+                                sx={{
+                                  background: `linear-gradient(45deg, ${theme.palette.primary.light}, ${theme.palette.secondary.light})`,
+                                  backgroundClip: 'text',
+                                  WebkitBackgroundClip: 'text',
+                                  WebkitTextFillColor: 'transparent',
+                                  textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                                  fontSize: { xs: '1.2rem', md: '1.5rem' }
+                                }}
+                              >
+                                {stat.number}
+                              </Typography>
+                              <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 500 }}>
+                                {stat.label}
+                              </Typography>
+                            </Box>
+                          </Zoom>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Box>
                 </Box>
+
+
+
               </Box>
             </Box>
 
             {/* Image Carousel Section - Moved after 3D animation */}
-            <Container maxWidth="lg" sx={{ py: 8 }} ref={exploreFacilitiesSection.ref}>
-              <Zoom in={exploreFacilitiesSection.hasIntersected} timeout={600}>
+            <Container maxWidth="lg" sx={{ py: 8 }}>
+              <Zoom in={true} timeout={600}>
                 <Typography
                   variant="h3"
                   textAlign="center"
@@ -877,15 +819,15 @@ export default function Home() {
                     mb: 6,
                     fontWeight: 700,
                     color: theme.palette.primary.main,
-                    transform: exploreFacilitiesSection.hasIntersected ? 'translateY(0)' : 'translateY(30px)',
-                    opacity: exploreFacilitiesSection.hasIntersected ? 1 : 0,
+                    transform: 'translateY(0)',
+                    opacity: 1,
                     transition: 'all 0.6s ease-out'
                   }}
                 >
                   Explore Our Facilities
                 </Typography>
               </Zoom>
-              <Fade in={exploreFacilitiesSection.hasIntersected} timeout={800} style={{ transitionDelay: '300ms' }}>
+              <Fade in={true} timeout={800}>
                 <Paper
                   elevation={8}
                   sx={{
@@ -893,9 +835,9 @@ export default function Home() {
                     overflow: 'hidden',
                     boxShadow: theme.shadows[12],
                     position: 'relative',
-                    transform: exploreFacilitiesSection.hasIntersected ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.95)',
-                    opacity: exploreFacilitiesSection.hasIntersected ? 1 : 0,
-                    transition: 'all 0.8s ease-out 0.3s'
+                    transform: 'translateY(0) scale(1)',
+                    opacity: 1,
+                    transition: 'all 0.3s ease-out'
                   }}
                 >
                 {shouldLoadCarousel3D && <CarouselBackground3D />}
@@ -905,8 +847,8 @@ export default function Home() {
             </Container>
 
             {/* Sports Cards Section */}
-            <Container maxWidth="lg" sx={{ py: 8 }} ref={sportsFacilitiesSection.ref}>
-              <Zoom in={sportsFacilitiesSection.hasIntersected} timeout={600}>
+            <Container maxWidth="lg" sx={{ py: 8 }}>
+              <Zoom in={true} timeout={600}>
                 <Typography
                   variant="h3"
                   textAlign="center"
@@ -914,8 +856,8 @@ export default function Home() {
                     mb: 6,
                     fontWeight: 700,
                     color: theme.palette.primary.main,
-                    transform: sportsFacilitiesSection.hasIntersected ? 'translateY(0)' : 'translateY(30px)',
-                    opacity: sportsFacilitiesSection.hasIntersected ? 1 : 0,
+                    transform: 'translateY(0)',
+                    opacity: 1,
                     transition: 'all 0.6s ease-out'
                   }}
                 >
@@ -926,21 +868,14 @@ export default function Home() {
               <Grid container spacing={4}>
                 {sportsData.map((sport, index) => (
                   <Grid item xs={12} sm={6} md={3} key={index}>
-                    <Slide 
-                      in={visibleCards.includes(index)} 
-                      direction="up" 
-                      timeout={600}
-                      style={{
-                        transitionDelay: visibleCards.includes(index) ? `${index * 100}ms` : '0ms'
-                      }}
-                    >
+                    <Slide in={true} direction="up" timeout={600}>
                       <Card
                         sx={{
                           height: '100%',
                           transition: 'all 0.3s ease',
                           cursor: 'pointer',
-                          transform: visibleCards.includes(index) ? 'translateY(0) scale(1)' : 'translateY(50px) scale(0.9)',
-                          opacity: visibleCards.includes(index) ? 1 : 0,
+                          transform: 'translateY(0) scale(1)',
+                          opacity: 1,
                           '&:hover': {
                             transform: 'translateY(-12px) scale(1.02)',
                             boxShadow: `0 15px 35px ${alpha(theme.palette.primary.main, 0.3)}`,
@@ -962,7 +897,7 @@ export default function Home() {
                             right: 0,
                             height: '4px',
                             background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                            opacity: visibleCards.includes(index) ? 1 : 0,
+                            opacity: 1,
                             transition: 'opacity 0.6s ease'
                           },
                           '&::after': {
@@ -973,7 +908,7 @@ export default function Home() {
                             right: 0,
                             bottom: 0,
                             background: `radial-gradient(circle at center, ${alpha(theme.palette.primary.main, 0.05)}, transparent 70%)`,
-                            opacity: visibleCards.includes(index) ? 1 : 0,
+                            opacity: 1,
                             transition: 'opacity 1s ease 0.3s',
                             pointerEvents: 'none'
                           }
@@ -1020,19 +955,16 @@ export default function Home() {
                           <Stack spacing={0.5}>
                             {sport.features.map((feature, idx) => (
                               <Fade 
-                                in={visibleCards.includes(index)} 
+                                in={true}
                                 timeout={800 + (idx * 150)}
-                                style={{
-                                  transitionDelay: visibleCards.includes(index) ? `${(index * 100) + (idx * 100)}ms` : '0ms'
-                                }}
                                 key={idx}
                               >
                                 <Box sx={{ 
                                   display: 'flex', 
                                   alignItems: 'center', 
                                   justifyContent: 'center',
-                                  transform: visibleCards.includes(index) ? 'translateX(0)' : 'translateX(-20px)',
-                                  transition: `all 0.4s ease ${(index * 100) + (idx * 100)}ms`
+                                  transform: 'translateX(0)',
+                                  transition: 'all 0.3s ease'
                                 }}>
                                   <CheckCircle sx={{ fontSize: 16, color: 'success.main', mr: 1 }} />
                                   <Typography variant="caption" sx={{ fontWeight: 500 }}>{feature}</Typography>

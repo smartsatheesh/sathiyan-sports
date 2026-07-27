@@ -25,6 +25,13 @@ function expandStoredSlots(timeSlots: string[] = []): string[] {
   )];
 }
 
+function isEarlyMorningSlot(slot: string): boolean {
+  const [startTime = ''] = String(slot || '').split(' - ');
+  const [hoursStr = '0'] = startTime.split(':');
+  const hours = Number(hoursStr);
+  return Number.isFinite(hours) && hours >= 0 && hours < 5;
+}
+
 // POST - Create a new booking
 export async function POST(req: NextRequest) {
   try {
@@ -450,6 +457,8 @@ export async function GET(req: NextRequest) {
 
     const { dayStart, dayEnd } = getISTDayRange(date);
     const queryDate = dayStart;
+    const nextDayStart = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+    const nextDayEnd = new Date(dayEnd.getTime() + 24 * 60 * 60 * 1000);
     
     // Define cross-turf sports (Cricket, Football, and Functions&Events share same turf)
     const crossTurfSports = ["Cricket", "Football", "Functions and Events"];
@@ -489,6 +498,26 @@ export async function GET(req: NextRequest) {
     }
 
     const bookings = await (Booking.find as any)(bookingQuery).select("timeSlots nextDayDate nextDayTimeSlots date court sport");
+
+    const overlapNextDayQuery: any = {
+      bookingStatus: "confirmed",
+      date: {
+        $gte: nextDayStart,
+        $lte: nextDayEnd,
+      },
+    };
+
+    if (crossTurfSports.includes(sport)) {
+      overlapNextDayQuery.sport = { $in: crossTurfSports };
+    } else {
+      overlapNextDayQuery.sport = sport;
+    }
+
+    if (sport === "Shuttle Badminton" && court) {
+      overlapNextDayQuery.court = court;
+    }
+
+    const overlapNextDayBookings = await (Booking.find as any)(overlapNextDayQuery).select("timeSlots date court");
 
     // Fetch registered slots for monthly/quarterly/half yearly/yearly verified users
     let registeredSlots: string[] = [];
@@ -579,6 +608,11 @@ export async function GET(req: NextRequest) {
         S2: [],
         S3: []
       };
+      const nextDayCourtBookings: { [key: string]: string[] } = {
+        S1: [],
+        S2: [],
+        S3: []
+      };
 
       bookings.forEach(booking => {
         const bookingCourt = booking.court || 'S1'; // Default to S1 for legacy bookings
@@ -596,14 +630,27 @@ export async function GET(req: NextRequest) {
         }
       });
 
+      overlapNextDayBookings.forEach((booking: any) => {
+        const bookingCourt = booking.court || 'S1';
+        if (nextDayCourtBookings[bookingCourt]) {
+          nextDayCourtBookings[bookingCourt].push(
+            ...expandStoredSlots(booking.timeSlots || []).filter(isEarlyMorningSlot)
+          );
+        }
+      });
+
       // Remove duplicates for each court
       Object.keys(courtBookings).forEach(courtKey => {
         courtBookings[courtKey] = [...new Set(courtBookings[courtKey])];
+      });
+      Object.keys(nextDayCourtBookings).forEach(courtKey => {
+        nextDayCourtBookings[courtKey] = [...new Set(nextDayCourtBookings[courtKey])];
       });
 
       return NextResponse.json({
         success: true,
         courtBookings, // Only actual booked slots - regardless of payment status
+        nextDayCourtBookings,
         bookedSlots: [], // Keep for backward compatibility
         registeredSlots: registeredCourtSlots, // Separate array for registered slots info
       });
@@ -625,10 +672,15 @@ export async function GET(req: NextRequest) {
 
       return slots;
     });
+
+    const nextDayEarlyBookedSlots = overlapNextDayBookings.flatMap((booking: any) =>
+      expandStoredSlots(booking.timeSlots || []).filter(isEarlyMorningSlot)
+    );
     
     return NextResponse.json({
       success: true,
       bookedSlots: [...new Set(bookedSlots)], // Only actual booked slots - regardless of payment status
+      nextDayEarlyBookedSlots: [...new Set(nextDayEarlyBookedSlots)],
       registeredSlots: registeredSlots, // Separate array for registered slots info
     });
   } catch (error) {

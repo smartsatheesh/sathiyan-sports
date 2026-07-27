@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Box, Container, Typography, Grid, Card, CardContent, Avatar, Rating, useTheme, alpha, Zoom, Slide, Fade } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, Container, Typography, Grid, Card, CardContent, Avatar, Rating, useTheme, alpha, Zoom, Slide } from '@mui/material';
 import { FormatQuote } from '@mui/icons-material';
 
 interface User {
@@ -26,11 +26,8 @@ interface Testimonial {
 
 const TestimonialsSection = () => {
   const theme = useTheme();
-  const [isVisible, setIsVisible] = useState(false);
-  const [visibleTestimonials, setVisibleTestimonials] = useState<number[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loading, setLoading] = useState(true);
-  const sectionRef = useRef<HTMLDivElement>(null);
 
   // Predefined testimonial content for different sports
   const testimonialTemplates = {
@@ -177,42 +174,9 @@ const TestimonialsSection = () => {
     fetchUsersForTestimonials();
   }, []);
 
-  // Intersection Observer for scroll animations
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setIsVisible(true);
-            // Reset and stagger the testimonial animations
-            setVisibleTestimonials([]);
-            testimonials.forEach((_, index) => {
-              setTimeout(() => {
-                setVisibleTestimonials(prev => [...prev, index]);
-              }, index * 200);
-            });
-          } else {
-            setIsVisible(false);
-            setVisibleTestimonials([]);
-          }
-        });
-      },
-      {
-        threshold: 0.2,
-        rootMargin: '20px 0px -20px 0px'
-      }
-    );
-
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, [testimonials]);
-
   return (
-    <Container maxWidth="lg" sx={{ py: 8 }} ref={sectionRef}>
-      <Zoom in={isVisible} timeout={600}>
+    <Container maxWidth="lg" sx={{ py: 8 }}>
+      <Zoom in={true} timeout={600}>
         <Typography
           variant="h3"
           textAlign="center"
@@ -220,8 +184,8 @@ const TestimonialsSection = () => {
             mb: 6,
             fontWeight: 700,
             color: theme.palette.primary.main,
-            transform: isVisible ? 'translateY(0)' : 'translateY(30px)',
-            opacity: isVisible ? 1 : 0,
+            transform: 'translateY(0)',
+            opacity: 1,
             transition: 'all 0.6s ease-out'
           }}
         >
@@ -237,14 +201,7 @@ const TestimonialsSection = () => {
         <Grid container spacing={4}>
           {testimonials.map((testimonial, index) => (
             <Grid item xs={12} sm={6} md={3} key={`${testimonial.champId}-${index}`}>
-              <Slide 
-                in={visibleTestimonials.includes(index)} 
-                direction="up" 
-                timeout={700}
-                style={{
-                  transitionDelay: visibleTestimonials.includes(index) ? `${index * 150}ms` : '0ms'
-                }}
-              >
+              <Slide in={true} direction="up" timeout={700}>
                 <Card
                   sx={{
                     height: '100%',
@@ -253,8 +210,8 @@ const TestimonialsSection = () => {
                     backdropFilter: 'blur(10px)',
                     border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
                     transition: 'all 0.3s ease',
-                    transform: visibleTestimonials.includes(index) ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.95)',
-                    opacity: visibleTestimonials.includes(index) ? 1 : 0,
+                    transform: 'translateY(0) scale(1)',
+                    opacity: 1,
                     '&:hover': {
                       transform: 'translateY(-4px) scale(1.02)',
                       boxShadow: theme.shadows[8]

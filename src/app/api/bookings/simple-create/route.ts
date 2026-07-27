@@ -39,7 +39,7 @@ function splitCrossMidnightSlots(slots: string[]): {
     const [hourText] = (start || '').split(':');
     const hour = Number(hourText);
 
-    if (!Number.isNaN(hour) && hour >= 1 && hour < 5) {
+    if (!Number.isNaN(hour) && hour >= 0 && hour < 5) {
       earlyMorningSlots.push(slot);
     } else {
       regularSlots.push(slot);
@@ -117,6 +117,8 @@ export async function POST(request: NextRequest) {
       date,
       timeSlot,
       timeSlots,
+      nextDayDate: requestedNextDayDate,
+      nextDayTimeSlots,
       court,
       customerInfo,
       totalPrice,
@@ -142,6 +144,8 @@ export async function POST(request: NextRequest) {
     }
 
     const parsedSlots = parseTimeSlots(timeSlot, timeSlots);
+    const parsedNextDaySlots = parseTimeSlots(undefined, nextDayTimeSlots);
+    const hasExplicitNextDayPayload = Boolean(requestedNextDayDate) && parsedNextDaySlots.length > 0;
     if (parsedSlots.length === 0) {
       return NextResponse.json(
         { success: false, message: 'No valid time slots selected' },
@@ -162,6 +166,85 @@ export async function POST(request: NextRequest) {
 
     const { spansMidnight, sameDaySlots, nextDaySlots } = splitCrossMidnightSlots(parsedSlots);
 
+    if (hasExplicitNextDayPayload) {
+      const explicitPrimaryDate = getISTDayStart(date);
+      const explicitSecondaryDate = getISTDayStart(requestedNextDayDate as string);
+
+      const sameDayConflicts = await findBlockingConflicts(sport, explicitPrimaryDate, parsedSlots, court);
+      if (sameDayConflicts.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Selected slot is already blocked by a confirmed booking',
+          },
+          { status: 409 }
+        );
+      }
+
+      const explicitNextDayConflicts = await findBlockingConflicts(sport, explicitSecondaryDate, parsedNextDaySlots, court);
+      if (explicitNextDayConflicts.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Next-day slot is already blocked by a confirmed booking',
+          },
+          { status: 409 }
+        );
+      }
+
+      const bookingReference = `BK_${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+      const finalBookingStatus = isAdmin ? 'confirmed' : 'pending';
+
+      const bookingData = {
+        bookingReference,
+        sport,
+        date: explicitPrimaryDate,
+        timeSlots: parsedSlots,
+        nextDayDate: explicitSecondaryDate,
+        nextDayTimeSlots: parsedNextDaySlots,
+        court: court || undefined,
+        customerName: customerInfo.name,
+        customerEmail: customerInfo.email,
+        customerPhone: customerInfo.phone,
+        totalAmount: totalPrice,
+        paymentStatus: 'pending',
+        paymentMethod: paymentMethod || 'manual',
+        transactionId: transactionId || '',
+        paymentReference: paymentReference || '',
+        bookingStatus: finalBookingStatus,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const booking = await (Booking.create as any)(bookingData);
+      await sendWhatsAppNotifications(booking);
+
+      return NextResponse.json({
+        success: true,
+        message: isAdmin
+          ? '✅ Admin booking confirmed and blocked immediately.'
+          : '✅ Booking created as pending. Slot will be blocked after admin approval.',
+        booking: {
+          id: booking._id,
+          bookingReference: booking.bookingReference,
+          sport: booking.sport,
+          date: booking.date,
+          nextDayDate: booking.nextDayDate,
+          timeSlots: booking.timeSlots,
+          nextDayTimeSlots: booking.nextDayTimeSlots,
+          totalAmount: booking.totalAmount,
+          bookingStatus: booking.bookingStatus,
+          paymentStatus: booking.paymentStatus
+        },
+        nextSteps: [
+          '✅ Your booking is confirmed - you can play the slot',
+          '💰 Payment due before or after playing (flexible)',
+          '📱 We\'ll send you payment reminder via WhatsApp',
+          '🎫 Keep your booking reference safe'
+        ]
+      });
+    }
+
     const sameDayConflicts = await findBlockingConflicts(sport, bookingDate, sameDaySlots, court);
     if (sameDayConflicts.length > 0) {
       return NextResponse.json(
@@ -173,11 +256,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let nextDayDate: Date | undefined;
+    let derivedNextDayDate: Date | undefined;
     if (spansMidnight && nextDaySlots.length > 0) {
-      nextDayDate = addDaysFromISTDayStart(bookingDate, 1);
+      derivedNextDayDate = addDaysFromISTDayStart(bookingDate, 1);
 
-      const nextDayConflicts = await findBlockingConflicts(sport, nextDayDate, nextDaySlots, court);
+      const nextDayConflicts = await findBlockingConflicts(sport, derivedNextDayDate, nextDaySlots, court);
       if (nextDayConflicts.length > 0) {
         return NextResponse.json(
           {
@@ -194,7 +277,7 @@ export async function POST(request: NextRequest) {
 
     const finalBookingStatus = isAdmin ? 'confirmed' : 'pending';
 
-    const primaryDate = spansMidnight && nextDayDate ? nextDayDate : bookingDate;
+    const primaryDate = spansMidnight && derivedNextDayDate ? derivedNextDayDate : bookingDate;
     const primarySlots = spansMidnight ? nextDaySlots : sameDaySlots;
     const secondaryDate = spansMidnight ? bookingDate : undefined;
     const secondarySlots = spansMidnight ? sameDaySlots : undefined;
@@ -268,16 +351,29 @@ export async function POST(request: NextRequest) {
 async function sendWhatsAppNotifications(booking: any) {
   try {
     // Format date and time for display
-    const bookingDate = new Date(booking.date).toLocaleDateString('en-GB', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
+    const bookingDateObj = new Date(booking.date);
+    const formattedDate = bookingDateObj.toLocaleDateString('en-GB', {
       day: 'numeric',
+      month: 'short',
+      year: 'numeric',
       timeZone: 'Asia/Kolkata',
     });
+    const formattedWeekday = bookingDateObj.toLocaleDateString('en-GB', {
+      weekday: 'long',
+      timeZone: 'Asia/Kolkata',
+    });
+    const bookingDate = `${formattedDate} (${formattedWeekday})`;
 
     const timeSlot = Array.isArray(booking.timeSlots) ? booking.timeSlots.join(', ') : booking.timeSlots || 'N/A';
-    const courtName = booking.court || `${booking.sport} Court`;
+    const courtName = booking.sport === 'Shuttle Badminton'
+      ? `${booking.sport} (${booking.court || 'Court'})`
+      : `${booking.sport} (Full Ground)`;
+
+    const finalAmount = Number(booking.totalAmount || 0);
+    const paidAmount = booking.paymentStatus === 'completed' || booking.paymentStatus === 'paid'
+      ? finalAmount
+      : 0;
+    const pendingAmount = Math.max(finalAmount - paidAmount, 0);
 
     // Send customer booking confirmation
     const customerSuccess = await whatsAppCloudService.sendBookingConfirmation(
@@ -288,7 +384,13 @@ async function sendWhatsAppNotifications(booking: any) {
         date: bookingDate,
         time: timeSlot,
         amount: booking.totalAmount,
-        customerName: booking.customerName
+        customerName: booking.customerName,
+        venue: 'Sathiyan Multisport Sport Club',
+        slotAmount: finalAmount,
+        discountAmount: 0,
+        finalAmount,
+        paidAmount,
+        pendingAmount,
       }
     );
 

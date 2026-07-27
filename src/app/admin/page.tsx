@@ -1363,9 +1363,7 @@ export default function AdminDashboard() {
     );
   };
 
-  const bookingSlotOptions = editForm.sport === 'Cricket'
-    ? Array.from(new Set([...editForm.timeSlots, ...CRICKET_FULL_DAY_TIME_SLOTS]))
-    : TIME_SLOTS;
+  const bookingSlotOptions = Array.from(new Set([...editForm.timeSlots, ...CRICKET_FULL_DAY_TIME_SLOTS]));
 
   // Function to format and display due dates
   const formatDueDate = (dueDateStr: string | undefined) => {
@@ -3222,11 +3220,11 @@ export default function AdminDashboard() {
             </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Time Slots</InputLabel>
+                <InputLabel>Time Slots (30 min)</InputLabel>
                 <Select
                   multiple
                   value={editForm.timeSlots}
-                  label="Time Slots"
+                  label="Time Slots (30 min)"
                   onChange={(e) => setEditForm(prev => ({ ...prev, timeSlots: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value }))}
                 >
                   {bookingSlotOptions.map((slot) => (

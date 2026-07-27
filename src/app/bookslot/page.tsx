@@ -226,12 +226,9 @@ const generateTimeSlots = (
     "Shuttle Badminton": [{ start: 5, startMin: 0, end: 8, endMin: 0 }] // 5am-8am hidden (only for Badminton)
   };
   
-  // Generate 30-minute interval slots:
-  // Same-day: 05:00 to 23:30
-  // Next-day early morning: 00:00 to 04:30
+  // Generate 30-minute interval slots in strict chronological order: 00:00 to 23:30
   const slotRanges = [
-    { startHour: 5, endHour: 23 },
-    { startHour: 0, endHour: 4 },
+    { startHour: 0, endHour: 23 },
   ];
 
   for (const range of slotRanges) {
@@ -341,9 +338,11 @@ export default function BookSlot() {
   const [selectedSport, setSelectedSport] = useState<"Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events" | "Body Zorb" | "">("");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
+  const [selectedNextDayTimeSlots, setSelectedNextDayTimeSlots] = useState<string[]>([]);
   const [selectedCourt, setSelectedCourt] = useState<string>(""); // Court selection for Shuttle Badminton
   const [timeSlots, setTimeSlots] = useState<Array<{time: string; available: boolean; hours?: number; isPast?: boolean}>>(generateTimeSlots(false, null, "", false));
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [overlapBookedSlots, setOverlapBookedSlots] = useState<string[]>([]);
   const [registeredSlots, setRegisteredSlots] = useState<string[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null); // User data for subscription checking
   const [loading, setLoading] = useState(false);
@@ -454,23 +453,71 @@ export default function BookSlot() {
   const BALL_PRICE = 80;
   const [editableAmount, setEditableAmount] = useState<number | null>(null);
 
+  const allSelectedSlots = useMemo(
+    () => [...selectedTimeSlots, ...selectedNextDayTimeSlots],
+    [selectedTimeSlots, selectedNextDayTimeSlots]
+  );
+
+  const bookingBreakdown = useMemo(() => {
+    if (!selectedDate) {
+      return {
+        spansTwoDays: false,
+        primaryDate: null as Date | null,
+        primarySlots: [] as string[],
+        secondaryDate: null as Date | null,
+        secondarySlots: [] as string[],
+      };
+    }
+
+    const nextDay = new Date(selectedDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    if (selectedTimeSlots.length === 0 && selectedNextDayTimeSlots.length > 0) {
+      return {
+        spansTwoDays: false,
+        primaryDate: nextDay,
+        primarySlots: selectedNextDayTimeSlots,
+        secondaryDate: null,
+        secondarySlots: [],
+      };
+    }
+
+    if (selectedTimeSlots.length > 0 && selectedNextDayTimeSlots.length > 0) {
+      return {
+        spansTwoDays: true,
+        primaryDate: selectedDate,
+        primarySlots: selectedTimeSlots,
+        secondaryDate: nextDay,
+        secondarySlots: selectedNextDayTimeSlots,
+      };
+    }
+
+    return {
+      spansTwoDays: false,
+      primaryDate: selectedDate,
+      primarySlots: selectedTimeSlots,
+      secondaryDate: null,
+      secondarySlots: [],
+    };
+  }, [selectedDate, selectedTimeSlots, selectedNextDayTimeSlots]);
+
   // Calculate base price (slots only, no balls) based on sport type and hours/slots
   const baseSlotPrice = useMemo(() => {
-    if (!selectedSport || !selectedDate || selectedTimeSlots.length === 0)
+    if (!selectedSport || !selectedDate || allSelectedSlots.length === 0)
       return null;
     const sport = sports.find((s) => s.name === selectedSport);
     if (!sport) return null;
     const pricePerUnit = isWeekend(selectedDate) ? sport.weekendPrice : sport.basePrice;
     if (selectedSport === "Functions and Events") {
-      const totalHours = selectedTimeSlots.reduce((acc, timeSlot) => {
+      const totalHours = allSelectedSlots.reduce((acc, timeSlot) => {
         const slot = timeSlots.find(s => s.time === timeSlot);
         return acc + (slot?.hours || 1);
       }, 0);
       return pricePerUnit * totalHours;
     } else {
-      return pricePerUnit * selectedTimeSlots.length;
+      return pricePerUnit * allSelectedSlots.length;
     }
-  }, [selectedSport, selectedDate, selectedTimeSlots, timeSlots]);
+  }, [selectedSport, selectedDate, allSelectedSlots, timeSlots]);
 
   // Total price = slot price + ball extras (or manual override)
   const totalPrice = useMemo(() => {
@@ -648,6 +695,7 @@ export default function BookSlot() {
             if (selectedSport === "Shuttle Badminton" && selectedCourt && data.courtBookings) {
               const courtSpecificSlots = data.courtBookings[selectedCourt] || [];
               setBookedSlots(courtSpecificSlots);
+              setOverlapBookedSlots(data.nextDayCourtBookings?.[selectedCourt] || []);
               setRegisteredSlots(data.registeredSlots?.[selectedCourt] || []);
               
               // Update time slots availability for specific court with past time filtering
@@ -660,6 +708,7 @@ export default function BookSlot() {
             } else {
               // For other sports or general booking data
               setBookedSlots(data.bookedSlots || []);
+              setOverlapBookedSlots(data.nextDayEarlyBookedSlots || []);
               setRegisteredSlots(data.registeredSlots || []);
               const isEvent = selectedSport === "Functions and Events";
               const updatedSlots = generateTimeSlots(isEvent, selectedDate, selectedSport, isAdminUser).map(slot => ({
@@ -683,6 +732,8 @@ export default function BookSlot() {
   // Reset selected slots and court when sport or date changes and update time slots
   useEffect(() => {
     setSelectedTimeSlots([]);
+    setSelectedNextDayTimeSlots([]);
+    setOverlapBookedSlots([]);
     
     // Reset court selection when sport changes
     if (selectedSport !== "Shuttle Badminton") {
@@ -968,6 +1019,7 @@ export default function BookSlot() {
               setSelectedSport("");
               setSelectedDate(null);
               setSelectedTimeSlots([]);
+              setSelectedNextDayTimeSlots([]);
               setCustomerInfo({ name: "", email: "", phone: "", eventType: "Corporate Event", specialRequirements: "" });
               setUpiTransactionId('');
               setCurrentBookingId(null);
@@ -1037,6 +1089,7 @@ export default function BookSlot() {
           setSelectedSport("");
           setSelectedDate(null);
           setSelectedTimeSlots([]);
+          setSelectedNextDayTimeSlots([]);
           setCustomerInfo({ name: "", email: "", phone: "", eventType: "Corporate Event", specialRequirements: "" });
           setUpiTransactionId('');
           setCurrentBookingId(null);
@@ -1065,25 +1118,34 @@ export default function BookSlot() {
   // Handle time slot selection/deselection
   const isBallSport = (sport: string) => sport === "Cricket" || sport === "Football";
 
-  const handleTimeSlotToggle = (time: string) => {
-    setSelectedTimeSlots((prev) => {
-      if (prev.includes(time)) {
-        const next = prev.filter((t) => t !== time);
-        // Enforce minimum 2 slots (1 hour) for Cricket & Football
-        if (isBallSport(selectedSport) && next.length === 1) {
-          setAlert({ type: 'info', message: 'Minimum 1 hour (2 slots) required for ' + selectedSport + '. Please select at least 2 slots.' });
-          return prev; // Don't allow deselect below 2
-        }
-        return next;
+  const handleTimeSlotToggle = (time: string, source: 'same-day' | 'next-day-overlap' = 'same-day') => {
+    const setter = source === 'next-day-overlap' ? setSelectedNextDayTimeSlots : setSelectedTimeSlots;
+    const otherSlots = source === 'next-day-overlap' ? selectedTimeSlots : selectedNextDayTimeSlots;
+
+    setter((prev) => {
+      const exists = prev.includes(time);
+
+      // Adding a slot should always work; minimum rule is enforced on submit.
+      if (!exists) {
+        return [...prev, time];
       }
-      return [...prev, time];
+
+      // Only block deselection when it would leave exactly 1 slot for ball sports.
+      const candidate = prev.filter((t) => t !== time);
+      const totalSelectedAfterRemove = candidate.length + otherSlots.length;
+      if (!isAdminUser && isBallSport(selectedSport) && totalSelectedAfterRemove === 1) {
+        setAlert({ type: 'info', message: 'Minimum 1 hour (2 slots) required for ' + selectedSport + '. Please select at least 2 slots.' });
+        return prev;
+      }
+
+      return candidate;
     });
   };
 
   // Handle booking submission - Open simplified payment dialog
   const handleBooking = async () => {
     // Email is optional since we're only using WhatsApp notifications
-    if (!selectedSport || !selectedDate || selectedTimeSlots.length === 0 || !customerInfo.name || !customerInfo.phone) {
+    if (!selectedSport || !selectedDate || allSelectedSlots.length === 0 || !customerInfo.name || !customerInfo.phone) {
       setAlert({ type: 'error', message: 'Please fill all required fields (Name and Phone are mandatory)' });
       return;
     }
@@ -1098,16 +1160,25 @@ export default function BookSlot() {
     saveCustomerDetails(customerInfo);
 
     // Prepare booking data for payment
-    const resolvedBookingDate = resolveBookingDateForSelection(selectedDate, selectedTimeSlots);
+    if (!bookingBreakdown.primaryDate || bookingBreakdown.primarySlots.length === 0) {
+      setAlert({ type: 'error', message: 'Please select at least one valid slot' });
+      return;
+    }
 
-    const bookingData = {
+    const bookingData: any = {
       sport: selectedSport,
-      date: resolvedBookingDate,
-      timeSlot: selectedTimeSlots.join(', '),
+      date: format(bookingBreakdown.primaryDate, 'yyyy-MM-dd'),
+      timeSlot: bookingBreakdown.primarySlots.join(', '),
+      timeSlots: bookingBreakdown.primarySlots,
       court: selectedSport === "Shuttle Badminton" ? selectedCourt : null,
       customerInfo,
       totalPrice: totalPrice
     };
+
+    if (bookingBreakdown.secondaryDate && bookingBreakdown.secondarySlots.length > 0) {
+      bookingData.nextDayDate = format(bookingBreakdown.secondaryDate, 'yyyy-MM-dd');
+      bookingData.nextDayTimeSlots = bookingBreakdown.secondarySlots;
+    }
 
     setCurrentBookingData(bookingData);
     setBookingDialogOpen(false);
@@ -1144,6 +1215,7 @@ export default function BookSlot() {
         setSelectedSport('');
         setSelectedDate(null);
         setSelectedTimeSlots([]);
+        setSelectedNextDayTimeSlots([]);
         setCustomerInfo({ name: '', email: '', phone: '', eventType: '', specialRequirements: '' });
         setSimplePaymentOpen(false);
         setCurrentBookingData(null);
@@ -1171,22 +1243,18 @@ export default function BookSlot() {
       // Check if user is admin for auto-verification
       const isAdmin = session?.user?.role === 'admin';
       
-      // Check for cross-midnight bookings
-      const { spansMidnight, beforeMidnight, afterMidnight } = checkCrossMidnightBooking(selectedTimeSlots);
-      
-      // Calculate next day for cross-midnight bookings
-      const nextDay = new Date(selectedDate!);
-      nextDay.setDate(nextDay.getDate() + 1);
-      
-      const resolvedBookingDate = resolveBookingDateForSelection(selectedDate!, selectedTimeSlots);
+      if (!bookingBreakdown.primaryDate || bookingBreakdown.primarySlots.length === 0) {
+        setAlert({ type: 'error', message: 'Please select at least one valid slot' });
+        return null;
+      }
 
       const bookingData: any = {
         sport: selectedSport,
-        date: format(resolvedBookingDate, 'yyyy-MM-dd'),
-        timeSlots: spansMidnight ? beforeMidnight : selectedTimeSlots,
+        date: format(bookingBreakdown.primaryDate, 'yyyy-MM-dd'),
+        timeSlots: bookingBreakdown.primarySlots,
         totalAmount: totalPrice,
         pricePerSlot,
-        isWeekend: isWeekend(resolvedBookingDate),
+        isWeekend: isWeekend(bookingBreakdown.primaryDate),
         userId: session?.user?.id, // Add user reference for authenticated bookings
         customerName: customerInfo.name,
         customerEmail: customerInfo.email,
@@ -1196,15 +1264,15 @@ export default function BookSlot() {
         bookingStatus: "confirmed" // Confirm immediately so turf slots are blocked
       };
       
-      // Add next day slots if booking spans midnight
-      if (spansMidnight && afterMidnight.length > 0) {
-        bookingData.nextDayDate = format(nextDay, 'yyyy-MM-dd');
-        bookingData.nextDayTimeSlots = afterMidnight;
+      // Add secondary date slots when overlap section is used
+      if (bookingBreakdown.secondaryDate && bookingBreakdown.secondarySlots.length > 0) {
+        bookingData.nextDayDate = format(bookingBreakdown.secondaryDate, 'yyyy-MM-dd');
+        bookingData.nextDayTimeSlots = bookingBreakdown.secondarySlots;
       }
 
       // Add Functions and Events specific fields
       if (selectedSport === "Functions and Events") {
-        const totalHours = selectedTimeSlots.reduce((acc, timeSlot) => {
+        const totalHours = allSelectedSlots.reduce((acc, timeSlot) => {
           const slot = timeSlots.find(s => s.time === timeSlot);
           return acc + (slot?.hours || 1);
         }, 0);
@@ -1230,8 +1298,8 @@ export default function BookSlot() {
         setCurrentBookingId(data.bookingId);
         // Show success message for admin auto-booking
         if (isAdmin) {
-          const dateMessage = spansMidnight 
-            ? `Admin booking confirmed for ${format(selectedDate!, 'dd MMM')} & ${format(nextDay, 'dd MMM')} with slots blocked on both dates.`
+          const dateMessage = bookingBreakdown.secondaryDate
+            ? `Admin booking confirmed for ${format(bookingBreakdown.primaryDate, 'dd MMM')} & ${format(bookingBreakdown.secondaryDate, 'dd MMM')} with slots blocked on both dates.`
             : '✅ Admin booking confirmed and slot blocked. Payment can be updated later.';
           setAlert({ type: 'success', message: dateMessage });
         }
@@ -1955,7 +2023,7 @@ export default function BookSlot() {
                     <>
                       <Box sx={{ mt: 3 }}>
                         <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-                          {selectedSport === "Functions and Events" ? "🎉 Available Sessions" : "⏰ Available Time Slots"}
+                          {selectedSport === "Functions and Events" ? "🎉 Available Sessions" : "⏰ Selected Day Slots (00:00 - 23:30)"}
                         </Typography>
                         
                         {selectedSport === "Functions and Events" && (
@@ -1976,24 +2044,33 @@ export default function BookSlot() {
                         {(() => {
                           const sameDaySlots = selectedSport === "Functions and Events"
                             ? timeSlots
-                            : timeSlots.filter((slot) => !isNextDayEarlySlot(slot.time));
+                            : timeSlots;
                           const nextDayEarlySlots = selectedSport === "Functions and Events"
                             ? []
                             : timeSlots.filter((slot) => isNextDayEarlySlot(slot.time));
 
-                          const renderSlotGrid = (slotsToRender: typeof timeSlots) => (
+                          const renderSlotGrid = (
+                            slotsToRender: typeof timeSlots,
+                            source: 'same-day' | 'next-day-overlap' = 'same-day'
+                          ) => (
                             <Grid container spacing={1.5} sx={{ mb: 3 }}>
                               {slotsToRender.map((slot, index) => {
-                                const isSelected = selectedTimeSlots.includes(slot.time);
+                                const isSelected = source === 'next-day-overlap'
+                                  ? selectedNextDayTimeSlots.includes(slot.time)
+                                  : selectedTimeSlots.includes(slot.time);
                                 const isPastSlot = slot.isPast || false;
-                                const isBooked = !slot.available && !isPastSlot;
+                                const sourceBooked = source === 'next-day-overlap'
+                                  ? overlapBookedSlots.includes(slot.time)
+                                  : bookedSlots.includes(slot.time);
+                                const ruleBlocked = !slot.available && !isPastSlot && !bookedSlots.includes(slot.time);
+                                const isBooked = sourceBooked || ruleBlocked;
                                 const isRegistered = registeredSlots.includes(slot.time);
 
                                 // Check if user is yearly Shuttle Badminton subscriber who should be blocked from registered slots
                                 const isYearlyBadmintonUser = currentUser?.preferredSport === "Shuttle Badminton" &&
                                                              currentUser?.subscriptionType === "yearly";
                                 const isBlockedRegisteredSlot = isRegistered && isYearlyBadmintonUser;
-                                const isClickable = slot.available && !isBlockedRegisteredSlot;
+                                const isClickable = !isBooked && !isPastSlot && !isBlockedRegisteredSlot;
 
                                 return (
                                   <Grid item xs={6} sm={4} md={3} lg={2.4} key={`${slot.time}-${index}`}>
@@ -2022,7 +2099,7 @@ export default function BookSlot() {
                                         } : {},
                                         border: isSelected ? '2px solid #fff' : 'none',
                                       }}
-                                      onClick={() => isClickable && handleTimeSlotToggle(slot.time)}
+                                      onClick={() => isClickable && handleTimeSlotToggle(slot.time, source)}
                                     >
                                       <CardContent sx={{
                                         display: 'flex',
@@ -2077,7 +2154,7 @@ export default function BookSlot() {
 
                           return (
                             <>
-                              {renderSlotGrid(sameDaySlots)}
+                              {renderSlotGrid(sameDaySlots, 'same-day')}
 
                               {nextDayEarlySlots.length > 0 && (
                                 <>
@@ -2086,13 +2163,13 @@ export default function BookSlot() {
                                     sx={{ mb: 2 }}
                                   >
                                     <Typography variant="body2" fontWeight="medium">
-                                      🌙 Next Day Early Slots (00:00 - 05:00)
+                                      🌙 Next Day Overlap Slots (00:00 - 05:00)
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                      These slots belong to the next calendar day.
+                                      Use this section to book next-calendar-day early slots from the previous-day screen.
                                     </Typography>
                                   </Alert>
-                                  {renderSlotGrid(nextDayEarlySlots)}
+                                  {renderSlotGrid(nextDayEarlySlots, 'next-day-overlap')}
                                 </>
                               )}
                             </>
@@ -2152,7 +2229,7 @@ export default function BookSlot() {
                         </Box>
                       </Box>
 
-                      {selectedTimeSlots.length > 0 && (
+                      {allSelectedSlots.length > 0 && (
                         <div className="booking-summary">
                           <h4>Booking Summary</h4>
                           <div className="summary-details">
@@ -2161,41 +2238,41 @@ export default function BookSlot() {
                               <p><strong>Court:</strong> {selectedCourt}</p>
                             )}
                             {(() => {
-                              const { spansMidnight, beforeMidnight, afterMidnight } = checkCrossMidnightBooking(selectedTimeSlots);
-                              const nextDay = new Date(selectedDate!);
-                              nextDay.setDate(nextDay.getDate() + 1);
-                              const resolvedDate = resolveBookingDateForSelection(selectedDate!, selectedTimeSlots);
-                              
-                              if (spansMidnight) {
+                              if (bookingBreakdown.secondaryDate && bookingBreakdown.secondarySlots.length > 0) {
                                 return (
                                   <>
                                     <p><strong>📅 Booking Spans Two Days:</strong></p>
                                     <p style={{ marginLeft: '16px', color: '#1976d2', fontWeight: '500' }}>
-                                      • {format(selectedDate!, "dd MMM yyyy")}: {beforeMidnight.length} slot(s)
+                                      • {format(bookingBreakdown.primaryDate!, "dd MMM yyyy")}: {bookingBreakdown.primarySlots.length} slot(s)
                                     </p>
                                     <p style={{ marginLeft: '16px', color: '#1976d2', fontWeight: '500' }}>
-                                      • {format(nextDay, "dd MMM yyyy")}: {afterMidnight.length} slot(s) (Early morning)
+                                      • {format(bookingBreakdown.secondaryDate, "dd MMM yyyy")}: {bookingBreakdown.secondarySlots.length} slot(s) (Early morning)
                                     </p>
                                   </>
                                 );
                               } else {
-                                return <p><strong>Date:</strong> {format(resolvedDate, "dd MMM yyyy")}</p>;
+                                return bookingBreakdown.primaryDate
+                                  ? <p><strong>Date:</strong> {format(bookingBreakdown.primaryDate, "dd MMM yyyy")}</p>
+                                  : null;
                               }
                             })()}
-                            <p><strong>Selected Time{selectedTimeSlots.length > 1 ? 's' : ''}:</strong></p>
+                            <p><strong>Selected Time{allSelectedSlots.length > 1 ? 's' : ''}:</strong></p>
                             <ul>
-                              {selectedTimeSlots.map((slot, index) => (
+                              {bookingBreakdown.primarySlots.map((slot, index) => (
                                 <li key={index}>{slot}</li>
+                              ))}
+                              {bookingBreakdown.secondarySlots.map((slot, index) => (
+                                <li key={`next-${index}`}>{slot} (Next Day)</li>
                               ))}
                             </ul>
                             {selectedSport === "Functions and Events" && (
-                              <p><strong>Total Hours:</strong> {selectedTimeSlots.reduce((acc, timeSlot) => {
+                              <p><strong>Total Hours:</strong> {allSelectedSlots.reduce((acc, timeSlot) => {
                                 const slot = timeSlots.find(s => s.time === timeSlot);
                                 return acc + (slot?.hours || 1);
                               }, 0)} hours</p>
                             )}
                             <p className="total-amount"><strong>Total Amount: ₹{totalPrice?.toLocaleString()}</strong></p>
-                            {isBallSport(selectedSport) && selectedTimeSlots.length < 2 && (
+                            {!isAdminUser && isBallSport(selectedSport) && allSelectedSlots.length < 2 && (
                               <p style={{ color: '#ff9800', fontSize: '13px', marginTop: '6px' }}>⚠️ Minimum 2 slots (1 hour) required</p>
                             )}
                           </div>
@@ -2204,7 +2281,7 @@ export default function BookSlot() {
                             color="primary"
                             className="proceed-button"
                             onClick={() => {
-                              if (isBallSport(selectedSport) && selectedTimeSlots.length < 2) {
+                              if (!isAdminUser && isBallSport(selectedSport) && allSelectedSlots.length < 2) {
                                 setAlert({ type: 'error', message: 'Minimum 1 hour (2 slots) required for ' + selectedSport });
                                 return;
                               }
@@ -2297,30 +2374,27 @@ export default function BookSlot() {
               {(() => {
                 if (!selectedDate) return null;
 
-                const { spansMidnight, beforeMidnight, afterMidnight } = checkCrossMidnightBooking(selectedTimeSlots);
-                const nextDay = new Date(selectedDate);
-                nextDay.setDate(nextDay.getDate() + 1);
-                const resolvedDate = resolveBookingDateForSelection(selectedDate, selectedTimeSlots);
-
-                if (spansMidnight) {
+                if (bookingBreakdown.secondaryDate && bookingBreakdown.secondarySlots.length > 0) {
                   return (
                     <>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>Primary Date: {format(nextDay, "dd MMM yyyy")}</Typography>
-                      <Typography variant="body2" color="text.secondary">Primary Slots: {afterMidnight.join(', ') || '-'}</Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 600 }}>Secondary Date: {format(selectedDate, "dd MMM yyyy")}</Typography>
-                      <Typography variant="body2" color="text.secondary">Secondary Slots: {beforeMidnight.join(', ') || '-'}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>Primary Date: {format(bookingBreakdown.primaryDate!, "dd MMM yyyy")}</Typography>
+                      <Typography variant="body2" color="text.secondary">Primary Slots: {bookingBreakdown.primarySlots.join(', ') || '-'}</Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 600 }}>Secondary Date: {format(bookingBreakdown.secondaryDate, "dd MMM yyyy")}</Typography>
+                      <Typography variant="body2" color="text.secondary">Secondary Slots: {bookingBreakdown.secondarySlots.join(', ') || '-'}</Typography>
                     </>
                   );
                 }
 
-                return <Typography variant="body2">Date: {format(resolvedDate, "dd MMM yyyy")}</Typography>;
+                return bookingBreakdown.primaryDate
+                  ? <Typography variant="body2">Date: {format(bookingBreakdown.primaryDate, "dd MMM yyyy")}</Typography>
+                  : null;
               })()}
-              <Typography variant="body2">Time: {selectedTimeSlots.join(", ")}</Typography>
+              <Typography variant="body2">Time: {allSelectedSlots.join(", ")}</Typography>
               {selectedSport === "Functions and Events" && (
                 <>
                   <Typography variant="body2">Event Type: {customerInfo.eventType}</Typography>
                   <Typography variant="body2">
-                    Total Hours: {selectedTimeSlots.reduce((acc, timeSlot) => {
+                    Total Hours: {allSelectedSlots.reduce((acc, timeSlot) => {
                       const slot = timeSlots.find(s => s.time === timeSlot);
                       return acc + (slot?.hours || 1);
                     }, 0)} hours

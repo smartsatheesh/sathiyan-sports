@@ -64,54 +64,16 @@ const features = [
 
 const FeaturesSection = () => {
   const theme = useTheme();
-  const [isVisible, setIsVisible] = useState(false);
-  const [visibleFeatures, setVisibleFeatures] = useState<number[]>([]);
-  const sectionRef = useRef<HTMLDivElement>(null);
-
-  // Intersection Observer for scroll animations (both up and down)
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setIsVisible(true);
-            // Reset and stagger the feature animations
-            setVisibleFeatures([]); // Clear existing animations
-            features.forEach((_, index) => {
-              setTimeout(() => {
-                setVisibleFeatures(prev => [...prev, index]);
-              }, index * 150); // 150ms delay between each feature
-            });
-          } else {
-            // When scrolling out of view, reset for next intersection
-            setIsVisible(false);
-            setVisibleFeatures([]);
-          }
-        });
-      },
-      {
-        threshold: 0.2, // Increased threshold for better scroll detection
-        rootMargin: '20px 0px -20px 0px' // Reduced margin for more precise triggering
-      }
-    );
-
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <Box
-      ref={sectionRef}
       sx={{
         py: 8,
         background: `linear-gradient(135deg, ${alpha(theme.palette.secondary.light, 0.05)} 0%, ${alpha(theme.palette.primary.light, 0.05)} 100%)`,
       }}
     >
       <Container maxWidth="lg">
-        <Zoom in={isVisible} timeout={600}>
+        <Zoom in={true} timeout={600}>
           <Typography
             variant="h3"
             textAlign="center"
@@ -119,8 +81,8 @@ const FeaturesSection = () => {
               mb: 2,
               fontWeight: 700,
               color: theme.palette.primary.main,
-              transform: isVisible ? 'translateY(0)' : 'translateY(30px)',
-              opacity: isVisible ? 1 : 0,
+              transform: 'translateY(0)',
+              opacity: 1,
               transition: 'all 0.6s ease-out'
             }}
           >
@@ -128,7 +90,7 @@ const FeaturesSection = () => {
           </Typography>
         </Zoom>
         
-        <Fade in={isVisible} timeout={800} style={{ transitionDelay: '300ms' }}>
+        <Fade in={true} timeout={800}>
           <Typography
             variant="h6"
             textAlign="center"
@@ -136,9 +98,9 @@ const FeaturesSection = () => {
               mb: 6,
               color: 'text.secondary',
               fontWeight: 400,
-              transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
-              opacity: isVisible ? 1 : 0,
-              transition: 'all 0.6s ease-out 0.3s'
+              transform: 'translateY(0)',
+              opacity: 1,
+              transition: 'all 0.3s ease-out'
             }}
           >
             Experience the best in sports facilities and amenities
@@ -148,14 +110,7 @@ const FeaturesSection = () => {
         <Grid container spacing={4}>
           {features.map((feature, index) => (
             <Grid item xs={12} sm={6} md={4} key={index}>
-              <Slide 
-                in={visibleFeatures.includes(index)} 
-                direction="up" 
-                timeout={600}
-                style={{
-                  transitionDelay: visibleFeatures.includes(index) ? `${index * 100}ms` : '0ms'
-                }}
-              >
+              <Slide in={true} direction="up" timeout={600}>
                 <Box
                   sx={{
                     textAlign: 'center',
@@ -166,8 +121,8 @@ const FeaturesSection = () => {
                     backdropFilter: 'blur(10px)',
                     border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
                     transition: 'all 0.3s ease',
-                    transform: visibleFeatures.includes(index) ? 'translateY(0) scale(1)' : 'translateY(50px) scale(0.9)',
-                    opacity: visibleFeatures.includes(index) ? 1 : 0,
+                    transform: 'translateY(0) scale(1)',
+                    opacity: 1,
                     '&:hover': {
                       transform: 'translateY(-5px) scale(1.02)',
                       boxShadow: theme.shadows[8],
