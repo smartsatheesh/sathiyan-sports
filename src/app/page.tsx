@@ -268,8 +268,8 @@ export default function Home() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     padding: { xs: '20px', md: '40px' },
-                    pt: { xs: '92px', md: '112px' },
-                    py: { xs: 4, md: 6 },
+                    pt: { xs: '60px', md: '72px' },
+                    py: { xs: 2, md: 3 },
                     mx: 'auto',
                     overflow: 'visible'
                   }}
@@ -278,10 +278,10 @@ export default function Home() {
                   <Box
                     sx={{
                       position: 'relative',
-                      width: { xs: '280px', md: '420px', lg: '480px' },
-                      height: { xs: '280px', md: '420px', lg: '480px' },
+                      width: { xs: '220px', md: '300px', lg: '340px' },
+                      height: { xs: '220px', md: '300px', lg: '340px' },
                       mx: 'auto',
-                      mb: 3,
+                      mb: 2,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -413,7 +413,7 @@ export default function Home() {
                     </Typography>
                   </Zoom>
                   
-                  <Box sx={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 4 }}>
+                  <Box sx={{ height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
                     <Fade in={showTagline} timeout={500}>
                       <Typography
                         variant="h4"
@@ -431,6 +431,62 @@ export default function Home() {
                         {animatedTaglines[currentTaglineIndex]}
                       </Typography>
                     </Fade>
+                  </Box>
+
+                  {/* Independence Day Tournament Card - Inside Hero */}
+                  <Box sx={{ width: '100%', maxWidth: '1200px', mx: 'auto', mb: 3, mt: 2, zIndex: 5, px: { xs: 0, md: 0 } }}>
+                    <Card
+                      sx={{
+                        borderRadius: 4,
+                        border: `2px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                        background: `linear-gradient(135deg, ${alpha('#0f4c81', 0.95)} 0%, ${alpha('#ff9933', 0.85)} 55%, ${alpha('#138808', 0.8)} 100%)`,
+                        color: '#fff',
+                        boxShadow: theme.shadows[10],
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <CardContent sx={{ p: { xs: 2.5, md: 3.5 } }}>
+                        <Grid container spacing={2} alignItems="center">
+                          <Grid item xs={12} md={8}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                              <Box
+                                component="img"
+                                src="/sathiyanlogo.png"
+                                alt="Sathiyan Sports"
+                                sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: '#fff', p: 0.5 }}
+                              />
+                              <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1.2 }}>
+                                Sathiyan Sports 1st Ever Independence Day Tournament
+                              </Typography>
+                            </Box>
+                            <Typography variant="body1" sx={{ opacity: 0.95, mb: 1.2 }}>
+                              Freedom to be Fit
+                            </Typography>
+                            <Typography variant="body2" sx={{ opacity: 0.95 }}>
+                              Register now with easy Pay Now / Pay Later options. Categories available for Adult and Veteran players.
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={12} md={4}>
+                            <Stack spacing={1.2} alignItems={{ xs: 'flex-start', md: 'flex-end' }}>
+                              <Chip label="Registration Fee: ₹600" sx={{ bgcolor: '#fff', color: '#0f4c81', fontWeight: 800 }} />
+                              <Button
+                                component={Link}
+                                href="/tournaments/register"
+                                variant="contained"
+                                sx={{
+                                  bgcolor: '#fff',
+                                  color: '#0f4c81',
+                                  fontWeight: 800,
+                                  '&:hover': { bgcolor: '#f4f8ff' }
+                                }}
+                              >
+                                Register for Tournament
+                              </Button>
+                            </Stack>
+                          </Grid>
+                        </Grid>
+                      </CardContent>
+                    </Card>
                   </Box>
 
                   {/* SPECIAL OFFERS SECTION - Inside Hero */}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -48,7 +48,8 @@ import {
   People,
   SportsTennis,
   SportsFootball,
-  Refresh
+  Refresh,
+  Download,
 } from '@mui/icons-material';
 
 interface Tournament {
@@ -104,6 +105,33 @@ interface Match {
   };
 }
 
+interface RegistrationRow {
+  id: string;
+  tournamentId: string;
+  tournamentName: string;
+  sport: string;
+  venue: string;
+  name: string;
+  phone: string;
+  sex: string;
+  category: string;
+  eventType: string;
+  registrationFee: number;
+  paymentChoice: 'pay_now' | 'pay_later';
+  paymentStatus: 'pending' | 'completed' | 'failed';
+  transactionId: string;
+  registrationSource: 'public' | 'user' | 'admin';
+  registeredAt: string | null;
+}
+
+interface RegSummary {
+  total: number;
+  payNow: number;
+  payLater: number;
+  completed: number;
+  pending: number;
+}
+
 export default function AdminTournamentDashboard() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -113,6 +141,23 @@ export default function AdminTournamentDashboard() {
   const [selectedTournament, setSelectedTournament] = useState<string>('');
   const [activeTab, setActiveTab] = useState(0);
   const [error, setError] = useState('');
+
+  // Registrations tab state
+  const [regLoading, setRegLoading] = useState(false);
+  const [regExporting, setRegExporting] = useState(false);
+  const [regAlert, setRegAlert] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [regRows, setRegRows] = useState<RegistrationRow[]>([]);
+  const [regSummary, setRegSummary] = useState<RegSummary>({ total: 0, payNow: 0, payLater: 0, completed: 0, pending: 0 });
+  const [regFilters, setRegFilters] = useState({
+    tournamentId: 'all',
+    paymentChoice: 'all',
+    paymentStatus: 'all',
+    source: 'public',
+    search: '',
+  });
+  const [regEditDialog, setRegEditDialog] = useState(false);
+  const [regEditRow, setRegEditRow] = useState<RegistrationRow | null>(null);
+  const [regSaving, setRegSaving] = useState(false);
 
   // Dialog states
   const [tournamentDialog, setTournamentDialog] = useState(false);
@@ -169,10 +214,119 @@ export default function AdminTournamentDashboard() {
       router.push('/auth/signin');
       return;
     }
-
-    // Check if user is admin (you'll need to implement this check)
     fetchTournaments();
   }, [session]);
+
+  // Fetch registrations when tab is active or filters change
+  useEffect(() => {
+    if (activeTab === 3) fetchRegistrations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, regFilters]);
+
+  const regQueryString = () => {
+    const params = new URLSearchParams();
+    params.set('tournamentId', regFilters.tournamentId);
+    params.set('paymentChoice', regFilters.paymentChoice);
+    params.set('paymentStatus', regFilters.paymentStatus);
+    params.set('source', regFilters.source);
+    if (regFilters.search.trim()) params.set('search', regFilters.search.trim());
+    return params.toString();
+  };
+
+  const fetchRegistrations = async () => {
+    try {
+      setRegLoading(true);
+      const res = await fetch(`/api/admin/tournament-registrations?${regQueryString()}`);
+      const data = await res.json();
+      if (data.success) {
+        setRegRows(data.registrations || []);
+        setRegSummary(data.summary || { total: 0, payNow: 0, payLater: 0, completed: 0, pending: 0 });
+      } else {
+        setRegAlert({ type: 'error', message: data.error || 'Failed to fetch registrations' });
+      }
+    } catch {
+      setRegAlert({ type: 'error', message: 'Failed to fetch registrations' });
+    } finally {
+      setRegLoading(false);
+    }
+  };
+
+  const downloadRegCsv = async () => {
+    try {
+      setRegExporting(true);
+      const res = await fetch(`/api/admin/tournament-registrations?${regQueryString()}&format=csv`);
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `tournament-registrations-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      setRegAlert({ type: 'success', message: 'CSV exported successfully' });
+    } catch {
+      setRegAlert({ type: 'error', message: 'Failed to export CSV' });
+    } finally {
+      setRegExporting(false);
+    }
+  };
+
+  const handleRegEdit = (row: RegistrationRow) => {
+    setRegEditRow({ ...row });
+    setRegEditDialog(true);
+  };
+
+  const handleRegSave = async () => {
+    if (!regEditRow) return;
+    try {
+      setRegSaving(true);
+      const res = await fetch('/api/admin/tournament-registrations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: regEditRow.id,
+          name: regEditRow.name,
+          phone: regEditRow.phone,
+          sex: regEditRow.sex,
+          category: regEditRow.category,
+          eventType: regEditRow.eventType,
+          paymentChoice: regEditRow.paymentChoice,
+          paymentStatus: regEditRow.paymentStatus,
+          transactionId: regEditRow.transactionId,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRegAlert({ type: 'success', message: 'Registration updated' });
+        setRegEditDialog(false);
+        fetchRegistrations();
+      } else {
+        setRegAlert({ type: 'error', message: data.error || 'Update failed' });
+      }
+    } catch {
+      setRegAlert({ type: 'error', message: 'Update failed' });
+    } finally {
+      setRegSaving(false);
+    }
+  };
+
+  const handleRegDelete = async (id: string) => {
+    if (!confirm('Delete this registration? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`/api/admin/tournament-registrations?id=${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setRegAlert({ type: 'success', message: 'Registration deleted' });
+        fetchRegistrations();
+      } else {
+        setRegAlert({ type: 'error', message: data.error || 'Delete failed' });
+      }
+    } catch {
+      setRegAlert({ type: 'error', message: 'Delete failed' });
+    }
+  };
 
   const fetchTournaments = async () => {
     try {
@@ -421,6 +575,43 @@ export default function AdminTournamentDashboard() {
     setTournamentDialog(true);
   };
 
+  const matchesByRound = useMemo(() => {
+    return matches.reduce((acc: Record<string, Match[]>, m) => {
+      if (!acc[m.round]) acc[m.round] = [];
+      acc[m.round].push(m);
+      return acc;
+    }, {});
+  }, [matches]);
+
+  const standings = useMemo(() => {
+    const table: Record<string, { name: string; played: number; won: number; lost: number; setsWon: number; setsLost: number; points: number }> = {};
+    const ensure = (name: string) => { if (!table[name]) table[name] = { name, played: 0, won: 0, lost: 0, setsWon: 0, setsLost: 0, points: 0 }; };
+    matches.filter(m => m.status === 'completed').forEach(m => {
+      const p1 = m.player1Name + (m.player1Partner ? ` / ${m.player1Partner}` : '');
+      const p2 = m.player2Name ? m.player2Name + (m.player2Partner ? ` / ${m.player2Partner}` : '') : null;
+      ensure(p1);
+      if (p2) ensure(p2);
+      table[p1].played++;
+      if (p2) table[p2].played++;
+      const p1Won = m.winnerName ? m.winnerName === m.player1Name : m.score.player1Sets > m.score.player2Sets;
+      if (p1Won) { table[p1].won++; table[p1].points += 2; if (p2) table[p2].lost++; }
+      else { if (p2) { table[p2].won++; table[p2].points += 2; } table[p1].lost++; }
+      table[p1].setsWon += m.score.player1Sets; table[p1].setsLost += m.score.player2Sets;
+      if (p2) { table[p2].setsWon += m.score.player2Sets; table[p2].setsLost += m.score.player1Sets; }
+    });
+    return Object.values(table).sort((a, b) => b.points - a.points || b.won - a.won);
+  }, [matches]);
+
+  const handleStartMatch = async (match: Match) => {
+    try {
+      await fetch(`/api/tournaments/${match.tournamentId}/matches/${match._id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'live', liveScore: { currentSet: 1, player1CurrentScore: 0, player2CurrentScore: 0, server: 'player1' } }),
+      });
+      fetchMatches(selectedTournament);
+    } catch { setError('Failed to start match'); }
+  };
+
   const openEditScore = (match: Match) => {
     setEditingMatch(match);
     setScoreForm({
@@ -532,6 +723,7 @@ export default function AdminTournamentDashboard() {
           <Tab label="Tournaments" />
           <Tab label="Matches" />
           <Tab label="Live Updates" />
+          <Tab label="Registrations" />
         </Tabs>
       </Paper>
 
@@ -695,6 +887,134 @@ export default function AdminTournamentDashboard() {
         </Box>
       )}
 
+      {activeTab === 3 && (
+        <Stack spacing={2.5}>
+          {regAlert && <Alert severity={regAlert.type}>{regAlert.message}</Alert>}
+
+          <Grid container spacing={2}>
+            {[{ label: 'Total', val: regSummary.total, color: undefined }, { label: 'Pay Now', val: regSummary.payNow, color: undefined }, { label: 'Pay Later', val: regSummary.payLater, color: undefined }, { label: 'Completed', val: regSummary.completed, color: 'success.main' }, { label: 'Pending', val: regSummary.pending, color: 'warning.main' }].map((s) => (
+              <Grid item xs={6} md={2.4} key={s.label}>
+                <Card><CardContent>
+                  <Typography variant="caption">{s.label}</Typography>
+                  <Typography variant="h5" fontWeight={800} color={s.color}>{s.val}</Typography>
+                </CardContent></Card>
+              </Grid>
+            ))}
+          </Grid>
+
+          <Paper sx={{ p: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Tournament</InputLabel>
+                  <Select value={regFilters.tournamentId} label="Tournament" onChange={(e) => setRegFilters((p) => ({ ...p, tournamentId: String(e.target.value) }))}>
+                    <MenuItem value="all">All Tournaments</MenuItem>
+                    {tournaments.map((t) => <MenuItem key={t._id} value={t._id}>{t.name}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Payment Choice</InputLabel>
+                  <Select value={regFilters.paymentChoice} label="Payment Choice" onChange={(e) => setRegFilters((p) => ({ ...p, paymentChoice: String(e.target.value) }))}>
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="pay_now">Pay Now</MenuItem>
+                    <MenuItem value="pay_later">Pay Later</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Payment Status</InputLabel>
+                  <Select value={regFilters.paymentStatus} label="Payment Status" onChange={(e) => setRegFilters((p) => ({ ...p, paymentStatus: String(e.target.value) }))}>
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="completed">Completed</MenuItem>
+                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="failed">Failed</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Source</InputLabel>
+                  <Select value={regFilters.source} label="Source" onChange={(e) => setRegFilters((p) => ({ ...p, source: String(e.target.value) }))}>
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="public">Public</MenuItem>
+                    <MenuItem value="user">User</MenuItem>
+                    <MenuItem value="admin">Admin</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField fullWidth size="small" label="Search name / phone / txn" value={regFilters.search} onChange={(e) => setRegFilters((p) => ({ ...p, search: e.target.value }))} />
+              </Grid>
+            </Grid>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 2 }}>
+              <Button variant="outlined" startIcon={<Refresh />} onClick={fetchRegistrations}>Refresh</Button>
+              <Button variant="contained" startIcon={<Download />} onClick={downloadRegCsv} disabled={regExporting}>
+                {regExporting ? 'Exporting...' : 'Export CSV'}
+              </Button>
+            </Stack>
+          </Paper>
+
+          <TableContainer component={Paper}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Registered</TableCell>
+                  <TableCell>Tournament</TableCell>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Phone</TableCell>
+                  <TableCell>Sex</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell>Format</TableCell>
+                  <TableCell>Fee</TableCell>
+                  <TableCell>Choice</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Transaction ID</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {regLoading ? (
+                  <TableRow><TableCell colSpan={11} align="center"><CircularProgress size={24} /></TableCell></TableRow>
+                ) : regRows.length === 0 ? (
+                  <TableRow><TableCell colSpan={11} align="center">No registrations found</TableCell></TableRow>
+                ) : (
+                  regRows.map((row) => (
+                    <TableRow key={row.id} hover>
+                      <TableCell>{row.registeredAt ? new Date(row.registeredAt).toLocaleString('en-GB') : '-'}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={700}>{row.tournamentName}</Typography>
+                        <Typography variant="caption" color="text.secondary">{row.sport} • {row.venue}</Typography>
+                      </TableCell>
+                      <TableCell>{row.name}</TableCell>
+                      <TableCell>{row.phone}</TableCell>
+                      <TableCell>{row.sex}</TableCell>
+                      <TableCell>{row.category}</TableCell>
+                      <TableCell>{row.eventType}</TableCell>
+                      <TableCell>₹{row.registrationFee || 499}</TableCell>
+                      <TableCell>
+                        <Chip size="small" color={row.paymentChoice === 'pay_now' ? 'success' : 'warning'} label={row.paymentChoice === 'pay_now' ? 'Pay Now' : 'Pay Later'} />
+                      </TableCell>
+                      <TableCell>
+                        <Chip size="small" color={row.paymentStatus === 'completed' ? 'success' : row.paymentStatus === 'failed' ? 'error' : 'warning'} label={row.paymentStatus} />
+                      </TableCell>
+                      <TableCell>{row.transactionId || '-'}</TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={0.5}>
+                          <IconButton size="small" onClick={() => handleRegEdit(row)}><Edit fontSize="small" /></IconButton>
+                          <IconButton size="small" color="error" onClick={() => handleRegDelete(row.id)}><Delete fontSize="small" /></IconButton>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Stack>
+      )}
+
       {activeTab === 2 && (
         <Grid container spacing={2}>
           {matches.filter(m => m.status === 'live').map((match) => (
@@ -744,8 +1064,134 @@ export default function AdminTournamentDashboard() {
         </Grid>
       )}
 
+      {/* Registration Edit Dialog */}
+      <Dialog open={regEditDialog} onClose={(_, reason) => { if (reason !== 'backdropClick') setRegEditDialog(false); }} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit Registration</DialogTitle>
+        <DialogContent>
+          {regEditRow && (
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid item xs={12} md={6}>
+                <TextField fullWidth label="Name" value={regEditRow.name} onChange={(e) => setRegEditRow((p) => p ? { ...p, name: e.target.value } : p)} />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField fullWidth label="Phone" value={regEditRow.phone} onChange={(e) => setRegEditRow((p) => p ? { ...p, phone: e.target.value } : p)} />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Sex</InputLabel>
+                  <Select value={regEditRow.sex} label="Sex" onChange={(e) => setRegEditRow((p) => p ? { ...p, sex: e.target.value } : p)}>
+                    <MenuItem value="Male">Male</MenuItem>
+                    <MenuItem value="Female">Female</MenuItem>
+                    <MenuItem value="Other">Other</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Format</InputLabel>
+                  <Select value={regEditRow.eventType} label="Format" onChange={(e) => setRegEditRow((p) => p ? { ...p, eventType: e.target.value } : p)}>
+                    <MenuItem value="Singles">Singles</MenuItem>
+                    <MenuItem value="Doubles">Doubles</MenuItem>
+                    <MenuItem value="Mixed Doubles">Mixed Doubles</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Payment Choice</InputLabel>
+                  <Select value={regEditRow.paymentChoice} label="Payment Choice" onChange={(e) => setRegEditRow((p) => p ? { ...p, paymentChoice: e.target.value as any } : p)}>
+                    <MenuItem value="pay_now">Pay Now</MenuItem>
+                    <MenuItem value="pay_later">Pay Later</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Payment Status</InputLabel>
+                  <Select value={regEditRow.paymentStatus} label="Payment Status" onChange={(e) => setRegEditRow((p) => p ? { ...p, paymentStatus: e.target.value as any } : p)}>
+                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="completed">Completed</MenuItem>
+                    <MenuItem value="failed">Failed</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField fullWidth label="Transaction ID" value={regEditRow.transactionId === '-' ? '' : regEditRow.transactionId} onChange={(e) => setRegEditRow((p) => p ? { ...p, transactionId: e.target.value } : p)} />
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRegEditDialog(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleRegSave} disabled={regSaving}>{regSaving ? 'Saving...' : 'Save'}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Registration Edit Dialog */}
+      <Dialog open={regEditDialog} onClose={(_, reason) => { if (reason !== 'backdropClick') setRegEditDialog(false); }} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit Registration</DialogTitle>
+        <DialogContent>
+          {regEditRow && (
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid item xs={12} md={6}>
+                <TextField fullWidth label="Name" value={regEditRow.name} onChange={(e) => setRegEditRow((p) => p ? { ...p, name: e.target.value } : p)} />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField fullWidth label="Phone" value={regEditRow.phone} onChange={(e) => setRegEditRow((p) => p ? { ...p, phone: e.target.value } : p)} />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Sex</InputLabel>
+                  <Select value={regEditRow.sex} label="Sex" onChange={(e) => setRegEditRow((p) => p ? { ...p, sex: e.target.value } : p)}>
+                    <MenuItem value="Male">Male</MenuItem>
+                    <MenuItem value="Female">Female</MenuItem>
+                    <MenuItem value="Other">Other</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Format</InputLabel>
+                  <Select value={regEditRow.eventType} label="Format" onChange={(e) => setRegEditRow((p) => p ? { ...p, eventType: e.target.value } : p)}>
+                    <MenuItem value="Singles">Singles</MenuItem>
+                    <MenuItem value="Doubles">Doubles</MenuItem>
+                    <MenuItem value="Mixed Doubles">Mixed Doubles</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Payment Choice</InputLabel>
+                  <Select value={regEditRow.paymentChoice} label="Payment Choice" onChange={(e) => setRegEditRow((p) => p ? { ...p, paymentChoice: e.target.value as any } : p)}>
+                    <MenuItem value="pay_now">Pay Now</MenuItem>
+                    <MenuItem value="pay_later">Pay Later</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Payment Status</InputLabel>
+                  <Select value={regEditRow.paymentStatus} label="Payment Status" onChange={(e) => setRegEditRow((p) => p ? { ...p, paymentStatus: e.target.value as any } : p)}>
+                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="completed">Completed</MenuItem>
+                    <MenuItem value="failed">Failed</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField fullWidth label="Transaction ID" value={regEditRow.transactionId === '-' ? '' : regEditRow.transactionId} onChange={(e) => setRegEditRow((p) => p ? { ...p, transactionId: e.target.value } : p)} />
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRegEditDialog(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleRegSave} disabled={regSaving}>{regSaving ? 'Saving...' : 'Save'}</Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Tournament Dialog */}
-      <Dialog open={tournamentDialog} onClose={() => setTournamentDialog(false)} maxWidth="md" fullWidth>
+      <Dialog open={tournamentDialog} onClose={(_, reason) => { if (reason !== 'backdropClick') setTournamentDialog(false); }} maxWidth="md" fullWidth>
         <DialogTitle>
           {editingTournament ? 'Edit Tournament' : 'Create Tournament'}
         </DialogTitle>

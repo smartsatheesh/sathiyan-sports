@@ -3,17 +3,27 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IPlayer extends Document {
   tournamentId: mongoose.Types.ObjectId;
   playerId?: mongoose.Types.ObjectId; // Reference to User if registered user
+  userId?: mongoose.Types.ObjectId; // Backward-compatible alias used by legacy APIs
   name: string;
   partnerId?: mongoose.Types.ObjectId; // For doubles tournaments
   partnerName?: string;
+  partner?: string; // Backward-compatible alias
   email?: string;
   mobile?: string;
+  phone?: string; // Backward-compatible alias
   category?: string;
+  sex?: 'Male' | 'Female' | 'Other';
+  eventType?: 'Singles' | 'Doubles' | 'Mixed Doubles';
   jerseyNumber?: number;
   avatar?: string;
   teamName?: string; // For team tournaments
   isRegisteredUser: boolean;
   registrationDate: Date;
+  registeredAt?: Date; // Backward-compatible alias used in UI tables
+  registrationFee?: number;
+  paymentChoice?: 'pay_now' | 'pay_later';
+  transactionId?: string;
+  registrationSource?: 'public' | 'user' | 'admin';
   paymentStatus: 'pending' | 'completed' | 'failed';
   championshipId?: string; // Link to existing user's championshipId
 }
@@ -25,6 +35,10 @@ const PlayerSchema = new Schema<IPlayer>({
     required: [true, 'Tournament ID is required']
   },
   playerId: {
+    type: Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  userId: {
     type: Schema.Types.ObjectId,
     ref: 'User'
   },
@@ -41,6 +55,10 @@ const PlayerSchema = new Schema<IPlayer>({
     type: String,
     trim: true
   },
+  partner: {
+    type: String,
+    trim: true
+  },
   email: {
     type: String,
     trim: true,
@@ -50,9 +68,21 @@ const PlayerSchema = new Schema<IPlayer>({
     type: String,
     trim: true
   },
+  phone: {
+    type: String,
+    trim: true
+  },
   category: {
     type: String,
     trim: true
+  },
+  sex: {
+    type: String,
+    enum: ['Male', 'Female', 'Other']
+  },
+  eventType: {
+    type: String,
+    enum: ['Singles', 'Doubles', 'Mixed Doubles']
   },
   jerseyNumber: {
     type: Number,
@@ -74,6 +104,28 @@ const PlayerSchema = new Schema<IPlayer>({
   registrationDate: {
     type: Date,
     default: Date.now
+  },
+  registeredAt: {
+    type: Date,
+    default: Date.now
+  },
+  registrationFee: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+  paymentChoice: {
+    type: String,
+    enum: ['pay_now', 'pay_later']
+  },
+  transactionId: {
+    type: String,
+    trim: true
+  },
+  registrationSource: {
+    type: String,
+    enum: ['public', 'user', 'admin'],
+    default: 'user'
   },
   paymentStatus: {
     type: String,

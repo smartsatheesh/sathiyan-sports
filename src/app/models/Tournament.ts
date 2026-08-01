@@ -8,13 +8,14 @@ export interface ITournament extends Document {
   description?: string;
   startDate: Date;
   endDate?: Date;
-  maxPlayers: number;
+  maxParticipants: number;
   registrationDeadline: Date;
   venue: string;
-  entryFee?: number;
+  registrationFee?: number;
   prizePool?: number;
   rules?: string;
   categories?: string[];
+  category?: string;
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -69,11 +70,11 @@ const TournamentSchema = new Schema<ITournament>({
       message: 'End date must be after start date'
     }
   },
-  maxPlayers: {
+  maxParticipants: {
     type: Number,
     required: [true, 'Maximum players is required'],
     min: [2, 'Minimum 2 players required'],
-    max: [100, 'Maximum 100 players allowed']
+    max: [500, 'Maximum 500 players allowed']
   },
   registrationDeadline: {
     type: Date,
@@ -84,9 +85,9 @@ const TournamentSchema = new Schema<ITournament>({
     required: [true, 'Venue is required'],
     trim: true
   },
-  entryFee: {
+  registrationFee: {
     type: Number,
-    min: [0, 'Entry fee cannot be negative'],
+    min: [0, 'Registration fee cannot be negative'],
     default: 0
   },
   prizePool: {
@@ -101,6 +102,11 @@ const TournamentSchema = new Schema<ITournament>({
     type: String,
     trim: true
   }],
+  category: {
+    type: String,
+    trim: true,
+    default: 'Open'
+  },
   createdBy: {
     type: Schema.Types.ObjectId,
     ref: 'User',
@@ -125,4 +131,8 @@ TournamentSchema.virtual('duration').get(function() {
   return null;
 });
 
-export default mongoose.models.Tournament || mongoose.model('Tournament', TournamentSchema);
+// Delete cached model in development to pick up schema changes on hot reload
+if (mongoose.models.Tournament) {
+  delete (mongoose.models as any).Tournament;
+}
+export default mongoose.model<ITournament>('Tournament', TournamentSchema);

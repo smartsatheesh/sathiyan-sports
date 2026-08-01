@@ -84,14 +84,6 @@ export async function POST(
     const body = await request.json();
     const { partner, category } = body;
 
-    // For doubles, validate partner info
-    if (tournament.type === 'doubles' && !partner) {
-      return NextResponse.json(
-        { success: false, error: 'Partner information is required for doubles tournament' },
-        { status: 400 }
-      );
-    }
-
     const newPlayer = new Player({
       tournamentId: params.id,
       userId: user._id,

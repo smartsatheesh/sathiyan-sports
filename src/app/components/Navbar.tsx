@@ -37,6 +37,7 @@ import { useSession, signOut } from "next-auth/react";
 const publicNavItems = [
   { label: "Home", href: "/" },
   { label: "Tournaments", href: "/tournaments" },
+
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
 ];

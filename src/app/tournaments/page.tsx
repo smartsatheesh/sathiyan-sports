@@ -123,16 +123,17 @@ export default function TournamentsPage() {
 
   const fetchTournaments = async () => {
     try {
-      const response = await fetch('/api/tournaments-native');
+      const response = await fetch('/api/tournaments');
       const result = await response.json();
       
       if (result.success) {
-        setTournaments(result.tournaments); // Native API returns tournaments array
-        setFilteredTournaments(result.tournaments);
+        const tournamentList = result.data || [];
+        setTournaments(tournamentList);
+        setFilteredTournaments(tournamentList);
         
         // Create basic stats from the tournament data (no need for additional API calls)
         const statsMap: Record<string, TournamentStats> = {};
-        result.tournaments.forEach((tournament: Tournament) => {
+        tournamentList.forEach((tournament: Tournament) => {
           statsMap[tournament._id] = {
             totalPlayers: tournament.playersCount || 0,
             registrationProgress: ((tournament.playersCount || 0) / (tournament.maxPlayers || tournament.maxParticipants || 40)) * 100,
@@ -155,17 +156,18 @@ export default function TournamentsPage() {
 
   const fetchTournamentStats = async (tournamentId: string) => {
     try {
-      const response = await fetch(`/api/tournaments-native/${tournamentId}`);
+      const response = await fetch(`/api/tournaments/${tournamentId}/register`);
       const result = await response.json();
       
       if (result.success) {
-        // Calculate stats from the native API response
+        const tournament = tournaments.find((t) => t._id === tournamentId);
+        const maxPlayers = tournament?.maxPlayers || tournament?.maxParticipants || 40;
         const stats = {
-          totalPlayers: result.players.length,
-          registrationProgress: (result.players.length / (result.tournament.maxPlayers || 40)) * 100,
-          completedMatches: result.matches.filter((m: any) => m.status === 'completed').length,
-          liveMatches: result.matches.filter((m: any) => m.status === 'live').length,
-          upcomingMatches: result.matches.filter((m: any) => m.status === 'scheduled').length,
+          totalPlayers: (result.data || []).length,
+          registrationProgress: ((result.data || []).length / maxPlayers) * 100,
+          completedMatches: 0,
+          liveMatches: 0,
+          upcomingMatches: 0,
         };
         
         setTournamentStats(prev => ({
@@ -553,6 +555,16 @@ export default function TournamentsPage() {
                     >
                       View Details
                     </Button>
+
+                    {tournament.status === 'upcoming' && isRegistrationOpen && !isFull && (
+                      <Button
+                        variant="text"
+                        onClick={() => router.push(`/tournaments/register?tournamentId=${tournament._id}`)}
+                        size="small"
+                      >
+                        Public Link
+                      </Button>
+                    )}
 
                     {tournament.status === 'upcoming' && isRegistrationOpen && !isFull && (
                       <Button
