@@ -134,9 +134,9 @@ export default function Home() {
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalBookings: 0,
-    totalEvents: 7,
+    totalEvents: 6,
     totalFitnessEnrollments: 0,
-    averageRating: 4.9,
+    averageRating: 5,
   });
   const [currentTaglineIndex, setCurrentTaglineIndex] = useState(0);
   const [showTagline, setShowTagline] = useState(true);
@@ -154,7 +154,7 @@ export default function Home() {
         
         const data = await response.json();
         if (data.success) {
-          setStats(data.stats);
+          setStats(prev => ({ ...prev, ...data.stats, totalEvents: 6, averageRating: 5 }));
         }
       } catch (error) {
         console.log('Could not fetch stats, using fallbacks');

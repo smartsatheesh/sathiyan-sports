@@ -116,12 +116,12 @@ export async function POST(
       scheduledTime
     } = body;
 
-    // Validate required fields
-    if (!round || !matchNumber || !player1Id || !player1Name) {
+    // Validate required fields — player IDs are optional (admin creates by name)
+    if (!round || !matchNumber || !player1Name) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Missing required fields: round, matchNumber, player1Id, player1Name'
+          error: 'Missing required fields: round, matchNumber, player1Name'
         },
         { status: 400 }
       );
@@ -131,8 +131,8 @@ export async function POST(
       tournamentId: params.id,
       round,
       matchNumber,
-      player1Id,
-      player2Id,
+      ...(player1Id && player1Id !== 'dummy-id' ? { player1Id } : {}),
+      ...(player2Id && player2Id !== 'dummy-id' ? { player2Id } : {}),
       player1Name,
       player2Name,
       player1Partner,
@@ -172,5 +172,26 @@ export async function POST(
       },
       { status: 500 }
     );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+
+    await connectToDatabase();
+    const User = (await import('../../../../models/User')).default;
+    const user = await (User.findOne as any)({ email: session.user.email });
+    if (!user || user.role !== 'admin') return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 });
+
+    const result = await (Match.deleteMany as any)({ tournamentId: params.id });
+    return NextResponse.json({ success: true, deleted: result.deletedCount });
+  } catch (error) {
+    console.error('Delete all matches error:', error);
+    return NextResponse.json({ success: false, error: 'Failed to delete matches' }, { status: 500 });
   }
 }

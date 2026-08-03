@@ -54,11 +54,12 @@ export default function TournamentRegistrationPage() {
     tournamentId: tournamentIdFromQuery,
     name: '',
     phone: '',
+    clubName: '',
     partnerName: '',
     sex: 'Male',
     ageCategory: AGE_CATEGORIES[0],
-    eventType: EVENT_TYPES[0],
-    paymentChoice: 'pay_later',
+    eventType: 'Doubles',
+    paymentChoice: 'pay_now',
     transactionId: '',
   });
 
@@ -115,6 +116,8 @@ export default function TournamentRegistrationPage() {
   const upiId = process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'Vyapar.175693786746@hdfcbank';
   const merchantName = process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club';
   const upiNote = `Tournament registration - ${selectedTournament?.name || 'Sathiyan Sports'}`;
+  // tez:// scheme opens GPay directly; upi:// is the generic fallback
+  const gpayUrl = `tez://upi/pay?pa=${upiId}&pn=${encodeURIComponent(merchantName)}&am=${REGISTRATION_FEE}&cu=INR&tn=${encodeURIComponent(upiNote)}`;
   const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(merchantName)}&am=${REGISTRATION_FEE}&cu=INR&tn=${encodeURIComponent(upiNote)}`;
 
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_PAYMENT_NUMBER || '919787020525';
@@ -150,6 +153,7 @@ export default function TournamentRegistrationPage() {
           tournamentId: formData.tournamentId,
           name: formData.name,
           phone: formData.phone,
+          clubName: formData.clubName,
           sex: formData.sex,
           ageCategory: formData.ageCategory,
           eventType: formData.eventType,
@@ -167,7 +171,7 @@ export default function TournamentRegistrationPage() {
           name: '',
           phone: '',
           transactionId: '',
-          paymentChoice: 'pay_later',
+          paymentChoice: 'pay_now',
         }));
       } else {
         setAlert({ type: 'error', message: data.error || 'Registration failed' });
@@ -184,30 +188,92 @@ export default function TournamentRegistrationPage() {
       <Paper
         elevation={6}
         sx={{
-          p: { xs: 2.5, md: 4 },
           borderRadius: 4,
-          background: 'linear-gradient(160deg, #ffffff 0%, #f1fbff 100%)',
+          overflow: 'hidden',
           border: '1px solid #d7eef8',
         }}
       >
-        <Stack spacing={2.5}>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="h4" fontWeight={900} color="primary.main">
+        {/* Independence Day Hero Banner */}
+        <Box sx={{
+          background: 'linear-gradient(135deg, #FF9933 0%, #FF9933 33%, #ffffff 33%, #ffffff 66%, #138808 66%, #138808 100%)',
+          px: { xs: 2, md: 4 },
+          pt: 3,
+          pb: 2,
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+          {/* Decorative overlay for readability */}
+          <Box sx={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)' }} />
+
+          {/* Decorative flag emojis scattered */}
+          {['🇮🇳', '🕊️', '🇮🇳', '⭐', '🇮🇳', '🕊️'].map((icon, i) => (
+            <Box key={i} sx={{
+              position: 'absolute',
+              fontSize: { xs: '1.2rem', md: '1.6rem' },
+              opacity: 0.35,
+              top: `${[10, 20, 60, 10, 55, 30][i]}%`,
+              left: `${[5, 88, 92, 45, 0, 70][i]}%`,
+              transform: 'rotate(' + [-15, 20, -10, 30, 15, -20][i] + 'deg)',
+              pointerEvents: 'none',
+            }}>{icon}</Box>
+          ))}
+
+          {/* Main header content */}
+          <Box sx={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+            <Typography variant="caption" sx={{ color: '#FFD700', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', display: 'block', mb: 0.5 }}>
+              🇮🇳 Jai Hind • 15 August 2026 🇮🇳
+            </Typography>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: { xs: 1.5, md: 3 }, my: 1.5 }}>
+              {/* Left flag */}
+              <Box sx={{ fontSize: { xs: '2.5rem', md: '3.5rem' }, lineHeight: 1 }}>🇮🇳</Box>
+
+              {/* Logo */}
+              <Box
+                component="img"
+                src="/sathiyanlogo.png"
+                alt="Sathiyan Sports Logo"
+                sx={{
+                  width: { xs: 100, md: 140 },
+                  height: { xs: 100, md: 140 },
+                  borderRadius: '50%',
+                  boxShadow: '0 0 0 4px #FFD700, 0 0 0 8px rgba(255,215,0,0.3)',
+                  objectFit: 'contain',
+                  background: '#fff',
+                  p: 0.5,
+                }}
+              />
+
+              {/* Right side "Freedom to be Fit" */}
+              <Box sx={{ textAlign: 'left', maxWidth: { xs: 110, md: 180 } }}>
+                <Typography sx={{ fontSize: { xs: '1rem', md: '1.3rem' }, color: '#FFD700', fontWeight: 900, lineHeight: 1.2, fontStyle: 'italic', textShadow: '0 2px 6px rgba(0,0,0,0.6)', whiteSpace: 'nowrap' }}>
+                  🕊️ Freedom to be Fit
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.3, mt: 0.8 }}>
+                  {['🧘', '🏸', '⚽', '🏃'].map(e => <span key={e} style={{ fontSize: '1.1rem' }}>{e}</span>)}
+                </Box>
+              </Box>
+            </Box>
+
+            <Typography variant="h5" sx={{ color: '#fff', fontWeight: 900, textShadow: '0 2px 8px rgba(0,0,0,0.6)', mb: 0.5, fontSize: { xs: '1.1rem', md: '1.5rem' } }}>
               Tournament Registration
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-              Sathiyan Sports 1st Ever Independence Day Tournament
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', display: 'block', fontWeight: 600 }}>
+              1st Sathiyan Sports Independence Day Tournament
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Theme: Freedom to be Fit
-            </Typography>
-            <Box
-              component="img"
-              src="/sathiyanlogo.png"
-              alt="Sathiyan Sports Logo"
-              sx={{ width: 120, height: 120, mt: 1.5, borderRadius: 2, boxShadow: 2, display: 'block', mx: 'auto' }}
-            />
+
+            {/* Tricolor strip */}
+            <Box sx={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', mt: 1.5, mx: 'auto', maxWidth: 200 }}>
+              <Box sx={{ flex: 1, bgcolor: '#FF9933' }} />
+              <Box sx={{ flex: 1, bgcolor: '#ffffff' }} />
+              <Box sx={{ flex: 1, bgcolor: '#138808' }} />
+            </Box>
           </Box>
+        </Box>
+
+        {/* Form content */}
+        <Box sx={{ p: { xs: 2.5, md: 4 }, background: 'linear-gradient(160deg, #ffffff 0%, #f1fbff 100%)' }}>
+        <Stack spacing={2.5}>
 
           {alert && <Alert severity={alert.type}>{alert.message}</Alert>}
 
@@ -265,6 +331,17 @@ export default function TournamentRegistrationPage() {
                 />
               </Grid>
 
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Club Name"
+                  placeholder="e.g. Sathiyan Multi Sport Club"
+                  value={formData.clubName}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, clubName: e.target.value }))}
+                  helperText="Optional — enter your club or academy name"
+                />
+              </Grid>
+
               {(formData.eventType === 'Doubles' || formData.eventType === 'Mixed Doubles') && (
                 <Grid item xs={12}>
                   <TextField
@@ -305,20 +382,6 @@ export default function TournamentRegistrationPage() {
                 </FormControl>
               </Grid>
 
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <FormLabel sx={{ mb: 1 }}>Category</FormLabel>
-                  <Select
-                    value={formData.ageCategory}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, ageCategory: String(e.target.value) }))}
-                  >
-                    {AGE_CATEGORIES.map((c) => (
-                      <MenuItem key={c} value={c}>{c}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
               <Grid item xs={12}>
                 <FormControl>
                   <FormLabel>Payment</FormLabel>
@@ -328,7 +391,6 @@ export default function TournamentRegistrationPage() {
                     onChange={(e) => setFormData((prev) => ({ ...prev, paymentChoice: e.target.value }))}
                   >
                     <FormControlLabel value="pay_now" control={<Radio />} label="Pay Now" />
-                    <FormControlLabel value="pay_later" control={<Radio />} label="Pay Later" />
                   </RadioGroup>
                 </FormControl>
               </Grid>
@@ -341,8 +403,13 @@ export default function TournamentRegistrationPage() {
                         Pay ₹{REGISTRATION_FEE}
                       </Typography>
                       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
-                        <Button variant="contained" onClick={() => window.open(upiUrl, '_blank')}>
-                          Pay via UPI App
+                        <Button variant="contained" startIcon={<img src="/gpay-icon.png" width={20} height={20} onError={(e) => (e.currentTarget.style.display='none')} />}
+                          onClick={() => {
+                            // Try GPay first, fall back to generic UPI
+                            window.location.href = gpayUrl;
+                            setTimeout(() => window.open(upiUrl, '_blank'), 1500);
+                          }}>
+                          Pay via GPay
                         </Button>
                         <Button
                           variant="outlined"
@@ -409,6 +476,7 @@ export default function TournamentRegistrationPage() {
             </Button>
           </Stack>
         </Stack>
+        </Box>
       </Paper>
     </Container>
   );

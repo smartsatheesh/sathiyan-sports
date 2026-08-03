@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Box,
@@ -390,6 +390,53 @@ export default function TournamentPage() {
     return () => clearInterval(interval);
   }, [autoRefresh, data]);
 
+  // Hooks must be called before any conditional returns
+  const allMatches = data?.matches || [];
+  const allPlayers = data?.players || [];
+
+  const playerIdMap = useMemo(() => {
+    const sorted = [...allPlayers].sort((a, b) =>
+      new Date(a.registeredAt || 0).getTime() - new Date(b.registeredAt || 0).getTime()
+    );
+    const map: Record<string, string> = {};
+    sorted.forEach((p, idx) => { map[p.name] = `I${idx + 1}`; });
+    return map;
+  }, [allPlayers]);
+
+  const matchesByRound = useMemo(() => {
+    const ROUND_ORDER = ['Group Stage', 'Round of 16', 'Quarter Final', 'Semi Final', 'Final'];
+    const grouped = allMatches.reduce((acc: Record<string, Match[]>, m) => {
+      if (!acc[m.round]) acc[m.round] = [];
+      acc[m.round].push(m);
+      return acc;
+    }, {});
+    return Object.fromEntries(
+      Object.entries(grouped).sort(([a], [b]) => {
+        const ai = ROUND_ORDER.indexOf(a), bi = ROUND_ORDER.indexOf(b);
+        if (ai === -1 && bi === -1) return a.localeCompare(b);
+        if (ai === -1) return 1; if (bi === -1) return -1;
+        return ai - bi;
+      })
+    );
+  }, [allMatches]);
+
+  const standings = useMemo(() => {
+    const table: Record<string, { name: string; played: number; won: number; lost: number; setsWon: number; setsLost: number; points: number }> = {};
+    const ensure = (name: string) => { if (!table[name]) table[name] = { name, played: 0, won: 0, lost: 0, setsWon: 0, setsLost: 0, points: 0 }; };
+    allMatches.filter((m: Match) => m.status === 'completed').forEach((m: Match) => {
+      const p1 = m.player1Name + (m.player1Partner ? ` / ${m.player1Partner}` : '');
+      const p2 = m.player2Name ? m.player2Name + (m.player2Partner ? ` / ${m.player2Partner}` : '') : null;
+      ensure(p1); if (p2) ensure(p2);
+      table[p1].played++; if (p2) table[p2].played++;
+      const p1Won = m.winnerName ? m.winnerName === m.player1Name : m.score.player1Sets > m.score.player2Sets;
+      if (p1Won) { table[p1].won++; table[p1].points += 2; if (p2) table[p2].lost++; }
+      else { if (p2) { table[p2].won++; table[p2].points += 2; } table[p1].lost++; }
+      table[p1].setsWon += m.score.player1Sets; table[p1].setsLost += m.score.player2Sets;
+      if (p2) { table[p2].setsWon += m.score.player2Sets; table[p2].setsLost += m.score.player1Sets; }
+    });
+    return Object.values(table).sort((a, b) => b.points - a.points || b.won - a.won);
+  }, [allMatches]);
+
   if (loading) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
@@ -692,7 +739,7 @@ export default function TournamentPage() {
             label={
               <Stack direction="row" alignItems="center" spacing={1}>
                 <SportsTennis color={activeTab === 1 ? 'primary' : 'inherit'} />
-                <Typography>All Matches</Typography>
+                <Typography>Fixtures</Typography>
                 <Chip label={matches.length} size="small" color="primary" />
               </Stack>
             }
@@ -716,6 +763,15 @@ export default function TournamentPage() {
                   size="small" 
                   color="warning"
                 />
+              </Stack>
+            }
+          />
+          <Tab 
+            label={
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <EmojiEvents color={activeTab === 4 ? 'primary' : 'inherit'} />
+                <Typography>Standings</Typography>
+                <Chip label={standings.length} size="small" color="secondary" />
               </Stack>
             }
           />
@@ -859,122 +915,76 @@ export default function TournamentPage() {
 
       {activeTab === 1 && (
         <Box>
-          <Typography variant="h6" gutterBottom>
-            All Matches by Category
-          </Typography>
-          
-          {/* Group matches by category */}
-          {Array.from(new Set(matches.map(m => m.category || 'General'))).sort().map(category => {
-            const categoryMatches = matches.filter(m => (m.category || 'General') === category);
-            
-            if (categoryMatches.length === 0) return null;
-            
-            return (
-              <Paper key={category} sx={{ mb: 3 }}>
-                <Box sx={{ p: 2, background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)', color: 'white' }}>
-                  <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <EmojiEvents />
-                    Category {category} 
-                    <Chip 
-                      label={`${categoryMatches.length} matches`} 
-                      size="small" 
-                      sx={{ ml: 1, backgroundColor: 'white', color: '#1976d2' }}
-                    />
-                  </Typography>
+          <Typography variant="h6" fontWeight={700} sx={{ mb: 3 }}>Fixtures</Typography>
+          {Object.keys(matchesByRound).length === 0 ? (
+            <Paper sx={{ p: 4, textAlign: 'center' }}>
+              <Typography color="text.secondary">No fixtures published yet. Check back soon!</Typography>
+            </Paper>
+          ) : (
+            Object.entries(matchesByRound).map(([round, roundMatches]) => (
+              <Box key={round} sx={{ mb: 4 }}>
+                <Box sx={{ bgcolor: 'primary.main', color: 'white', px: 2, py: 1, borderRadius: 1, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <EmojiEvents fontSize="small" />
+                  <Typography variant="subtitle1" fontWeight={700}>{round}</Typography>
+                  <Chip size="small" label={`${roundMatches.filter(m => m.status === 'completed').length}/${roundMatches.length} played`} sx={{ ml: 'auto', bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
                 </Box>
-                
-                <TableContainer>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Match</TableCell>
-                        <TableCell>Round</TableCell>
-                        <TableCell>Players</TableCell>
-                        <TableCell>Score</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Court</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {categoryMatches.map((match) => (
-                        <TableRow key={match._id}>
-                          <TableCell>#{match.matchNumber}</TableCell>
-                          <TableCell>{match.round}</TableCell>
-                          <TableCell>
-                            <Box>
-                              <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                                {match.player1Name}
-                                {match.player1Partner && ` / ${match.player1Partner}`}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary" sx={{ my: 0.5 }}>
-                                vs
-                              </Typography>
-                              <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                                {match.player2Name || 'TBD'}
-                                {match.player2Partner && ` / ${match.player2Partner}`}
-                              </Typography>
+                <Grid container spacing={2}>
+                  {roundMatches.map(match => {
+                    const isLive = match.status === 'live';
+                    const isDone = match.status === 'completed';
+                    const id1 = playerIdMap[match.player1Name] || null;
+                    const id2 = match.player2Name ? playerIdMap[match.player2Name] || null : null;
+                    const p1display = id1 ? `${id1} (${match.player1Name || 'TBD'})` : (match.player1Name || 'TBD');
+                    const p2display = id2 ? `${id2} (${match.player2Name})` : (match.player2Name || 'TBD');
+                    const p1 = p1display + (match.player1Partner ? ` / ${match.player1Partner}` : '');
+                    const p2 = p2display + (match.player2Partner ? ` / ${match.player2Partner}` : '');
+                    const p1Wins = isDone && match.winnerName === match.player1Name;
+                    const p2Wins = isDone && match.winnerName === match.player2Name;
+                    return (
+                      <Grid item xs={12} sm={6} md={4} key={match._id}>
+                        <Card sx={{ border: isLive ? '2px solid #f44336' : isDone ? '1px solid #4caf50' : '1px solid #e0e0e0', borderRadius: 2, height: '100%' }}>
+                          <CardContent>
+                            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+                              <Typography variant="caption" color="text.secondary">#{match.matchNumber}{match.courtNumber ? ` · Court ${match.courtNumber}` : ''}</Typography>
+                              <Chip size="small" label={isLive ? '🔴 LIVE' : match.status} color={isLive ? 'error' : isDone ? 'success' : 'default'} sx={isLive ? { fontWeight: 700 } : {}} />
+                            </Stack>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="body2" fontWeight={p1Wins ? 800 : 500} color={p1Wins ? 'success.main' : 'text.primary'}>
+                                  {p1Wins && '🏆 '}{p1}
+                                </Typography>
+                              </Box>
+                              <Box sx={{ textAlign: 'center', minWidth: 48 }}>
+                                {isDone && <Typography variant="h6" fontWeight={700}>{match.score.player1Sets}–{match.score.player2Sets}</Typography>}
+                                {isLive && match.liveScore && <Typography variant="h6" fontWeight={700} color="error.main">{match.liveScore.player1CurrentScore}–{match.liveScore.player2CurrentScore}</Typography>}
+                                {!isDone && !isLive && <Typography color="text.disabled" variant="body2">vs</Typography>}
+                              </Box>
+                              <Box sx={{ flex: 1, textAlign: 'right' }}>
+                                <Typography variant="body2" fontWeight={p2Wins ? 800 : 500} color={p2Wins ? 'success.main' : 'text.primary'}>
+                                  {p2}{p2Wins && ' 🏆'}
+                                </Typography>
+                              </Box>
                             </Box>
-                          </TableCell>
-                          <TableCell>
-                            {match.status === 'completed' && (
-                              <Box>
-                                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                  {match.score.player1Sets} - {match.score.player2Sets}
-                                </Typography>
-                                {match.winnerName && (
-                                  <Typography variant="caption" color="success.main" display="block">
-                                    Winner: {match.winnerName}
-                                  </Typography>
-                                )}
-                                {match.score.sets.length > 0 && (
-                                  <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                                    {match.score.sets.map((set, index) => (
-                                      <Chip
-                                        key={index}
-                                        label={`${set.player1Score}-${set.player2Score}`}
-                                        size="small"
-                                        variant="outlined"
-                                        sx={{ fontSize: '0.7rem', height: '20px' }}
-                                      />
-                                    ))}
-                                  </Box>
-                                )}
-                              </Box>
+                            {isDone && match.score.sets?.length > 0 && (
+                              <Stack direction="row" spacing={0.5} justifyContent="center" flexWrap="wrap">
+                                {match.score.sets.map(s => <Chip key={s.set} size="small" variant="outlined" label={`${s.player1Score}–${s.player2Score}`} sx={{ fontSize: '0.7rem' }} />)}
+                              </Stack>
                             )}
-                            {match.status === 'live' && match.liveScore && (
-                              <Box>
-                                <Typography variant="body2" color="error.main" sx={{ fontWeight: 'bold' }}>
-                                  {match.liveScore.player1CurrentScore} - {match.liveScore.player2CurrentScore}
-                                </Typography>
-                                <Typography variant="caption" color="error.main" display="block">
-                                  Set {match.liveScore.currentSet} (LIVE)
-                                </Typography>
-                              </Box>
-                            )}
-                            {(match.status === 'scheduled' || match.status === 'cancelled') && (
-                              <Typography variant="body2" color="text.secondary">
-                                -
+                            {isLive && match.liveScore && <Typography variant="caption" color="error.main" display="block" textAlign="center" sx={{ mt: 0.5 }}>Set {match.liveScore.currentSet} in progress</Typography>}
+                            {match.scheduledTime && match.status === 'scheduled' && (
+                              <Typography variant="caption" color="text.secondary" display="block" textAlign="center" sx={{ mt: 0.5 }}>
+                                {new Date(match.scheduledTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                               </Typography>
                             )}
-                          </TableCell>
-                          <TableCell>
-                            <Chip 
-                              label={match.status}
-                              color={getStatusColor(match.status) as any}
-                              size="small"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {match.courtNumber || '-'}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Paper>
-            );
-          })}
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              </Box>
+            ))
+          )}
         </Box>
       )}
 
@@ -1015,6 +1025,7 @@ export default function TournamentPage() {
                   <Table>
                     <TableHead>
                       <TableRow>
+                        <TableCell>Team ID</TableCell>
                         <TableCell>Player</TableCell>
                         {tournament.type === 'doubles' && <TableCell>Partner</TableCell>}
                         <TableCell>Contact</TableCell>
@@ -1026,6 +1037,9 @@ export default function TournamentPage() {
                     <TableBody>
                       {categoryPlayers.map((player) => (
                         <TableRow key={player._id}>
+                          <TableCell>
+                            <Chip label={playerIdMap[player.name] || '—'} color="primary" size="small" sx={{ fontWeight: 800, minWidth: 36 }} />
+                          </TableCell>
                           <TableCell>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <Avatar sx={{ width: 32, height: 32, bgcolor: category === 'A' ? '#1976d2' : category === 'B' ? '#9c27b0' : '#ff9800' }}>
@@ -1282,6 +1296,49 @@ export default function TournamentPage() {
                 </Grid>
               )}
             </Grid>
+          )}
+        </Box>
+      )}
+      {activeTab === 4 && (
+        <Box>
+          <Typography variant="h5" fontWeight={800} sx={{ mb: 3 }}>🏆 Standings</Typography>
+          {standings.length === 0 ? (
+            <Paper sx={{ p: 4, textAlign: 'center' }}>
+              <EmojiEventsOutlined sx={{ fontSize: 60, color: 'text.secondary', mb: 1 }} />
+              <Typography color="text.secondary">Standings will appear once matches are completed.</Typography>
+            </Paper>
+          ) : (
+            <TableContainer component={Paper} elevation={3} sx={{ borderRadius: 2 }}>
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ bgcolor: 'primary.main' }}>
+                    {['Rank', 'Player / Pair', 'Played', 'Won', 'Lost', 'Sets', 'Points'].map(h => (
+                      <TableCell key={h} sx={{ color: 'white', fontWeight: 700 }}>{h}</TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {standings.map((row, idx) => (
+                    <TableRow key={row.name} sx={{ bgcolor: idx === 0 ? 'rgba(255,215,0,0.08)' : idx % 2 === 0 ? 'rgba(0,0,0,0.02)' : 'inherit' }}>
+                      <TableCell><Typography fontWeight={700}>{idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}</Typography></TableCell>
+                      <TableCell>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          {playerIdMap[row.name.split(' / ')[0]] && (
+                            <Chip size="small" label={playerIdMap[row.name.split(' / ')[0]]} color="primary" sx={{ fontWeight: 800, minWidth: 36 }} />
+                          )}
+                          <Typography fontWeight={idx < 3 ? 700 : 400}>{row.name}</Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>{row.played}</TableCell>
+                      <TableCell><Typography fontWeight={700} color="success.main">{row.won}</Typography></TableCell>
+                      <TableCell><Typography color="error.main">{row.lost}</Typography></TableCell>
+                      <TableCell>{row.setsWon}–{row.setsLost}</TableCell>
+                      <TableCell><Chip size="small" label={row.points} color={idx === 0 ? 'warning' : 'default'} sx={{ fontWeight: 800 }} /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
         </Box>
       )}

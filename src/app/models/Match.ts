@@ -58,7 +58,7 @@ const MatchSchema = new Schema<IMatch>({
   player1Id: {
     type: Schema.Types.ObjectId,
     ref: 'Player',
-    required: [true, 'Player 1 ID is required']
+    required: false
   },
   player2Id: {
     type: Schema.Types.ObjectId,
@@ -184,4 +184,7 @@ MatchSchema.index({ player2Id: 1 });
 MatchSchema.index({ status: 1 });
 MatchSchema.index({ scheduledTime: 1 });
 
-export default mongoose.models.Match || mongoose.model('Match', MatchSchema);
+if (mongoose.models.Match) {
+  delete (mongoose.models as any).Match;
+}
+export default mongoose.model<IMatch>('Match', MatchSchema);

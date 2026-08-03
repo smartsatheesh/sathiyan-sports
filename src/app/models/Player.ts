@@ -17,6 +17,7 @@ export interface IPlayer extends Document {
   jerseyNumber?: number;
   avatar?: string;
   teamName?: string; // For team tournaments
+  clubName?: string;
   isRegisteredUser: boolean;
   registrationDate: Date;
   registeredAt?: Date; // Backward-compatible alias used in UI tables
@@ -69,6 +70,10 @@ const PlayerSchema = new Schema<IPlayer>({
     trim: true
   },
   phone: {
+    type: String,
+    trim: true
+  },
+  clubName: {
     type: String,
     trim: true
   },

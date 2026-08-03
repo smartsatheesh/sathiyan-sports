@@ -77,6 +77,7 @@ export async function GET(req: NextRequest) {
         venue: item.tournamentId?.venue || '-',
         startDate: item.tournamentId?.startDate || null,
         name: item.name || '-',
+        clubName: item.clubName || '-',
         phone: item.phone || item.mobile || '-',
         sex: item.sex || '-',
         category: item.category || '-',
@@ -175,7 +176,7 @@ export async function PATCH(req: NextRequest) {
     const { id, ...updates } = await req.json();
     if (!id) return NextResponse.json({ success: false, error: 'Registration ID required' }, { status: 400 });
 
-    const allowed = ['name', 'phone', 'sex', 'category', 'eventType', 'paymentChoice', 'paymentStatus', 'transactionId'];
+    const allowed = ['name', 'phone', 'partnerName', 'sex', 'category', 'eventType', 'paymentChoice', 'paymentStatus', 'transactionId'];
     const sanitized: Record<string, any> = {};
     for (const key of allowed) {
       if (updates[key] !== undefined) sanitized[key] = updates[key];
@@ -207,6 +208,14 @@ export async function DELETE(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    const tournamentId = searchParams.get('tournamentId');
+
+    // Bulk delete all registrations for a tournament
+    if (tournamentId && searchParams.get('deleteAll') === 'true') {
+      const result = await (Player.deleteMany as any)({ tournamentId });
+      return NextResponse.json({ success: true, deleted: result.deletedCount });
+    }
+
     if (!id) return NextResponse.json({ success: false, error: 'Registration ID required' }, { status: 400 });
 
     const deleted = await (Player.findByIdAndDelete as any)(id);

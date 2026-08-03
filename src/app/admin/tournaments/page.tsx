@@ -113,6 +113,7 @@ interface RegistrationRow {
   venue: string;
   name: string;
   phone: string;
+  partnerName: string;
   sex: string;
   category: string;
   eventType: string;
@@ -152,12 +153,15 @@ export default function AdminTournamentDashboard() {
     tournamentId: 'all',
     paymentChoice: 'all',
     paymentStatus: 'all',
-    source: 'public',
+    source: 'all',
     search: '',
   });
   const [regEditDialog, setRegEditDialog] = useState(false);
   const [regEditRow, setRegEditRow] = useState<RegistrationRow | null>(null);
   const [regSaving, setRegSaving] = useState(false);
+
+  // Registered players for match creation dropdowns
+  const [registeredPlayers, setRegisteredPlayers] = useState<Array<{ id: string; label: string; name: string; partner: string }>>([]);
 
   // Dialog states
   const [tournamentDialog, setTournamentDialog] = useState(false);
@@ -216,6 +220,24 @@ export default function AdminTournamentDashboard() {
     }
     fetchTournaments();
   }, [session]);
+
+  const fetchRegisteredPlayers = async (tournamentId: string) => {
+    try {
+      const res = await fetch(`/api/admin/tournament-registrations?tournamentId=${tournamentId}&source=all&paymentChoice=all&paymentStatus=all`);
+      const data = await res.json();
+      if (data.success) {
+        const sorted = (data.registrations || []).sort((a: any, b: any) =>
+          new Date(a.registeredAt || 0).getTime() - new Date(b.registeredAt || 0).getTime()
+        );
+        setRegisteredPlayers(sorted.map((r: any, idx: number) => ({
+          id: `I${idx + 1}`,
+          label: `I${idx + 1} — ${r.name}${r.partnerName ? ` / ${r.partnerName}` : ''}`,
+          name: r.name,
+          partner: r.partnerName || '',
+        })));
+      }
+    } catch { /* silently ignore */ }
+  };
 
   // Fetch registrations when tab is active or filters change
   useEffect(() => {
@@ -289,6 +311,7 @@ export default function AdminTournamentDashboard() {
           id: regEditRow.id,
           name: regEditRow.name,
           phone: regEditRow.phone,
+          partnerName: regEditRow.partnerName,
           sex: regEditRow.sex,
           category: regEditRow.category,
           eventType: regEditRow.eventType,
@@ -370,6 +393,7 @@ export default function AdminTournamentDashboard() {
   useEffect(() => {
     if (selectedTournament) {
       fetchMatches(selectedTournament);
+      fetchRegisteredPlayers(selectedTournament);
     }
   }, [selectedTournament]);
 
@@ -612,6 +636,14 @@ export default function AdminTournamentDashboard() {
     } catch { setError('Failed to start match'); }
   };
 
+  const handleDeleteMatch = async (matchId: string, tournamentId: string) => {
+    if (!confirm('Delete this match?')) return;
+    try {
+      await fetch(`/api/tournaments/${tournamentId}/matches/${matchId}`, { method: 'DELETE' });
+      fetchMatches(selectedTournament);
+    } catch { setError('Failed to delete match'); }
+  };
+
   const openEditScore = (match: Match) => {
     setEditingMatch(match);
     setScoreForm({
@@ -797,93 +829,181 @@ export default function AdminTournamentDashboard() {
 
       {activeTab === 1 && selectedTournament && (
         <Box>
-          <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => {
-                resetMatchForm();
-                setMatchDialog(true);
-              }}
-            >
-              Create Match
-            </Button>
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
+            <Typography variant="h6" fontWeight={700}>Fixtures</Typography>
+            <Button variant="contained" size="small" startIcon={<Add />} onClick={() => { resetMatchForm(); setMatchDialog(true); }}>Add Match</Button>
+            <Button variant="outlined" size="small" startIcon={<Refresh />} onClick={() => fetchMatches(selectedTournament)}>Refresh</Button>
+            {matches.length > 0 && (
+              <Button size="small" color="error" variant="outlined" onClick={async () => {
+                if (!confirm(`Delete all ${matches.length} matches? This cannot be undone.`)) return;
+                await fetch(`/api/tournaments/${selectedTournament}/matches`, { method: 'DELETE' });
+                fetchMatches(selectedTournament);
+              }}>Clear All Matches</Button>
+            )}
           </Stack>
 
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Match #</TableCell>
-                  <TableCell>Round</TableCell>
-                  <TableCell>Players</TableCell>
-                  <TableCell>Score</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Court</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {matches.map((match) => (
-                  <TableRow key={match._id}>
-                    <TableCell>#{match.matchNumber}</TableCell>
-                    <TableCell>{match.round}</TableCell>
-                    <TableCell>
-                      <Box>
-                        <Typography variant="body2">
-                          {match.player1Name}
-                          {match.player1Partner && ` / ${match.player1Partner}`}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          vs
-                        </Typography>
-                        <Typography variant="body2">
-                          {match.player2Name || 'TBD'}
-                          {match.player2Partner && ` / ${match.player2Partner}`}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      {match.status === 'completed' && (
-                        <Typography variant="body2">
-                          {match.score.player1Sets} - {match.score.player2Sets}
-                        </Typography>
-                      )}
-                      {match.status === 'live' && match.liveScore && (
-                        <Typography variant="body2" color="error.main">
-                          {match.liveScore.player1CurrentScore} - {match.liveScore.player2CurrentScore}
-                          <Typography variant="caption" display="block">
-                            Set {match.liveScore.currentSet}
-                          </Typography>
-                        </Typography>
-                      )}
-                      {(match.status === 'scheduled' || match.status === 'cancelled') && (
-                        <Typography variant="body2" color="text.secondary">
-                          -
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={match.status}
-                        color={getStatusColor(match.status) as any}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{match.courtNumber || '-'}</TableCell>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        onClick={() => openEditScore(match)}
-                      >
-                        <Edit />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          {/* Stats bar */}
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            {[
+              { label: 'Total', val: matches.length, color: undefined },
+              { label: 'Scheduled', val: matches.filter(m => m.status === 'scheduled').length, color: 'info.main' },
+              { label: '🔴 Live', val: matches.filter(m => m.status === 'live').length, color: 'error.main' },
+              { label: 'Completed', val: matches.filter(m => m.status === 'completed').length, color: 'success.main' },
+            ].map(s => (
+              <Grid item xs={6} md={3} key={s.label}>
+                <Card><CardContent sx={{ py: 1.5 }}>
+                  <Typography variant="caption" color="text.secondary">{s.label}</Typography>
+                  <Typography variant="h5" fontWeight={800} color={s.color}>{s.val}</Typography>
+                </CardContent></Card>
+              </Grid>
+            ))}
+          </Grid>
+
+          {/* Fixtures grouped by round */}
+          {Object.keys(matchesByRound).length === 0 && (
+            <Alert severity="info">No matches yet. Click "Add Match" to create fixtures.</Alert>
+          )}
+          {Object.entries(matchesByRound).map(([round, roundMatches]) => (
+            <Box key={round} sx={{ mb: 4 }}>
+              <Box sx={{ bgcolor: 'primary.main', color: 'white', px: 2, py: 1, borderRadius: 1, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <EmojiEvents fontSize="small" />
+                <Typography variant="subtitle1" fontWeight={700}>{round}</Typography>
+                <Typography variant="caption" sx={{ opacity: 0.8, ml: 'auto' }}>{roundMatches.length} match{roundMatches.length !== 1 ? 'es' : ''}</Typography>
+              </Box>
+              <Grid container spacing={2}>
+                {roundMatches.map(match => {
+                  const isLive = match.status === 'live';
+                  const isDone = match.status === 'completed';
+                  const regIdx1 = registeredPlayers.findIndex(p => p.name === match.player1Name);
+                  const regIdx2 = registeredPlayers.findIndex(p => p.name === match.player2Name);
+                  const id1 = regIdx1 >= 0 ? registeredPlayers[regIdx1].id : null;
+                  const id2 = regIdx2 >= 0 ? registeredPlayers[regIdx2].id : null;
+                  const p1display = id1 ? `${id1} (${match.player1Name || 'TBD'})` : (match.player1Name || 'TBD');
+                  const p2display = id2 ? `${id2} (${match.player2Name})` : (match.player2Name || 'TBD');
+                  const p1label = p1display + (match.player1Partner ? ` / ${match.player1Partner}` : '');
+                  const p2label = p2display + (match.player2Partner ? ` / ${match.player2Partner}` : '');
+                  return (
+                    <Grid item xs={12} md={6} lg={4} key={match._id}>
+                      <Card sx={{
+                        border: isLive ? '2px solid #f44336' : isDone ? '1px solid #4caf50' : '1px solid #e0e0e0',
+                        borderRadius: 2,
+                        position: 'relative',
+                        overflow: 'visible',
+                      }}>
+                        {isLive && (
+                          <Box sx={{ position: 'absolute', top: -10, right: 10, bgcolor: 'error.main', color: 'white', px: 1, py: 0.3, borderRadius: 1, fontSize: '0.7rem', fontWeight: 700, animation: 'pulse 1.5s infinite' }}>
+                            ● LIVE
+                          </Box>
+                        )}
+                        <CardContent sx={{ pb: 1 }}>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                            <Typography variant="caption" color="text.secondary">#{match.matchNumber} · {match.courtNumber ? `Court ${match.courtNumber}` : 'Court TBD'}</Typography>
+                            <Chip size="small" label={match.status} color={getStatusColor(match.status) as any} />
+                          </Stack>
+
+                          {/* Score row */}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, my: 1 }}>
+                            <Box sx={{ flex: 1, textAlign: 'center' }}>
+                              <Typography variant="body2" fontWeight={isDone && match.winnerName === match.player1Name ? 800 : 400}
+                                sx={{ color: isDone && match.winnerName === match.player1Name ? 'success.main' : 'text.primary' }}>
+                                {p1label}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ textAlign: 'center', minWidth: 60 }}>
+                              {isDone && (
+                                <Typography variant="h6" fontWeight={700}>
+                                  {match.score.player1Sets} – {match.score.player2Sets}
+                                </Typography>
+                              )}
+                              {isLive && match.liveScore && (
+                                <Typography variant="h6" fontWeight={700} color="error.main">
+                                  {match.liveScore.player1CurrentScore} – {match.liveScore.player2CurrentScore}
+                                </Typography>
+                              )}
+                              {!isDone && !isLive && <Typography variant="body2" color="text.secondary">vs</Typography>}
+                            </Box>
+                            <Box sx={{ flex: 1, textAlign: 'center' }}>
+                              <Typography variant="body2" fontWeight={isDone && match.winnerName === match.player2Name ? 800 : 400}
+                                sx={{ color: isDone && match.winnerName === match.player2Name ? 'success.main' : 'text.primary' }}>
+                                {p2label}
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          {/* Set-by-set scores */}
+                          {isDone && match.score.sets?.length > 0 && (
+                            <Stack direction="row" spacing={0.5} justifyContent="center" sx={{ mb: 1 }}>
+                              {match.score.sets.map(s => (
+                                <Chip key={s.set} size="small" variant="outlined" label={`${s.player1Score}-${s.player2Score}`} sx={{ fontSize: '0.7rem' }} />
+                              ))}
+                            </Stack>
+                          )}
+
+                          {match.scheduledTime && !isDone && (
+                            <Typography variant="caption" color="text.secondary" display="block" textAlign="center">
+                              {new Date(match.scheduledTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </Typography>
+                          )}
+                        </CardContent>
+
+                        {/* Action buttons */}
+                        <Box sx={{ px: 2, pb: 1.5, display: 'flex', gap: 1 }}>
+                          {match.status === 'scheduled' && (
+                            <Button size="small" variant="contained" color="warning" fullWidth onClick={() => handleStartMatch(match)}>
+                              ▶ Start Match
+                            </Button>
+                          )}
+                          {isLive && (
+                            <Button size="small" variant="contained" color="error" fullWidth onClick={() => openEditScore(match)}>
+                              Update Score
+                            </Button>
+                          )}
+                          {isDone && (
+                            <Button size="small" variant="outlined" fullWidth onClick={() => openEditScore(match)}>
+                              Edit Result
+                            </Button>
+                          )}
+                          <IconButton size="small" onClick={() => openEditScore(match)}><Edit fontSize="small" /></IconButton>
+                          <IconButton size="small" color="error" onClick={() => handleDeleteMatch(match._id, match.tournamentId)}><Delete fontSize="small" /></IconButton>
+                        </Box>
+                      </Card>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            </Box>
+          ))}
+
+          {/* Standings */}
+          {standings.length > 0 && (
+            <Box sx={{ mt: 4 }}>
+              <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>🏆 Current Standings</Typography>
+              <TableContainer component={Paper}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: 'primary.main' }}>
+                      {['Rank', 'Player / Pair', 'P', 'W', 'L', 'Sets W-L', 'Pts'].map(h => (
+                        <TableCell key={h} sx={{ color: 'white', fontWeight: 700 }}>{h}</TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {standings.map((row, idx) => (
+                      <TableRow key={row.name} sx={{ bgcolor: idx === 0 ? 'rgba(255,215,0,0.1)' : 'inherit' }}>
+                        <TableCell><strong>{idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}</strong></TableCell>
+                        <TableCell><strong>{row.name}</strong></TableCell>
+                        <TableCell>{row.played}</TableCell>
+                        <TableCell sx={{ color: 'success.main', fontWeight: 700 }}>{row.won}</TableCell>
+                        <TableCell sx={{ color: 'error.main' }}>{row.lost}</TableCell>
+                        <TableCell>{row.setsWon}-{row.setsLost}</TableCell>
+                        <TableCell><Chip size="small" label={row.points} color={idx === 0 ? 'warning' : 'default'} sx={{ fontWeight: 800 }} /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
         </Box>
       )}
 
@@ -954,6 +1074,13 @@ export default function AdminTournamentDashboard() {
               <Button variant="contained" startIcon={<Download />} onClick={downloadRegCsv} disabled={regExporting}>
                 {regExporting ? 'Exporting...' : 'Export CSV'}
               </Button>
+              {regRows.length > 0 && regFilters.tournamentId !== 'all' && (
+                <Button color="error" variant="outlined" onClick={async () => {
+                  if (!confirm(`Delete ALL ${regRows.length} registrations for this tournament? This cannot be undone.`)) return;
+                  await fetch(`/api/admin/tournament-registrations?tournamentId=${regFilters.tournamentId}&deleteAll=true`, { method: 'DELETE' });
+                  fetchRegistrations();
+                }}>Clear All Registrations</Button>
+              )}
             </Stack>
           </Paper>
 
@@ -1096,66 +1223,17 @@ export default function AdminTournamentDashboard() {
                   </Select>
                 </FormControl>
               </Grid>
+              {(regEditRow.eventType === 'Doubles' || regEditRow.eventType === 'Mixed Doubles') && (
+                <Grid item xs={12}>
+                  <TextField fullWidth label="Partner Name" value={regEditRow.partnerName || ''} onChange={(e) => setRegEditRow((p) => p ? { ...p, partnerName: e.target.value } : p)} helperText="Partner for doubles events" />
+                </Grid>
+              )}
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
-                  <InputLabel>Payment Choice</InputLabel>
-                  <Select value={regEditRow.paymentChoice} label="Payment Choice" onChange={(e) => setRegEditRow((p) => p ? { ...p, paymentChoice: e.target.value as any } : p)}>
-                    <MenuItem value="pay_now">Pay Now</MenuItem>
-                    <MenuItem value="pay_later">Pay Later</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Payment Status</InputLabel>
-                  <Select value={regEditRow.paymentStatus} label="Payment Status" onChange={(e) => setRegEditRow((p) => p ? { ...p, paymentStatus: e.target.value as any } : p)}>
-                    <MenuItem value="pending">Pending</MenuItem>
-                    <MenuItem value="completed">Completed</MenuItem>
-                    <MenuItem value="failed">Failed</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField fullWidth label="Transaction ID" value={regEditRow.transactionId === '-' ? '' : regEditRow.transactionId} onChange={(e) => setRegEditRow((p) => p ? { ...p, transactionId: e.target.value } : p)} />
-              </Grid>
-            </Grid>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setRegEditDialog(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleRegSave} disabled={regSaving}>{regSaving ? 'Saving...' : 'Save'}</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Registration Edit Dialog */}
-      <Dialog open={regEditDialog} onClose={(_, reason) => { if (reason !== 'backdropClick') setRegEditDialog(false); }} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit Registration</DialogTitle>
-        <DialogContent>
-          {regEditRow && (
-            <Grid container spacing={2} sx={{ mt: 0.5 }}>
-              <Grid item xs={12} md={6}>
-                <TextField fullWidth label="Name" value={regEditRow.name} onChange={(e) => setRegEditRow((p) => p ? { ...p, name: e.target.value } : p)} />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField fullWidth label="Phone" value={regEditRow.phone} onChange={(e) => setRegEditRow((p) => p ? { ...p, phone: e.target.value } : p)} />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Sex</InputLabel>
-                  <Select value={regEditRow.sex} label="Sex" onChange={(e) => setRegEditRow((p) => p ? { ...p, sex: e.target.value } : p)}>
-                    <MenuItem value="Male">Male</MenuItem>
-                    <MenuItem value="Female">Female</MenuItem>
-                    <MenuItem value="Other">Other</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Format</InputLabel>
-                  <Select value={regEditRow.eventType} label="Format" onChange={(e) => setRegEditRow((p) => p ? { ...p, eventType: e.target.value } : p)}>
-                    <MenuItem value="Singles">Singles</MenuItem>
-                    <MenuItem value="Doubles">Doubles</MenuItem>
-                    <MenuItem value="Mixed Doubles">Mixed Doubles</MenuItem>
+                  <InputLabel>Age Category</InputLabel>
+                  <Select value={regEditRow.category} label="Age Category" onChange={(e) => setRegEditRow((p) => p ? { ...p, category: e.target.value } : p)}>
+                    <MenuItem value="20 to 40 Adult">20 to 40 Adult</MenuItem>
+                    <MenuItem value="40 plus Veteran">40 plus Veteran</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -1329,232 +1407,204 @@ export default function AdminTournamentDashboard() {
       </Dialog>
 
       {/* Match Dialog */}
-      <Dialog open={matchDialog} onClose={() => setMatchDialog(false)} maxWidth="md" fullWidth>
+      <Dialog open={matchDialog} onClose={(_, reason) => { if (reason !== 'backdropClick') setMatchDialog(false); }} maxWidth="md" fullWidth>
         <DialogTitle>Create Match</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Round"
-                value={matchForm.round}
-                onChange={(e) => setMatchForm({ ...matchForm, round: e.target.value })}
-                placeholder="e.g., Group Stage, Quarter Final"
-              />
+              <FormControl fullWidth>
+                <InputLabel>Round</InputLabel>
+                <Select value={matchForm.round} label="Round" onChange={(e) => setMatchForm({ ...matchForm, round: e.target.value })}>
+                  {['Group Stage', 'Round of 16', 'Quarter Final', 'Semi Final', 'Final'].map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+                  <MenuItem value="custom">Custom...</MenuItem>
+                </Select>
+              </FormControl>
+              {matchForm.round === 'custom' && (
+                <TextField fullWidth sx={{ mt: 1 }} label="Custom Round Name" onChange={(e) => setMatchForm({ ...matchForm, round: e.target.value })} />
+              )}
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Match Number"
-                type="number"
-                value={matchForm.matchNumber}
-                onChange={(e) => setMatchForm({ ...matchForm, matchNumber: parseInt(e.target.value) || 1 })}
-              />
+              <TextField fullWidth label="Match Number" type="number" value={matchForm.matchNumber}
+                onChange={(e) => setMatchForm({ ...matchForm, matchNumber: parseInt(e.target.value) || 1 })} />
+            </Grid>
+
+            {registeredPlayers.length > 0 ? (
+              <>
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Team 1</Typography>
+                  <FormControl fullWidth>
+                    <InputLabel>Select Player / Pair (Team 1)</InputLabel>
+                    <Select
+                      value={matchForm.player1Name}
+                      label="Select Player / Pair (Team 1)"
+                      onChange={(e) => {
+                        const p = registeredPlayers.find(r => r.name === e.target.value);
+                        setMatchForm({ ...matchForm, player1Name: p?.name || '', player1Partner: p?.partner || '' });
+                      }}
+                    >
+                      {registeredPlayers.map(p => <MenuItem key={p.id} value={p.name}>{p.label}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Team 2</Typography>
+                  <FormControl fullWidth>
+                    <InputLabel>Select Player / Pair (Team 2)</InputLabel>
+                    <Select
+                      value={matchForm.player2Name}
+                      label="Select Player / Pair (Team 2)"
+                      onChange={(e) => {
+                        const p = registeredPlayers.find(r => r.name === e.target.value);
+                        setMatchForm({ ...matchForm, player2Name: p?.name || '', player2Partner: p?.partner || '' });
+                      }}
+                    >
+                      <MenuItem value="">TBD</MenuItem>
+                      {registeredPlayers.map(p => <MenuItem key={p.id} value={p.name}>{p.label}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </>
+            ) : (
+              <>
+                <Grid item xs={12} md={6}>
+                  <TextField fullWidth label="Player 1 Name" value={matchForm.player1Name} onChange={(e) => setMatchForm({ ...matchForm, player1Name: e.target.value })} />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField fullWidth label="Player 1 Partner" value={matchForm.player1Partner} onChange={(e) => setMatchForm({ ...matchForm, player1Partner: e.target.value })} />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField fullWidth label="Player 2 Name" value={matchForm.player2Name} onChange={(e) => setMatchForm({ ...matchForm, player2Name: e.target.value })} />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField fullWidth label="Player 2 Partner" value={matchForm.player2Partner} onChange={(e) => setMatchForm({ ...matchForm, player2Partner: e.target.value })} />
+                </Grid>
+              </>
+            )}
+
+            <Grid item xs={12} md={6}>
+              <TextField fullWidth label="Court Number" value={matchForm.courtNumber} onChange={(e) => setMatchForm({ ...matchForm, courtNumber: e.target.value })} />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Player 1 Name"
-                value={matchForm.player1Name}
-                onChange={(e) => setMatchForm({ ...matchForm, player1Name: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Player 1 Partner"
-                value={matchForm.player1Partner}
-                onChange={(e) => setMatchForm({ ...matchForm, player1Partner: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Player 2 Name"
-                value={matchForm.player2Name}
-                onChange={(e) => setMatchForm({ ...matchForm, player2Name: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Player 2 Partner"
-                value={matchForm.player2Partner}
-                onChange={(e) => setMatchForm({ ...matchForm, player2Partner: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Court Number"
-                value={matchForm.courtNumber}
-                onChange={(e) => setMatchForm({ ...matchForm, courtNumber: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Scheduled Time"
-                type="datetime-local"
-                value={matchForm.scheduledTime}
-                onChange={(e) => setMatchForm({ ...matchForm, scheduledTime: e.target.value })}
-                InputLabelProps={{ shrink: true }}
-              />
+              <TextField fullWidth label="Scheduled Time" type="datetime-local" value={matchForm.scheduledTime}
+                onChange={(e) => setMatchForm({ ...matchForm, scheduledTime: e.target.value })} InputLabelProps={{ shrink: true }} />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setMatchDialog(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreateMatch}>
-            Create Match
-          </Button>
+          <Button variant="contained" onClick={handleCreateMatch}>Create Match</Button>
         </DialogActions>
       </Dialog>
 
       {/* Score Dialog */}
-      <Dialog open={scoreDialog} onClose={() => setScoreDialog(false)} maxWidth="md" fullWidth>
+      <Dialog open={scoreDialog} onClose={(_, reason) => { if (reason !== 'backdropClick') setScoreDialog(false); }} maxWidth="sm" fullWidth>
         <DialogTitle>
-          Update Match Score
+          {scoreForm.status === 'live' ? '🔴 Update Live Score' : scoreForm.status === 'completed' ? '✅ Edit Result' : '📋 Match Details'}
           {editingMatch && (
-            <Typography variant="subtitle2" color="text.secondary">
-              {editingMatch.player1Name} vs {editingMatch.player2Name || 'TBD'}
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 0.5 }}>
+              {editingMatch.player1Name}{editingMatch.player1Partner ? ` / ${editingMatch.player1Partner}` : ''} vs {editingMatch.player2Name || 'TBD'}{editingMatch.player2Partner ? ` / ${editingMatch.player2Partner}` : ''}
             </Typography>
           )}
         </DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
             <Grid item xs={12}>
-              <FormControl fullWidth>
+              <FormControl fullWidth size="small">
                 <InputLabel>Match Status</InputLabel>
-                <Select
-                  value={scoreForm.status}
-                  onChange={(e) => setScoreForm({ ...scoreForm, status: e.target.value as any })}
-                  label="Match Status"
-                >
+                <Select value={scoreForm.status} onChange={(e) => setScoreForm({ ...scoreForm, status: e.target.value as any })} label="Match Status">
                   <MenuItem value="scheduled">Scheduled</MenuItem>
-                  <MenuItem value="live">Live</MenuItem>
-                  <MenuItem value="completed">Completed</MenuItem>
+                  <MenuItem value="live">🔴 Live</MenuItem>
+                  <MenuItem value="completed">✅ Completed</MenuItem>
                   <MenuItem value="cancelled">Cancelled</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
 
+            {/* Live score entry */}
             {scoreForm.status === 'live' && (
               <>
-                <Grid item xs={12}>
-                  <Typography variant="h6" gutterBottom>Live Score</Typography>
+                <Grid item xs={12}><Typography variant="subtitle2" fontWeight={700} color="error.main">Current Set Score — Set {scoreForm.liveScore.currentSet}</Typography></Grid>
+                <Grid item xs={5}>
+                  <Typography variant="caption">{editingMatch?.player1Name || 'Player 1'}</Typography>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <IconButton size="small" onClick={() => setScoreForm(f => ({ ...f, liveScore: { ...f.liveScore, player1CurrentScore: Math.max(0, f.liveScore.player1CurrentScore - 1) } }))}>−</IconButton>
+                    <Typography variant="h4" fontWeight={800} sx={{ minWidth: 40, textAlign: 'center' }}>{scoreForm.liveScore.player1CurrentScore}</Typography>
+                    <IconButton size="small" onClick={() => setScoreForm(f => ({ ...f, liveScore: { ...f.liveScore, player1CurrentScore: f.liveScore.player1CurrentScore + 1 } }))}>+</IconButton>
+                  </Stack>
+                </Grid>
+                <Grid item xs={2} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Typography variant="h5" color="text.secondary">–</Typography></Grid>
+                <Grid item xs={5}>
+                  <Typography variant="caption">{editingMatch?.player2Name || 'Player 2'}</Typography>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <IconButton size="small" onClick={() => setScoreForm(f => ({ ...f, liveScore: { ...f.liveScore, player2CurrentScore: Math.max(0, f.liveScore.player2CurrentScore - 1) } }))}>−</IconButton>
+                    <Typography variant="h4" fontWeight={800} sx={{ minWidth: 40, textAlign: 'center' }}>{scoreForm.liveScore.player2CurrentScore}</Typography>
+                    <IconButton size="small" onClick={() => setScoreForm(f => ({ ...f, liveScore: { ...f.liveScore, player2CurrentScore: f.liveScore.player2CurrentScore + 1 } }))}>+</IconButton>
+                  </Stack>
                 </Grid>
                 <Grid item xs={6}>
-                  <TextField
-                    fullWidth
-                    label="Player 1 Current Score"
-                    type="number"
-                    value={scoreForm.liveScore.player1CurrentScore}
-                    onChange={(e) => setScoreForm({
-                      ...scoreForm,
-                      liveScore: {
-                        ...scoreForm.liveScore,
-                        player1CurrentScore: parseInt(e.target.value) || 0
-                      }
-                    })}
-                  />
+                  <TextField fullWidth size="small" label="Current Set #" type="number" value={scoreForm.liveScore.currentSet}
+                    onChange={(e) => setScoreForm(f => ({ ...f, liveScore: { ...f.liveScore, currentSet: parseInt(e.target.value) || 1 } }))} />
                 </Grid>
                 <Grid item xs={6}>
-                  <TextField
-                    fullWidth
-                    label="Player 2 Current Score"
-                    type="number"
-                    value={scoreForm.liveScore.player2CurrentScore}
-                    onChange={(e) => setScoreForm({
-                      ...scoreForm,
-                      liveScore: {
-                        ...scoreForm.liveScore,
-                        player2CurrentScore: parseInt(e.target.value) || 0
-                      }
-                    })}
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    fullWidth
-                    label="Current Set"
-                    type="number"
-                    value={scoreForm.liveScore.currentSet}
-                    onChange={(e) => setScoreForm({
-                      ...scoreForm,
-                      liveScore: {
-                        ...scoreForm.liveScore,
-                        currentSet: parseInt(e.target.value) || 1
-                      }
-                    })}
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Server</InputLabel>
-                    <Select
-                      value={scoreForm.liveScore.server}
-                      onChange={(e) => setScoreForm({
-                        ...scoreForm,
-                        liveScore: {
-                          ...scoreForm.liveScore,
-                          server: e.target.value as 'player1' | 'player2'
-                        }
-                      })}
-                      label="Server"
-                    >
-                      <MenuItem value="player1">Player 1</MenuItem>
-                      <MenuItem value="player2">Player 2</MenuItem>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Serving</InputLabel>
+                    <Select value={scoreForm.liveScore.server} label="Serving"
+                      onChange={(e) => setScoreForm(f => ({ ...f, liveScore: { ...f.liveScore, server: e.target.value as any } }))}>
+                      <MenuItem value="player1">{editingMatch?.player1Name || 'Player 1'} 🏸</MenuItem>
+                      <MenuItem value="player2">{editingMatch?.player2Name || 'Player 2'} 🏸</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
               </>
             )}
 
-            {(scoreForm.status === 'completed' || scoreForm.status === 'live') && (
+            {/* Set-by-set scores */}
+            {(scoreForm.status === 'live' || scoreForm.status === 'completed') && (
               <>
                 <Grid item xs={12}>
-                  <Typography variant="h6" gutterBottom>Final Score</Typography>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Typography variant="subtitle2" fontWeight={700}>Set Scores</Typography>
+                    <Button size="small" onClick={() => setScoreForm(f => ({ ...f, sets: [...f.sets, { set: f.sets.length + 1, player1Score: 0, player2Score: 0 }] }))}>+ Add Set</Button>
+                  </Stack>
                 </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    fullWidth
-                    label="Player 1 Sets"
-                    type="number"
-                    value={scoreForm.player1Sets}
-                    onChange={(e) => setScoreForm({ ...scoreForm, player1Sets: parseInt(e.target.value) || 0 })}
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    fullWidth
-                    label="Player 2 Sets"
-                    type="number"
-                    value={scoreForm.player2Sets}
-                    onChange={(e) => setScoreForm({ ...scoreForm, player2Sets: parseInt(e.target.value) || 0 })}
-                  />
+                {scoreForm.sets.map((s, idx) => (
+                  <React.Fragment key={idx}>
+                    <Grid item xs={1}><Typography variant="caption" sx={{ mt: 1.5, display: 'block' }}>S{s.set}</Typography></Grid>
+                    <Grid item xs={5}>
+                      <TextField size="small" fullWidth label={editingMatch?.player1Name || 'P1'} type="number" value={s.player1Score}
+                        onChange={(e) => { const sets = [...scoreForm.sets]; sets[idx] = { ...sets[idx], player1Score: parseInt(e.target.value) || 0 }; setScoreForm(f => ({ ...f, sets, player1Sets: sets.filter(s => s.player1Score > s.player2Score).length, player2Sets: sets.filter(s => s.player2Score > s.player1Score).length })); }} />
+                    </Grid>
+                    <Grid item xs={5}>
+                      <TextField size="small" fullWidth label={editingMatch?.player2Name || 'P2'} type="number" value={s.player2Score}
+                        onChange={(e) => { const sets = [...scoreForm.sets]; sets[idx] = { ...sets[idx], player2Score: parseInt(e.target.value) || 0 }; setScoreForm(f => ({ ...f, sets, player1Sets: sets.filter(s => s.player1Score > s.player2Score).length, player2Sets: sets.filter(s => s.player2Score > s.player1Score).length })); }} />
+                    </Grid>
+                    <Grid item xs={1}><IconButton size="small" color="error" onClick={() => setScoreForm(f => ({ ...f, sets: f.sets.filter((_, i) => i !== idx) }))}><Delete fontSize="small" /></IconButton></Grid>
+                  </React.Fragment>
+                ))}
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="text.secondary">
+                    Sets: {editingMatch?.player1Name || 'P1'} <strong>{scoreForm.player1Sets}</strong> — <strong>{scoreForm.player2Sets}</strong> {editingMatch?.player2Name || 'P2'}
+                  </Typography>
                 </Grid>
               </>
             )}
 
+            {/* Winner + duration */}
             {scoreForm.status === 'completed' && (
               <>
                 <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Winner Name"
-                    value={scoreForm.winnerName}
-                    onChange={(e) => setScoreForm({ ...scoreForm, winnerName: e.target.value })}
-                  />
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Winner</InputLabel>
+                    <Select value={scoreForm.winnerName} label="Winner" onChange={(e) => setScoreForm({ ...scoreForm, winnerName: e.target.value })}>
+                      <MenuItem value="">— Select Winner —</MenuItem>
+                      <MenuItem value={editingMatch?.player1Name || ''}>{editingMatch?.player1Name || 'Player 1'}{editingMatch?.player1Partner ? ` / ${editingMatch.player1Partner}` : ''}</MenuItem>
+                      <MenuItem value={editingMatch?.player2Name || ''}>{editingMatch?.player2Name || 'Player 2'}{editingMatch?.player2Partner ? ` / ${editingMatch.player2Partner}` : ''}</MenuItem>
+                    </Select>
+                  </FormControl>
                 </Grid>
                 <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Match Duration (minutes)"
-                    type="number"
-                    value={scoreForm.duration}
-                    onChange={(e) => setScoreForm({ ...scoreForm, duration: parseInt(e.target.value) || 0 })}
-                  />
+                  <TextField fullWidth size="small" label="Duration (minutes)" type="number" value={scoreForm.duration}
+                    onChange={(e) => setScoreForm({ ...scoreForm, duration: parseInt(e.target.value) || 0 })} />
                 </Grid>
               </>
             )}
@@ -1562,9 +1612,7 @@ export default function AdminTournamentDashboard() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setScoreDialog(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleUpdateMatchScore}>
-            Update Score
-          </Button>
+          <Button variant="contained" onClick={handleUpdateMatchScore}>Save</Button>
         </DialogActions>
       </Dialog>
     </Container>

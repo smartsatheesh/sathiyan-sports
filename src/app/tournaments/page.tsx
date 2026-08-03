@@ -377,7 +377,7 @@ export default function TournamentsPage() {
           {filteredTournaments.map((tournament) => {
             const stats = tournamentStats[tournament._id];
             const isRegistrationOpen = tournament.status === 'upcoming' && 
-              new Date() < new Date(tournament.registrationDeadline);
+              (!tournament.registrationDeadline || new Date() < new Date(tournament.registrationDeadline));
             const isFull = stats && stats.totalPlayers >= tournament.maxParticipants;
 
             return (
