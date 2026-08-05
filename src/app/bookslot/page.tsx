@@ -1556,7 +1556,7 @@ export default function BookSlot() {
               <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1, mb: 2, minHeight: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {totalPrice ? (
                   <QRCode 
-                    value={`upi://pay?pa=${process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'sathiyansportacademy202525-1@okaxis'}&pn=${encodeURIComponent(process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club')}&am=${totalPrice}&cu=INR&tn=Sports Booking Payment`}
+                    value={`upi://pay?pa=${process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'sathiyansportacademy202525-1@okaxis'}&pn=${encodeURIComponent(process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club')}&am=${Math.round(totalPrice)}&cu=INR&tn=Sports Booking Payment`}
                     size={160}
                     style={{ height: "auto", maxWidth: "100%", width: "100%" }}
                   />
