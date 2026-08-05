@@ -808,7 +808,7 @@ export default function BookSlot() {
   };
 
   const generateUpiUrl = (amount: number, reference: string) => {
-    const upiId = process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'Vyapar.175693786746@hdfcbank';
+    const upiId = process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'sathiyansportacademy202525-1@okaxis';
     const name = process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club';
     const note = `Booking payment for ${selectedSport} - Ref: ${reference}`;
     return `upi://pay?pa=${upiId}&pn=${encodeURIComponent(name)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
@@ -1556,7 +1556,7 @@ export default function BookSlot() {
               <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1, mb: 2, minHeight: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {totalPrice ? (
                   <QRCode 
-                    value={`upi://pay?pa=${process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'Vyapar.175693786746@hdfcbank'}&pn=${encodeURIComponent(process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club')}&am=${totalPrice}&cu=INR&tn=Sports Booking Payment`}
+                    value={`upi://pay?pa=${process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'sathiyansportacademy202525-1@okaxis'}&pn=${encodeURIComponent(process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club')}&am=${totalPrice}&cu=INR&tn=Sports Booking Payment`}
                     size={160}
                     style={{ height: "auto", maxWidth: "100%", width: "100%" }}
                   />
@@ -1582,7 +1582,7 @@ export default function BookSlot() {
               {/* UPI Details */}
               <Box sx={{ textAlign: 'left', p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                 <Typography variant="subtitle2" gutterBottom>Payment Details:</Typography>
-                <Typography variant="body2">• UPI ID: {process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'Vyapar.175693786746@hdfcbank'}</Typography>
+                <Typography variant="body2">• UPI ID: {process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'sathiyansportacademy202525-1@okaxis'}</Typography>
                 <Typography variant="body2">• Amount: ₹{totalPrice?.toLocaleString()}</Typography>
                 <Typography variant="body2">• To: {process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club'}</Typography>
               </Box>
@@ -1720,7 +1720,7 @@ export default function BookSlot() {
               variant="outlined"
               size="small"
               startIcon={<ContentCopy />}
-              onClick={() => copyToClipboard(process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'Vyapar.175693786746@hdfcbank', 'UPI ID copied!')}
+              onClick={() => copyToClipboard(process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'sathiyansportacademy202525-1@okaxis', 'UPI ID copied!')}
             >
               Copy UPI ID
             </Button>

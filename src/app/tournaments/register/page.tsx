@@ -113,7 +113,7 @@ export default function TournamentRegistrationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const upiId = process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'Vyapar.175693786746@hdfcbank';
+  const upiId = process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'sathiyansportacademy202525-1@okaxis';
   const merchantName = process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club';
   const upiNote = `Tournament registration - ${selectedTournament?.name || 'Sathiyan Sports'}`;
   // tez:// scheme opens GPay directly; upi:// is the generic fallback
