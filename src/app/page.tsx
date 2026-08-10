@@ -489,6 +489,44 @@ export default function Home() {
                     </Card>
                   </Box>
 
+                  {/* Explore Our Facilities - shown before Limited Time Offers */}
+                  <Box sx={{ width: '100%', maxWidth: '1200px', mx: 'auto', mb: 6, mt: 4, zIndex: 5 }}>
+                    <Zoom in={true} timeout={600}>
+                      <Typography
+                        variant="h3"
+                        textAlign="center"
+                        sx={{
+                          mb: 4,
+                          fontWeight: 700,
+                          color: '#ffffff',
+                          textShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                          transform: 'translateY(0)',
+                          opacity: 1,
+                          transition: 'all 0.6s ease-out'
+                        }}
+                      >
+                        Explore Our Facilities
+                      </Typography>
+                    </Zoom>
+                    <Fade in={true} timeout={800}>
+                      <Paper
+                        elevation={8}
+                        sx={{
+                          borderRadius: 4,
+                          overflow: 'hidden',
+                          boxShadow: theme.shadows[12],
+                          position: 'relative',
+                          transform: 'translateY(0) scale(1)',
+                          opacity: 1,
+                          transition: 'all 0.3s ease-out'
+                        }}
+                      >
+                        {shouldLoadCarousel3D && <CarouselBackground3D />}
+                        <Carousel />
+                      </Paper>
+                    </Fade>
+                  </Box>
+
                   {/* SPECIAL OFFERS SECTION - Inside Hero */}
                   <Box sx={{ width: '100%', maxWidth: '1200px', mx: 'auto', mb: 8, mt: 4, zIndex: 5 }}>
                     <Typography
@@ -864,43 +902,6 @@ export default function Home() {
 
               </Box>
             </Box>
-
-            {/* Image Carousel Section - Moved after 3D animation */}
-            <Container maxWidth="lg" sx={{ py: 8 }}>
-              <Zoom in={true} timeout={600}>
-                <Typography
-                  variant="h3"
-                  textAlign="center"
-                  sx={{
-                    mb: 6,
-                    fontWeight: 700,
-                    color: theme.palette.primary.main,
-                    transform: 'translateY(0)',
-                    opacity: 1,
-                    transition: 'all 0.6s ease-out'
-                  }}
-                >
-                  Explore Our Facilities
-                </Typography>
-              </Zoom>
-              <Fade in={true} timeout={800}>
-                <Paper
-                  elevation={8}
-                  sx={{
-                    borderRadius: 4,
-                    overflow: 'hidden',
-                    boxShadow: theme.shadows[12],
-                    position: 'relative',
-                    transform: 'translateY(0) scale(1)',
-                    opacity: 1,
-                    transition: 'all 0.3s ease-out'
-                  }}
-                >
-                {shouldLoadCarousel3D && <CarouselBackground3D />}
-                <Carousel />
-              </Paper>
-              </Fade>
-            </Container>
 
             {/* Sports Cards Section */}
             <Container maxWidth="lg" sx={{ py: 8 }}>

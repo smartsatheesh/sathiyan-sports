@@ -384,70 +384,33 @@ export default function BookSlot() {
   // Function to handle sport selection and auto-scroll to date selection
   const handleSportSelection = (sportName: "Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events" | "Body Zorb") => {
     setSelectedSport(sportName);
+  };
+
+  // Scroll to date panel after React commits the new sport to DOM
+  const prevScrolledSport = useRef('');
+  useEffect(() => {
+    if (!selectedSport || selectedSport === prevScrolledSport.current) return;
+    prevScrolledSport.current = selectedSport;
     setIsScrollingToDate(true);
-    
-    // Wait for state update and DOM re-render (150ms gives React time to update)
-    setTimeout(() => {
-      if (dateTimeSelectionRef.current) {
-        setIsScrollHighlighted(true);
-        
-        // Method 1: Primary scroll method - scrollIntoView
-        try {
-          dateTimeSelectionRef.current.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-          });
-        } catch (e) {
-          // Fallback for older browsers
-          dateTimeSelectionRef.current.scrollIntoView(true);
+    setIsScrollHighlighted(true);
+
+    // Double-rAF waits for browser to paint the newly rendered panel before scrolling
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = dateTimeSelectionRef.current;
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Backup: direct window scroll (more reliable on some mobile browsers)
+          const top = el.getBoundingClientRect().top + window.pageYOffset - 80;
+          window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
         }
-        
-        // Method 2: Window scroll backup - more reliable on mobile
-        setTimeout(() => {
-          const element = dateTimeSelectionRef.current;
-          if (element) {
-            const elementRect = element.getBoundingClientRect();
-            const absoluteElementTop = elementRect.top + window.pageYOffset;
-            const scrollTarget = Math.max(0, absoluteElementTop - 80); // 80px offset from top
-            
-            // Use requestAnimationFrame for smoother mobile scrolling
-            if (window.requestAnimationFrame) {
-              requestAnimationFrame(() => {
-                window.scrollTo({
-                  top: scrollTarget,
-                  behavior: 'smooth'
-                });
-              });
-            } else {
-              window.scrollTo({
-                top: scrollTarget,
-                behavior: 'smooth'
-              });
-            }
-            
-            // iOS Safari specific: force scroll by triggering movement
-            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-              setTimeout(() => {
-                const currentScroll = window.pageYOffset;
-                window.scrollTo(0, currentScroll + 1);
-                setTimeout(() => {
-                  window.scrollTo(0, currentScroll);
-                }, 10);
-              }, 300);
-            }
-          }
-        }, 150);
-        
-        // Remove highlight after animation completes
         setTimeout(() => {
           setIsScrollHighlighted(false);
           setIsScrollingToDate(false);
         }, 2000);
-      } else {
-        setIsScrollingToDate(false);
-      }
-    }, 150); // Increased delay to allow React state update
-  };
+      });
+    });
+  }, [selectedSport]);
   const [timerActive, setTimerActive] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [showQR, setShowQR] = useState(false);

@@ -1,6 +1,6 @@
   'use client';
 
-  import React, { useEffect, useMemo, useState } from 'react';
+  import React, { useEffect, useMemo, useRef, useState } from 'react';
   import { useRouter, useSearchParams } from 'next/navigation';
   import {
     Alert,
@@ -11,6 +11,10 @@
     Chip,
     CircularProgress,
     Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
     FormControl,
     FormControlLabel,
     FormLabel,
@@ -20,6 +24,7 @@
     Radio,
     RadioGroup,
     Select,
+    Snackbar,
     Stack,
     TextField,
     Typography,
@@ -51,6 +56,15 @@
     const [submitting, setSubmitting] = useState(false);
     const [alert, setAlert] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
     const [result, setResult] = useState<any>(null);
+    const alertRef = useRef<HTMLDivElement>(null);
+    const [validationSnack, setValidationSnack] = useState<string | null>(null);
+
+    // Scroll to and briefly animate the alert whenever it appears
+    useEffect(() => {
+      if (alert && alertRef.current) {
+        alertRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, [alert]);
 
     const [formData, setFormData] = useState({
       tournamentId: tournamentIdFromQuery,
@@ -122,7 +136,7 @@
     const gpayUrl = `tez://upi/pay?pa=${upiId}&pn=${encodeURIComponent(merchantName)}&am=${REGISTRATION_FEE}&cu=INR&tn=${encodeURIComponent(upiNote)}`;
     const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(merchantName)}&am=${REGISTRATION_FEE}&cu=INR&tn=${encodeURIComponent(upiNote)}`;
 
-    const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_PAYMENT_NUMBER || '919787020525';
+    const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_PAYMENT_NUMBER || '919342090194';
     const waPaymentMessage = `Hi, I want to pay tournament registration fee ₹${REGISTRATION_FEE}. Name: ${formData.name || '-'}, Phone: ${formData.phone || '-'}, Tournament: ${selectedTournament?.name || '-'}.`;
     const waUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(waPaymentMessage)}`;
 
@@ -134,15 +148,36 @@
         setAlert({ type: 'error', message: 'Failed to copy' });
       }
     };
+      const upiUrlG = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(
+        merchantName
+      )}&am=${REGISTRATION_FEE}&cu=INR&tn=${encodeURIComponent(upiNote)}`;
 
+      const handleUpiPayment = () => {
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        console.log(upiUrl);console.log(isMobile);
+
+        if (isMobile) {
+          // Android/iPhone will open the installed UPI app chooser
+          window.location.href = upiUrlG;
+        } else {
+          // Desktop users should scan the QR
+          setAlert({
+            type: "info",
+            message: "Please scan the QR code below using any UPI app.",
+          });
+
+          // or
+          // setShowQr(true);
+        }
+      };
     const handleSubmit = async () => {
       if (!formData.tournamentId || !formData.name.trim() || !formData.phone.trim()) {
-        setAlert({ type: 'error', message: 'Please fill Tournament, Name, and Phone Number' });
+        setValidationSnack('Please fill Tournament, Name, and Phone Number');
         return;
       }
 
       if (formData.paymentChoice === 'pay_now' && !formData.transactionId.trim()) {
-        setAlert({ type: 'error', message: 'Please enter transaction ID for Pay Now' });
+        setValidationSnack('Please enter your Transaction ID / UTR before submitting');
         return;
       }
 
@@ -186,6 +221,7 @@
     };
 
     return (
+      <>
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Paper
           elevation={6}
@@ -277,7 +313,22 @@
           <Box sx={{ p: { xs: 2.5, md: 4 }, background: 'linear-gradient(160deg, #ffffff 0%, #f1fbff 100%)' }}>
           <Stack spacing={2.5}>
 
-            {alert && <Alert severity={alert.type}>{alert.message}</Alert>}
+            {alert && (
+              <div ref={alertRef}>
+                <Alert
+                  severity={alert.type}
+                  sx={{
+                    animation: 'alertPop 0.35s ease',
+                    '@keyframes alertPop': {
+                      '0%': { opacity: 0, transform: 'scale(0.97)' },
+                      '100%': { opacity: 1, transform: 'scale(1)' },
+                    },
+                  }}
+                >
+                  {alert.message}
+                </Alert>
+              </div>
+            )}
 
             {loading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -393,45 +444,21 @@
                       onChange={(e) => setFormData((prev) => ({ ...prev, paymentChoice: e.target.value }))}
                     >
                       <FormControlLabel value="pay_now" control={<Radio />} label="Pay Now" />
-                      <FormControlLabel value="pay_later" control={<Radio />} label="Pay Later" />
+                      {/* pay_later hidden — UPI deep-link limit issue; QR-only for now */}
+                      {/* <FormControlLabel value="pay_later" control={<Radio />} label="Pay Later" /> */}
                     </RadioGroup>
                   </FormControl>
                 </Grid>
 
-                {formData.paymentChoice === 'pay_now' && (
                   <Grid item xs={12}>
                     <Card sx={{ borderRadius: 3, border: '1px solid #cde7f7' }}>
                       <CardContent>
                         <Typography variant="h6" fontWeight={700} gutterBottom>
-                          Pay ₹{REGISTRATION_FEE}
+                          Pay ₹{REGISTRATION_FEE} via UPI Scanner
                         </Typography>
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
-                          <Button variant="contained" startIcon={<img src="/gpay-icon.png" width={20} height={20} onError={(e) => (e.currentTarget.style.display='none')} />}
-                            onClick={() => {
-                              // Try GPay first, fall back to generic UPI
-                              window.location.href = gpayUrl;
-                              setTimeout(() => window.open(upiUrl, '_blank'), 1500);
-                            }}>
-                            Pay via GPay
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            startIcon={<WhatsApp />}
-                            onClick={() => window.open(waUrl, '_blank')}
-                          >
-                            Pay via WhatsApp
-                          </Button>
-                          <Button
-                            variant="text"
-                            startIcon={<ContentCopy />}
-                            onClick={() => handleCopy(upiId, 'UPI ID copied')}
-                          >
-                            Copy UPI ID
-                          </Button>
-                        </Stack>
-                      <Box sx={{ textAlign: 'center', mt: 3 }}>
+                        <Box sx={{ textAlign: 'center', mt: 3 }}>
                         <Typography variant="h6" gutterBottom>
-                          Scan & Pay via UPI
+                          Scan QR to Pay
                         </Typography>
 
                         <Paper
@@ -448,7 +475,7 @@
                             gutterBottom
                             color="text.primary"
                           >
-                            Scan this QR using any UPI App
+                            📲 <strong>On this phone?</strong> Take a screenshot of this QR → open Google Pay / PhonePe → tap <em>Scan QR</em> → choose <em>From Gallery</em> and select your screenshot.
                           </Typography>
 
                           <Box
@@ -463,11 +490,11 @@
                           >
                             <QRCode
                               value={upiUrl}
-                              size={100}
+                              size={140}
                               style={{
                                 height: "auto",
-                                maxWidth: "100%",
-                                width: "100%",
+                                maxWidth: "140px",
+                                width: "140px",
                               }}
                             />
                           </Box>
@@ -498,21 +525,42 @@
                           </Box>
                         </Paper>
 
-                        <Alert severity="info" sx={{ mt: 2 }}>
-                          Scan the QR using Google Pay, PhonePe, Paytm or any UPI app, complete the payment, then enter the UTR / Transaction ID below before submitting.
+                        <Alert severity="info" sx={{ mt: 2, textAlign: 'left' }}>
+                          After payment copy the <strong>UTR / Transaction ID</strong> from your UPI app and paste it below, then submit.
+                          <br />💡 <strong>Tip:</strong> You can also take a screenshot of the QR and share it on WhatsApp to a friend who can scan and pay on your behalf.
                         </Alert>
                       </Box>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2, mt: 1 }}>
+                          {/* "Pay with Any UPI App" hidden — exceeds UPI deep-link limit */}
+                          {/* <Button fullWidth variant="contained" color="success" onClick={handleUpiPayment}>
+                            📱 Pay with Any UPI App
+                          </Button> */}
+                          <Button
+                            variant="outlined"
+                            startIcon={<WhatsApp />}
+                            onClick={() => window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Hi, please find the QR screenshot for tournament registration payment ₹${REGISTRATION_FEE}. Name: ${formData.name || '-'}, Phone: ${formData.phone || '-'}, Tournament: ${selectedTournament?.name || '-'}. UPI ID: ${upiId}`)}`, '_blank')}
+                          >
+                            Share via WhatsApp
+                          </Button>
+                          <Button
+                            variant="text"
+                            startIcon={<ContentCopy />}
+                            onClick={() => handleCopy(upiId, 'UPI ID copied')}
+                          >
+                            Copy UPI ID
+                          </Button>
+                        </Stack>
+                      
                         <TextField
                           fullWidth
                           label="Transaction ID / UTR"
                           value={formData.transactionId}
                           onChange={(e) => setFormData((prev) => ({ ...prev, transactionId: e.target.value }))}
-                          helperText="Required if you choose Pay Now"
+                          helperText="Enter the UTR / Transaction ID from your UPI app after payment"
                         />
                       </CardContent>
                     </Card>
                   </Grid>
-                )}
 
                 <Grid item xs={12}>
                   <Button
@@ -554,5 +602,23 @@
           </Box>
         </Paper>
       </Container>
+
+      {/* Bottom popup for validation errors — more visible than the top alert */}
+      <Snackbar
+        open={!!validationSnack}
+        autoHideDuration={5000}
+        onClose={() => setValidationSnack(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity="error"
+          variant="filled"
+          onClose={() => setValidationSnack(null)}
+          sx={{ width: '100%', fontWeight: 700, fontSize: '0.95rem' }}
+        >
+          {validationSnack}
+        </Alert>
+      </Snackbar>
+      </>
     );
   }

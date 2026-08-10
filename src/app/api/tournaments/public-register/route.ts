@@ -105,9 +105,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Normalize to last 10 digits to handle +91 prefix variants
+    const last10 = normalizedPhone.slice(-10);
     const existingRegistration = await (Player.findOne as any)({
       tournamentId,
-      mobile: normalizedPhone,
+      $or: [
+        { mobile: { $in: [normalizedPhone, last10, `91${last10}`, `+91${last10}`] } },
+        { phone: { $in: [normalizedPhone, last10, `91${last10}`, `+91${last10}`] } },
+      ],
     });
 
     if (existingRegistration) {

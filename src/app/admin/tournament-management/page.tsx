@@ -260,6 +260,21 @@ export default function AdminTournamentManagement() {
   });
 
   // Enhanced player addition with validation
+  const handleDeletePlayer = async (playerId: string) => {
+    if (!confirm('Delete this registration? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`/api/admin/tournament-registrations?id=${playerId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success && selectedTournament) {
+        handleTournamentSelect(selectedTournament);
+      } else {
+        setError(data.error || 'Failed to delete registration');
+      }
+    } catch {
+      setError('Failed to delete registration');
+    }
+  };
+
   const handleAddPlayer = async () => {
     if (!selectedTournament || !playerForm.name.trim()) {
       setError('Tournament and player name are required');
@@ -1144,7 +1159,7 @@ export default function AdminTournamentManagement() {
                         <Button size="small" onClick={() => handleEdit('player', player)}>
                           <Edit fontSize="small" />
                         </Button>
-                        <Button size="small" color="error">
+                        <Button size="small" color="error" onClick={() => handleDeletePlayer(player._id)}>
                           <Delete fontSize="small" />
                         </Button>
                       </CardActions>

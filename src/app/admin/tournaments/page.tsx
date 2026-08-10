@@ -751,7 +751,13 @@ export default function AdminTournamentDashboard() {
 
       {/* Tabs */}
       <Paper sx={{ mb: 3 }}>
-        <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
+        <Tabs
+          value={activeTab}
+          onChange={(e, newValue) => setActiveTab(newValue)}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+        >
           <Tab label="Tournaments" />
           <Tab label="Matches" />
           <Tab label="Live Updates" />
