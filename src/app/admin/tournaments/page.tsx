@@ -528,7 +528,7 @@ export default function AdminTournamentDashboard() {
             player2Sets: scoreForm.player2Sets,
             sets: scoreForm.sets
           },
-          winnerName: scoreForm.winnerName,
+          winnerName: scoreForm.winnerName || undefined,
           duration: scoreForm.duration,
           liveScore: scoreForm.status === 'live' ? scoreForm.liveScore : undefined
         }),
@@ -835,9 +835,32 @@ export default function AdminTournamentDashboard() {
 
       {activeTab === 1 && selectedTournament && (
         <Box>
-          <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }} flexWrap="wrap">
             <Typography variant="h6" fontWeight={700}>Fixtures</Typography>
             <Button variant="contained" size="small" startIcon={<Add />} onClick={() => { resetMatchForm(); setMatchDialog(true); }}>Add Match</Button>
+            <Button
+              variant="contained"
+              color="secondary"
+              size="small"
+              startIcon={<EmojiEvents />}
+              onClick={async () => {
+                if (!confirm('Generate the full 24-match knockout bracket from registered players? Existing matches will be replaced.')) return;
+                const res = await fetch(`/api/tournaments/${selectedTournament}/generate-fixtures`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ force: true }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                  fetchMatches(selectedTournament);
+                  alert(data.message);
+                } else {
+                  alert(data.error || 'Failed to generate fixtures');
+                }
+              }}
+            >
+              Generate Fixtures
+            </Button>
             <Button variant="outlined" size="small" startIcon={<Refresh />} onClick={() => fetchMatches(selectedTournament)}>Refresh</Button>
             {matches.length > 0 && (
               <Button size="small" color="error" variant="outlined" onClick={async () => {
@@ -1550,8 +1573,8 @@ export default function AdminTournamentDashboard() {
                   </Stack>
                 </Grid>
                 <Grid item xs={6}>
-                  <TextField fullWidth size="small" label="Current Set #" type="number" value={scoreForm.liveScore.currentSet}
-                    onChange={(e) => setScoreForm(f => ({ ...f, liveScore: { ...f.liveScore, currentSet: parseInt(e.target.value) || 1 } }))} />
+                  <TextField fullWidth size="small" label="Current Set #" type="number" value={scoreForm.liveScore.currentSet === 0 ? '' : scoreForm.liveScore.currentSet}
+                    onChange={(e) => setScoreForm(f => ({ ...f, liveScore: { ...f.liveScore, currentSet: e.target.value === '' ? 0 : parseInt(e.target.value) || 1 } }))} />
                 </Grid>
                 <Grid item xs={6}>
                   <FormControl fullWidth size="small">
@@ -1579,12 +1602,12 @@ export default function AdminTournamentDashboard() {
                   <React.Fragment key={idx}>
                     <Grid item xs={1}><Typography variant="caption" sx={{ mt: 1.5, display: 'block' }}>S{s.set}</Typography></Grid>
                     <Grid item xs={5}>
-                      <TextField size="small" fullWidth label={editingMatch?.player1Name || 'P1'} type="number" value={s.player1Score}
-                        onChange={(e) => { const sets = [...scoreForm.sets]; sets[idx] = { ...sets[idx], player1Score: parseInt(e.target.value) || 0 }; setScoreForm(f => ({ ...f, sets, player1Sets: sets.filter(s => s.player1Score > s.player2Score).length, player2Sets: sets.filter(s => s.player2Score > s.player1Score).length })); }} />
+                      <TextField size="small" fullWidth label={editingMatch?.player1Name || 'P1'} type="number" value={s.player1Score === 0 ? '' : s.player1Score}
+                        onChange={(e) => { const v = e.target.value === '' ? 0 : parseInt(e.target.value) || 0; const sets = [...scoreForm.sets]; sets[idx] = { ...sets[idx], player1Score: v }; setScoreForm(f => ({ ...f, sets, player1Sets: sets.filter(s => s.player1Score > s.player2Score).length, player2Sets: sets.filter(s => s.player2Score > s.player1Score).length })); }} />
                     </Grid>
                     <Grid item xs={5}>
-                      <TextField size="small" fullWidth label={editingMatch?.player2Name || 'P2'} type="number" value={s.player2Score}
-                        onChange={(e) => { const sets = [...scoreForm.sets]; sets[idx] = { ...sets[idx], player2Score: parseInt(e.target.value) || 0 }; setScoreForm(f => ({ ...f, sets, player1Sets: sets.filter(s => s.player1Score > s.player2Score).length, player2Sets: sets.filter(s => s.player2Score > s.player1Score).length })); }} />
+                      <TextField size="small" fullWidth label={editingMatch?.player2Name || 'P2'} type="number" value={s.player2Score === 0 ? '' : s.player2Score}
+                        onChange={(e) => { const v = e.target.value === '' ? 0 : parseInt(e.target.value) || 0; const sets = [...scoreForm.sets]; sets[idx] = { ...sets[idx], player2Score: v }; setScoreForm(f => ({ ...f, sets, player1Sets: sets.filter(s => s.player1Score > s.player2Score).length, player2Sets: sets.filter(s => s.player2Score > s.player1Score).length })); }} />
                     </Grid>
                     <Grid item xs={1}><IconButton size="small" color="error" onClick={() => setScoreForm(f => ({ ...f, sets: f.sets.filter((_, i) => i !== idx) }))}><Delete fontSize="small" /></IconButton></Grid>
                   </React.Fragment>

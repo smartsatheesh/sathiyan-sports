@@ -37,6 +37,8 @@ export interface IMatch extends Document {
     player1Points: number;
     player2Points: number;
   };
+  nextMatchNumber?: number | null;
+  nextMatchSlot?: 'player1' | 'player2' | null;
 }
 
 const MatchSchema = new Schema<IMatch>({
@@ -172,7 +174,17 @@ const MatchSchema = new Schema<IMatch>({
       default: 0,
       min: 0
     }
-  }
+  },
+  // Bracket wiring: which match the winner advances to and as which slot
+  nextMatchNumber: {
+    type: Number,
+    default: null,
+  },
+  nextMatchSlot: {
+    type: String,
+    enum: ['player1', 'player2', null],
+    default: null,
+  },
 }, {
   timestamps: true
 });

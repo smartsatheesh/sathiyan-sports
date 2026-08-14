@@ -150,6 +150,30 @@ export async function PUT(
 
     await match.save();
 
+    // --- Bracket advancement: push winner into the next scheduled match ---
+    if (winnerName && match.nextMatchNumber) {
+      const nextMatch = await (Match.findOne as any)({
+        tournamentId: match.tournamentId,
+        matchNumber: match.nextMatchNumber,
+      });
+      if (nextMatch) {
+        const slot = match.nextMatchSlot as 'player1' | 'player2';
+        // Determine winner's partner from the current match
+        const winnerPartner =
+          winnerName === match.player1Name ? match.player1Partner :
+          winnerName === match.player2Name ? match.player2Partner : '';
+
+        if (slot === 'player1') {
+          nextMatch.player1Name = winnerName;
+          nextMatch.player1Partner = winnerPartner || '';
+        } else {
+          nextMatch.player2Name = winnerName;
+          nextMatch.player2Partner = winnerPartner || '';
+        }
+        await nextMatch.save();
+      }
+    }
+
     const updatedMatch = await (Match.findById as any)(params.matchId)
       .populate('player1Id player2Id', 'name partner userId')
       .populate('winner', 'name partner');

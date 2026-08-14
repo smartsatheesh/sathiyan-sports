@@ -507,7 +507,7 @@ export default function TournamentPage() {
               <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                 <People fontSize="small" />
                 <Typography variant="body1">
-                  {stats.totalPlayers}/{tournament.maxParticipants} Players
+                  {stats.totalPlayers}/{tournament.maxParticipants} {tournament.type === 'doubles' ? 'Teams' : 'Players'}
                 </Typography>
               </Stack>
               {tournament.prizePool > 0 && (
@@ -635,7 +635,7 @@ export default function TournamentPage() {
                 {stats.totalPlayers}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Registered Players
+                Registered Teams
               </Typography>
             </CardContent>
           </Card>
