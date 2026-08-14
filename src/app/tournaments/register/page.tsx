@@ -191,6 +191,7 @@
             name: formData.name,
             phone: formData.phone,
             clubName: formData.clubName,
+            partnerName: formData.partnerName,
             sex: formData.sex,
             ageCategory: formData.ageCategory,
             eventType: formData.eventType,

@@ -1097,6 +1097,7 @@ export default function AdminTournamentDashboard() {
                   <TableCell>Registered</TableCell>
                   <TableCell>Tournament</TableCell>
                   <TableCell>Name</TableCell>
+                  <TableCell>Partner</TableCell>
                   <TableCell>Phone</TableCell>
                   <TableCell>Sex</TableCell>
                   <TableCell>Category</TableCell>
@@ -1109,9 +1110,9 @@ export default function AdminTournamentDashboard() {
               </TableHead>
               <TableBody>
                 {regLoading ? (
-                  <TableRow><TableCell colSpan={11} align="center"><CircularProgress size={24} /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={12} align="center"><CircularProgress size={24} /></TableCell></TableRow>
                 ) : regRows.length === 0 ? (
-                  <TableRow><TableCell colSpan={11} align="center">No registrations found</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={12} align="center">No registrations found</TableCell></TableRow>
                 ) : (
                   regRows.map((row) => (
                     <TableRow key={row.id} hover>
@@ -1121,6 +1122,7 @@ export default function AdminTournamentDashboard() {
                         <Typography variant="caption" color="text.secondary">{row.sport} • {row.venue}</Typography>
                       </TableCell>
                       <TableCell>{row.name}</TableCell>
+                      <TableCell>{row.partnerName || '-'}</TableCell>
                       <TableCell>{row.phone}</TableCell>
                       <TableCell>{row.sex}</TableCell>
                       <TableCell>{row.category}</TableCell>

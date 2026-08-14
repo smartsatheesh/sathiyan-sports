@@ -74,6 +74,7 @@ export async function GET(
         phone: player.phone,
         category: player.category,
         partner: player.partner,
+        partnerName: player.partnerName || player.partner,
         registrationFee: player.registrationFee,
         paymentStatus: player.paymentStatus,
         registeredAt: player.registeredAt,

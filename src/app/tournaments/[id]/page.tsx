@@ -196,6 +196,7 @@ interface Player {
   _id: string;
   name: string;
   partner?: string;
+  partnerName?: string;
   category: string;
   registrationFee: number;
   paymentStatus: string;
@@ -1060,7 +1061,7 @@ export default function TournamentPage() {
                           {tournament.type === 'doubles' && (
                             <TableCell>
                               <Typography variant="body2" sx={{ fontWeight: 'medium', color: 'primary.main' }}>
-                                {player.partner || '-'}
+                                {player.partnerName || player.partner || '-'}
                               </Typography>
                             </TableCell>
                           )}
