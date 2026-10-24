@@ -32,7 +32,9 @@ import {
   Fade,
   Slide,
   useTheme,
-  Skeleton
+  Skeleton,
+  ToggleButton,
+  ToggleButtonGroup
 } from '@mui/material';
 import {
   SportsTennis,
@@ -59,10 +61,13 @@ import {
   NotificationsActive,
   Groups,
   EmojiEventsOutlined,
-  AccessTime
+  AccessTime,
+  ViewList,
+  AccountTree
 } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
 import { format, formatDistanceToNow, isValid } from 'date-fns';
+import TournamentBracket from '../../components/TournamentBracket';
 
 // Enhanced Avatar generation utility
 const generateCartoonAvatar = (name: string, category: string = 'default') => {
@@ -217,6 +222,9 @@ interface Match {
   player2Name?: string;
   player1Partner?: string;
   player2Partner?: string;
+  player1TeamId?: string;
+  player2TeamId?: string;
+  nextMatchNumber?: number | null;
   courtNumber?: string;
   scheduledTime?: string;
   status: 'scheduled' | 'live' | 'completed' | 'cancelled';
@@ -263,6 +271,7 @@ export default function TournamentPage() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [fixturesView, setFixturesView] = useState<'bracket' | 'list'>('bracket');
 
   const getSportIcon = (sport: string) => {
     switch (sport.toLowerCase()) {
@@ -405,7 +414,7 @@ export default function TournamentPage() {
   }, [allPlayers]);
 
   const matchesByRound = useMemo(() => {
-    const ROUND_ORDER = ['Group Stage', 'Round of 16', 'Quarter Final', 'Semi Final', 'Final'];
+    const ROUND_ORDER = ['Preliminary', 'Group Stage', 'Round of 32', 'Round of 16', 'Quarter Final', 'Semi Final', 'Final'];
     const grouped = allMatches.reduce((acc: Record<string, Match[]>, m) => {
       if (!acc[m.round]) acc[m.round] = [];
       acc[m.round].push(m);
@@ -420,6 +429,18 @@ export default function TournamentPage() {
       })
     );
   }, [allMatches]);
+
+  // Dynamic grouping: one bracket per registered category (Group A, B, C...), sized to
+  // however many teams actually registered under it.
+  const matchesByGroup = useMemo(() => {
+    const categories = Array.from(new Set(allMatches.map((m: any) => m.category || 'Open'))).sort((a, b) => a.localeCompare(b));
+    return categories.map((category, idx) => ({
+      letter: String.fromCharCode(65 + idx),
+      category,
+      matches: allMatches.filter((m: any) => (m.category || 'Open') === category),
+    }));
+  }, [allMatches]);
+
 
   const standings = useMemo(() => {
     const table: Record<string, { name: string; played: number; won: number; lost: number; setsWon: number; setsLost: number; points: number }> = {};
@@ -900,7 +921,14 @@ export default function TournamentPage() {
                           )}
                           {match.scheduledTime && (
                             <Typography variant="body2" color="text.secondary">
-                              {new Date(match.scheduledTime).toLocaleTimeString()}
+                            {new Date(match.scheduledTime).toLocaleString('en-GB', {
+                                  timeZone: 'Asia/Kolkata',
+                                  day: '2-digit',
+                                  month: 'short',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  timeZoneName: 'short',
+                                })}
                             </Typography>
                           )}
                         </Box>
@@ -916,11 +944,36 @@ export default function TournamentPage() {
 
       {activeTab === 1 && (
         <Box>
-          <Typography variant="h6" fontWeight={700} sx={{ mb: 3 }}>Fixtures</Typography>
+          <Stack direction="row" alignItems="center" sx={{ mb: 3 }}>
+            <Typography variant="h6" fontWeight={700}>Fixtures</Typography>
+            <ToggleButtonGroup
+              size="small"
+              value={fixturesView}
+              exclusive
+              onChange={(e, v) => v && setFixturesView(v)}
+              sx={{ ml: 'auto' }}
+            >
+              <ToggleButton value="bracket"><AccountTree fontSize="small" sx={{ mr: 0.5 }} />Bracket</ToggleButton>
+              <ToggleButton value="list"><ViewList fontSize="small" sx={{ mr: 0.5 }} />List</ToggleButton>
+            </ToggleButtonGroup>
+          </Stack>
           {Object.keys(matchesByRound).length === 0 ? (
             <Paper sx={{ p: 4, textAlign: 'center' }}>
               <Typography color="text.secondary">No fixtures published yet. Check back soon!</Typography>
             </Paper>
+          ) : fixturesView === 'bracket' ? (
+            matchesByGroup.map(({ letter, category, matches: groupMatches }) => (
+              <Box key={category} sx={{ mb: 4 }}>
+                {matchesByGroup.length > 1 && (
+                  <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1.5 }}>
+                    Group {letter} <Typography component="span" variant="body2" color="text.secondary">— {category}</Typography>
+                  </Typography>
+                )}
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: '#fafafa' }}>
+                  <TournamentBracket matches={groupMatches as any} />
+                </Paper>
+              </Box>
+            ))
           ) : (
             Object.entries(matchesByRound).map(([round, roundMatches]) => (
               <Box key={round} sx={{ mb: 4 }}>
@@ -974,7 +1027,14 @@ export default function TournamentPage() {
                             {isLive && match.liveScore && <Typography variant="caption" color="error.main" display="block" textAlign="center" sx={{ mt: 0.5 }}>Set {match.liveScore.currentSet} in progress</Typography>}
                             {match.scheduledTime && match.status === 'scheduled' && (
                               <Typography variant="caption" color="text.secondary" display="block" textAlign="center" sx={{ mt: 0.5 }}>
-                                {new Date(match.scheduledTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                               {new Date(match.scheduledTime).toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    })}
                               </Typography>
                             )}
                           </CardContent>

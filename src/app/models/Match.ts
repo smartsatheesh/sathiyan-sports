@@ -10,6 +10,8 @@ export interface IMatch extends Document {
   player2Name?: string;
   player1Partner?: string;
   player2Partner?: string;
+  player1TeamId?: string;
+  player2TeamId?: string;
   category?: string;
   courtNumber?: string;
   scheduledTime?: Date;
@@ -80,6 +82,14 @@ const MatchSchema = new Schema<IMatch>({
     trim: true
   },
   player2Partner: {
+    type: String,
+    trim: true
+  },
+  player1TeamId: {
+    type: String,
+    trim: true
+  },
+  player2TeamId: {
     type: String,
     trim: true
   },

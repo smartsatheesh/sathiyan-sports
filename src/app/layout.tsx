@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Providers from "./providers";
 import Navbar from "./components/Navbar";
+import ChatbotWidget from "./components/ChatbotWidget";
 // Temporarily disabled to fix MongoDB timeout issues
 // import "./lib/scheduler-init"; // Initialize attendance scheduler
 
@@ -64,6 +65,7 @@ export default function RootLayout({
         <Providers>
           <Navbar />
           <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+          <ChatbotWidget />
         </Providers>
       </body>
     </html>
