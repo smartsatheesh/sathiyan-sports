@@ -1,629 +1,148 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Box,
-  Container,
-  Typography,
-  Paper,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  Card,
+  CardActionArea,
   Chip,
-  Avatar,
-  LinearProgress,
-  Alert,
   CircularProgress,
+  Container,
+  Grid,
   Stack,
-  Divider,
-  IconButton
-} from '@mui/material';
-import {
-  SportsTennis,
-  SportsFootball,
-  EmojiEvents,
-  Schedule,
-  LocationOn,
-  People,
-  PlayArrow,
-  CheckCircle,
-  Visibility,
-  PersonAdd,
-  CalendarToday
-} from '@mui/icons-material';
-import { useSession } from 'next-auth/react';
+  Typography,
+} from "@mui/material";
+import { ArrowForward, CalendarMonth, EmojiEvents, Groups, SportsCricket, SportsSoccer, SportsTennis } from "@mui/icons-material";
 
 interface Tournament {
   _id: string;
   name: string;
-  sport: string;
-  type: string;
-  description?: string;
-  status: 'upcoming' | 'ongoing' | 'completed' | 'live';
-  registrationFee: number;
-  prizePool?: number;
-  maxParticipants?: number;
-  maxPlayers?: number;
-  registrationDeadline?: string;
-  startDate: string;
+  sport?: string;
+  type?: string;
+  status?: string;
+  startDate?: string;
   endDate?: string;
-  venue: string;
-  category?: string;
-  categories?: string[];
+  venue?: string;
   playersCount?: number;
   matchesCount?: number;
-  createdBy?: {
-    name: string;
-    email: string;
-  };
 }
 
-interface TournamentStats {
-  totalPlayers: number;
-  registrationProgress: number;
-  completedMatches: number;
-  liveMatches: number;
-  upcomingMatches: number;
-}
+const GRADIENT: Record<string, string> = {
+  badminton: "linear-gradient(135deg, #3a1c71 0%, #d76d77 60%, #ffaf7b 100%)",
+  football: "linear-gradient(135deg, #0f2027 0%, #1f8f3a 100%)",
+  cricket: "linear-gradient(135deg, #05233a 0%, #1565c0 100%)",
+};
+const ICON: Record<string, React.ReactNode> = {
+  badminton: <SportsTennis />,
+  football: <SportsSoccer />,
+  cricket: <SportsCricket />,
+};
+const STATUS_ORDER = ["ongoing", "upcoming", "completed"];
+const STATUS_LABEL: Record<string, string> = { ongoing: "Live now", upcoming: "Upcoming", completed: "Completed" };
+
+const fmt = (iso?: string) => (iso ? new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "");
 
 export default function TournamentsPage() {
-  const router = useRouter();
-  const { data: session } = useSession();
-  const [loading, setLoading] = useState(true);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [filteredTournaments, setFilteredTournaments] = useState<Tournament[]>([]);
-  const [selectedSport, setSelectedSport] = useState('all');
-  const [selectedStatus, setSelectedStatus] = useState('all');
-  const [error, setError] = useState('');
-  const [tournamentStats, setTournamentStats] = useState<{[key: string]: TournamentStats}>({});
-
-  const getSportIcon = (sport: string) => {
-    switch (sport.toLowerCase()) {
-      case 'badminton':
-        return <SportsTennis sx={{ color: '#1976d2', fontSize: 40 }} />;
-      case 'football':
-        return <SportsFootball sx={{ color: '#1976d2', fontSize: 40 }} />;
-      default:
-        return <SportsTennis sx={{ color: '#1976d2', fontSize: 40 }} />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'upcoming':
-        return 'primary';
-      case 'ongoing':
-        return 'warning';
-      case 'completed':
-        return 'success';
-      default:
-        return 'default';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'upcoming':
-        return <Schedule fontSize="small" />;
-      case 'ongoing':
-        return <PlayArrow fontSize="small" />;
-      case 'completed':
-        return <CheckCircle fontSize="small" />;
-      default:
-        return <Schedule fontSize="small" />;
-    }
-  };
-
-  const fetchTournaments = async () => {
-    try {
-      const response = await fetch('/api/tournaments');
-      const result = await response.json();
-      
-      if (result.success) {
-        const tournamentList = result.data || [];
-        setTournaments(tournamentList);
-        setFilteredTournaments(tournamentList);
-        
-        // Create basic stats from the tournament data (no need for additional API calls)
-        const statsMap: Record<string, TournamentStats> = {};
-        tournamentList.forEach((tournament: Tournament) => {
-          statsMap[tournament._id] = {
-            totalPlayers: tournament.playersCount || 0,
-            registrationProgress: ((tournament.playersCount || 0) / (tournament.maxPlayers || tournament.maxParticipants || 40)) * 100,
-            completedMatches: 0, // Will be calculated when we have match status data
-            liveMatches: 0,
-            upcomingMatches: tournament.matchesCount || 0,
-          };
-        });
-        setTournamentStats(statsMap);
-      } else {
-        setError(result.error || 'Failed to fetch tournaments');
-      }
-    } catch (error) {
-      console.error('Error fetching tournaments:', error);
-      setError('Failed to load tournaments');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchTournamentStats = async (tournamentId: string) => {
-    try {
-      const response = await fetch(`/api/tournaments/${tournamentId}/register`);
-      const result = await response.json();
-      
-      if (result.success) {
-        const tournament = tournaments.find((t) => t._id === tournamentId);
-        const maxPlayers = tournament?.maxPlayers || tournament?.maxParticipants || 40;
-        const stats = {
-          totalPlayers: (result.data || []).length,
-          registrationProgress: ((result.data || []).length / maxPlayers) * 100,
-          completedMatches: 0,
-          liveMatches: 0,
-          upcomingMatches: 0,
-        };
-        
-        setTournamentStats(prev => ({
-          ...prev,
-          [tournamentId]: stats
-        }));
-      }
-    } catch (error) {
-      console.error('Error fetching tournament stats:', error);
-    }
-  };
-
-  const filterTournaments = () => {
-    let filtered = tournaments;
-
-    if (selectedSport !== 'all') {
-      filtered = filtered.filter(tournament => tournament.sport === selectedSport);
-    }
-
-    if (selectedStatus !== 'all') {
-      filtered = filtered.filter(tournament => tournament.status === selectedStatus);
-    }
-
-    setFilteredTournaments(filtered);
-  };
+  const [loading, setLoading] = useState(true);
+  const [sport, setSport] = useState("all");
+  const [status, setStatus] = useState("all");
 
   useEffect(() => {
-    fetchTournaments();
+    fetch("/api/tournaments-native")
+      .then((r) => r.json())
+      .then((d) => setTournaments(d.tournaments || []))
+      .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    filterTournaments();
-  }, [selectedSport, selectedStatus, tournaments]);
-
-  const handleViewTournament = (tournamentId: string) => {
-    router.push(`/tournaments/${tournamentId}`);
-  };
-
-  const handleRegisterForTournament = async (tournamentId: string) => {
-    if (!session) {
-      router.push('/auth/signin');
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/tournaments/${tournamentId}/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        alert('Registration successful!');
-        fetchTournamentStats(tournamentId);
-      } else {
-        alert(result.error || 'Registration failed');
-      }
-    } catch (error) {
-      console.error('Registration error:', error);
-      alert('Registration failed. Please try again.');
-    }
-  };
-
-  const getUniqueValues = (field: keyof Tournament) => {
-    if (!tournaments || tournaments.length === 0) return [];
-    return [...new Set(tournaments.map(tournament => tournament[field]))];
-  };
-
-  if (loading) {
-    return (
-      <Container maxWidth="lg" sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
-        <CircularProgress />
-      </Container>
-    );
-  }
-
-  const sports = getUniqueValues('sport');
-  const statuses = getUniqueValues('status');
+  const sports = useMemo(() => Array.from(new Set(tournaments.map((t) => (t.sport || "").toLowerCase()).filter(Boolean))), [tournaments]);
+  const visible = tournaments
+    .filter((t) => sport === "all" || (t.sport || "").toLowerCase() === sport)
+    .filter((t) => status === "all" || t.status === status)
+    .sort((a, b) => (STATUS_ORDER.indexOf(a.status || "") + 1 || 9) - (STATUS_ORDER.indexOf(b.status || "") + 1 || 9) || new Date(b.startDate || 0).getTime() - new Date(a.startDate || 0).getTime());
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 2, mb: 4 }}>
-      {/* Header */}
-      <Box sx={{ textAlign: 'center', mb: 4 }}>
-        <Typography variant="h3" fontWeight="bold" gutterBottom>
-          Tournament Center
-        </Typography>
-        <Typography variant="h6" color="text.secondary" sx={{ mb: 3 }}>
-          Discover and participate in exciting sports tournaments
-        </Typography>
+    <Box sx={{ bgcolor: "#f6f8fb", minHeight: "100vh", pb: 6 }}>
+      <Box sx={{ background: "linear-gradient(135deg, #071a2e 0%, #0d6e8a 100%)", color: "#fff", py: { xs: 4, md: 6 } }}>
+        <Container maxWidth="md">
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ color: "#ffc400", mb: 1 }}>
+            <EmojiEvents />
+            <Typography sx={{ fontWeight: 800, letterSpacing: 2, fontSize: 13 }}>COMPETE</Typography>
+          </Stack>
+          <Typography component="h1" sx={{ fontWeight: 900, fontSize: { xs: "2rem", md: "2.8rem" }, lineHeight: 1.1 }}>Tournaments</Typography>
+          <Typography sx={{ opacity: 0.9, mt: 1 }}>Fixtures, brackets, live scores and results — right on your phone.</Typography>
+        </Container>
       </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
+      <Container maxWidth="md" sx={{ pt: 2.5 }}>
+        <Stack direction="row" spacing={1} sx={{ mb: 1, overflowX: "auto", pb: 0.5 }}>
+          {["all", "ongoing", "upcoming", "completed"].map((s) => (
+            <Chip key={s} label={s === "all" ? "All" : STATUS_LABEL[s]} color={status === s ? "primary" : "default"} variant={status === s ? "filled" : "outlined"} onClick={() => setStatus(s)} />
+          ))}
+        </Stack>
+        {sports.length > 1 && (
+          <Stack direction="row" spacing={1} sx={{ mb: 2, overflowX: "auto", pb: 0.5 }}>
+            {["all", ...sports].map((s) => (
+              <Chip key={s} label={s === "all" ? "All sports" : s[0].toUpperCase() + s.slice(1)} size="small" color={sport === s ? "secondary" : "default"} variant={sport === s ? "filled" : "outlined"} onClick={() => setSport(s)} />
+            ))}
+          </Stack>
+        )}
 
-      {/* Filters */}
-      <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
-        <Typography variant="h6" gutterBottom>
-          Filter Tournaments
-        </Typography>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <InputLabel>Sport</InputLabel>
-              <Select
-                value={selectedSport}
-                onChange={(e) => setSelectedSport(e.target.value)}
-                label="Sport"
-              >
-                <MenuItem value="all">All Sports</MenuItem>
-                {sports.map((sport, index) => (
-                  <MenuItem key={`sport-${index}`} value={String(sport)}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {String(sport) === 'badminton' ? <SportsTennis fontSize="small" /> : <SportsFootball fontSize="small" />}
-                      {String(sport).charAt(0).toUpperCase() + String(sport).slice(1)}
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                label="Status"
-              >
-                <MenuItem value="all">All Statuses</MenuItem>
-                {statuses.map((status, index) => (
-                  <MenuItem key={`status-${index}`} value={String(status)}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {getStatusIcon(String(status))}
-                      {String(status).charAt(0).toUpperCase() + String(status).slice(1)}
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Statistics */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={6} md={3}>
-          <Paper elevation={1} sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="h4" color="primary.main" fontWeight="bold">
-              {filteredTournaments.length}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Total Tournaments
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={6} md={3}>
-          <Paper elevation={1} sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="h4" color="warning.main" fontWeight="bold">
-              {filteredTournaments.filter(t => t.status === 'ongoing').length}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Live Tournaments
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={6} md={3}>
-          <Paper elevation={1} sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="h4" color="info.main" fontWeight="bold">
-              {filteredTournaments.filter(t => t.status === 'upcoming').length}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Upcoming
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={6} md={3}>
-          <Paper elevation={1} sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="h4" color="success.main" fontWeight="bold">
-              {filteredTournaments.filter(t => t.status === 'completed').length}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Completed
-            </Typography>
-          </Paper>
-        </Grid>
-      </Grid>
-
-      {/* Tournaments Grid */}
-      {filteredTournaments.length === 0 ? (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            No tournaments found
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Try adjusting your filters or check back later for new tournaments
-          </Typography>
-        </Paper>
-      ) : (
-        <Grid container spacing={3}>
-          {filteredTournaments.map((tournament) => {
-            const stats = tournamentStats[tournament._id];
-            const isRegistrationOpen = tournament.status === 'upcoming' && 
-              (!tournament.registrationDeadline || new Date() < new Date(tournament.registrationDeadline));
-            const isFull = stats && stats.totalPlayers >= tournament.maxParticipants;
-
-            return (
-              <Grid item xs={12} md={6} lg={4} key={tournament._id}>
-                <Card 
-                  elevation={3} 
-                  sx={{ 
-                    height: '100%', 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: 6
-                    }
-                  }}
-                >
-                  {/* Tournament Header */}
-                  <Box sx={{ p: 2, background: `linear-gradient(135deg, ${tournament.status === 'ongoing' ? '#ff9800' : tournament.status === 'upcoming' ? '#2196f3' : '#4caf50'} 0%, ${tournament.status === 'ongoing' ? '#ffb74d' : tournament.status === 'upcoming' ? '#42a5f5' : '#66bb6a'} 100%)`, color: 'white' }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {getSportIcon(tournament.sport)}
-                        <Box>
-                          <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                            {tournament.sport.toUpperCase()} • {tournament.type.toUpperCase()}
-                          </Typography>
-                        </Box>
+        {loading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>
+        ) : visible.length === 0 ? (
+          <Typography color="text.secondary" textAlign="center" sx={{ py: 8 }}>No tournaments here yet — check back soon!</Typography>
+        ) : (
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            {visible.map((t) => {
+              const key = (t.sport || "").toLowerCase();
+              const teams = t.playersCount;
+              return (
+                <Grid item xs={12} sm={6} key={t._id}>
+                  <Card sx={{ borderRadius: 4, overflow: "hidden", height: "100%", boxShadow: "0 8px 30px rgba(7,26,46,0.08)" }}>
+                    <CardActionArea component={Link} href={`/tournaments/${t._id}`} sx={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "stretch" }}>
+                      <Box sx={{ background: GRADIENT[key] || GRADIENT.badminton, color: "#fff", p: 2, minHeight: 110, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Box sx={{ display: "flex", opacity: 0.9 }}>{ICON[key] || <EmojiEvents />}</Box>
+                          {t.status && (
+                            <Chip size="small" label={STATUS_LABEL[t.status] || t.status} sx={{ bgcolor: t.status === "ongoing" ? "#ff1744" : "rgba(0,0,0,0.35)", color: "#fff", fontWeight: 800 }} />
+                          )}
+                        </Stack>
+                        <Typography sx={{ fontWeight: 900, fontSize: "1.2rem", lineHeight: 1.2, mt: 1 }}>{t.name}</Typography>
                       </Box>
-                      <Chip 
-                        label={tournament.status.toUpperCase()}
-                        size="small"
-                        icon={getStatusIcon(tournament.status)}
-                        sx={{ 
-                          backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                          color: 'white',
-                          '& .MuiChip-icon': { color: 'white' }
-                        }}
-                      />
-                    </Box>
-                    <Typography variant="h6" fontWeight="bold" noWrap>
-                      {tournament.name}
-                    </Typography>
-                  </Box>
-
-                  <CardContent sx={{ flexGrow: 1, pb: 1 }}>
-                    {/* Tournament Info */}
-                    <Stack spacing={2}>
-                      <Box>
-                        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                          <LocationOn fontSize="small" color="action" />
-                          <Typography variant="body2" color="text.secondary">
-                            {tournament.venue}
-                          </Typography>
+                      <Box sx={{ p: 2, flex: 1 }}>
+                        <Stack spacing={0.75} color="text.secondary">
+                          {t.startDate && (
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <CalendarMonth fontSize="small" />
+                              <Typography variant="body2">{fmt(t.startDate)}{t.endDate && t.endDate !== t.startDate ? ` – ${fmt(t.endDate)}` : ""}</Typography>
+                            </Stack>
+                          )}
+                          {teams !== undefined && (
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <Groups fontSize="small" />
+                              <Typography variant="body2">{teams} teams{t.type ? ` · ${t.type}` : ""}</Typography>
+                            </Stack>
+                          )}
                         </Stack>
-                        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                          <CalendarToday fontSize="small" color="action" />
-                          <Typography variant="body2" color="text.secondary">
-                            {new Date(tournament.startDate).toLocaleDateString('en-GB')}
-                            {tournament.endDate && ` - ${new Date(tournament.endDate).toLocaleDateString('en-GB')}`}
-                          </Typography>
-                        </Stack>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <People fontSize="small" color="action" />
-                          <Typography variant="body2" color="text.secondary">
-                            Category: {tournament.category}
-                          </Typography>
-                        </Stack>
-                      </Box>
-
-                      {tournament.description && (
-                        <Typography 
-                          variant="body2" 
-                          color="text.secondary"
-                          sx={{
-                            display: '-webkit-box',
-                            overflow: 'hidden',
-                            WebkitBoxOrient: 'vertical',
-                            WebkitLineClamp: 2
-                          }}
-                        >
-                          {tournament.description}
+                        <Typography sx={{ mt: 1.5, fontWeight: 800, color: "primary.main", display: "flex", alignItems: "center", gap: 0.5 }}>
+                          {t.status === "upcoming" ? "View & register" : t.status === "completed" ? "See results" : "Follow live"} <ArrowForward fontSize="small" />
                         </Typography>
-                      )}
-
-                      {/* Tournament Stats */}
-                      {stats && (
-                        <Box>
-                          <Stack direction="row" justifyContent="space-between" sx={{ mb: 1 }}>
-                            <Typography variant="body2" color="text.secondary">
-                              Registration: {stats.totalPlayers}/{tournament.maxParticipants}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {Math.round(stats.registrationProgress)}%
-                            </Typography>
-                          </Stack>
-                          <LinearProgress
-                            variant="determinate"
-                            value={stats.registrationProgress}
-                            sx={{ height: 6, borderRadius: 3 }}
-                          />
-                        </Box>
-                      )}
-
-                      {/* Prize and Fee Info */}
-                      <Box>
-                        <Grid container spacing={2}>
-                          {tournament.registrationFee > 0 && (
-                            <Grid item xs={6}>
-                              <Typography variant="caption" color="text.secondary">
-                                Entry Fee
-                              </Typography>
-                              <Typography variant="body2" fontWeight="medium">
-                                ₹{tournament.registrationFee}
-                              </Typography>
-                            </Grid>
-                          )}
-                          {tournament.prizePool > 0 && (
-                            <Grid item xs={6}>
-                              <Typography variant="caption" color="text.secondary">
-                                Prize Pool
-                              </Typography>
-                              <Typography variant="body2" fontWeight="medium" color="success.main">
-                                ₹{tournament.prizePool.toLocaleString()}
-                              </Typography>
-                            </Grid>
-                          )}
-                        </Grid>
                       </Box>
+                    </CardActionArea>
+                  </Card>
+                </Grid>
+              );
+            })}
+          </Grid>
+        )}
 
-                      {/* Live Stats for Ongoing Tournaments */}
-                      {tournament.status === 'ongoing' && stats && (
-                        <Box sx={{ p: 2, background: '#fff3e0', borderRadius: 1 }}>
-                          <Typography variant="caption" color="warning.main" fontWeight="bold" gutterBottom display="block">
-                            LIVE TOURNAMENT
-                          </Typography>
-                          <Grid container spacing={1}>
-                            <Grid item xs={4}>
-                              <Typography variant="body2" color="text.secondary" align="center">
-                                Live
-                              </Typography>
-                              <Typography variant="h6" color="error.main" align="center" fontWeight="bold">
-                                {stats.liveMatches}
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={4}>
-                              <Typography variant="body2" color="text.secondary" align="center">
-                                Completed
-                              </Typography>
-                              <Typography variant="h6" color="success.main" align="center" fontWeight="bold">
-                                {stats.completedMatches}
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={4}>
-                              <Typography variant="body2" color="text.secondary" align="center">
-                                Upcoming
-                              </Typography>
-                              <Typography variant="h6" color="info.main" align="center" fontWeight="bold">
-                                {stats.upcomingMatches}
-                              </Typography>
-                            </Grid>
-                          </Grid>
-                        </Box>
-                      )}
-                    </Stack>
-                  </CardContent>
-
-                  <Divider />
-
-                  <CardActions sx={{ p: 2, justifyContent: 'space-between' }}>
-                    <Button
-                      variant="outlined"
-                      startIcon={<Visibility />}
-                      onClick={() => handleViewTournament(tournament._id)}
-                      size="small"
-                    >
-                      View Details
-                    </Button>
-
-                    {tournament.status === 'upcoming' && isRegistrationOpen && !isFull && (
-                      <Button
-                        variant="text"
-                        onClick={() => router.push(`/tournaments/register?tournamentId=${tournament._id}`)}
-                        size="small"
-                      >
-                        Public Link
-                      </Button>
-                    )}
-
-                    {tournament.status === 'upcoming' && isRegistrationOpen && !isFull && (
-                      <Button
-                        variant="contained"
-                        startIcon={<PersonAdd />}
-                        onClick={() => handleRegisterForTournament(tournament._id)}
-                        size="small"
-                        disabled={!session}
-                      >
-                        {!session ? 'Login to Register' : 'Register'}
-                      </Button>
-                    )}
-
-                    {tournament.status === 'upcoming' && isFull && (
-                      <Chip 
-                        label="Full" 
-                        color="error" 
-                        size="small" 
-                      />
-                    )}
-
-                    {tournament.status === 'upcoming' && !isRegistrationOpen && (
-                      <Chip 
-                        label="Registration Closed" 
-                        color="default" 
-                        size="small" 
-                      />
-                    )}
-
-                    {tournament.status === 'ongoing' && (
-                      <Button
-                        variant="contained"
-                        color="warning"
-                        startIcon={<PlayArrow />}
-                        onClick={() => handleViewTournament(tournament._id)}
-                        size="small"
-                      >
-                        Watch Live
-                      </Button>
-                    )}
-
-                    {tournament.status === 'completed' && (
-                      <Button
-                        variant="contained"
-                        color="success"
-                        startIcon={<EmojiEvents />}
-                        onClick={() => handleViewTournament(tournament._id)}
-                        size="small"
-                      >
-                        View Results
-                      </Button>
-                    )}
-                  </CardActions>
-                </Card>
-              </Grid>
-            );
-          })}
-        </Grid>
-      )}
-    </Container>
+        <Box sx={{ textAlign: "center", mt: 4 }}>
+          <Button component={Link} href="/tournaments/register" variant="outlined" size="large">Register for a tournament</Button>
+        </Box>
+      </Container>
+    </Box>
   );
 }

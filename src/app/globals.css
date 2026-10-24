@@ -459,13 +459,11 @@
   }
 }
 
+/* clip (not hidden) so <body> doesn't become its own scroll container on phones */
 html,
 body {
   max-width: 100vw;
-  overflow-x: hidden;
-}
-.MuiButtonBase-root {
-  color: #fcf8f8 !important;
+  overflow-x: clip;
 }
 body {
   color: var(--foreground);
@@ -659,7 +657,7 @@ a {
 html,
 body {
   background: #f7f5e6;
-  height: 100%;
+  min-height: 100%;
   margin: 0;
   padding: 0;
   width: 100%;
@@ -957,22 +955,6 @@ html {
   }
 }
 
-/* Slider dots customization */
-.slick-dots {
-  bottom: 20px;
-}
-
-.slick-dots li button:before {
-  color: white;
-  opacity: 0.7;
-  font-size: 12px;
-}
-
-.slick-dots li.slick-active button:before {
-  color: white;
-  opacity: 1;
-}
-
 /* Form Fields Styling */
 .MuiTextField-root,
 .MuiOutlinedInput-root {
@@ -1029,23 +1011,7 @@ html {
   background-color: rgba(25, 118, 210, 0.08) !important;
 }
 
-/* Button Styling */
-.MuiButton-root {
-  text-transform: none !important;
-  font-size: 1rem !important;
-  padding: 8px 24px !important;
-}
-
-.MuiButton-contained {
-  background-color: #1976d2 !important;
-  color: white !important;
-}
-
-.MuiButton-outlined {
-  border-color: rgba(0, 0, 0, 0.23) !important;
-  color: #333 !important;
-  background-color: white !important;
-}
+/* Button base styling lives in the MUI theme (providers.tsx) */
 
 /* Cancel Button Specific */
 .MuiButton-outlined.cancel-btn {
@@ -1062,10 +1028,6 @@ html {
   margin: 16px 0 !important;
 }
 
-/* Override any conflicting styles */
-.MuiButtonBase-root:not(.MuiButton-contained) {
-  color: inherit !important;
-}
 
 /* Book Slot Page Styles */
 .book-slot-container {

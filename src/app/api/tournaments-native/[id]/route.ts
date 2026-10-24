@@ -7,8 +7,9 @@ export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  console.log(`🎯 Fetching tournament ${params.id} with native MongoDB...`);
-  
+  const session = await getServerSession(authOptions);
+  const isAdmin = session?.user?.role === 'admin';
+
   let client;
   try {
     const MONGODB_URI = process.env.MONGODB_URI;
@@ -68,17 +69,20 @@ export async function GET(
         createdAt: tournament.createdAt,
         updatedAt: tournament.updatedAt
       },
+      // Contact and payment details are for admins only; the public page shows names
       players: players.map(player => ({
         _id: player._id.toString(),
         name: player.name,
-        phone: player.phone,
         category: player.category,
         partner: player.partner,
         partnerName: player.partnerName || player.partner,
-        registrationFee: player.registrationFee,
-        paymentStatus: player.paymentStatus,
         registeredAt: player.registeredAt,
-        tournamentId: player.tournamentId.toString()
+        tournamentId: player.tournamentId.toString(),
+        ...(isAdmin && {
+          phone: player.phone,
+          registrationFee: player.registrationFee,
+          paymentStatus: player.paymentStatus,
+        }),
       })),
       matches: matches.map(match => ({
         _id: match._id.toString(),

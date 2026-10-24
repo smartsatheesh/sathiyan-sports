@@ -30,7 +30,9 @@ const theme = createTheme({
   },
   typography: {
     fontFamily: 'Arial, Helvetica, sans-serif',
+    button: { textTransform: "none", fontWeight: 700 },
   },
+  shape: { borderRadius: 10 },
 });
 
 interface ProvidersProps {

@@ -1,998 +1,395 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import Link from "next/link";
 import {
-  Typography,
-  Button,
   Box,
-  Container,
-  Paper,
+  Button,
   Card,
+  CardActionArea,
   CardContent,
-  Grid,
+  CardMedia,
   Chip,
+  Container,
+  Grid,
   Stack,
-  useTheme,
-  alpha,
-  CircularProgress,
-  Tooltip,
-  Fade,
-  Zoom,
-  Slide,
+  Typography,
 } from "@mui/material";
 import {
+  ArrowForward,
+  Celebration,
+  EmojiEvents,
+  Groups,
+  LocationOn,
+  Phone,
+  SportsCricket,
   SportsSoccer,
   SportsTennis,
-  Event,
   Star,
-  CheckCircle,
-  TrendingUp,
-  EmojiEvents,
-  Schedule,
-  SportsCricket,
-  Groups,
+  WhatsApp,
   EventAvailable,
-  FitnessCenter,
 } from "@mui/icons-material";
-import Link from "next/link";
-import dynamic from "next/dynamic";
 import Footer from "./components/Footer";
-import TestimonialsSection from "./components/TestimonialsSection";
 import FeaturesSection from "./components/FeaturesSection";
-import StaticHeroBackground from "./components/StaticHeroBackground";
-import AnimatedSportsBackground from "./components/AnimatedSportsBackground";
+import { HERO_SCENES } from "./components/landing/HeroScene";
+import { useSiteSettings } from "./hooks/useSiteSettings";
+import { getCourt, waNumber } from "./lib/pricing";
 
-const Carousel = dynamic(() => import("./components/Slider"), { ssr: false });
-const ThreeJSSportsScene = dynamic(() => import("./components/ThreeJSSportsScene"), { 
-  ssr: false,
-  loading: () => (
-    <Box
-      sx={{
-        height: "100vh",
-        width: "100vw",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
-        color: "white"
-      }}
-    >
-      <Box sx={{ textAlign: "center" }}>
-        <CircularProgress size={60} sx={{ color: "white", mb: 2 }} />
-        <Typography variant="h6">Loading 3D Experience...</Typography>
-      </Box>
-    </Box>
-  )
-});
-const CarouselBackground3D = dynamic(() => import("./components/CarouselBackground3D"), { 
-  ssr: false,
-  loading: () => (
-    <Box
-      sx={{
-        height: "400px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "linear-gradient(45deg, #f5f5f5, #e0e0e0)"
-      }}
-    >
-      <CircularProgress size={40} />
-    </Box>
-  )
-});
+// three.js only loads in the browser, after the page text is on screen
+const HeroScene = dynamic(() => import("./components/landing/HeroScene"), { ssr: false });
 
+const NAVY = "#071a2e";
+const GOLD = "#ffc400";
+const ORANGE = "#ff6d00";
+const TEAL = "#20b2aa";
 
-
-// Sports data for the landing page
-const sportsData = [
-  {
-    name: "Cricket",
-    icon: () => <SportsCricket sx={{ fontSize: 40, color: "#4caf50" }} />,
-    price: "₹1000 / 2 hrs",
-    weekendPrice: "Weekend: ₹800 / hr",
-    features: ["Professional Pitch", "Equipment Available", "Changing Rooms"],
-    description: "Experience cricket at its finest with our professional-grade facilities"
-  },
-  {
-    name: "Football",
-    icon: () => <SportsSoccer sx={{ fontSize: 40, color: "#2196f3" }} />,
-    price: "₹1000 / 2 hrs",
-    weekendPrice: "Weekend: ₹800 / hr",
-    features: ["FIFA Standard Turf", "Floodlights", "Goal Posts"],
-    description: "Play football on our world-class turf with professional amenities"
-  },
-  {
-    name: "Badminton",
-    icon: () => <SportsTennis sx={{ fontSize: 40, color: "#ff9800" }} />,
-    price: "₹400/hr",
-    weekendPrice: "Coaching: ₹1500",
-    features: ["3 Courts Available", "Professional Nets", "Indoor Facility"],
-    description: "Indoor badminton courts with wooden flooring and professional setup"
-  },
-  {
-    name: "Functions & Events",
-    icon: () => <Event sx={{ fontSize: 40, color: "#9c27b0" }} />,
-    price: "₹1,999/hr",
-    weekendPrice: "₹2,499/hr onwards",
-    features: ["200+ Capacity", "A/V Equipment", "Catering Facilities"],
-    description: "Host your special events in our spacious and well-equipped venue"
-  },
+const SPORTS = [
+  { name: "Football", court: "Football", icon: <SportsSoccer />, color: "#2196f3", blurb: "FIFA-standard turf with floodlights. Ball on hire." },
+  { name: "Cricket", court: "Cricket", icon: <SportsCricket />, color: "#43a047", blurb: "Full-size pitch with changing rooms. Ball on hire." },
+  { name: "Badminton", court: "Shuttle Badminton", icon: <SportsTennis />, color: "#ff9800", blurb: "Three indoor wooden-floor courts, pro nets, rackets available." },
+  { name: "Events", court: "Functions and Events", icon: <Celebration />, color: "#ab47bc", blurb: "Hall for 500+ guests with A/V, catering and parking." },
 ];
 
-// Animated taglines that pop and hide
-const animatedTaglines = [
-  "Where Passion Meets Purpose & Performance",
-  "Your Journey to Excellence Starts Here",
-  "Unleash Your Sporting Potential",
-  "Where Champions Are Made",
-  "Excellence in Every Game",
-];
+interface Tournament {
+  _id: string;
+  name: string;
+  sport?: string;
+  status?: string;
+  startDate?: string;
+  venue?: string;
+}
+
+interface Product {
+  _id: string;
+  name: string;
+  price: number;
+  imageUrl: string | null;
+}
+
+const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+
+function SectionTitle({ kicker, title, subtitle }: { kicker: string; title: string; subtitle?: string }) {
+  return (
+    <Box sx={{ mb: { xs: 3, md: 4 } }}>
+      <Typography sx={{ color: ORANGE, fontWeight: 800, letterSpacing: 2, fontSize: 13, textTransform: "uppercase" }}>{kicker}</Typography>
+      <Typography variant="h4" sx={{ fontWeight: 900, fontSize: { xs: "1.8rem", md: "2.4rem" } }}>{title}</Typography>
+      {subtitle && <Typography color="text.secondary" sx={{ mt: 0.5, maxWidth: 640 }}>{subtitle}</Typography>}
+    </Box>
+  );
+}
 
 export default function Home() {
-  const [shouldLoad3D, setShouldLoad3D] = useState(false);
-  const [shouldLoadCarousel3D, setShouldLoadCarousel3D] = useState(false);
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalBookings: 0,
-    totalEvents: 6,
-    totalFitnessEnrollments: 0,
-    averageRating: 5,
-  });
-  const [currentTaglineIndex, setCurrentTaglineIndex] = useState(0);
-  const [showTagline, setShowTagline] = useState(true);
-  const theme = useTheme();
+  const { settings } = useSiteSettings();
+  const [sceneIndex, setSceneIndex] = useState(0);
+  const [load3D, setLoad3D] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const [freeze, setFreeze] = useState<number | undefined>(undefined);
+  const [stats, setStats] = useState<{ totalUsers: number; totalBookings: number; totalEvents: number } | null>(null);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
 
-  // Fetch dynamic stats with timeout
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-        
-        const response = await fetch('/api/public-stats', { signal: controller.signal });
-        clearTimeout(timeoutId);
-        
-        const data = await response.json();
-        if (data.success) {
-          setStats(prev => ({ ...prev, ...data.stats, totalEvents: 6, averageRating: 5 }));
-        }
-      } catch (error) {
-        console.log('Could not fetch stats, using fallbacks');
-      }
-    };
-    fetchStats();
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReducedMotion(mq.matches);
+
+    // ?scene=1&t=1.5 freezes a frame (handy for previews and screenshots)
+    const params = new URLSearchParams(window.location.search);
+    const s = Number(params.get("scene"));
+    if (params.has("scene") && s >= 0 && s < HERO_SCENES.length) setSceneIndex(s);
+    if (params.has("t")) setFreeze(Number(params.get("t")));
+
+    // Load the 3D stage once the browser is idle so text and buttons appear first
+    const start = () => setLoad3D(true);
+    const idle = (window as any).requestIdleCallback as ((cb: () => void, o?: any) => number) | undefined;
+    if (idle) idle(start, { timeout: 1500 });
+    else setTimeout(start, 600);
+
+    fetch("/api/public-stats").then((r) => r.json()).then((d) => d.stats && setStats(d.stats)).catch(() => {});
+    fetch("/api/tournaments-native").then((r) => r.json()).then((d) => setTournaments((d.tournaments || d.data || []).slice(0, 3))).catch(() => {});
+    fetch("/api/inventory").then((r) => r.json()).then((d) => setProducts((d.products || []).filter((p: Product) => p.price > 0).slice(0, 4))).catch(() => {});
   }, []);
 
-  // Animated tagline rotation
-  useEffect(() => {
-    const taglineInterval = setInterval(() => {
-      setShowTagline(false);
-      setTimeout(() => {
-        setCurrentTaglineIndex((prev) => (prev + 1) % animatedTaglines.length);
-        setShowTagline(true);
-      }, 500);
-    }, 4000);
+  const nextScene = useCallback(() => setSceneIndex((i) => (i + 1) % HERO_SCENES.length), []);
 
-    return () => clearInterval(taglineInterval);
-  }, []);
-
-  // Dynamic stats data based on API response
-  const statsData = [
-    { number: stats.totalUsers.toLocaleString() + "+", label: "Happy Members", icon: <Groups /> },
-    { number: stats.totalEvents.toLocaleString() + "+", label: "Events Hosted", icon: <EventAvailable /> },
-    { number: "24/7", label: "Available Hours", icon: <Schedule /> },
-    { number: stats.averageRating + "/5", label: "Customer Rating", icon: <Star /> }
-  ];
-
-  // Progressive loading strategy
-  useEffect(() => {
-    // Don't load 3D scene - use static/animated backgrounds instead for better performance
-    // Add a safety timeout to ensure page loads even if something hangs
-    const timer = setTimeout(() => {
-      setShouldLoad3D(false); // Keep 3D disabled
-    }, 3000);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, []);
-
-  // Keep facilities section static while preserving deferred 3D carousel loading.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShouldLoadCarousel3D(true);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, []);
+  const whatsapp = `https://wa.me/${waNumber(settings.whatsappNumber)}?text=${encodeURIComponent("Hi Sathiyan Sports! I'd like to know more.")}`;
+  const kids = settings.membership.kids.monthly;
+  const adults = settings.membership.adultMale.monthly;
+  const women = settings.membership.adultFemale.monthly;
+  const hour = (h: number) => `${((h + 11) % 12) + 1}${h < 12 ? "am" : "pm"}`;
 
   return (
-    <>
+    <Box sx={{ bgcolor: "#f6f8fb", overflowX: "hidden" }}>
+      {/* ================= HERO ================= */}
       <Box
+        component="section"
         sx={{
-          minHeight: "100vh",
-          background: `linear-gradient(135deg, ${alpha(theme.palette.primary.light, 0.1)} 0%, ${alpha(theme.palette.secondary.light, 0.05)} 100%)`,
+          position: "relative",
+          minHeight: { md: "calc(100vh - 64px)" },
+          maxHeight: { md: 900 },
+          display: "flex",
+          flexDirection: { xs: "column", md: "row" },
+          alignItems: { md: "flex-end" },
+          color: "#fff",
+          background: `radial-gradient(ellipse at 70% 20%, #1e5f8a 0%, ${NAVY} 55%), ${NAVY}`,
+          overflow: "hidden",
         }}
       >
-        {/* Home Section - Full Screen 3D Hero + Original Content */}
-        <Box>
-            {/* Full Screen 3D Hero Section */}
+        {/* 3D stage: its own block on phones, full-bleed behind the text on desktop */}
+        <Box sx={{ position: { xs: "relative", md: "absolute" }, inset: { md: 0 }, height: { xs: "46svh", md: "auto" }, minHeight: { xs: 300 }, flexShrink: 0 }}>
+          {load3D && (
+            <HeroScene index={sceneIndex} onFinished={nextScene} still={reducedMotion} freezeAt={freeze} />
+          )}
+          <Box
+            sx={{
+              position: "absolute",
+              inset: 0,
+              pointerEvents: "none",
+              background: {
+                xs: `linear-gradient(180deg, rgba(7,26,46,0) 70%, ${NAVY} 100%)`,
+                md: `linear-gradient(180deg, rgba(7,26,46,0) 35%, rgba(7,26,46,0.75) 75%, ${NAVY} 100%)`,
+              },
+            }}
+          />
+        </Box>
+
+        {/* scene caption + picker */}
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ position: "absolute", top: { xs: 14, md: 24 }, right: { xs: 14, md: 32 }, zIndex: 2 }}>
+          <Chip
+            label={HERO_SCENES[sceneIndex].caption}
+            sx={{ bgcolor: "rgba(0,0,0,0.45)", color: "#fff", fontWeight: 800, backdropFilter: "blur(6px)", fontSize: { xs: 13, md: 15 } }}
+          />
+          {HERO_SCENES.map((s, i) => (
             <Box
-              sx={{
-                width: "100vw",
-                position: "relative",
-                minHeight: '100vh',
-              }}
-            >
-              <Box sx={{ 
-                height: "100%",
-                width: "100%",
-                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)}, ${alpha(theme.palette.secondary.main, 0.05)})`,
-                position: 'relative',
-                overflow: 'visible'
-              }}>
-                {/* Static background loads immediately */}
-                <StaticHeroBackground />
-                
-                {/* Animated Sports Background */}
-                <AnimatedSportsBackground />
-                
-                {/* 3D Scene with smooth transition */}
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    opacity: shouldLoad3D ? 1 : 0,
-                    transition: 'opacity 0.8s ease-in-out',
-                    zIndex: 1
-                  }}
-                >
-                  {shouldLoad3D && <ThreeJSSportsScene />}
-                </Box>
-                
-                {/* Loading indicator - disabled for performance */}
-                
-                {/* Minimal overlay for branding */}
-                <Box
-                  sx={{
-                    position: 'relative',
-                    zIndex: 10,
-                    textAlign: 'center',
-                    width: { xs: '100%', md: '90%' },
-                    height: 'auto',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: { xs: '20px', md: '40px' },
-                    pt: { xs: '60px', md: '72px' },
-                    py: { xs: 2, md: 3 },
-                    mx: 'auto',
-                    overflow: 'visible'
-                  }}
-                >
-                  {/* ===== SPORTS ANIMATION HERO ===== */}
-                  <Box
-                    sx={{
-                      position: 'relative',
-                      width: { xs: '220px', md: '300px', lg: '340px' },
-                      height: { xs: '220px', md: '300px', lg: '340px' },
-                      mx: 'auto',
-                      mb: 2,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {/* Outer pulsing ring */}
-                    {[0, 1, 2].map((i) => (
-                      <Box key={i} sx={{
-                        position: 'absolute',
-                        borderRadius: '50%',
-                        border: `2px solid rgba(255,215,0,${0.5 - i * 0.15})`,
-                        width: `${100 + i * 40}%`,
-                        height: `${100 + i * 40}%`,
-                        animation: `ringExpand 2.4s ease-out ${i * 0.8}s infinite`,
-                      }} />
-                    ))}
+              key={s.key}
+              component="button"
+              aria-label={`Show ${s.key} scene`}
+              onClick={() => setSceneIndex(i)}
+              sx={{ width: 10, height: 10, p: 0, borderRadius: "50%", border: "none", cursor: "pointer", bgcolor: i === sceneIndex ? GOLD : "rgba(255,255,255,0.45)" }}
+            />
+          ))}
+        </Stack>
 
-                    {/* Starburst background */}
-                    <Box sx={{
-                      position: 'absolute',
-                      width: '100%',
-                      height: '100%',
-                      animation: 'starburstRotate 12s linear infinite',
-                      opacity: 0.15,
-                      background: 'conic-gradient(from 0deg, transparent 0deg, rgba(255,215,0,0.8) 10deg, transparent 20deg, transparent 40deg, rgba(255,107,53,0.8) 50deg, transparent 60deg, transparent 80deg, rgba(255,215,0,0.8) 90deg, transparent 100deg, transparent 120deg, rgba(32,178,170,0.8) 130deg, transparent 140deg, transparent 160deg, rgba(255,215,0,0.8) 170deg, transparent 180deg, transparent 200deg, rgba(255,107,53,0.8) 210deg, transparent 220deg, transparent 240deg, rgba(255,215,0,0.8) 250deg, transparent 260deg, transparent 280deg, rgba(32,178,170,0.8) 290deg, transparent 300deg, transparent 320deg, rgba(255,215,0,0.8) 330deg, transparent 340deg, transparent 360deg)',
-                      borderRadius: '50%',
-                    }} />
-
-                    {/* Orbiting footballs */}
-                    {[
-                      { delay: '0s', size: '38px', emoji: '⚽', animDuration: '3.5s' },
-                      { delay: '-1.17s', size: '30px', emoji: '🏸', animDuration: '3.5s' },
-                      { delay: '-2.33s', size: '32px', emoji: '🏏', animDuration: '3.5s' },
-                    ].map((ball, i) => (
-                      <Box key={i} sx={{
-                        position: 'absolute',
-                        width: '100%',
-                        height: '100%',
-                        animation: `sportOrbit ${ball.animDuration} linear ${ball.delay} infinite`,
-                      }}>
-                        <Box sx={{
-                          position: 'absolute',
-                          top: '50%',
-                          left: '50%',
-                          fontSize: ball.size,
-                          transform: 'translate(-50%, -50%)',
-                          filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))',
-                          lineHeight: 1,
-                        }}>
-                          {ball.emoji}
-                        </Box>
-                      </Box>
-                    ))}
-
-                    {/* Main kicking football */}
-                    <Box sx={{
-                      position: 'absolute',
-                      fontSize: { xs: '52px', md: '72px' },
-                      animation: 'footballKick 2.8s cubic-bezier(0.4,0,0.2,1) infinite',
-                      filter: 'drop-shadow(0 6px 18px rgba(0,0,0,0.7))',
-                      zIndex: 5,
-                      lineHeight: 1,
-                    }}>
-                      ⚽
-                    </Box>
-
-                    {/* Kick flash effect */}
-                    <Box sx={{
-                      position: 'absolute',
-                      width: '80%',
-                      height: '80%',
-                      borderRadius: '50%',
-                      background: 'radial-gradient(circle, rgba(255,220,0,0.9) 0%, rgba(255,107,53,0.5) 40%, transparent 70%)',
-                      animation: 'kickFlash 2.8s ease-in-out infinite',
-                      zIndex: 4,
-                    }} />
-
-                    {/* Center Logo */}
-                    <Box sx={{
-                      position: 'relative',
-                      zIndex: 10,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: { xs: '130px', md: '180px' },
-                      height: { xs: '130px', md: '180px' },
-                      borderRadius: '50%',
-                      background: 'radial-gradient(circle at 35% 35%, rgba(255,255,255,0.18), rgba(0,0,0,0.6))',
-                      backdropFilter: 'blur(12px)',
-                      border: '3px solid rgba(255,215,0,0.7)',
-                      animation: 'logo3DPulse 4s ease-in-out infinite',
-                      boxShadow: '0 0 40px rgba(255,215,0,0.3), inset 0 0 30px rgba(0,0,0,0.4)',
-                    }}>
-                      <Box
-                        component="img"
-                        src="/sathiyanlogo.png"
-                        alt="Sathiyan Sports"
-                        sx={{
-                          width: { xs: '80px', md: '110px' },
-                          height: { xs: '80px', md: '110px' },
-                          objectFit: 'contain',
-                          animation: 'logoFloat 5s ease-in-out infinite',
-                          filter: 'drop-shadow(0 4px 12px rgba(255,215,0,0.5))',
-                          borderRadius: '50%',
-                        }}
-                      />
-                    </Box>
-                  </Box>
-
-                  {/* Club name with animated reveal */}
-                  <Zoom in={true} timeout={1000}>
-                    <Typography
-                      variant="h2"
-                      sx={{
-                        fontWeight: 900,
-                        mb: 1,
-                        fontSize: { xs: '1.7rem', md: '2.8rem', lg: '3.2rem' },
-                        lineHeight: 1.2,
-                        textAlign: 'center',
-                        fontFamily: '"Orbitron", "Roboto", "Arial Black", sans-serif',
-                        textTransform: 'uppercase',
-                        animation: 'sportsTextGlow 3s ease-in-out infinite',
-                        color: '#FFD700',
-                        position: 'relative',
-                      }}
-                    >
-                      SATHIYAN MULTISPORT CLUB
-                    </Typography>
-                  </Zoom>
-                  
-                  <Box sx={{ height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
-                    <Fade in={showTagline} timeout={500}>
-                      <Typography
-                        variant="h4"
-                        sx={{
-                          fontWeight: 800,
-                          background: `linear-gradient(45deg, #1565C0, #E65100)`,
-                          backgroundClip: 'text',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                          fontSize: { xs: '1.5rem', md: '2rem' },
-                          textAlign: 'center',
-                          letterSpacing: '0.02em'
-                        }}
-                      >
-                        {animatedTaglines[currentTaglineIndex]}
-                      </Typography>
-                    </Fade>
-                  </Box>
-
-                  {/* Explore Our Facilities - shown before Limited Time Offers */}
-                  <Box sx={{ width: '100%', maxWidth: '1200px', mx: 'auto', mb: 6, mt: 4, zIndex: 5 }}>
-                    <Zoom in={true} timeout={600}>
-                      <Typography
-                        variant="h3"
-                        textAlign="center"
-                        sx={{
-                          mb: 4,
-                          fontWeight: 700,
-                          color: '#ffffff',
-                          textShadow: '0 2px 8px rgba(0,0,0,0.4)',
-                          transform: 'translateY(0)',
-                          opacity: 1,
-                          transition: 'all 0.6s ease-out'
-                        }}
-                      >
-                        Explore Our Facilities
-                      </Typography>
-                    </Zoom>
-                    <Fade in={true} timeout={800}>
-                      <Paper
-                        elevation={8}
-                        sx={{
-                          borderRadius: 4,
-                          overflow: 'hidden',
-                          boxShadow: theme.shadows[12],
-                          position: 'relative',
-                          transform: 'translateY(0) scale(1)',
-                          opacity: 1,
-                          transition: 'all 0.3s ease-out'
-                        }}
-                      >
-                        {shouldLoadCarousel3D && <CarouselBackground3D />}
-                        <Carousel />
-                      </Paper>
-                    </Fade>
-                  </Box>
-
-                  {/* SPECIAL OFFERS SECTION - Inside Hero */}
-                  <Box sx={{ width: '100%', maxWidth: '1200px', mx: 'auto', mb: 8, mt: 4, zIndex: 5 }}>
-                    <Typography
-                      variant="h4"
-                      textAlign="center"
-                      sx={{
-                        mb: 3,
-                        fontWeight: 800,
-                        color: '#FFFFFF',
-                        fontSize: { xs: '1.8rem', md: '2.2rem' },
-                        textShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                        position: 'relative',
-                        '&::after': {
-                          content: '""',
-                          position: 'absolute',
-                          bottom: -10,
-                          left: '50%',
-                          transform: 'translateX(-50%)',
-                          width: '80px',
-                          height: '3px',
-                          background: '#FFD700',
-                          borderRadius: '2px'
-                        }
-                      }}
-                    >
-                      ⚡ LIMITED TIME OFFERS ⚡
-                    </Typography>
-                    
-                    <Grid container spacing={2} sx={{ mt: 2 }}>
-                      {/* Body Zorb Offer Card */}
-                      <Grid item xs={12} sm={6} md={4} sx={{ display: 'flex' }}>
-                        <Card
-                          sx={{
-                            background: `linear-gradient(135deg, #FF6B6B, #FF8E8E)`,
-                            border: `3px solid #FF3333`,
-                            borderRadius: 3,
-                            p: 2.5,
-                            textAlign: 'center',
-                            position: 'relative',
-                            overflow: 'hidden',
-                            boxShadow: `0 0 30px ${alpha('#FF6B6B', 0.5)}`,
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            width: '100%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            '&:hover': {
-                              transform: 'translateY(-8px)',
-                              boxShadow: `0 0 40px ${alpha('#FF6B6B', 0.7)}`
-                            },
-                            '&::before': {
-                              content: '""',
-                              position: 'absolute',
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              height: '3px',
-                              background: 'linear-gradient(90deg, transparent, #FFD700, transparent)',
-                              animation: 'shimmer 2s infinite'
-                            }
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              position: 'absolute',
-                              top: 10,
-                              right: 10,
-                              background: 'linear-gradient(45deg, #FFD700, #FFA500)',
-                              color: '#000',
-                              px: 1.5,
-                              py: 0.5,
-                              borderRadius: '50px',
-                              fontWeight: 'bold',
-                              fontSize: '0.7rem',
-                              boxShadow: '0 4px 15px rgba(255, 215, 0, 0.4)',
-                              zIndex: 10,
-                              animation: 'pulse 1.5s ease-in-out infinite'
-                            }}
-                          >
-                            50% OFF
-                          </Box>
-
-                          <FitnessCenter sx={{ fontSize: 40, color: '#FFFFFF', mb: 1, mt: 1 }} />
-                          <Typography variant="h6" fontWeight="bold" sx={{ color: '#FFFFFF', mb: 0.5 }}>
-                            Body Zorb
-                          </Typography>
-                          <Box sx={{ mb: 1, textAlign: 'center' }}>
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', textDecoration: 'line-through', mb: 0.5, display: 'block' }}>
-                              Regular: ₹2000
-                            </Typography>
-                            <Typography variant="h5" sx={{ color: '#FFD700', fontWeight: 'bold' }}>
-                              ₹1000
-                            </Typography>
-                          </Box>
-                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.7rem' }}>
-                            Limited Offer
-                          </Typography>
-                        </Card>
-                      </Grid>
-
-                      {/* Cricket Offer Card */}
-                      <Grid item xs={12} sm={6} md={4} sx={{ display: 'flex' }}>
-                        <Card
-                          sx={{
-                            background: `linear-gradient(135deg, #4CAF50, #66BB6A)`,
-                            border: `3px solid #2E7D32`,
-                            borderRadius: 3,
-                            p: 2.5,
-                            textAlign: 'center',
-                            position: 'relative',
-                            overflow: 'hidden',
-                            boxShadow: `0 0 30px ${alpha('#4CAF50', 0.5)}`,
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            width: '100%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            '&:hover': {
-                              transform: 'translateY(-8px)',
-                              boxShadow: `0 0 40px ${alpha('#4CAF50', 0.7)}`
-                            },
-                            '&::before': {
-                              content: '""',
-                              position: 'absolute',
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              height: '3px',
-                              background: 'linear-gradient(90deg, transparent, #FFD700, transparent)',
-                              animation: 'shimmer 2s infinite'
-                            }
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              position: 'absolute',
-                              top: 10,
-                              right: 10,
-                              background: 'linear-gradient(45deg, #FFD700, #FFA500)',
-                              color: '#000',
-                              px: 1.5,
-                              py: 0.5,
-                              borderRadius: '50px',
-                              fontWeight: 'bold',
-                              fontSize: '0.7rem',
-                              boxShadow: '0 4px 15px rgba(255, 215, 0, 0.4)',
-                              zIndex: 10,
-                              animation: 'pulse 1.5s ease-in-out infinite'
-                            }}
-                          >
-                            20% OFF
-                          </Box>
-
-                          <SportsCricket sx={{ fontSize: 40, color: '#FFFFFF', mb: 1, mt: 1 }} />
-                          <Typography variant="h6" fontWeight="bold" sx={{ color: '#FFFFFF', mb: 0.5 }}>
-                            Cricket
-                          </Typography>
-                          <Box sx={{ mb: 1, textAlign: 'center' }}>
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', textDecoration: 'line-through', mb: 0.5, display: 'block' }}>
-                              Weekday (2 hrs): ₹1000
-                            </Typography>
-                            <Typography variant="h5" sx={{ color: '#FFD700', fontWeight: 'bold' }}>
-                              ₹800/hr
-                            </Typography>
-                          </Box>
-                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.7rem' }}>
-                            Limited Offer
-                          </Typography>
-                        </Card>
-                      </Grid>
-
-                      {/* Football Offer Card */}
-                      <Grid item xs={12} sm={6} md={4} sx={{ display: 'flex' }}>
-                        <Card
-                          sx={{
-                            background: `linear-gradient(135deg, #2196F3, #42A5F5)`,
-                            border: `3px solid #1565C0`,
-                            borderRadius: 3,
-                            p: 2.5,
-                            textAlign: 'center',
-                            position: 'relative',
-                            overflow: 'hidden',
-                            boxShadow: `0 0 30px ${alpha('#2196F3', 0.5)}`,
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            width: '100%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            '&:hover': {
-                              transform: 'translateY(-8px)',
-                              boxShadow: `0 0 40px ${alpha('#2196F3', 0.7)}`
-                            },
-                            '&::before': {
-                              content: '""',
-                              position: 'absolute',
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              height: '3px',
-                              background: 'linear-gradient(90deg, transparent, #FFD700, transparent)',
-                              animation: 'shimmer 2s infinite'
-                            }
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              position: 'absolute',
-                              top: 10,
-                              right: 10,
-                              background: 'linear-gradient(45deg, #FFD700, #FFA500)',
-                              color: '#000',
-                              px: 1.5,
-                              py: 0.5,
-                              borderRadius: '50px',
-                              fontWeight: 'bold',
-                              fontSize: '0.7rem',
-                              boxShadow: '0 4px 15px rgba(255, 215, 0, 0.4)',
-                              zIndex: 10,
-                              animation: 'pulse 1.5s ease-in-out infinite'
-                            }}
-                          >
-                            20% OFF
-                          </Box>
-
-                          <SportsSoccer sx={{ fontSize: 40, color: '#FFFFFF', mb: 1, mt: 1 }} />
-                          <Typography variant="h6" fontWeight="bold" sx={{ color: '#FFFFFF', mb: 0.5 }}>
-                            Football
-                          </Typography>
-                          <Box sx={{ mb: 1, textAlign: 'center' }}>
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', textDecoration: 'line-through', mb: 0.5, display: 'block' }}>
-                              Weekday (2 hrs): ₹1000
-                            </Typography>
-                            <Typography variant="h5" sx={{ color: '#FFD700', fontWeight: 'bold' }}>
-                              ₹800/hr
-                            </Typography>
-                          </Box>
-                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.7rem' }}>
-                            Limited Offer
-                          </Typography>
-                        </Card>
-                      </Grid>
-                    </Grid>
-                  </Box>
-                  
-                  <Stack 
-                    direction={{ xs: 'column', sm: 'row' }} 
-                    spacing={2} 
-                    sx={{ 
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      width: '100%',
-                      maxWidth: '500px',
-                      mx: 'auto'
-                    }}
-                  >
-                    <Button
-                      component={Link}
-                      href="/register"
-                      variant="contained"
-                      size="large"
-                      sx={{
-                        px: { xs: 3, sm: 4 },
-                        py: 1.5,
-                        fontSize: { xs: '1rem', sm: '1.1rem' },
-                        fontWeight: 'bold',
-                        background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                        boxShadow: theme.shadows[8],
-                        minWidth: { xs: '140px', sm: '160px' },
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          boxShadow: theme.shadows[12]
-                        },
-                        transition: 'all 0.3s ease'
-                      }}
-                    >
-                      Register Now
-                    </Button>
-                    <Button
-                      component={Link}
-                      href="/bookslot"
-                      variant="outlined"
-                      size="large"
-                      sx={{
-                        px: { xs: 3, sm: 4 },
-                        py: 1.5,
-                        fontSize: { xs: '1rem', sm: '1.1rem' },
-                        fontWeight: 'bold',
-                        borderWidth: 2,
-                        backgroundColor: alpha('#ffffff', 0.9),
-                        backdropFilter: 'blur(10px)',
-                        minWidth: { xs: '140px', sm: '160px' },
-                        '&:hover': {
-                          borderWidth: 2,
-                          transform: 'translateY(-2px)',
-                          backgroundColor: '#ffffff'
-                        },
-                        transition: 'all 0.3s ease'
-                      }}
-                    >
-                      Book Now
-                    </Button>
-                  </Stack>
-
-                  {/* Quick stats in content flow to avoid overlap with decorative layers */}
-                  <Box
-                    sx={{
-                      mt: { xs: 4, md: 5 },
-                      mx: 'auto',
-                      width: '100%',
-                      maxWidth: '1200px',
-                      background: `linear-gradient(90deg, ${alpha('#000000', 0.6)}, ${alpha('#000000', 0.35)})`,
-                      borderRadius: 3,
-                      p: { xs: 2, md: 3 },
-                      backdropFilter: 'blur(15px)',
-                      border: `1px solid ${alpha('#ffffff', 0.2)}`,
-                      position: 'relative',
-                      zIndex: 12,
-                    }}
-                  >
-                    <Grid container spacing={3}>
-                      {statsData.map((stat, index) => (
-                        <Grid item xs={6} sm={3} key={index}>
-                          <Zoom in={true} timeout={1000 + (index * 200)}>
-                            <Box
-                              sx={{
-                                textAlign: 'center',
-                                color: 'white',
-                                '&:hover': {
-                                  transform: 'scale(1.05)',
-                                  transition: 'transform 0.3s ease'
-                                }
-                              }}
-                            >
-                              <Box
-                                sx={{
-                                  color: theme.palette.primary.light,
-                                  mb: 1,
-                                  fontSize: '2rem',
-                                  animation: 'pulse 2s infinite'
-                                }}
-                              >
-                                {stat.icon}
-                              </Box>
-                              <Typography
-                                variant="h5"
-                                fontWeight="bold"
-                                sx={{
-                                  background: `linear-gradient(45deg, ${theme.palette.primary.light}, ${theme.palette.secondary.light})`,
-                                  backgroundClip: 'text',
-                                  WebkitBackgroundClip: 'text',
-                                  WebkitTextFillColor: 'transparent',
-                                  textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                                  fontSize: { xs: '1.2rem', md: '1.5rem' }
-                                }}
-                              >
-                                {stat.number}
-                              </Typography>
-                              <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 500 }}>
-                                {stat.label}
-                              </Typography>
-                            </Box>
-                          </Zoom>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  </Box>
-                </Box>
-
-
-
-              </Box>
-            </Box>
-
-            {/* Sports Cards Section */}
-            <Container maxWidth="lg" sx={{ py: 8 }}>
-              <Zoom in={true} timeout={600}>
-                <Typography
-                  variant="h3"
-                  textAlign="center"
-                  sx={{
-                    mb: 6,
-                    fontWeight: 700,
-                    color: theme.palette.primary.main,
-                    transform: 'translateY(0)',
-                    opacity: 1,
-                    transition: 'all 0.6s ease-out'
-                  }}
-                >
-                  Our Sports Facilities
-                </Typography>
-              </Zoom>
-              
-              <Grid container spacing={4}>
-                {sportsData.map((sport, index) => (
-                  <Grid item xs={12} sm={6} md={3} key={index}>
-                    <Slide in={true} direction="up" timeout={600}>
-                      <Card
-                        sx={{
-                          height: '100%',
-                          transition: 'all 0.3s ease',
-                          cursor: 'pointer',
-                          transform: 'translateY(0) scale(1)',
-                          opacity: 1,
-                          '&:hover': {
-                            transform: 'translateY(-12px) scale(1.02)',
-                            boxShadow: `0 15px 35px ${alpha(theme.palette.primary.main, 0.3)}`,
-                            '& .sport-icon': {
-                              transform: 'scale(1.2) rotate(10deg)',
-                            }
-                          },
-                          background: `linear-gradient(135deg, ${alpha('#ffffff', 0.95)}, ${alpha(theme.palette.primary.light, 0.08)})`,
-                          backdropFilter: 'blur(15px)',
-                          border: `2px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-                          borderRadius: 3,
-                          overflow: 'hidden',
-                          position: 'relative',
-                          '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            height: '4px',
-                            background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                            opacity: 1,
-                            transition: 'opacity 0.6s ease'
-                          },
-                          '&::after': {
-                            content: '""',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            background: `radial-gradient(circle at center, ${alpha(theme.palette.primary.main, 0.05)}, transparent 70%)`,
-                            opacity: 1,
-                            transition: 'opacity 1s ease 0.3s',
-                            pointerEvents: 'none'
-                          }
-                        }}
-                      >
-                        <CardContent sx={{ p: 3, textAlign: 'center' }}>
-                          <Box 
-                            className="sport-icon"
-                            sx={{ 
-                              mb: 2, 
-                              transition: 'transform 0.3s ease',
-                              '& > svg': {
-                                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
-                              }
-                            }}
-                          >
-                            {sport.icon()}
-                          </Box>
-                          <Typography variant="h6" fontWeight="bold" gutterBottom>
-                            {sport.name}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.6 }}>
-                            {sport.description}
-                          </Typography>
-                          
-                          <Box sx={{ mb: 2 }}>
-                            <Typography 
-                              variant="h6" 
-                              sx={{
-                                background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                                backgroundClip: 'text',
-                                WebkitBackgroundClip: 'text',
-                                WebkitTextFillColor: 'transparent',
-                                fontWeight: 'bold'
-                              }}
-                            >
-                              {sport.price}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              Weekends: {sport.weekendPrice}
-                            </Typography>
-                          </Box>
-
-                          <Stack spacing={0.5}>
-                            {sport.features.map((feature, idx) => (
-                              <Fade 
-                                in={true}
-                                timeout={800 + (idx * 150)}
-                                key={idx}
-                              >
-                                <Box sx={{ 
-                                  display: 'flex', 
-                                  alignItems: 'center', 
-                                  justifyContent: 'center',
-                                  transform: 'translateX(0)',
-                                  transition: 'all 0.3s ease'
-                                }}>
-                                  <CheckCircle sx={{ fontSize: 16, color: 'success.main', mr: 1 }} />
-                                  <Typography variant="caption" sx={{ fontWeight: 500 }}>{feature}</Typography>
-                                </Box>
-                              </Fade>
-                            ))}
-                          </Stack>
-                        </CardContent>
-                      </Card>
-                    </Slide>
-                  </Grid>
-                ))}
-              </Grid>
-            </Container>
-
-            {/* Features Section */}
-            <FeaturesSection />
-
-            {/* Testimonials Section */}
-            <TestimonialsSection />
-          </Box>
-
-
+        <Container maxWidth="lg" sx={{ position: "relative", zIndex: 2, pt: { xs: 1, md: 0 }, pb: { xs: 4, md: 8 } }}>
+          <Chip
+            icon={<LocationOn sx={{ color: `${GOLD} !important` }} />}
+            label="Perungudi, Madurai"
+            sx={{ bgcolor: "rgba(255,255,255,0.12)", color: "#fff", mb: 2, fontWeight: 600 }}
+          />
+          <Typography
+            component="h1"
+            sx={{
+              fontWeight: 900,
+              lineHeight: 0.95,
+              fontSize: { xs: "2.6rem", sm: "3.6rem", md: "5rem" },
+              textTransform: "uppercase",
+              letterSpacing: "-0.02em",
+              textShadow: "0 4px 24px rgba(0,0,0,0.5)",
+            }}
+          >
+            Sathiyan
+            <Box component="span" sx={{ display: "block", color: GOLD }}>Multisport Club</Box>
+          </Typography>
+          <Typography sx={{ mt: 2, maxWidth: 560, fontSize: { xs: "1.05rem", md: "1.25rem" }, opacity: 0.92 }}>
+            Football, cricket and badminton under floodlights — coaching for kids and adults, courts by the half hour, and a venue for your big day.
+          </Typography>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mt: 3, maxWidth: { xs: "100%", sm: "none" } }}>
+            <Button component={Link} href="/bookslot" size="large" variant="contained" endIcon={<ArrowForward />}
+              sx={{ bgcolor: ORANGE, "&:hover": { bgcolor: "#e65100" }, py: 1.5, px: 3.5, fontWeight: 800, fontSize: "1.05rem", borderRadius: 3 }}>
+              Book a slot
+            </Button>
+            <Button component={Link} href="/register" size="large" variant="outlined"
+              sx={{ color: "#fff", borderColor: "rgba(255,255,255,0.7)", py: 1.5, px: 3.5, fontWeight: 800, borderRadius: 3, "&:hover": { borderColor: "#fff", bgcolor: "rgba(255,255,255,0.08)" } }}>
+              Join the academy
+            </Button>
+            <Button href={whatsapp} target="_blank" rel="noopener noreferrer" size="large" startIcon={<WhatsApp />}
+              sx={{ color: "#fff", py: 1.5, fontWeight: 700, borderRadius: 3 }}>
+              WhatsApp us
+            </Button>
+          </Stack>
+        </Container>
       </Box>
-      
-      {/* Footer */}
+
+      {/* ================= STATS ================= */}
+      <Box sx={{ bgcolor: NAVY, color: "#fff", py: { xs: 3, md: 4 } }}>
+        <Container maxWidth="lg">
+          <Grid container spacing={2}>
+            {[
+              { icon: <Groups />, value: stats ? `${stats.totalUsers}+` : "—", label: "Members" },
+              { icon: <EventAvailable />, value: stats ? `${stats.totalBookings}+` : "—", label: "Bookings" },
+              { icon: <EmojiEvents />, value: stats ? `${stats.totalEvents}+` : "—", label: "Events hosted" },
+              { icon: <Star />, value: "3", label: "Sports, one venue" },
+            ].map((s) => (
+              <Grid item xs={6} md={3} key={s.label}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Box sx={{ color: GOLD, display: "flex" }}>{s.icon}</Box>
+                  <Box>
+                    <Typography sx={{ fontWeight: 900, fontSize: { xs: "1.4rem", md: "1.8rem" }, lineHeight: 1.1 }}>{s.value}</Typography>
+                    <Typography variant="body2" sx={{ opacity: 0.75 }}>{s.label}</Typography>
+                  </Box>
+                </Stack>
+              </Grid>
+            ))}
+          </Grid>
+        </Container>
+      </Box>
+
+      {/* ================= PLAY ================= */}
+      <Container maxWidth="lg" sx={{ py: { xs: 6, md: 9 } }}>
+        <SectionTitle kicker="Play" title="Book a court in a minute" subtitle="Pick a sport, choose your slot, pay by UPI. Prices per 30 minutes unless noted." />
+        <Grid container spacing={2}>
+          {SPORTS.map((s) => {
+            const court = getCourt(settings, s.court);
+            const unit = court?.perHour ? "/hr" : "/30 min";
+            return (
+              <Grid item xs={12} sm={6} md={3} key={s.name}>
+                <Card sx={{ height: "100%", borderRadius: 4, overflow: "hidden", boxShadow: "0 8px 30px rgba(7,26,46,0.08)" }}>
+                  <CardActionArea component={Link} href="/bookslot" sx={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "stretch" }}>
+                    <Box sx={{ height: 6, bgcolor: s.color }} />
+                    <CardContent sx={{ flex: 1 }}>
+                      <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: `${s.color}22`, color: s.color, display: "flex", alignItems: "center", justifyContent: "center", mb: 1.5 }}>
+                        {s.icon}
+                      </Box>
+                      <Typography variant="h6" fontWeight={800}>{s.name}</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, minHeight: 40 }}>{s.blurb}</Typography>
+                      {court && (
+                        <Stack direction="row" alignItems="baseline" spacing={0.5}>
+                          <Typography sx={{ fontWeight: 900, fontSize: "1.5rem" }}>{rupees(court.weekday)}</Typography>
+                          <Typography variant="body2" color="text.secondary">{unit}</Typography>
+                          {court.weekend !== court.weekday && (
+                            <Typography variant="caption" color="text.secondary" sx={{ pl: 1 }}>weekend {rupees(court.weekend)}</Typography>
+                          )}
+                        </Stack>
+                      )}
+                      <Typography sx={{ mt: 1.5, color: s.color, fontWeight: 800, display: "flex", alignItems: "center", gap: 0.5 }}>
+                        Book now <ArrowForward fontSize="small" />
+                      </Typography>
+                    </CardContent>
+                  </CardActionArea>
+                </Card>
+              </Grid>
+            );
+          })}
+        </Grid>
+      </Container>
+
+      {/* ================= TRAIN ================= */}
+      <Box sx={{ background: `linear-gradient(135deg, ${TEAL} 0%, #0d6e8a 100%)`, color: "#fff", py: { xs: 6, md: 9 } }}>
+        <Container maxWidth="lg">
+          <Typography sx={{ color: GOLD, fontWeight: 800, letterSpacing: 2, fontSize: 13, textTransform: "uppercase" }}>Train</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 900, fontSize: { xs: "1.8rem", md: "2.4rem" }, mb: 1 }}>Monthly coaching for every age</Typography>
+          <Typography sx={{ opacity: 0.9, mb: 4, maxWidth: 640 }}>Regular sessions with our coaches. Pay monthly or save with 3, 6 and 12-month plans — renew in two taps by UPI.</Typography>
+          <Grid container spacing={2}>
+            {[
+              { title: "Kids", price: kids, note: "Fun, skills and fitness for young champions" },
+              { title: "Adults", price: adults, note: "Stay fit, play hard, meet your crew" },
+              { title: "Women", price: women, note: `Special price for slots ${hour(settings.membership.womenWindow.startHour)}–${hour(settings.membership.womenWindow.endHour)}` },
+            ].map((p) => (
+              <Grid item xs={12} md={4} key={p.title}>
+                <Box sx={{ bgcolor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 4, p: 3, height: "100%", backdropFilter: "blur(4px)" }}>
+                  <Typography variant="h6" fontWeight={800}>{p.title}</Typography>
+                  <Stack direction="row" alignItems="baseline" spacing={0.5} sx={{ my: 1 }}>
+                    <Typography sx={{ fontWeight: 900, fontSize: "2.2rem" }}>{rupees(p.price)}</Typography>
+                    <Typography sx={{ opacity: 0.8 }}>/month</Typography>
+                  </Stack>
+                  <Typography sx={{ opacity: 0.88 }}>{p.note}</Typography>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mt: 4 }}>
+            <Button component={Link} href="/register" size="large" variant="contained" sx={{ bgcolor: GOLD, color: NAVY, fontWeight: 900, py: 1.4, px: 4, borderRadius: 3, "&:hover": { bgcolor: "#ffd740" } }}>
+              Join now
+            </Button>
+            <Button component={Link} href="/profile" size="large" sx={{ color: "#fff", fontWeight: 700 }}>
+              Already a member? Pay fees →
+            </Button>
+          </Stack>
+        </Container>
+      </Box>
+
+      {/* ================= COMPETE ================= */}
+      {tournaments.length > 0 && (
+        <Container maxWidth="lg" sx={{ py: { xs: 6, md: 9 } }}>
+          <SectionTitle kicker="Compete" title="Tournaments" subtitle="Brackets, live scores and results — all on your phone." />
+          <Grid container spacing={2}>
+            {tournaments.map((t) => (
+              <Grid item xs={12} md={4} key={t._id}>
+                <Card sx={{ borderRadius: 4, height: "100%", boxShadow: "0 8px 30px rgba(7,26,46,0.08)" }}>
+                  <CardActionArea component={Link} href={`/tournaments/${t._id}`} sx={{ p: 2.5, height: "100%" }}>
+                    <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+                      {t.status && <Chip size="small" label={t.status} color={t.status === "ongoing" ? "error" : t.status === "upcoming" ? "warning" : "default"} />}
+                      {t.sport && <Chip size="small" variant="outlined" label={t.sport} />}
+                    </Stack>
+                    <Typography variant="h6" fontWeight={800}>{t.name}</Typography>
+                    {t.startDate && (
+                      <Typography variant="body2" color="text.secondary">
+                        {new Date(t.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+                      </Typography>
+                    )}
+                  </CardActionArea>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+          <Button component={Link} href="/tournaments" endIcon={<ArrowForward />} sx={{ mt: 2, fontWeight: 800 }}>All tournaments</Button>
+        </Container>
+      )}
+
+      {/* ================= SHOP ================= */}
+      {products.length > 0 && (
+        <Box sx={{ bgcolor: "#fff", py: { xs: 6, md: 8 } }}>
+          <Container maxWidth="lg">
+            <SectionTitle kicker="Gear" title="Shop at the academy" subtitle="Shuttles, balls and more — order on WhatsApp, pick up when you play." />
+            <Grid container spacing={2}>
+              {products.map((p) => (
+                <Grid item xs={6} md={3} key={p._id}>
+                  <Card variant="outlined" sx={{ borderRadius: 3, height: "100%" }}>
+                    <CardActionArea component={Link} href="/shop">
+                      {p.imageUrl ? (
+                        <CardMedia component="img" image={p.imageUrl} alt={p.name} loading="lazy" sx={{ aspectRatio: "1", objectFit: "cover" }} />
+                      ) : (
+                        <Box sx={{ aspectRatio: "1", bgcolor: "action.hover" }} />
+                      )}
+                      <CardContent sx={{ p: 1.5 }}>
+                        <Typography fontWeight={700} noWrap>{p.name}</Typography>
+                        <Typography fontWeight={900}>{rupees(p.price)}</Typography>
+                      </CardContent>
+                    </CardActionArea>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+            <Button component={Link} href="/shop" endIcon={<ArrowForward />} sx={{ mt: 2, fontWeight: 800 }}>Visit the shop</Button>
+          </Container>
+        </Box>
+      )}
+
+      <FeaturesSection />
+
+      {/* ================= VISIT ================= */}
+      <Box sx={{ background: `linear-gradient(135deg, ${ORANGE} 0%, #ff3d00 100%)`, color: "#fff", py: { xs: 6, md: 8 } }}>
+        <Container maxWidth="md" sx={{ textAlign: "center" }}>
+          <Typography variant="h4" sx={{ fontWeight: 900, fontSize: { xs: "1.8rem", md: "2.4rem" } }}>Come play with us</Typography>
+          <Typography sx={{ opacity: 0.92, mt: 1, mb: 3 }}>Perungudi, Madurai, Tamil Nadu</Typography>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} justifyContent="center">
+            <Button href={whatsapp} target="_blank" rel="noopener noreferrer" size="large" variant="contained" startIcon={<WhatsApp />}
+              sx={{ bgcolor: "#fff", color: "#128C7E", fontWeight: 900, py: 1.4, px: 3, borderRadius: 3, "&:hover": { bgcolor: "#f1f8f4" } }}>
+              Chat on WhatsApp
+            </Button>
+            <Button href={`tel:+${waNumber(settings.whatsappNumber)}`} size="large" variant="outlined" startIcon={<Phone />}
+              sx={{ color: "#fff", borderColor: "#fff", fontWeight: 800, py: 1.4, px: 3, borderRadius: 3 }}>
+              Call us
+            </Button>
+            <Button href="https://www.google.com/maps/search/?api=1&query=Sathiyan+Sports+Perungudi+Madurai" target="_blank" rel="noopener noreferrer"
+              size="large" startIcon={<LocationOn />} sx={{ color: "#fff", fontWeight: 800, py: 1.4 }}>
+              Directions
+            </Button>
+          </Stack>
+        </Container>
+      </Box>
+
       <Footer />
-    </>
+    </Box>
   );
 }
