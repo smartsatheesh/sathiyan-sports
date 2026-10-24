@@ -1,3 +1,5 @@
+import { randomInt } from 'crypto';
+
 export interface OTPData {
   otp: string;
   mobile: string;
@@ -28,7 +30,7 @@ class OTPService {
   }
 
   generateOTP(): string {
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = randomInt(100000, 1000000).toString();
     return otp;
   }
 
@@ -57,7 +59,7 @@ class OTPService {
     message: string;
     attemptsLeft?: number;
   }> {
-    console.log(`🔍 OTP verification attempt for mobile: ${mobile}, provided OTP: ${otp}`);
+    
     console.log(`📊 Current OTP store has ${this.otpStore.size} entries`);
     
     const otpData = this.otpStore.get(mobile);

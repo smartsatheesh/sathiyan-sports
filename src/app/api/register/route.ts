@@ -5,6 +5,8 @@ import User, { generateNextChampId } from "@/app/models/User";
 import Subscription from "@/app/models/Subscription";
 import emailService from "@/app/lib/emailService";
 import { BillingCycleService } from "@/app/services/BillingCycleService";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/lib/authConfig";
 
 // Utility function to normalize time slot formats
 function normalizeTimeSlot(timeSlot: string): string {
@@ -81,6 +83,13 @@ export async function POST(req: Request) {
     // Note: Court availability checking removed since preferred slots are now optional
     // Users will select and book their slots after registration and payment
 
+    // Only an admin (front-desk registration) may assign roles or mark a subscription as paid
+    const session = await getServerSession(authOptions);
+    const isAdmin = session?.user?.role === "admin";
+    const allowedRoles = ["customer", "coach", "admin"];
+    const role = isAdmin && allowedRoles.includes(body.role) ? body.role : "customer";
+    const markPaid = isAdmin && body.subscribed === "yes";
+
     // Hash password
     const hashedPassword = await bcrypt.hash(body.password, 12);
 
@@ -115,8 +124,8 @@ export async function POST(req: Request) {
       subscriptionAmount: body.subscriptionAmount,
       subscriptionEndDate: body.subscriptionEndDate,
       status: "registered", // Set to registered status immediately
-      paymentStatus: body.subscribed === 'yes' ? "completed" : "pending", // Auto-complete payment when subscribed=yes
-      role: body.role || "customer", // Default to customer role
+      paymentStatus: markPaid ? "completed" : "pending",
+      role,
       provider: "credentials", // Indicates this is a custom registration
       isEmailVerified: false,
       isMobileVerified: false,
@@ -202,7 +211,7 @@ export async function POST(req: Request) {
         }
 
         // Use same payment status logic as user record
-        const paymentStatus = body.subscribed === 'yes' ? 'Paid' : 'Pending';
+        const paymentStatus = markPaid ? 'Paid' : 'Pending';
 
         // Generate unique subscription period ID for tracking renewals
         const subscriptionPeriodId = `${user.champId}-${Date.now()}`;

@@ -112,8 +112,8 @@ export default function AttendancePage() {
       const response = await fetch(`/api/attendance?date=${today}`);
       if (response.ok) {
         const data = await response.json();
-        if (data.attendance && data.attendance.length > 0) {
-          setTodayAttendance(data.attendance[0]);
+        if (data.data && data.data.length > 0) {
+          setTodayAttendance(data.data[0]);
         }
       }
     } catch (error) {

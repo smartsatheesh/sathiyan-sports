@@ -3,6 +3,8 @@ import { connectToMongoose } from "@/app/server/mongodb";
 import Booking from "../../../models/Booking";
 // import { NotificationService } from "../../../services/notificationService";
 import { format } from "date-fns";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/lib/authConfig";
 
 export async function PATCH(
   req: NextRequest,
@@ -35,10 +37,23 @@ export async function PATCH(
       );
     }
 
-    // Update booking with payment information
+    // Customers can only submit payment proof (UTR); confirming payment is an admin action
+    const session = await getServerSession(authOptions);
+    const isAdmin = session?.user?.role === "admin";
+
     const updateData: any = {};
-    if (paymentStatus) updateData.paymentStatus = paymentStatus;
-    if (bookingStatus) updateData.bookingStatus = bookingStatus;
+    if (isAdmin) {
+      if (paymentStatus) updateData.paymentStatus = paymentStatus;
+      if (bookingStatus) updateData.bookingStatus = bookingStatus;
+    } else {
+      if (["completed", "paid", "confirmed", "refunded"].includes(booking.paymentStatus)) {
+        return NextResponse.json(
+          { message: "Payment already recorded for this booking", success: false },
+          { status: 409 }
+        );
+      }
+      if (paymentStatus) updateData.paymentStatus = "pending_verification";
+    }
     if (paymentMethod) updateData.paymentMethod = paymentMethod;
     if (upiTransactionId) updateData.upiTransactionId = upiTransactionId;
     if (paymentId) updateData.paymentId = paymentId;
@@ -57,7 +72,7 @@ export async function PATCH(
 
     // Send notifications based on payment status change
     try {
-      if (paymentStatus === 'completed' && booking.paymentStatus !== 'completed') {
+      if (updateData.paymentStatus === 'completed' && booking.paymentStatus !== 'completed') {
         // Payment successful - send success notification (WhatsApp only)
         const userNotificationData = {
           name: booking.customerName,
@@ -80,7 +95,7 @@ export async function PATCH(
 
         // await NotificationService.sendPaymentSuccess(userNotificationData, bookingDetails);
         console.log('Payment success notification would be sent:', { userNotificationData, bookingDetails });
-      } else if (paymentStatus === 'expired' && booking.paymentStatus !== 'expired') {
+      } else if (updateData.paymentStatus === 'expired' && booking.paymentStatus !== 'expired') {
         // Payment expired - send cancellation notification (WhatsApp only)
         const userNotificationData = {
           name: booking.customerName,

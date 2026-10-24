@@ -68,11 +68,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: "If the email exists, a reset link has been sent",
-      // In development, include additional info
-      ...(process.env.NODE_ENV === 'development' && { 
-        resetToken,
-        note: "Check console for email content if SMTP is not configured." 
-      }),
     });
   } catch (error) {
     console.error("Forgot password error:", error);

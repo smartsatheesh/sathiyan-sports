@@ -69,7 +69,6 @@ export async function POST(request: NextRequest) {
 
     // Generate OTP
     const otp = otpService.generateOTP();
-    console.log(`🔐 Generated OTP for ${formattedMobile}: ${otp}`);
 
     // Store OTP
     await otpService.storeOTP(formattedMobile, otp);
@@ -82,24 +81,16 @@ export async function POST(request: NextRequest) {
 
     if (!whatsappResult.success) {
       console.error('Failed to send WhatsApp OTP, falling back to console log');
-      console.log(`🔐 OTP for ${formattedMobile}: ${otp}`);
       
-      // If there's a WhatsApp URL, log it for manual sending
-      if (whatsappResult.whatsappUrl) {
-        console.log(`📱 Manual WhatsApp URL: ${whatsappResult.whatsappUrl}`);
-      }
     }
-
-    console.log(`📱 Password reset OTP sent to ${formattedMobile}: ${otp}`);
 
     return NextResponse.json({
       success: true,
       message: whatsappResult.success 
         ? 'OTP sent to your WhatsApp number. Please check your messages.'
-        : 'OTP generated. Check server console or use the provided WhatsApp URL.',
+        : 'Could not send OTP right now. Please contact the academy on WhatsApp to reset your password.',
       mobile: formattedMobile,
       whatsappSent: whatsappResult.success,
-      whatsappUrl: whatsappResult.whatsappUrl, // Include URL for manual sending
       method: whatsappResult.method,
       expiresIn: 10 // minutes
     });

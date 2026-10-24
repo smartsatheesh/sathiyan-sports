@@ -370,7 +370,8 @@ export async function POST(req: NextRequest) {
       customerPhone,
       bookingReference: `BK_${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
       paymentExpiry: paymentExpiry ? new Date(paymentExpiry) : undefined,
-      paymentStatus,
+      // Only admins may record a booking as already paid
+      paymentStatus: isAdmin ? paymentStatus : "pending",
       bookingStatus: finalBookingStatus,
     };
 
