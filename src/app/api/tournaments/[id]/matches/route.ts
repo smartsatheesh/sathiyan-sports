@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '../../../../server/mongodb';
+import { connectToMongoose } from '../../../../server/mongodb';
 import Match from '../../../../models/Match';
 import Tournament from '../../../../models/Tournament';
 import { getServerSession } from 'next-auth';
@@ -10,7 +10,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    await connectToDatabase();
+    await connectToMongoose();
 
     const { searchParams } = new URL(request.url);
     const round = searchParams.get('round');
@@ -81,7 +81,7 @@ export async function POST(
       );
     }
 
-    await connectToDatabase();
+    await connectToMongoose();
     const User = (await import('../../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
     
@@ -183,7 +183,7 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
 
-    await connectToDatabase();
+    await connectToMongoose();
     const User = (await import('../../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
     if (!user || user.role !== 'admin') return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 });

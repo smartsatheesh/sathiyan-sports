@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/app/server/mongodb';
+import { connectToMongoose } from '@/app/server/mongodb';
 import Subscription from '@/app/models/Subscription';
 import User from '@/app/models/User';
 import { getServerSession } from 'next-auth';
@@ -14,7 +14,7 @@ export async function POST(
     // Basic auth check - replace with proper session validation
     const headers = request.headers;
     
-    await connectToDatabase();
+    await connectToMongoose();
 
     // Get the current subscription
     const currentSubscription = await (Subscription as any).findById(params.id);

@@ -4,9 +4,10 @@ import Booking from '@/app/models/Booking';
 import whatsAppCloudService from '@/app/services/WhatsAppCloudService';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/lib/authConfig';
-import { addDaysFromISTDayStart, getISTDayRange, getISTDayStart, getISTTodayStart } from '@/app/lib/istDate';
-
-const CROSS_TURF_SPORTS = ['Cricket', 'Football', 'Functions and Events'];
+import { addDaysFromISTDayStart, getISTDayStart, getISTTodayStart } from '@/app/lib/istDate';
+import { findBlockingConflicts } from '@/app/lib/bookingConflicts';
+import { getSiteSettings } from '@/app/lib/settings.server';
+import { calculateBookingPrice, getCourt } from '@/app/lib/pricing';
 
 function parseTimeSlots(timeSlot?: string, timeSlots?: string[]): string[] {
   if (Array.isArray(timeSlots) && timeSlots.length > 0) {
@@ -15,15 +16,6 @@ function parseTimeSlots(timeSlot?: string, timeSlots?: string[]): string[] {
 
   if (!timeSlot) return [];
   return [...new Set(timeSlot.split(',').map((slot) => slot.trim()).filter(Boolean))];
-}
-
-function expandStoredSlots(timeSlots: string[] = []): string[] {
-  return [...new Set(
-    timeSlots
-      .flatMap((slot) => String(slot || '').split(','))
-      .map((slot) => slot.trim())
-      .filter(Boolean)
-  )];
 }
 
 function splitCrossMidnightSlots(slots: string[]): {
@@ -63,48 +55,6 @@ function splitCrossMidnightSlots(slots: string[]): {
   };
 }
 
-async function findBlockingConflicts(
-  sport: string,
-  date: Date,
-  slots: string[],
-  court?: string
-) {
-  if (slots.length === 0) return [];
-
-  const { dayStart, dayEnd } = getISTDayRange(date);
-
-  const sportFilter = CROSS_TURF_SPORTS.includes(sport)
-    ? { $in: CROSS_TURF_SPORTS }
-    : sport;
-
-  const query: any = {
-    bookingStatus: 'confirmed',
-    sport: sportFilter,
-    $or: [
-      { date: { $gte: dayStart, $lte: dayEnd } },
-      { nextDayDate: { $gte: dayStart, $lte: dayEnd } },
-    ],
-  };
-
-  if (sport === 'Shuttle Badminton' && court) {
-    query.court = court;
-  }
-
-  const bookings = await (Booking.find as any)(query).select('date nextDayDate timeSlots nextDayTimeSlots');
-
-  return bookings.filter((booking: any) => {
-    const sameDaySlots = booking.date && booking.date >= dayStart && booking.date <= dayEnd
-      ? expandStoredSlots(booking.timeSlots || [])
-      : [];
-    const nextDaySlots = booking.nextDayDate && booking.nextDayDate >= dayStart && booking.nextDayDate <= dayEnd
-      ? expandStoredSlots(booking.nextDayTimeSlots || [])
-      : [];
-
-    const blockedSlots = new Set([...sameDaySlots, ...nextDaySlots]);
-    return slots.some((slot) => blockedSlots.has(slot));
-  });
-}
-
 export async function POST(request: NextRequest) {
   try {
     await connectToMongoose();
@@ -121,9 +71,8 @@ export async function POST(request: NextRequest) {
       nextDayTimeSlots,
       court,
       customerInfo,
-      totalPrice,
-      transactionId,
-      paymentMethod,
+      totalPrice: requestedPrice,
+      extras,
       paymentReference
     } = body;
 
@@ -136,7 +85,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate required fields
-    if (!sport || !date || (!timeSlot && (!Array.isArray(timeSlots) || timeSlots.length === 0)) || !customerInfo || !totalPrice) {
+    if (!sport || !date || (!timeSlot && (!Array.isArray(timeSlots) || timeSlots.length === 0)) || !customerInfo?.name || !customerInfo?.phone) {
       return NextResponse.json(
         { success: false, message: 'Missing required booking information' },
         { status: 400 }
@@ -152,6 +101,25 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Price is always calculated on the server from the owner's settings;
+    // only an admin may override it (e.g. a negotiated rate).
+    const settings = await getSiteSettings();
+    const courtPrice = getCourt(settings, sport);
+    if (!courtPrice || !courtPrice.active) {
+      return NextResponse.json(
+        { success: false, message: 'This sport is not available for booking' },
+        { status: 400 }
+      );
+    }
+    const price = calculateBookingPrice(settings, {
+      sport,
+      date: String(date).slice(0, 10),
+      slots: [...parsedSlots, ...(hasExplicitNextDayPayload ? parsedNextDaySlots : [])],
+      extras,
+    });
+    const adminPrice = Number(requestedPrice);
+    const totalPrice = isAdmin && Number.isFinite(adminPrice) && adminPrice >= 0 ? adminPrice : price!.total;
 
     const bookingDate = getISTDayStart(date);
     const todayStart = getISTTodayStart();
@@ -208,8 +176,6 @@ export async function POST(request: NextRequest) {
         customerPhone: customerInfo.phone,
         totalAmount: totalPrice,
         paymentStatus: 'pending',
-        paymentMethod: paymentMethod || 'manual',
-        transactionId: transactionId || '',
         paymentReference: paymentReference || '',
         bookingStatus: finalBookingStatus,
         createdAt: new Date(),
@@ -296,8 +262,6 @@ export async function POST(request: NextRequest) {
       customerPhone: customerInfo.phone,
       totalAmount: totalPrice,
       paymentStatus: 'pending', // Payment can be collected later after customer plays
-      paymentMethod: paymentMethod || 'manual',
-      transactionId: transactionId || '',
       paymentReference: paymentReference || '',
       bookingStatus: finalBookingStatus,
       createdAt: new Date(),

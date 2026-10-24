@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '../../server/mongodb';
+import { connectToMongoose } from '../../server/mongodb';
 import Tournament from '../../models/Tournament';
 import Player from '../../models/Player';
 import Match from '../../models/Match';
@@ -8,7 +8,7 @@ import { authOptions } from '../../lib/authConfig';
 
 export async function GET(request: NextRequest) {
   try {
-    await connectToDatabase();
+    await connectToMongoose();
 
     const { searchParams } = new URL(request.url);
     const sport = searchParams.get('sport');
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user is admin
-    await connectToDatabase();
+    await connectToMongoose();
     const User = (await import('../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
     

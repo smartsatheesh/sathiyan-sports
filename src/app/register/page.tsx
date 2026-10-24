@@ -35,27 +35,8 @@ import {
 import { addMonths, addYears } from "date-fns";
 import Link from "next/link";
 import RegistrationSuccessPopup from "../components/RegistrationSuccessPopup";
-
-const SUBSCRIPTION_PRICES = {
-  monthly: 1199,
-  quarterly: 3399,
-  "half yearly": 6299,
-  yearly: 11499,
-};
-
-const WOMEN_SUBSCRIPTION_PRICES = {
-  monthly: 799,
-  quarterly: 2099,
-  "half yearly": 4099,
-  yearly: 8399,
-};
-
-const KIDS_SUBSCRIPTION_PRICES = {
-  monthly: 1500,
-  quarterly: 4000,
-  "half yearly": 8000,
-  yearly: 13000,
-};
+import { useSiteSettings } from "../hooks/useSiteSettings";
+import { calculateMembershipPrice, membershipPlanFor, slotStartHour, SUBSCRIPTION_MONTHS, type SubscriptionType } from "../lib/pricing";
 
 const TIME_SLOTS = [
   "12:00 AM - 01:00 AM",
@@ -85,57 +66,23 @@ const TIME_SLOTS = [
 ];
 
 export default function RegisterPage() {
-  // Helper function to check if time slot is within female discount hours (10 AM to 4 PM)
+  const { settings } = useSiteSettings();
+  const womenWindow = settings.membership.womenWindow;
+  const hourLabel = (h: number) => `${((h + 11) % 12) + 1} ${h < 12 ? "AM" : "PM"}`;
+  const womenWindowText = `${hourLabel(womenWindow.startHour)} - ${hourLabel(womenWindow.endHour)}`;
+  const flexiblePerMonth = settings.membership.flexibleSurchargePerMonth;
+
+  // Women's discount applies when the chosen slot starts inside the configured window
   const isFemalDiscountTimeSlot = (timeSlot: string) => {
-    if (!timeSlot) return false;
-    
-    // Extract start time from time slot (e.g., "10:00 AM - 11:00 AM" -> "10:00 AM")
-    const startTime = timeSlot.split(' - ')[0];
-    
-    // Convert time to 24-hour format for easier comparison
-    const convertTo24Hour = (time: string) => {
-      const [timePart, period] = time.split(' ');
-      let [hours, minutes] = timePart.split(':').map(Number);
-      
-      if (period === 'PM' && hours !== 12) {
-        hours += 12;
-      } else if (period === 'AM' && hours === 12) {
-        hours = 0;
-      }
-      
-      return hours + minutes / 60;
-    };
-    
-    const startHour = convertTo24Hour(startTime);
-    
-    // Female discount applies from 10:00 AM (10.0) to 4:00 PM (16.0)
-    return startHour >= 10.0 && startHour < 16.0;
+    const start = slotStartHour(timeSlot);
+    return start !== null && start >= womenWindow.startHour && start < womenWindow.endHour;
   };
 
-  // Helper function to get current subscription prices
-  const getCurrentPrices = () => {
-    if (formData.champType === 'kids') {
-      return KIDS_SUBSCRIPTION_PRICES;
-    }
-    
-    // For females: check if selected time slot qualifies for discount
-    if (formData.gender === 'female') {
-      const qualifiesForDiscount = isFemalDiscountTimeSlot(formData.preferredTimeSlot);
-      
-      // If time slot is outside 10 AM - 4 PM, use male pricing
-      if (!qualifiesForDiscount && formData.preferredTimeSlot) {
-        return SUBSCRIPTION_PRICES; // Male pricing
-      }
-      
-      // If within 10 AM - 4 PM or no time slot selected yet, use female pricing
-      return WOMEN_SUBSCRIPTION_PRICES;
-    }
-    
-    // Default male pricing
-    return SUBSCRIPTION_PRICES;
-  };
+  // Plan prices for the current form selection (owner-editable in Admin → Settings)
+  const getCurrentPrices = () => membershipPlanFor(settings, formData);
 
-  // Helper function to calculate price with flexible surcharge
+  const flexibleSurcharge = (type: SubscriptionType) => flexiblePerMonth * SUBSCRIPTION_MONTHS[type];
+
   const getPriceWithSurcharge = (basePrice: number, surcharge: number) => {
     return basePrice + (formData.mode === 'flexible' ? surcharge : 0);
   };
@@ -405,28 +352,8 @@ export default function RegisterPage() {
       return;
     }
 
-    const subscriptionPrices = 
-      formData.champType === 'kids' 
-        ? KIDS_SUBSCRIPTION_PRICES
-        : formData.gender === 'female' 
-          ? WOMEN_SUBSCRIPTION_PRICES 
-          : SUBSCRIPTION_PRICES;
-    let subscriptionAmount =
-      subscriptionPrices[
-        formData.subscriptionType as keyof typeof SUBSCRIPTION_PRICES
-      ];
-    
-    // Add flexible mode surcharge: ₹300 per month
-    if (formData.mode === 'flexible') {
-      const flexibleSurcharges = {
-        'monthly': 300,
-        'quarterly': 900,  // 3 months × ₹300
-        'half yearly': 1800, // 6 months × ₹300
-        'yearly': 3600  // 12 months × ₹300
-      };
-      subscriptionAmount += flexibleSurcharges[formData.subscriptionType as keyof typeof flexibleSurcharges] || 0;
-    }
-    
+    const subscriptionAmount = calculateMembershipPrice(settings, formData);
+
     const subscriptionEndDate = calculateEndDate(formData.subscriptionType);
 
     try {
@@ -688,7 +615,7 @@ export default function RegisterPage() {
                     💡 Female Pricing Information
                   </Typography>
                   <Typography variant="caption" display="block">
-                    • Special female pricing applies for time slots between <strong>10 AM - 4 PM</strong>
+                    • Special female pricing applies for time slots between <strong>{womenWindowText}</strong>
                   </Typography>
                   <Typography variant="caption" display="block">
                     • Time slots outside this range use regular pricing
@@ -864,7 +791,7 @@ export default function RegisterPage() {
                       🎉 Female Discount Applied! 
                     </Typography>
                     <Typography variant="caption" display="block">
-                      You selected a time slot between 10 AM - 4 PM and qualify for our special female pricing.
+                      You selected a time slot between {womenWindowText} and qualify for our special women's pricing.
                     </Typography>
                   </Alert>
                 ) : (
@@ -873,7 +800,7 @@ export default function RegisterPage() {
                       💰 Regular Pricing Applied
                     </Typography>
                     <Typography variant="caption" display="block">
-                      Time slots outside 10 AM - 4 PM use regular pricing. Select a slot between 10 AM - 4 PM for female discount pricing.
+                      Time slots outside {womenWindowText} use regular pricing. Select a slot between {womenWindowText} for the women's discount.
                     </Typography>
                   </Alert>
                 )}
@@ -980,7 +907,7 @@ export default function RegisterPage() {
               }}
             >
               <MenuItem value="fixed">Fixed - Regular pricing</MenuItem>
-              <MenuItem value="flexible">Flexible - Additional ₹300/month for flexible scheduling</MenuItem>
+              <MenuItem value="flexible">Flexible - Additional ₹{flexiblePerMonth}/month for flexible scheduling</MenuItem>
             </Select>
             {fieldErrors.mode && (
               <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
@@ -1005,20 +932,20 @@ export default function RegisterPage() {
               }}
             >
               <MenuItem value="monthly">
-                Monthly - ₹{getPriceWithSurcharge(getCurrentPrices().monthly, 300)}
-                {formData.mode === 'flexible' && ' (includes ₹300 flexible surcharge)'}
+                Monthly - ₹{getPriceWithSurcharge(getCurrentPrices().monthly, flexibleSurcharge("monthly"))}
+                {formData.mode === 'flexible' && ` (includes ₹${flexibleSurcharge("monthly")} flexible surcharge)`}
               </MenuItem>
               <MenuItem value="quarterly">
-                Quarterly - ₹{getPriceWithSurcharge(getCurrentPrices().quarterly, 900)}
-                {formData.mode === 'flexible' && ' (includes ₹900 flexible surcharge)'}
+                Quarterly - ₹{getPriceWithSurcharge(getCurrentPrices().quarterly, flexibleSurcharge("quarterly"))}
+                {formData.mode === 'flexible' && ` (includes ₹${flexibleSurcharge("quarterly")} flexible surcharge)`}
               </MenuItem>
               <MenuItem value="half yearly">
-                Half Yearly - ₹{getPriceWithSurcharge(getCurrentPrices()["half yearly"], 1800)}
-                {formData.mode === 'flexible' && ' (includes ₹1800 flexible surcharge)'}
+                Half Yearly - ₹{getPriceWithSurcharge(getCurrentPrices()["half yearly"], flexibleSurcharge("half yearly"))}
+                {formData.mode === 'flexible' && ` (includes ₹${flexibleSurcharge("half yearly")} flexible surcharge)`}
               </MenuItem>
               <MenuItem value="yearly">
-                Yearly - ₹{getPriceWithSurcharge(getCurrentPrices().yearly, 3600)}
-                {formData.mode === 'flexible' && ' (includes ₹3600 flexible surcharge)'}
+                Yearly - ₹{getPriceWithSurcharge(getCurrentPrices().yearly, flexibleSurcharge("yearly"))}
+                {formData.mode === 'flexible' && ` (includes ₹${flexibleSurcharge("yearly")} flexible surcharge)`}
               </MenuItem>
             </Select>
             {fieldErrors.subscriptionType && (

@@ -7,6 +7,8 @@ import emailService from "@/app/lib/emailService";
 import { BillingCycleService } from "@/app/services/BillingCycleService";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authConfig";
+import { getSiteSettings } from "@/app/lib/settings.server";
+import { calculateMembershipPrice } from "@/app/lib/pricing";
 
 // Utility function to normalize time slot formats
 function normalizeTimeSlot(timeSlot: string): string {
@@ -90,6 +92,13 @@ export async function POST(req: Request) {
     const role = isAdmin && allowedRoles.includes(body.role) ? body.role : "customer";
     const markPaid = isAdmin && body.subscribed === "yes";
 
+    // Membership price comes from the owner's settings; admins may override at the desk
+    const settings = await getSiteSettings();
+    const adminAmount = Number(body.subscriptionAmount);
+    const subscriptionAmount = isAdmin && Number.isFinite(adminAmount) && adminAmount >= 0
+      ? adminAmount
+      : calculateMembershipPrice(settings, body);
+
     // Hash password
     const hashedPassword = await bcrypt.hash(body.password, 12);
 
@@ -121,7 +130,7 @@ export async function POST(req: Request) {
       preferredTimeSlot: body.preferredTimeSlot || "",
       subscriptionType: body.subscriptionType,
       mode: body.mode || "standard",
-      subscriptionAmount: body.subscriptionAmount,
+      subscriptionAmount,
       subscriptionEndDate: body.subscriptionEndDate,
       status: "registered", // Set to registered status immediately
       paymentStatus: markPaid ? "completed" : "pending",
@@ -144,7 +153,7 @@ export async function POST(req: Request) {
       email: user.email,
       subscribed: body.subscribed,
       subscriptionType: body.subscriptionType,
-      subscriptionAmount: body.subscriptionAmount
+      subscriptionAmount
     });
 
     // Create subscription entry if user registers with subscribed: "yes"
@@ -223,7 +232,7 @@ export async function POST(req: Request) {
           userEmail: user.email,
           userMobile: user.mobile,
           subscriptionType: body.subscriptionType,
-          amount: body.subscriptionAmount || 0,
+          amount: subscriptionAmount,
           mode: body.mode || 'fixed',
           duration: duration,
           startDate: startDate,

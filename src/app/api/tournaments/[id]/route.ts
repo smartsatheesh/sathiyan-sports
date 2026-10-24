@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '../../../server/mongodb';
+import { connectToMongoose } from '../../../server/mongodb';
 import Tournament from '../../../models/Tournament';
 import Player from '../../../models/Player';
 import Match from '../../../models/Match';
@@ -11,7 +11,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    await connectToDatabase();
+    await connectToMongoose();
 
     const tournament = await (Tournament.findById as any)(params.id)
       .populate('createdBy', 'name email');
@@ -76,7 +76,7 @@ export async function PUT(
       );
     }
 
-    await connectToDatabase();
+    await connectToMongoose();
     const User = (await import('../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
     
@@ -152,7 +152,7 @@ export async function DELETE(
       );
     }
 
-    await connectToDatabase();
+    await connectToMongoose();
     const User = (await import('../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
     

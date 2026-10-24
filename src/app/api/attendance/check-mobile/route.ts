@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/app/server/mongodb';
+import { connectToMongoose } from '@/app/server/mongodb';
 import User from '@/app/models/User';
 
 export async function POST(request: Request) {
   try {
-    await connectToDatabase();
+    await connectToMongoose();
     
     const { mobile } = await request.json();
     

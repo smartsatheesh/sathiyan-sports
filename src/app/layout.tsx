@@ -58,8 +58,6 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/apple-icon.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon.png" />
         
-        {/* Razorpay Checkout Script for Real UPI Payments */}
-        <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
       </head>
       <body className="Arial">
         <Providers>

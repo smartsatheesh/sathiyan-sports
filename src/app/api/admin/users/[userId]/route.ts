@@ -3,6 +3,8 @@ import { connectToMongoose } from "@/app/server/mongodb";
 import User from "../../../../models/User";
 import Booking from "../../../../models/Booking";
 import Subscription from "../../../../models/Subscription";
+import { getSiteSettings } from "@/app/lib/settings.server";
+import { calculateMembershipPrice } from "@/app/lib/pricing";
 
 // GET - Fetch a specific user
 export async function GET(req: NextRequest, { params }: { params: { userId: string } }) {
@@ -44,6 +46,7 @@ export async function GET(req: NextRequest, { params }: { params: { userId: stri
 export async function PUT(req: NextRequest, { params }: { params: { userId: string } }) {
   try {
     await connectToMongoose();
+    const siteSettings = await getSiteSettings();
 
     const { userId } = params;
     const body = await req.json();
@@ -345,54 +348,12 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
       try {
         // Helper function to calculate subscription amount (defined here for use throughout)
         function calculateSubscriptionAmount(champType?: string, subscriptionType?: string, gender?: string, preferredTimeSlot?: string) {
-          // Default pricing structure
-          const ADULT_MALE_PRICING = {
-            monthly: 1199,
-            quarterly: 3399, 
-            'half yearly': 6299,
-            yearly: 11499
-          };
-
-          const ADULT_FEMALE_PRICING = {
-            monthly: 799,
-            quarterly: 2099,
-            'half yearly': 4099,
-            yearly: 8399
-          };
-
-          const KIDS_PRICING = {
-            monthly: 1500,
-            quarterly: 4000,
-            'half yearly': 8000,
-            yearly: 13000
-          };
-
-          // Helper function to check if time slot qualifies for female discount
-          function isFemalDiscountTimeSlot(timeSlot: string): boolean {
-            if (!timeSlot) return false;
-            
-            const startTime = timeSlot.split(' - ')[0];
-            const [time, period] = startTime.split(' ');
-            const [hours, minutes] = time.split(':').map(Number);
-            
-            let hour24 = hours;
-            if (period === 'PM' && hours !== 12) hour24 += 12;
-            if (period === 'AM' && hours === 12) hour24 = 0;
-            
-            const startHour = hour24 + minutes / 60;
-            
-            // Female discount applies from 10:00 AM (10.0) to 4:00 PM (16.0)
-            return startHour >= 10.0 && startHour < 16.0;
-          }
-
-          // Determine pricing category
-          if (champType === 'kids') {
-            return KIDS_PRICING[subscriptionType || 'monthly'] || KIDS_PRICING.monthly;
-          } else if (gender === 'female' && isFemalDiscountTimeSlot(preferredTimeSlot || '')) {
-            return ADULT_FEMALE_PRICING[subscriptionType || 'monthly'] || ADULT_FEMALE_PRICING.monthly;
-          } else {
-            return ADULT_MALE_PRICING[subscriptionType || 'monthly'] || ADULT_MALE_PRICING.monthly;
-          }
+          return calculateMembershipPrice(siteSettings, {
+            champType: champType || 'adult',
+            subscriptionType: subscriptionType || 'monthly',
+            gender,
+            preferredTimeSlot,
+          });
         }
 
         // Check if subscription already exists for this user
@@ -633,55 +594,13 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
         if (existingSubscription) {
           // Helper function to calculate subscription amount (function should be accessible here)
           function calculateSubscriptionAmount(champType?: string, subscriptionType?: string, gender?: string, preferredTimeSlot?: string) {
-            // Default pricing structure
-            const ADULT_MALE_PRICING = {
-              monthly: 1199,
-              quarterly: 3399, 
-              'half yearly': 6299,
-              yearly: 11499
-            };
-
-            const ADULT_FEMALE_PRICING = {
-              monthly: 799,
-              quarterly: 2099,
-              'half yearly': 4099,
-              yearly: 8399
-            };
-
-            const KIDS_PRICING = {
-              monthly: 1500,
-              quarterly: 4000,
-              'half yearly': 8000,
-              yearly: 13000
-            };
-
-            // Helper function to check if time slot qualifies for female discount
-            function isFemalDiscountTimeSlot(timeSlot: string): boolean {
-              if (!timeSlot) return false;
-              
-              const startTime = timeSlot.split(' - ')[0];
-              const [time, period] = startTime.split(' ');
-              const [hours, minutes] = time.split(':').map(Number);
-              
-              let hour24 = hours;
-              if (period === 'PM' && hours !== 12) hour24 += 12;
-              if (period === 'AM' && hours === 12) hour24 = 0;
-              
-              const startHour = hour24 + minutes / 60;
-              
-              // Female discount applies from 10:00 AM (10.0) to 4:00 PM (16.0)
-              return startHour >= 10.0 && startHour < 16.0;
-            }
-
-            // Determine pricing category
-            if (champType === 'kids') {
-              return KIDS_PRICING[subscriptionType || 'monthly'] || KIDS_PRICING.monthly;
-            } else if (gender === 'female' && isFemalDiscountTimeSlot(preferredTimeSlot || '')) {
-              return ADULT_FEMALE_PRICING[subscriptionType || 'monthly'] || ADULT_FEMALE_PRICING.monthly;
-            } else {
-              return ADULT_MALE_PRICING[subscriptionType || 'monthly'] || ADULT_MALE_PRICING.monthly;
-            }
-          }
+          return calculateMembershipPrice(siteSettings, {
+            champType: champType || 'adult',
+            subscriptionType: subscriptionType || 'monthly',
+            gender,
+            preferredTimeSlot,
+          });
+        }
 
           const newAmount = calculateSubscriptionAmount(
             updateData.champType || currentUser.champType,

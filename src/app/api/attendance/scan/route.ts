@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/app/server/mongodb';
+import { connectToMongoose } from '@/app/server/mongodb';
 import Attendance from '@/app/models/Attendance';
 import User from '@/app/models/User';
 
 export async function POST(request: Request) {
   try {
-    await connectToDatabase();
+    await connectToMongoose();
     
     const { champId, qrData, mobile, quickAttendance } = await request.json();
     

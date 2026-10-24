@@ -29,11 +29,11 @@
     TextField,
     Typography,
   } from '@mui/material';
-  import { ContentCopy, WhatsApp } from '@mui/icons-material';
-  import QRCode from "react-qr-code";
+  import { ContentCopy } from '@mui/icons-material';
+  import UpiPaymentDialog from "../../components/UpiPaymentDialog";
+  import { useSiteSettings } from "../../hooks/useSiteSettings";
 
 
-  const REGISTRATION_FEE = 600;
   const AGE_CATEGORIES = ['20 to 40 Adult', '40 plus Veteran'];
   const EVENT_TYPES = ['Singles', 'Doubles', 'Mixed Doubles'];
 
@@ -56,6 +56,8 @@
     const [submitting, setSubmitting] = useState(false);
     const [alert, setAlert] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
     const [result, setResult] = useState<any>(null);
+    const [payFor, setPayFor] = useState<{ id: string; fee: number; tournament: string } | null>(null);
+    const { settings } = useSiteSettings();
     const alertRef = useRef<HTMLDivElement>(null);
     const [validationSnack, setValidationSnack] = useState<string | null>(null);
 
@@ -76,7 +78,6 @@
       ageCategory: AGE_CATEGORIES[0],
       eventType: 'Doubles',
       paymentChoice: 'pay_now',
-      transactionId: '',
     });
 
     const selectedTournament = useMemo(
@@ -129,16 +130,9 @@
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const upiId = process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'sathiyansportacademy202525-1@okaxis';
-    const merchantName = process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club';
-    const upiNote = `Tournament registration - ${selectedTournament?.name || 'Sathiyan Sports'}`;
-    // tez:// scheme opens GPay directly; upi:// is the generic fallback
-    const gpayUrl = `tez://upi/pay?pa=${upiId}&pn=${encodeURIComponent(merchantName)}&am=${REGISTRATION_FEE}&cu=INR&tn=${encodeURIComponent(upiNote)}`;
-    const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(merchantName)}&am=${REGISTRATION_FEE}&cu=INR&tn=${encodeURIComponent(upiNote)}`;
-
-    const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_PAYMENT_NUMBER || '919342090194';
-    const waPaymentMessage = `Hi, I want to pay tournament registration fee ₹${REGISTRATION_FEE}. Name: ${formData.name || '-'}, Phone: ${formData.phone || '-'}, Tournament: ${selectedTournament?.name || '-'}.`;
-    const waUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(waPaymentMessage)}`;
+    const registrationFee = Number((selectedTournament as any)?.registrationFee) > 0
+      ? Number((selectedTournament as any).registrationFee)
+      : settings.tournamentDefaultFee;
 
     const handleCopy = async (text: string, successMessage: string) => {
       try {
@@ -148,36 +142,9 @@
         setAlert({ type: 'error', message: 'Failed to copy' });
       }
     };
-      const upiUrlG = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(
-        merchantName
-      )}&am=${REGISTRATION_FEE}&cu=INR&tn=${encodeURIComponent(upiNote)}`;
-
-      const handleUpiPayment = () => {
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        console.log(upiUrl);console.log(isMobile);
-
-        if (isMobile) {
-          // Android/iPhone will open the installed UPI app chooser
-          window.location.href = upiUrlG;
-        } else {
-          // Desktop users should scan the QR
-          setAlert({
-            type: "info",
-            message: "Please scan the QR code below using any UPI app.",
-          });
-
-          // or
-          // setShowQr(true);
-        }
-      };
     const handleSubmit = async () => {
       if (!formData.tournamentId || !formData.name.trim() || !formData.phone.trim()) {
         setValidationSnack('Please fill Tournament, Name, and Phone Number');
-        return;
-      }
-
-      if (formData.paymentChoice === 'pay_now' && !formData.transactionId.trim()) {
-        setValidationSnack('Please enter your Transaction ID / UTR before submitting');
         return;
       }
 
@@ -196,7 +163,6 @@
             ageCategory: formData.ageCategory,
             eventType: formData.eventType,
             paymentChoice: formData.paymentChoice,
-            transactionId: formData.transactionId,
           }),
         });
 
@@ -204,11 +170,13 @@
         if (data.success) {
           setResult(data.data);
           setAlert({ type: 'success', message: 'Registration successful!' });
+          if (formData.paymentChoice === 'pay_now' && data.data.registrationFee > 0) {
+            setPayFor({ id: data.data.registrationId, fee: data.data.registrationFee, tournament: data.data.tournamentName });
+          }
           setFormData((prev) => ({
             ...prev,
             name: '',
             phone: '',
-            transactionId: '',
             paymentChoice: 'pay_now',
           }));
         } else {
@@ -444,124 +412,11 @@
                       value={formData.paymentChoice}
                       onChange={(e) => setFormData((prev) => ({ ...prev, paymentChoice: e.target.value }))}
                     >
-                      <FormControlLabel value="pay_now" control={<Radio />} label="Pay Now" />
-                      {/* pay_later hidden — UPI deep-link limit issue; QR-only for now */}
-                      {/* <FormControlLabel value="pay_later" control={<Radio />} label="Pay Later" /> */}
+                      <FormControlLabel value="pay_now" control={<Radio />} label={`Pay ₹${registrationFee} now by UPI`} />
+                      <FormControlLabel value="pay_later" control={<Radio />} label="Pay at venue" />
                     </RadioGroup>
                   </FormControl>
                 </Grid>
-
-                  <Grid item xs={12}>
-                    <Card sx={{ borderRadius: 3, border: '1px solid #cde7f7' }}>
-                      <CardContent>
-                        <Typography variant="h6" fontWeight={700} gutterBottom>
-                          Pay ₹{REGISTRATION_FEE} via UPI Scanner
-                        </Typography>
-                        <Box sx={{ textAlign: 'center', mt: 3 }}>
-                        <Typography variant="h6" gutterBottom>
-                          Scan QR to Pay
-                        </Typography>
-
-                        <Paper
-                          elevation={3}
-                          sx={{
-                            p: 2,
-                            display: 'inline-block',
-                            bgcolor: 'white',
-                            borderRadius: 2,
-                          }}
-                        >
-                          <Typography
-                            variant="subtitle2"
-                            gutterBottom
-                            color="text.primary"
-                          >
-                            📲 <strong>On this phone?</strong> Take a screenshot of this QR → open Google Pay / PhonePe → tap <em>Scan QR</em> → choose <em>From Gallery</em> and select your screenshot.
-                          </Typography>
-
-                          <Box
-                            sx={{
-                              p: 2,
-                              bgcolor: '#f5f5f5',
-                              borderRadius: 1,
-                              mb: 2,
-                              display: 'flex',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            <QRCode
-                              value={upiUrl}
-                              size={140}
-                              style={{
-                                height: "auto",
-                                maxWidth: "140px",
-                                width: "140px",
-                              }}
-                            />
-                          </Box>
-
-                          <Box
-                            sx={{
-                              textAlign: 'left',
-                              p: 2,
-                              bgcolor: 'grey.100',
-                              borderRadius: 1,
-                            }}
-                          >
-                            <Typography variant="subtitle2" gutterBottom>
-                              Payment Details
-                            </Typography>
-
-                            <Typography variant="body2">
-                              • UPI ID: {upiId}
-                            </Typography>
-
-                            <Typography variant="body2">
-                              • Amount: ₹{REGISTRATION_FEE}
-                            </Typography>
-
-                            <Typography variant="body2">
-                              • Merchant: {merchantName}
-                            </Typography>
-                          </Box>
-                        </Paper>
-
-                        <Alert severity="info" sx={{ mt: 2, textAlign: 'left' }}>
-                          After payment copy the <strong>UTR / Transaction ID</strong> from your UPI app and paste it below, then submit.
-                          <br />💡 <strong>Tip:</strong> You can also take a screenshot of the QR and share it on WhatsApp to a friend who can scan and pay on your behalf.
-                        </Alert>
-                      </Box>
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2, mt: 1 }}>
-                          {/* "Pay with Any UPI App" hidden — exceeds UPI deep-link limit */}
-                          {/* <Button fullWidth variant="contained" color="success" onClick={handleUpiPayment}>
-                            📱 Pay with Any UPI App
-                          </Button> */}
-                          <Button
-                            variant="outlined"
-                            startIcon={<WhatsApp />}
-                            onClick={() => window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Hi, please find the QR screenshot for tournament registration payment ₹${REGISTRATION_FEE}. Name: ${formData.name || '-'}, Phone: ${formData.phone || '-'}, Tournament: ${selectedTournament?.name || '-'}. UPI ID: ${upiId}`)}`, '_blank')}
-                          >
-                            Share via WhatsApp
-                          </Button>
-                          <Button
-                            variant="text"
-                            startIcon={<ContentCopy />}
-                            onClick={() => handleCopy(upiId, 'UPI ID copied')}
-                          >
-                            Copy UPI ID
-                          </Button>
-                        </Stack>
-                      
-                        <TextField
-                          fullWidth
-                          label="Transaction ID / UTR"
-                          value={formData.transactionId}
-                          onChange={(e) => setFormData((prev) => ({ ...prev, transactionId: e.target.value }))}
-                          helperText="Enter the UTR / Transaction ID from your UPI app after payment"
-                        />
-                      </CardContent>
-                    </Card>
-                  </Grid>
 
                 <Grid item xs={12}>
                   <Button
@@ -575,7 +430,7 @@
                     {submitting ? 'Submitting...' : 'Submit Registration'}
                   </Button>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 1 }}>
-                    Registration Fee: ₹{REGISTRATION_FEE}
+                    Registration Fee: ₹{registrationFee}
                   </Typography>
                 </Grid>
               </Grid>
@@ -583,8 +438,21 @@
 
             {result && (
               <Alert severity="success" sx={{ mt: 1 }}>
-                Registration ID: {result.registrationId} | Payment: {result.paymentChoice === 'pay_now' ? 'Pay Now' : 'Pay Later'} | Sex: {result.sex || formData.sex}
+                Registration ID: {result.registrationId} | Payment: {result.paymentChoice === 'pay_now' ? 'UPI' : 'At venue'} | Sex: {result.sex || formData.sex}
               </Alert>
+            )}
+
+            {payFor && (
+              <UpiPaymentDialog
+                open
+                kind="tournament"
+                refId={payFor.id}
+                amount={payFor.fee}
+                note={`Tournament ${payFor.tournament}`.slice(0, 60)}
+                title="Pay registration fee"
+                allowPayLater
+                onClose={() => setPayFor(null)}
+              />
             )}
 
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between">

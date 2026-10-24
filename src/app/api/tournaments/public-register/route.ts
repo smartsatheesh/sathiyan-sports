@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '../../../server/mongodb';
+import { connectToMongoose } from '../../../server/mongodb';
 import Tournament from '../../../models/Tournament';
 import Player from '../../../models/Player';
+import { getSiteSettings } from '@/app/lib/settings.server';
 
 const VALID_AGE_CATEGORIES = ['20 to 40 Adult', '40 plus Veteran'];
 const VALID_EVENT_TYPES = ['Singles', 'Doubles', 'Mixed Doubles'];
-const REGISTRATION_FEE = 600;
 
 export async function POST(request: NextRequest) {
   try {
-    await connectToDatabase();
+    await connectToMongoose();
 
     const body = await request.json();
     const {
@@ -22,7 +22,6 @@ export async function POST(request: NextRequest) {
       ageCategory,
       eventType,
       paymentChoice,
-      transactionId,
     } = body;
 
     if (!tournamentId || !name || !phone || !sex || !ageCategory || !eventType || !paymentChoice) {
@@ -64,13 +63,6 @@ export async function POST(request: NextRequest) {
     if (normalizedPhone.length < 10) {
       return NextResponse.json(
         { success: false, error: 'Please enter a valid phone number' },
-        { status: 400 }
-      );
-    }
-
-    if (paymentChoice === 'pay_now' && !transactionId) {
-      return NextResponse.json(
-        { success: false, error: 'Transaction ID is required for Pay Now' },
         { status: 400 }
       );
     }
@@ -123,6 +115,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fee comes from the tournament (or the default in settings); payment proof is
+    // submitted separately via /api/payments and confirmed by an admin.
+    const registrationFee = Number(tournament.registrationFee) > 0
+      ? Number(tournament.registrationFee)
+      : (await getSiteSettings()).tournamentDefaultFee;
+
     const player = new Player({
       tournamentId,
       name: String(name).trim(),
@@ -134,13 +132,11 @@ export async function POST(request: NextRequest) {
       sex,
       eventType,
       isRegisteredUser: false,
-      registrationFee: REGISTRATION_FEE,
+      registrationFee,
       paymentChoice,
-      transactionId: transactionId ? String(transactionId).trim() : undefined,
       registrationSource: 'public',
       registeredAt: new Date(),
-      paymentStatus: paymentChoice === 'pay_now' ? 'completed' : 'pending',
-      championshipId: transactionId ? String(transactionId).trim() : undefined,
+      paymentStatus: 'pending',
     });
 
     await player.save();
@@ -156,7 +152,7 @@ export async function POST(request: NextRequest) {
         sex,
         category: ageCategory,
         eventType,
-        registrationFee: REGISTRATION_FEE,
+        registrationFee,
         paymentChoice,
         paymentStatus: player.paymentStatus,
       },

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '../../../../server/mongodb';
+import { connectToMongoose } from '../../../../server/mongodb';
 import Match from '../../../../models/Match';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../lib/authConfig';
@@ -24,7 +24,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
 
-    await connectToDatabase();
+    await connectToMongoose();
     const User = (await import('../../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
     if (!user || user.role !== 'admin') {

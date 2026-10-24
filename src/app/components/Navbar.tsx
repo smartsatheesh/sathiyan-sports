@@ -30,6 +30,8 @@ import {
   ExitToApp,
   Login,
   AppRegistration,
+  Payments,
+  Settings as SettingsIcon,
 } from "@mui/icons-material";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
@@ -86,6 +88,16 @@ const Navbar = () => {
         label: "Admin Dashboard",
         href: "/admin",
         icon: <Dashboard />,
+      },
+      {
+        label: "Verify Payments",
+        href: "/admin/payments",
+        icon: <Payments />,
+      },
+      {
+        label: "Prices & Settings",
+        href: "/admin/settings",
+        icon: <SettingsIcon />,
       },
       {
         label: "Tournament Management",

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../lib/authConfig';
-import { connectToDatabase } from '../../../server/mongodb';
+import { connectToMongoose } from '../../../server/mongodb';
 import Player from '../../../models/Player';
 
 function escapeCsv(value: unknown): string {
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
 
-    await connectToDatabase();
+    await connectToMongoose();
 
     const User = (await import('../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
@@ -169,7 +169,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
 
-    await connectToDatabase();
+    await connectToMongoose();
     const User = (await import('../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
     if (!user || user.role !== 'admin') {
@@ -202,7 +202,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
 
-    await connectToDatabase();
+    await connectToMongoose();
     const User = (await import('../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
     if (!user || user.role !== 'admin') {

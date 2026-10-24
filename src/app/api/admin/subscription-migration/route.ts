@@ -4,6 +4,7 @@ import { authOptions } from '@/app/lib/authConfig';
 import { connectToMongoose } from '@/app/server/mongodb';
 import User from '@/app/models/User';
 import Subscription from '@/app/models/Subscription';
+import { getSiteSettings } from '@/app/lib/settings.server';
 
 // GET - Get migration status and stats
 export async function GET() {
@@ -67,6 +68,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action } = body;
 
+    const siteSettings = await getSiteSettings();
+
     if (action === 'migrate-all') {
       // Find all users with subscribed = 'yes' but no subscription record
       const usersToMigrate = await (User.find as any)({
@@ -79,12 +82,7 @@ export async function POST(request: NextRequest) {
 
       for (const user of usersToMigrate) {
         try {
-          const ADULT_MALE_PRICING = {
-            monthly: 1199,
-            quarterly: 3399,
-            'half yearly': 6299,
-            yearly: 11499
-          };
+          const ADULT_MALE_PRICING = siteSettings.membership.adultMale;
 
           const subscriptionType = user.subscriptionType || 'monthly';
           const durationMap = {

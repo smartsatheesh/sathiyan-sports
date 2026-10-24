@@ -14,7 +14,7 @@ export interface ISubscription extends Document {
   endDate: Date;
   paymentStatus: 'Pending' | 'Paid' | 'Overdue' | 'Cancelled';
   status: 'active' | 'expired' | 'cancelled' | 'pending';
-  paymentMethod?: 'PhonePe' | 'GPay' | 'WhatsApp' | 'Cash';
+  paymentMethod?: 'UPI' | 'PhonePe' | 'GPay' | 'WhatsApp' | 'Cash';
   transactionId?: string;
   lastPaymentDate?: Date;
   nextDueDate: Date;
@@ -105,7 +105,7 @@ const subscriptionSchema = new Schema<ISubscription>({
   },
   paymentMethod: {
     type: String,
-    enum: ['PhonePe', 'GPay', 'WhatsApp', 'Cash']
+    enum: ['UPI', 'PhonePe', 'GPay', 'WhatsApp', 'Cash']
   },
   transactionId: {
     type: String,
@@ -231,75 +231,7 @@ subscriptionSchema.virtual('isActive').get(function() {
   return this.paymentStatus === 'Paid' && this.endDate >= today;
 });
 
-// Static method to get subscription plans
-subscriptionSchema.statics.getSubscriptionPlans = function(gender = 'male', mode = 'standard', preferredTimeSlot = null) {
-  // Helper function to check if time slot qualifies for female discount
-  const isFemalDiscountTimeSlot = (timeSlot: string) => {
-    if (!timeSlot) return false;
-    
-    // Extract start time from time slot
-    const startTime = timeSlot.split(' - ')[0];
-    
-    // Convert time to 24-hour format
-    const convertTo24Hour = (time: string) => {
-      const [timePart, period] = time.split(' ');
-      let [hours, minutes] = timePart.split(':').map(Number);
-      
-      if (period === 'PM' && hours !== 12) {
-        hours += 12;
-      } else if (period === 'AM' && hours === 12) {
-        hours = 0;
-      }
-      
-      return hours + minutes / 60;
-    };
-    
-    const startHour = convertTo24Hour(startTime);
-    
-    // Female discount applies from 10:00 AM (10.0) to 4:00 PM (16.0)
-    return startHour >= 10.0 && startHour < 16.0;
-  };
-
-  const basePrices = {
-    monthly: { male: 1199, female: 799 },
-    quarterly: { male: 3399, female: 2099 },
-    'half yearly': { male: 6299, female: 4099 },
-    yearly: { male: 11499, female: 8399 }
-  };
-
-  // Determine pricing gender based on time slot for females
-  let pricingGender = gender;
-  if (gender === 'female' && preferredTimeSlot && !isFemalDiscountTimeSlot(preferredTimeSlot)) {
-    // Female selected time slot outside 10 AM - 4 PM, use male pricing
-    pricingGender = 'male';
-  }
-
-  const plans = {};
-  const flexibleSurcharge = 500;
-
-  Object.keys(basePrices).forEach(type => {
-    const basePrice = basePrices[type][pricingGender];
-    const finalPrice = mode === 'flexible' ? basePrice + flexibleSurcharge : basePrice;
-    
-    plans[type] = {
-      name: `${type.charAt(0).toUpperCase() + type.slice(1)} Sports Plan`,
-      amount: finalPrice,
-      duration: type === 'monthly' ? 1 : type === 'quarterly' ? 3 : type === 'half yearly' ? 6 : 12,
-      mode: mode,
-      features: [
-        'Access to all sports facilities',
-        'Court booking privileges',
-        `${mode === 'flexible' ? 'Flexible' : 'Standard'} timing options`,
-        'Equipment usage',
-        'Tournament participation'
-      ]
-    };
-  });
-
-  return plans;
-};
-
-// Instance method to renew subscription
+// Renew for the same duration starting at the current end date
 subscriptionSchema.methods.renewSubscription = function() {
   const newStartDate = new Date(this.endDate);
   const newEndDate = new Date(newStartDate);

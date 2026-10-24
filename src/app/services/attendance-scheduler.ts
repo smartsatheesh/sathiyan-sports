@@ -1,4 +1,4 @@
-import { connectToDatabase } from '@/app/server/mongodb';
+import { connectToMongoose } from '@/app/server/mongodb';
 import Attendance from '@/app/models/Attendance';
 
 class AttendanceScheduler {
@@ -40,7 +40,7 @@ class AttendanceScheduler {
 
   private async performAutoLogout() {
     try {
-      await connectToDatabase();
+      await connectToMongoose();
       
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
       

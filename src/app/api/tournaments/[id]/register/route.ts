@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '../../../../server/mongodb';
+import { connectToMongoose } from '../../../../server/mongodb';
 import Tournament from '../../../../models/Tournament';
 import Player from '../../../../models/Player';
 import { getServerSession } from 'next-auth';
@@ -19,7 +19,7 @@ export async function POST(
       );
     }
 
-    await connectToDatabase();
+    await connectToMongoose();
     const User = (await import('../../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
     
@@ -125,7 +125,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    await connectToDatabase();
+    await connectToMongoose();
 
     const players = await (Player.find as any)({ tournamentId: params.id })
       .populate('userId', 'name email phone')

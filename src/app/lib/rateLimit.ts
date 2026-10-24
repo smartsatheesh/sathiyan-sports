@@ -26,7 +26,8 @@ export const RATE_LIMITS: RateLimitRule[] = [
   { pattern: /^\/api\/(contact|tournaments\/public-register)$/, limit: 5, windowMs: 15 * MIN, methods: ["POST"] },
   { pattern: /^\/api\/chatbot$/, limit: 20, windowMs: 10 * MIN, methods: ["POST"] },
   { pattern: /^\/api\/(coach\/generate-plan|fitness-plans\/generate)$/, limit: 5, windowMs: 60 * MIN, methods: ["POST"] },
-  { pattern: /^\/api\/(payment|bookings)(\/|$)/, limit: 30, windowMs: 10 * MIN, methods: ["POST", "PATCH"] },
+  { pattern: /^\/api\/payments$/, limit: 10, windowMs: 10 * MIN, methods: ["POST"] },
+  { pattern: /^\/api\/bookings(\/|$)/, limit: 30, windowMs: 10 * MIN, methods: ["POST", "PATCH"] },
   { pattern: /^\/api\/attendance\/(check-mobile|scan)$/, limit: 30, windowMs: 10 * MIN },
 ];
 

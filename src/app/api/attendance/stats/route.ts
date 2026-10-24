@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/app/server/mongodb';
+import { connectToMongoose } from '@/app/server/mongodb';
 import Attendance from '@/app/models/Attendance';
 import User from '@/app/models/User';
 
 export async function GET(request: Request) {
   try {
-    await connectToDatabase();
+    await connectToMongoose();
     
     const url = new URL(request.url);
     const date = url.searchParams.get('date') || new Date().toISOString().split('T')[0];

@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI, SchemaType, type Content, type Part, type Tool } from '@google/generative-ai';
 import { POST as createBookingRoute } from '../bookings/simple-create/route';
+import { getSiteSettings } from '@/app/lib/settings.server';
+import { calculateBookingPrice, type SiteSettings } from '@/app/lib/pricing';
 
 // Sports the chatbot can book directly (Functions & Events uses session-based durations
 // and tournament registration has its own flow, so both are kept out of scope here).
 const BOOKABLE_SPORTS = ['Cricket', 'Football', 'Shuttle Badminton', 'Body Zorb'] as const;
 type BookableSport = (typeof BOOKABLE_SPORTS)[number];
-
-const SPORT_PRICING: Record<BookableSport, { weekday: number; weekend: number }> = {
-  Cricket: { weekday: 250, weekend: 400 },
-  Football: { weekday: 250, weekend: 400 },
-  'Shuttle Badminton': { weekday: 400, weekend: 400 },
-  'Body Zorb': { weekday: 1000, weekend: 1000 },
-};
 
 const BADMINTON_COURTS = ['S1', 'S2', 'S3'];
 const MAX_SLOTS_PER_BOOKING = 12; // 6 hours, mirrors a sane self-service upper bound
@@ -23,13 +18,6 @@ function getISTNow(): { dateStr: string; timeStr: string; weekday: string } {
   const timeStr = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
   const weekday = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', weekday: 'long' }).format(now);
   return { dateStr, timeStr, weekday };
-}
-
-// Sathiyan Sports treats Friday/Saturday/Sunday as "weekend" pricing (matches src/app/bookslot/page.tsx).
-function isWeekendISODate(dateStr: string): boolean {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const day = new Date(Date.UTC(y, (m || 1) - 1, d || 1)).getUTCDay();
-  return day === 0 || day === 5 || day === 6;
 }
 
 function pad2(n: number): string {
@@ -112,9 +100,9 @@ async function handleBookSlot(args: BookSlotArgs): Promise<Record<string, unknow
     return { success: false, message: error };
   }
 
-  const weekend = isWeekendISODate(args.date);
-  const pricePerSlot = SPORT_PRICING[sport][weekend ? 'weekend' : 'weekday'];
-  const totalPrice = pricePerSlot * slots.length;
+  // simple-create recalculates the price server-side; this is only for the reply text
+  const settings = await getSiteSettings();
+  const totalPrice = calculateBookingPrice(settings, { sport, date: args.date, slots })?.total ?? 0;
 
   const basePayload = {
     sport,
@@ -126,7 +114,6 @@ async function handleBookSlot(args: BookSlotArgs): Promise<Record<string, unknow
       phone: args.customerPhone,
     },
     totalPrice,
-    paymentMethod: 'manual',
   };
 
   if (sport === 'Shuttle Badminton') {
@@ -149,7 +136,30 @@ async function handleBookSlot(args: BookSlotArgs): Promise<Record<string, unknow
   return { success: false, message: data?.message || 'Could not create the booking, that slot may already be taken.' };
 }
 
-function buildFacilityContext(): string {
+const SPORT_DESCRIPTIONS: Record<string, string> = {
+  Cricket: 'full-size pitch, changing rooms',
+  Football: 'FIFA-standard turf with floodlights',
+  'Shuttle Badminton': '3 indoor wooden courts (S1, S2, S3), professional nets, rackets available',
+  'Functions and Events': 'hall for 500+ guests, A/V, catering, parking. Sessions: Morning (6am-12pm), Afternoon (12pm-6pm), Evening (6pm-12am), Full day, or custom (min 3 hours)',
+  'Body Zorb': 'bubble football with waterproof suits, safety gear and supervision',
+};
+
+function priceLines(settings: SiteSettings): string {
+  const extras = settings.extras.map((e) => `${e.name} rental optional, ₹${e.price} each`).join('; ');
+  return settings.courts
+    .filter((c) => c.active)
+    .map((c) => {
+      const unit = c.perHour ? 'hour' : '30-minute slot';
+      const price = c.weekday === c.weekend
+        ? `₹${c.weekday} per ${unit}, same price all week`
+        : `₹${c.weekday} per ${unit} on weekdays, ₹${c.weekend} on weekends`;
+      const extra = ['Cricket', 'Football'].includes(c.sport) && extras ? ` ${extras}.` : '';
+      return `- ${c.sport}: ${SPORT_DESCRIPTIONS[c.sport] || ''}. ${price}.${extra}`;
+    })
+    .join('\n');
+}
+
+function buildFacilityContext(settings: SiteSettings): string {
   const { dateStr, timeStr, weekday } = getISTNow();
   return `
 You are "Sathiyan Assistant", the friendly virtual help-desk for Sathiyan Sports (Sathiyan Multi Sport Club),
@@ -163,12 +173,8 @@ Contact details:
 - Email: info@sathiyansports.com
 - WhatsApp community: https://chat.whatsapp.com/LosEvhkOJui4hrMUh4mUFV
 
-Sports & facilities offered, with pricing (all prices in INR, "weekend" = Fri-Sun):
-- Cricket: full-size pitch, changing rooms. ₹250/slot on weekdays, ₹400/slot on weekends. Ball rental optional, ₹80 extra.
-- Football: FIFA-standard turf with floodlights. ₹250/slot on weekdays, ₹400/slot on weekends. Ball rental optional, ₹80 extra.
-- Shuttle Badminton: 3 indoor wooden courts (S1, S2, S3) with professional nets, rackets available. ₹400 per slot (30 min), same price on weekdays and weekends. That's ₹1000 for 2 hours on weekdays, or ₹800/hour on weekends.
-- Functions & Events: spacious hall for 500+ guests, A/V equipment, catering, parking, event coordination. ₹2000/session on weekdays, ₹2500/session on weekends. Sessions: Morning (6am-12pm), Afternoon (12pm-6pm), Evening (6pm-12am), Full day, or custom (min 3 hours).
-- Body Zorb (bubble football): waterproof bubble suits, safety gear, supervision included. ₹1000/hour; currently 1 hour FREE on weekdays as a launch offer.
+Sports & facilities offered, with pricing (all prices in INR, "weekend" = ${settings.weekendDays.map((d) => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join('/')}):
+${priceLines(settings)}
 
 Other things the venue offers:
 - Tournaments (badminton/table tennis brackets, league play): /tournaments
@@ -254,7 +260,7 @@ export async function POST(request: NextRequest) {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
       model: 'gemini-flash-latest',
-      systemInstruction: buildFacilityContext(),
+      systemInstruction: buildFacilityContext(await getSiteSettings()),
       tools: [BOOK_SLOT_TOOL],
     });
 

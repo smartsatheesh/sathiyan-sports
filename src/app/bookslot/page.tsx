@@ -11,7 +11,6 @@ import {
   CardContent,
   Button,
   Box,
-  Chip,
   TextField,
   Dialog,
   DialogTitle,
@@ -20,49 +19,30 @@ import {
   Alert,
   CircularProgress,
   FormControl,
-  Divider,
   Select,
   MenuItem,
   InputLabel,
-  Stepper,
-  Step,
-  StepLabel,
-  List,
-  ListItem,
   
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers";
-import QRCode from "react-qr-code";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { enGB } from 'date-fns/locale';
 import { format, setHours, setMinutes, addMinutes } from "date-fns";
 import {
-  CreditCard,
-  AccountBalance,
   Payment,
-  PhoneAndroid,
-  Security,
   CheckCircle,
-  ExpandMore,
   ContentCopy,
-  Timer,
-  Verified,
 } from "@mui/icons-material";
-import SimplePaymentDialog from "../components/SimplePaymentDialog";
+import UpiPaymentDialog from "../components/UpiPaymentDialog";
+import { useSiteSettings } from "../hooks/useSiteSettings";
+import { calculateBookingPrice, getCourt, EVENT_SESSIONS } from "../lib/pricing";
 
 // Custom weekend function that includes Friday, Saturday, and Sunday
-const isWeekend = (date: Date): boolean => {
-  const day = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  return day === 0 || day === 5 || day === 6; // Sunday, Friday, Saturday
-};
-
 // Sports data with proper typing to match selectedSport state
 const sports: Array<{
   id: number;
   name: "Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events" | "Body Zorb";
-  basePrice: number;
-  weekendPrice: number;
   icon: string;
   color: string;
   description: string;
@@ -71,8 +51,6 @@ const sports: Array<{
   {
     id: 1,
     name: "Cricket",
-    basePrice: 250,
-    weekendPrice: 400,
     icon: "🏏",
     color: "#4caf50",
     description: "Professional cricket ground with all facilities",
@@ -81,8 +59,6 @@ const sports: Array<{
   {
     id: 2,
     name: "Football",
-    basePrice: 250,
-    weekendPrice: 400,
     icon: "⚽",
     color: "#2196f3",
     description: "FIFA standard football turf",
@@ -91,8 +67,6 @@ const sports: Array<{
   {
     id: 3,
     name: "Shuttle Badminton",
-    basePrice: 400,
-    weekendPrice: 400,
     icon: "🏸",
     color: "#ff9800",
     description: "Indoor badminton courts with wooden flooring",
@@ -101,8 +75,6 @@ const sports: Array<{
   {
     id: 4,
     name: "Functions and Events",
-    basePrice: 2000,
-    weekendPrice: 2500,
     icon: "🎉",
     color: "#9c27b0",
     description: "Premium venue for corporate events, birthday parties, and celebrations",
@@ -117,8 +89,6 @@ const sports: Array<{
   {
     id: 5,
     name: "Body Zorb",
-    basePrice: 1000,
-    weekendPrice: 1000,
     icon: "⚪",
     color: "#FF6B6B",
     description: "Thrilling inflatable bubble football experience",
@@ -129,47 +99,6 @@ const sports: Array<{
       "🎉 Launching Offer: 1 hour FREE on weekdays!"
     ]
   },
-];
-
-// Special session slots for Functions and Events
-const eventSessions = [
-  { time: "Morning Session (06:00 - 12:00)", hours: 6 },
-  { time: "Afternoon Session (12:00 - 18:00)", hours: 6 },
-  { time: "Evening Session (18:00 - 24:00)", hours: 6 },
-  { time: "Full Day (06:00 - 24:00)", hours: 18 },
-  { time: "Custom Hours (Minimum 3 hours)", hours: 3 }
-];
-
-// Bank list for Net Banking
-const bankList = [
-  { code: 'HDFC', name: 'HDFC Bank', popular: true },
-  { code: 'ICICI', name: 'ICICI Bank', popular: true },
-  { code: 'SBI', name: 'State Bank of India', popular: true },
-  { code: 'AXIS', name: 'Axis Bank', popular: true },
-  { code: 'KOTAK', name: 'Kotak Mahindra Bank', popular: true },
-  { code: 'PNB', name: 'Punjab National Bank', popular: false },
-  { code: 'CANARA', name: 'Canara Bank', popular: false },
-  { code: 'BOB', name: 'Bank of Baroda', popular: false },
-  { code: 'UNION', name: 'Union Bank of India', popular: false },
-  { code: 'IDBI', name: 'IDBI Bank', popular: false },
-];
-
-// Wallet options
-const walletOptions = [
-  { code: 'PAYTM', name: 'Paytm Wallet', icon: '💰' },
-  { code: 'PHONEPE', name: 'PhonePe Wallet', icon: '📱' },
-  { code: 'AMAZON', name: 'Amazon Pay', icon: '🛒' },
-  { code: 'MOBIKWIK', name: 'MobiKwik', icon: '💳' },
-];
-
-// UPI Apps
-const upiApps = [
-  { code: 'GPAY', name: 'Google Pay', icon: '🎯' },
-  { code: 'PHONEPE', name: 'PhonePe', icon: '💜' },
-  { code: 'PAYTM', name: 'Paytm UPI', icon: '💙' },
-  { code: 'BHIM', name: 'BHIM UPI', icon: '🇮🇳' },
-  { code: 'AMAZONPAY', name: 'Amazon Pay UPI', icon: '🛒' },
-  { code: 'WHATSAPP', name: 'WhatsApp Pay', icon: '💚' },
 ];
 
 // Update the timeSlots generation with 30-minute intervals and sport-specific blocking
@@ -188,7 +117,7 @@ const generateTimeSlots = (
     selectedDate.getFullYear() === now.getFullYear();
 
   if (isEvent) {
-    return eventSessions.map(session => {
+    return EVENT_SESSIONS.map(session => {
       let available = true;
       
       // If it's today, check if the session time has passed
@@ -357,15 +286,6 @@ export default function BookSlot() {
   const [alert, setAlert] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
   
   // Enhanced Payment dialog states - HDFC Bank Style
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'netbanking' | 'card' | 'wallet' | 'phonepe'>('phonepe');
-  const [paymentStep, setPaymentStep] = useState<'method' | 'processing' | 'verification' | 'success'>('method');
-  const [selectedBank, setSelectedBank] = useState('');
-  const [selectedWallet, setSelectedWallet] = useState('');
-  const [selectedUpiApp, setSelectedUpiApp] = useState('GPAY');
-  const [upiTransactionId, setUpiTransactionId] = useState('');
-  const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
-  const [paymentTimer, setPaymentTimer] = useState(300); // 5 minutes
   const [whatsAppShare, setWhatsAppShare] = useState<{
     open: boolean;
     message: string;
@@ -411,18 +331,12 @@ export default function BookSlot() {
       });
     });
   }, [selectedSport]);
-  const [timerActive, setTimerActive] = useState(false);
-  const [paymentProcessing, setPaymentProcessing] = useState(false);
-  const [showQR, setShowQR] = useState(false);
-  const [paymentReference, setPaymentReference] = useState('');
-
-  // Simple Payment Dialog states
-  const [simplePaymentOpen, setSimplePaymentOpen] = useState(false);
-  const [currentBookingData, setCurrentBookingData] = useState<any>(null);
+  const [upiPayment, setUpiPayment] = useState<{ bookingId: string; amount: number; note: string } | null>(null);
+  const { settings } = useSiteSettings();
 
   // Ball extras state
   const [ballCount, setBallCount] = useState(0);
-  const BALL_PRICE = 80;
+  const BALL_PRICE = settings.extras.find((e) => e.key === 'ball')?.price ?? 0;
   const [editableAmount, setEditableAmount] = useState<number | null>(null);
 
   const allSelectedSlots = useMemo(
@@ -473,23 +387,16 @@ export default function BookSlot() {
     };
   }, [selectedDate, selectedTimeSlots, selectedNextDayTimeSlots]);
 
-  // Calculate base price (slots only, no balls) based on sport type and hours/slots
+  // Slot price from the owner's settings (server recalculates the same way)
   const baseSlotPrice = useMemo(() => {
-    if (!selectedSport || !selectedDate || allSelectedSlots.length === 0)
-      return null;
-    const sport = sports.find((s) => s.name === selectedSport);
-    if (!sport) return null;
-    const pricePerUnit = isWeekend(selectedDate) ? sport.weekendPrice : sport.basePrice;
-    if (selectedSport === "Functions and Events") {
-      const totalHours = allSelectedSlots.reduce((acc, timeSlot) => {
-        const slot = timeSlots.find(s => s.time === timeSlot);
-        return acc + (slot?.hours || 1);
-      }, 0);
-      return pricePerUnit * totalHours;
-    } else {
-      return pricePerUnit * allSelectedSlots.length;
-    }
-  }, [selectedSport, selectedDate, allSelectedSlots, timeSlots]);
+    if (!selectedSport || !bookingBreakdown.primaryDate || allSelectedSlots.length === 0) return null;
+    const price = calculateBookingPrice(settings, {
+      sport: selectedSport,
+      date: format(bookingBreakdown.primaryDate, 'yyyy-MM-dd'),
+      slots: allSelectedSlots,
+    });
+    return price ? price.slotTotal : null;
+  }, [selectedSport, bookingBreakdown.primaryDate, allSelectedSlots, settings]);
 
   // Total price = slot price + ball extras (or manual override)
   const totalPrice = useMemo(() => {
@@ -718,22 +625,6 @@ export default function BookSlot() {
     }
   }, [selectedSport, selectedDate, isAdminUser]);
 
-  // Payment timer effect
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (timerActive && paymentTimer > 0) {
-      interval = setInterval(() => {
-        setPaymentTimer((prev) => prev - 1);
-      }, 1000);
-    } else if (paymentTimer === 0) {
-      // Timer expired
-      setPaymentDialogOpen(false);
-      setTimerActive(false);
-      setAlert({ type: 'error', message: 'Payment time expired. Please try again.' });
-    }
-    return () => clearInterval(interval);
-  }, [timerActive, paymentTimer]);
-
   // Show loading while checking authentication (optional for guests)
   // Removed authentication requirement - guests can book without login
   // if (status === 'loading') {
@@ -757,326 +648,6 @@ export default function BookSlot() {
   // if (!session) {
   //   return null;
   // }
-
-  // Generate payment reference number
-  const generatePaymentRef = () => {
-    return 'SAS' + Date.now().toString().slice(-8);
-  };
-
-  // Utility functions
-  const formatTimer = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const generateUpiUrl = (amount: number, reference: string) => {
-    const upiId = process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'sathiyansportacademy202525-1@okaxis';
-    const name = process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club';
-    const note = `Booking payment for ${selectedSport} - Ref: ${reference}`;
-    return `upi://pay?pa=${upiId}&pn=${encodeURIComponent(name)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
-  };
-
-  // HDFC Bank style payment processing with Razorpay and PhonePe
-  const processPayment = async () => {
-    setPaymentProcessing(true);
-    setPaymentStep('processing');
-    
-    // Generate payment reference
-    const ref = generatePaymentRef();
-    setPaymentReference(ref);
-    
-    try {
-      if (paymentMethod === 'phonepe') {
-        // Create PhonePe payment order
-        const orderResponse = await fetch('/api/phonepe/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: totalPrice,
-            customerInfo,
-            bookingReference: ref
-          })
-        });
-
-        const orderData = await orderResponse.json();
-
-        if (orderData.success) {
-          // Store transaction details for verification
-          setCurrentBookingId(orderData.transactionId);
-          
-          // Redirect to PhonePe payment page
-          window.open(orderData.paymentUrl, '_blank');
-          
-          // Set to verification step and wait for user to complete payment
-          setPaymentStep('verification');
-          setAlert({ 
-            type: 'info', 
-            message: 'Complete payment in the new tab and then verify below' 
-          });
-        } else {
-          setAlert({ type: 'error', message: orderData.message || 'Failed to create PhonePe payment' });
-          setPaymentStep('method');
-        }
-      } else if (paymentMethod === 'upi') {
-        // Create Razorpay order for real UPI payment
-        const orderResponse = await fetch('/api/payment/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: totalPrice,
-            customerInfo,
-            bookingReference: ref
-          })
-        });
-
-        const orderData = await orderResponse.json();
-
-        if (orderData.success) {
-          // Store order details for payment
-          setCurrentBookingId(orderData.orderId);
-          
-          // Initialize Razorpay payment
-          const options = {
-            key: orderData.keyId,
-            amount: orderData.amount,
-            currency: orderData.currency,
-            name: 'Sathiyan Sports',
-            description: `${selectedSport} Booking`,
-            order_id: orderData.orderId,
-            handler: async function (response: any) {
-              console.log('Payment successful:', response);
-              
-              // Verify payment with our backend
-              const verifyResponse = await fetch('/api/payment/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                  bookingReference: ref
-                })
-              });
-
-              const verifyData = await verifyResponse.json();
-
-              if (verifyData.success) {
-                // Payment verified successfully
-                setUpiTransactionId(verifyData.payment.upiTransactionId);
-                setPaymentStep('verification');
-                setAlert({ 
-                  type: 'success', 
-                  message: `Payment successful! Transaction ID: ${verifyData.payment.upiTransactionId}` 
-                });
-                
-                // Auto-confirm booking
-                setTimeout(() => {
-                  handlePaymentConfirmation();
-                }, 1000);
-              } else {
-                setAlert({ type: 'error', message: 'Payment verification failed' });
-                setPaymentStep('method');
-              }
-            },
-            prefill: {
-              name: customerInfo.name,
-              email: customerInfo.email,
-              contact: customerInfo.phone
-            },
-            theme: {
-              color: '#1976d2'
-            },
-            method: {
-              upi: true,
-              card: false,
-              netbanking: false,
-              wallet: false
-            }
-          };
-
-          // Create Razorpay instance and open checkout
-          const rzp = new (window as any).Razorpay(options);
-          rzp.on('payment.failed', function (response: any) {
-            console.log('Payment failed:', response);
-            setAlert({ type: 'error', message: 'Payment failed. Please try again.' });
-            setPaymentStep('method');
-          });
-          
-          rzp.open();
-          setPaymentStep('verification');
-        } else {
-          setAlert({ type: 'error', message: orderData.message || 'Failed to create payment order' });
-          setPaymentStep('method');
-        }
-      } else {
-        // Other payment methods are coming soon
-        setAlert({ 
-          type: 'info', 
-          message: 'This payment method is coming soon. Please use PhonePe or UPI for now.' 
-        });
-        setPaymentStep('method');
-      }
-    } catch (error) {
-      console.error('Payment processing error:', error);
-      setAlert({ type: 'error', message: 'Payment processing failed. Please try again.' });
-      setPaymentStep('method');
-    }
-    
-    setPaymentProcessing(false);
-  };
-
-  // Handle payment confirmation with enhanced verification
-  const handlePaymentConfirmation = async () => {
-    if (paymentMethod === 'phonepe') {
-      // For PhonePe, verify using transaction ID
-      if (!currentBookingId) {
-        setAlert({ type: 'error', message: 'Transaction ID missing. Please restart payment process.' });
-        return;
-      }
-
-      setLoading(true);
-      try {
-        // Verify PhonePe payment
-        const verifyResponse = await fetch('/api/phonepe/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            transactionId: currentBookingId,
-            bookingReference: paymentReference
-          })
-        });
-
-        const verifyData = await verifyResponse.json();
-
-        if (verifyData.success) {
-          // Payment verified successfully
-          setUpiTransactionId(verifyData.payment.phonepeTransactionId);
-          
-          // Create booking in database
-          const bookingId = await createBookingInDB();
-          if (!bookingId) {
-            setLoading(false);
-            return;
-          }
-
-          // Update booking with payment details
-          const updateResponse = await fetch(`/api/bookings/${bookingId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              paymentStatus: 'completed',
-              bookingStatus: 'confirmed',
-              paymentMethod: 'phonepe',
-              upiTransactionId: verifyData.payment.phonepeTransactionId,
-              paymentReference: paymentReference,
-              phonepeTransactionId: verifyData.payment.transactionId
-            })
-          });
-
-          const updateData = await updateResponse.json();
-
-          if (updateData.success) {
-            setPaymentStep('success');
-            setTimerActive(false);
-            setAlert({ 
-              type: 'success', 
-              message: `PhonePe payment successful! Booking confirmed with reference ${paymentReference}` 
-            });
-            
-            // Auto close after 3 seconds
-            setTimeout(() => {
-              setPaymentDialogOpen(false);
-              // Reset form
-              setSelectedSport("");
-              setSelectedDate(null);
-              setSelectedTimeSlots([]);
-              setSelectedNextDayTimeSlots([]);
-              setCustomerInfo({ name: "", email: "", phone: "", eventType: "Corporate Event", specialRequirements: "" });
-              setUpiTransactionId('');
-              setCurrentBookingId(null);
-              setPaymentStep('method');
-              setPaymentReference('');
-            }, 3000);
-          } else {
-            setAlert({ type: 'error', message: updateData.message || 'Failed to confirm booking' });
-          }
-        } else {
-          setAlert({ type: 'error', message: verifyData.message || 'Payment verification failed' });
-        }
-      } catch (error) {
-        console.error("PhonePe payment verification error:", error);
-        setAlert({ type: 'error', message: 'Failed to verify PhonePe payment' });
-      }
-      setLoading(false);
-      return;
-    }
-
-    // Original Razorpay/UPI verification logic
-    if (!upiTransactionId.trim()) {
-      setAlert({ type: 'error', message: 'Please enter transaction ID or reference number' });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // First create the booking in database after payment verification
-      const bookingId = await createBookingInDB();
-      if (!bookingId) {
-        setLoading(false);
-        return;
-      }
-
-      // Then update the booking with payment details
-      const response = await fetch(`/api/bookings/${bookingId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          paymentStatus: 'completed',
-          bookingStatus: 'confirmed',
-          paymentMethod: paymentMethod,
-          upiTransactionId: upiTransactionId.trim(),
-          paymentReference: paymentReference,
-          bankDetails: paymentMethod === 'netbanking' ? selectedBank : null,
-          walletDetails: paymentMethod === 'wallet' ? selectedWallet : null,
-          upiApp: paymentMethod === 'upi' ? selectedUpiApp : null
-        })
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setCurrentBookingId(bookingId);
-        setPaymentStep('success');
-        setTimerActive(false);
-        setAlert({ 
-          type: 'success', 
-          message: `Payment successful! Booking confirmed with reference ${paymentReference}` 
-        });
-        
-        // Auto close after 3 seconds
-        setTimeout(() => {
-          setPaymentDialogOpen(false);
-          // Reset form
-          setSelectedSport("");
-          setSelectedDate(null);
-          setSelectedTimeSlots([]);
-          setSelectedNextDayTimeSlots([]);
-          setCustomerInfo({ name: "", email: "", phone: "", eventType: "Corporate Event", specialRequirements: "" });
-          setUpiTransactionId('');
-          setCurrentBookingId(null);
-          setPaymentStep('method');
-          setPaymentReference('');
-        }, 3000);
-      } else {
-        setAlert({ type: 'error', message: data.message || 'Failed to confirm payment' });
-      }
-    } catch (error) {
-      console.error("Payment confirmation error:", error);
-      setAlert({ type: 'error', message: 'Failed to confirm payment' });
-    }
-    setLoading(false);
-  };
 
   // Copy to clipboard functionality
   const copyToClipboard = (text: string, message: string) => {
@@ -1122,29 +693,27 @@ export default function BookSlot() {
       return;
     }
 
-    // Validate court selection for Shuttle Badminton
     if (selectedSport === "Shuttle Badminton" && !selectedCourt) {
       setAlert({ type: 'error', message: 'Please select a court for Shuttle Badminton booking' });
       return;
     }
 
-    // Save customer details for future bookings
-    saveCustomerDetails(customerInfo);
-
-    // Prepare booking data for payment
     if (!bookingBreakdown.primaryDate || bookingBreakdown.primarySlots.length === 0) {
       setAlert({ type: 'error', message: 'Please select at least one valid slot' });
       return;
     }
 
+    saveCustomerDetails(customerInfo);
+
     const bookingData: any = {
       sport: selectedSport,
       date: format(bookingBreakdown.primaryDate, 'yyyy-MM-dd'),
-      timeSlot: bookingBreakdown.primarySlots.join(', '),
       timeSlots: bookingBreakdown.primarySlots,
       court: selectedSport === "Shuttle Badminton" ? selectedCourt : null,
       customerInfo,
-      totalPrice: totalPrice
+      extras: ballCount > 0 ? { ball: ballCount } : undefined,
+      // Only honoured for admins (manual override); customers are priced by the server
+      totalPrice: isAdminUser ? totalPrice : undefined,
     };
 
     if (bookingBreakdown.secondaryDate && bookingBreakdown.secondarySlots.length > 0) {
@@ -1152,67 +721,55 @@ export default function BookSlot() {
       bookingData.nextDayTimeSlots = bookingBreakdown.secondarySlots;
     }
 
-    setCurrentBookingData(bookingData);
-    setBookingDialogOpen(false);
-    setSimplePaymentOpen(true);
-  };
-
-  // Handle payment completion from SimplePaymentDialog
-  const handlePaymentComplete = async (transactionId: string, paymentMethod: string, paidAmount?: number) => {
-    if (!currentBookingData) return;
-
     try {
       setLoading(true);
-      
       const response = await fetch('/api/bookings/simple-create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...currentBookingData,
-          transactionId,
-          paymentMethod,
-          paymentReference: `${paymentMethod.toUpperCase()}_${Date.now()}`
-        })
+        body: JSON.stringify(bookingData),
       });
-
       const result = await response.json();
 
-      if (result.success) {
-        const bookingDateText = currentBookingData.date
-          ? format(new Date(currentBookingData.date), 'd MMM yyyy (EEEE)')
-          : 'N/A';
-        const timeText = currentBookingData.timeSlot || (Array.isArray(currentBookingData.timeSlots) ? currentBookingData.timeSlots.join(', ') : 'N/A');
-        const slotText = currentBookingData.court
-          ? `${currentBookingData.sport} (${currentBookingData.court})`
-          : `${currentBookingData.sport}${currentBookingData.sport === 'Cricket' || currentBookingData.sport === 'Football' ? ' (Full Ground)' : ''}`;
-        const totalAmount = Number(currentBookingData.totalPrice || totalPrice || 0);
-        const confirmedPaidAmount = Number.isFinite(Number(paidAmount)) ? Number(paidAmount) : 0;
-        const pendingAmount = Math.max(totalAmount - confirmedPaidAmount, 0);
-
-        const bookingMessage = `Dear ${customerInfo.name || 'Customer'},\n\nYour booking has been confirmed.\n\n*Booking Details*\n\n• Booking ID: *${result.booking.bookingReference}*\n• Venue: *Sathiyan Multisport Sport Club*\n• Slot: *${slotText}*\n• Date: *${bookingDateText}*\n• Time: *${timeText}*\n\n*Payment Summary*\n\n• Slot Amount: *₹${totalAmount}*\n• Discount: *₹0*\n\n• Final Amount: *₹${totalAmount}*\n• Paid Amount: *₹${confirmedPaidAmount}*\n• Pending Amount: *₹${pendingAmount}*\n\nThank you for booking with us!\nWe look forward to seeing you!\n\nFor more information visit\nwww.sathiyansports.fit\n\nBest regards,\nSathiyan Multisport Sport Club`;
-
-        setWhatsAppShare({
-          open: true,
-          message: bookingMessage,
-          url: `https://wa.me/?text=${encodeURIComponent(bookingMessage)}`
-        });
-
-        setAlert({ 
-          type: 'success', 
-          message: `✅ Booking confirmed! Ref: ${result.booking.bookingReference}. Use WhatsApp share below.` 
-        });
-        
-        // Reset form
-        setSelectedSport('');
-        setSelectedDate(null);
-        setSelectedTimeSlots([]);
-        setSelectedNextDayTimeSlots([]);
-        setCustomerInfo({ name: '', email: '', phone: '', eventType: '', specialRequirements: '' });
-        setSimplePaymentOpen(false);
-        setCurrentBookingData(null);
-      } else {
+      if (!result.success) {
         setAlert({ type: 'error', message: result.message || 'Booking failed' });
+        return;
       }
+
+      const booking = result.booking;
+      const amount = Number(booking.totalAmount || 0);
+      const dateText = format(bookingBreakdown.primaryDate, 'd MMM yyyy (EEEE)');
+      const timeText = bookingBreakdown.primarySlots.join(', ');
+      const slotText = bookingData.court
+        ? `${selectedSport} (${bookingData.court})`
+        : `${selectedSport}${isBallSport(selectedSport) ? ' (Full Ground)' : ''}`;
+
+      const bookingMessage = `Dear ${customerInfo.name || 'Customer'},\n\nYour booking request has been received.\n\n*Booking Details*\n\n• Booking ID: *${booking.bookingReference}*\n• Venue: *Sathiyan Multisport Sport Club*\n• Slot: *${slotText}*\n• Date: *${dateText}*\n• Time: *${timeText}*\n\n• Amount: *₹${amount}*\n\nThank you for booking with us!\n\nwww.sathiyansports.fit\n\nBest regards,\nSathiyan Multisport Sport Club`;
+
+      setWhatsAppShare({
+        open: isAdminUser, // admins share immediately; customers see it after paying
+        message: bookingMessage,
+        url: `https://wa.me/?text=${encodeURIComponent(bookingMessage)}`
+      });
+
+      setAlert({
+        type: 'success',
+        message: isAdminUser
+          ? `✅ Booking confirmed! Ref: ${booking.bookingReference}`
+          : `✅ Booking received! Ref: ${booking.bookingReference}. Pay by UPI to confirm your slot.`
+      });
+
+      setBookingDialogOpen(false);
+      if (!isAdminUser && amount > 0) {
+        setUpiPayment({ bookingId: booking.id, amount, note: `Booking ${booking.bookingReference}` });
+      }
+
+      setSelectedSport('');
+      setSelectedDate(null);
+      setSelectedTimeSlots([]);
+      setSelectedNextDayTimeSlots([]);
+      setBallCount(0);
+      setEditableAmount(null);
+      setCustomerInfo({ name: '', email: '', phone: '', eventType: '', specialRequirements: '' });
     } catch (error) {
       console.error('Booking error:', error);
       setAlert({ type: 'error', message: 'Failed to create booking. Please try again.' });
@@ -1220,586 +777,6 @@ export default function BookSlot() {
       setLoading(false);
     }
   };
-
-  // Create booking in database after payment is initiated
-  const createBookingInDB = async () => {
-    setLoading(true);
-    try {
-      const sport = sports.find((s) => s.name === selectedSport);
-      let pricePerSlot = isWeekend(selectedDate!) ? sport!.weekendPrice : sport!.basePrice;
-      
-      const paymentExpiry = new Date();
-      paymentExpiry.setMinutes(paymentExpiry.getMinutes() + 5);
-      
-      // Check if user is admin for auto-verification
-      const isAdmin = session?.user?.role === 'admin';
-      
-      if (!bookingBreakdown.primaryDate || bookingBreakdown.primarySlots.length === 0) {
-        setAlert({ type: 'error', message: 'Please select at least one valid slot' });
-        return null;
-      }
-
-      const bookingData: any = {
-        sport: selectedSport,
-        date: format(bookingBreakdown.primaryDate, 'yyyy-MM-dd'),
-        timeSlots: bookingBreakdown.primarySlots,
-        totalAmount: totalPrice,
-        pricePerSlot,
-        isWeekend: isWeekend(bookingBreakdown.primaryDate),
-        userId: session?.user?.id, // Add user reference for authenticated bookings
-        customerName: customerInfo.name,
-        customerEmail: customerInfo.email,
-        customerPhone: customerInfo.phone,
-        paymentExpiry: paymentExpiry.toISOString(),
-        paymentStatus: "pending", // Payment can be validated later for both admin and customers
-        bookingStatus: "confirmed" // Confirm immediately so turf slots are blocked
-      };
-      
-      // Add secondary date slots when overlap section is used
-      if (bookingBreakdown.secondaryDate && bookingBreakdown.secondarySlots.length > 0) {
-        bookingData.nextDayDate = format(bookingBreakdown.secondaryDate, 'yyyy-MM-dd');
-        bookingData.nextDayTimeSlots = bookingBreakdown.secondarySlots;
-      }
-
-      // Add Functions and Events specific fields
-      if (selectedSport === "Functions and Events") {
-        const totalHours = allSelectedSlots.reduce((acc, timeSlot) => {
-          const slot = timeSlots.find(s => s.time === timeSlot);
-          return acc + (slot?.hours || 1);
-        }, 0);
-        
-        bookingData.totalHours = totalHours;
-        bookingData.eventType = customerInfo.eventType;
-        if (customerInfo.specialRequirements) {
-          bookingData.specialRequirements = customerInfo.specialRequirements;
-        }
-      }
-
-      const response = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(bookingData),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setCurrentBookingId(data.bookingId);
-        // Show success message for admin auto-booking
-        if (isAdmin) {
-          const dateMessage = bookingBreakdown.secondaryDate
-            ? `Admin booking confirmed for ${format(bookingBreakdown.primaryDate, 'dd MMM')} & ${format(bookingBreakdown.secondaryDate, 'dd MMM')} with slots blocked on both dates.`
-            : '✅ Admin booking confirmed and slot blocked. Payment can be updated later.';
-          setAlert({ type: 'success', message: dateMessage });
-        }
-        return data.bookingId;
-      } else {
-        setAlert({ type: 'error', message: data.message || 'Failed to create booking' });
-        return null;
-      }
-    } catch (error) {
-      console.error("Booking error:", error);
-      setAlert({ type: 'error', message: 'Failed to create booking' });
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Payment Step Components
-  const PaymentMethodSelection = () => (
-    <Box sx={{ mt: 2 }}>
-      <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Security color="primary" />
-        Secure Payment Options
-      </Typography>
-      
-      <Grid container spacing={2} sx={{ mt: 1 }}>
-        <Grid item xs={6} md={2.4}>
-          <Card 
-            variant={paymentMethod === 'phonepe' ? 'elevation' : 'outlined'}
-            sx={{ 
-              cursor: 'pointer', 
-              border: paymentMethod === 'phonepe' ? '2px solid' : 'none',
-              borderColor: paymentMethod === 'phonepe' ? 'primary.main' : 'transparent'
-            }}
-            onClick={() => setPaymentMethod('phonepe')}
-          >
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography sx={{ fontSize: '2rem', mb: 1 }}>💜</Typography>
-              <Typography variant="subtitle2">PhonePe</Typography>
-              <Typography variant="caption" color="success.main" fontWeight="bold">100% FREE</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={6} md={2.4}>
-          <Card 
-            variant={paymentMethod === 'upi' ? 'elevation' : 'outlined'}
-            sx={{ 
-              cursor: 'pointer', 
-              border: paymentMethod === 'upi' ? '2px solid' : 'none',
-              borderColor: paymentMethod === 'upi' ? 'primary.main' : 'transparent'
-            }}
-            onClick={() => setPaymentMethod('upi')}
-          >
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <PhoneAndroid color="primary" sx={{ fontSize: 40, mb: 1 }} />
-              <Typography variant="subtitle2">UPI</Typography>
-              <Typography variant="caption" color="text.secondary">Instant & Secure</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        <Grid item xs={6} md={2.4}>
-          <Card 
-            variant="outlined"
-            sx={{ 
-              cursor: 'not-allowed', 
-              opacity: 0.6,
-              position: 'relative'
-            }}
-          >
-            <CardContent sx={{ textAlign: 'center', py: 2, position: 'relative' }}>
-              <AccountBalance color="disabled" sx={{ fontSize: 40, mb: 1 }} />
-              <Typography variant="subtitle2" color="text.disabled">Net Banking</Typography>
-              <Typography variant="caption" color="text.disabled">All Major Banks</Typography>
-              <Box sx={{ 
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                bgcolor: 'primary.main',
-                color: 'white',
-                px: 1,
-                py: 0.5,
-                borderRadius: 1,
-                fontSize: '0.7rem',
-                fontWeight: 'bold'
-              }}>
-                COMING SOON
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        <Grid item xs={6} md={2.4}>
-          <Card 
-            variant="outlined"
-            sx={{ 
-              cursor: 'not-allowed', 
-              opacity: 0.6,
-              position: 'relative'
-            }}
-          >
-            <CardContent sx={{ textAlign: 'center', py: 2, position: 'relative' }}>
-              <CreditCard color="disabled" sx={{ fontSize: 40, mb: 1 }} />
-              <Typography variant="subtitle2" color="text.disabled">Debit/Credit Card</Typography>
-              <Typography variant="caption" color="text.disabled">Visa, MasterCard</Typography>
-              <Box sx={{ 
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                bgcolor: 'primary.main',
-                color: 'white',
-                px: 1,
-                py: 0.5,
-                borderRadius: 1,
-                fontSize: '0.7rem',
-                fontWeight: 'bold'
-              }}>
-                COMING SOON
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        <Grid item xs={6} md={2.4}>
-          <Card 
-            variant="outlined"
-            sx={{ 
-              cursor: 'not-allowed', 
-              opacity: 0.6,
-              position: 'relative'
-            }}
-          >
-            <CardContent sx={{ textAlign: 'center', py: 2, position: 'relative' }}>
-              <Payment color="disabled" sx={{ fontSize: 40, mb: 1 }} />
-              <Typography variant="subtitle2" color="text.disabled">Wallets</Typography>
-              <Typography variant="caption" color="text.disabled">Paytm, PhonePe</Typography>
-              <Box sx={{ 
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                bgcolor: 'primary.main',
-                color: 'white',
-                px: 1,
-                py: 0.5,
-                borderRadius: 1,
-                fontSize: '0.7rem',
-                fontWeight: 'bold'
-              }}>
-                COMING SOON
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* PhonePe Information */}
-      {paymentMethod === 'phonepe' && (
-        <Box sx={{ mt: 3 }}>
-          <Alert severity="success" sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" gutterBottom fontWeight="bold">
-              🎉 PhonePe for Business - 100% FREE
-            </Typography>
-            <Typography variant="body2">
-              • Zero transaction fees for small businesses<br/>
-              • Direct UPI payments through PhonePe, GPay, Paytm<br/>
-              • Instant payment confirmation<br/>
-              • No monthly charges or setup fees
-            </Typography>
-          </Alert>
-          
-          <Box sx={{ textAlign: 'center', p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
-            <Typography variant="h6" gutterBottom>Ready to Pay with PhonePe</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Click "Pay" to redirect to PhonePe secure payment page
-            </Typography>
-            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-              {upiApps.slice(0, 4).map((app) => (
-                <Chip 
-                  key={app.code}
-                  label={app.icon + ' ' + app.name}
-                  size="small"
-                  variant="outlined"
-                />
-              ))}
-            </Box>
-          </Box>
-        </Box>
-      )}
-
-      {/* Method-specific options */}
-      {paymentMethod === 'upi' && (
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="subtitle1" gutterBottom>Select UPI App</Typography>
-          <Grid container spacing={1}>
-            {upiApps.map((app) => (
-              <Grid item xs={6} md={2} key={app.code}>
-                <Card 
-                  variant={selectedUpiApp === app.code ? 'elevation' : 'outlined'}
-                  sx={{ 
-                    cursor: 'pointer',
-                    border: selectedUpiApp === app.code ? '2px solid' : 'none',
-                    borderColor: selectedUpiApp === app.code ? 'primary.main' : 'transparent'
-                  }}
-                  onClick={() => setSelectedUpiApp(app.code)}
-                >
-                  <CardContent sx={{ textAlign: 'center', py: 1 }}>
-                    <Typography sx={{ fontSize: '1.5rem', mb: 0.5 }}>{app.icon}</Typography>
-                    <Typography variant="caption">{app.name}</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-
-          {/* QR Code Preview - Show immediately when UPI is selected */}
-          <Box sx={{ textAlign: 'center', mt: 3 }}>
-            <Typography variant="h6" gutterBottom>Pay via UPI - Quick Preview</Typography>
-            <Paper elevation={3} sx={{ p: 2, display: 'inline-block', mb: 2, bgcolor: 'white' }}>
-              <Typography variant="subtitle2" gutterBottom color="text.primary">
-                QR Code will be generated for payment
-              </Typography>
-              <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1, mb: 2, minHeight: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {totalPrice ? (
-                  <QRCode 
-                    value={`upi://pay?pa=${process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'sathiyansportacademy202525-1@okaxis'}&pn=${encodeURIComponent(process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club')}&am=${Math.round(totalPrice)}&cu=INR&tn=Sports Booking Payment`}
-                    size={160}
-                    style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                  />
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    QR Code will appear here
-                  </Typography>
-                )}
-              </Box>
-              
-              {/* UPI Apps Icons */}
-              <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 2 }}>
-                {upiApps.slice(0, 4).map((app) => (
-                  <Chip 
-                    key={app.code}
-                    label={app.icon + ' ' + app.name}
-                    size="small"
-                    variant="outlined"
-                  />
-                ))}
-              </Box>
-
-              {/* UPI Details */}
-              <Box sx={{ textAlign: 'left', p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-                <Typography variant="subtitle2" gutterBottom>Payment Details:</Typography>
-                <Typography variant="body2">• UPI ID: {process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'sathiyansportacademy202525-1@okaxis'}</Typography>
-                <Typography variant="body2">• Amount: ₹{totalPrice?.toLocaleString()}</Typography>
-                <Typography variant="body2">• To: {process.env.NEXT_PUBLIC_MERCHANT_NAME || 'Sathiyan Multi Sport Club'}</Typography>
-              </Box>
-            </Paper>
-            
-            <Alert severity="info" sx={{ mt: 2 }}>
-              After clicking "Pay", you can scan this QR code with any UPI app or copy the UPI ID for manual payment.
-            </Alert>
-          </Box>
-        </Box>
-      )}
-    </Box>
-  );
-
-  const PaymentProcessing = () => (
-    <Box sx={{ textAlign: 'center', py: 4 }}>
-      <CircularProgress size={60} sx={{ mb: 2 }} />
-      <Typography variant="h6" gutterBottom>Processing Payment</Typography>
-      <Typography variant="body2" color="text.secondary">
-        Please wait while we initialize your payment...
-      </Typography>
-    </Box>
-  );
-
-  const PaymentVerification = () => (
-    <Box sx={{ mt: 2 }}>
-      {paymentMethod === 'phonepe' && (
-        <Box sx={{ textAlign: 'center', mb: 3 }}>
-          <Typography variant="h6" gutterBottom>PhonePe Payment Verification</Typography>
-          
-          <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}>
-            <Typography variant="subtitle2" gutterBottom fontWeight="bold">
-              📱 Complete your PhonePe payment:
-            </Typography>
-            <Typography variant="body2" component="div">
-              1. A new tab/window should have opened with PhonePe payment page<br/>
-              2. Complete the payment using any UPI app (PhonePe, GPay, Paytm, etc.)<br/>
-              3. After successful payment, return to this page<br/>
-              4. Click "Verify Payment" below to confirm your booking<br/>
-              5. <strong>No need to enter transaction ID manually!</strong>
-            </Typography>
-          </Alert>
-
-          <Paper elevation={3} sx={{ p: 3, mb: 3, bgcolor: 'success.light', color: 'success.contrastText' }}>
-            <Typography variant="h6" gutterBottom>
-              💜 PhonePe Payment - 100% FREE
-            </Typography>
-            <Typography variant="body2">
-              Amount: ₹{totalPrice?.toLocaleString()}<br/>
-              Reference: {paymentReference}<br/>
-              Transaction ID: {currentBookingId}
-            </Typography>
-          </Paper>
-
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mb: 2 }}>
-            <Button
-              variant="outlined"
-              onClick={() => setPaymentStep('method')}
-              disabled={loading}
-            >
-              Change Payment Method
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handlePaymentConfirmation}
-              disabled={loading}
-              startIcon={loading ? <CircularProgress size={20} /> : <Verified />}
-              size="large"
-              color="success"
-            >
-              {loading ? 'Verifying PhonePe Payment...' : 'Verify PhonePe Payment'}
-            </Button>
-          </Box>
-
-          <Typography variant="caption" display="block" sx={{ textAlign: 'center', color: 'text.secondary' }}>
-            Click verify only after completing payment in PhonePe
-          </Typography>
-        </Box>
-      )}
-
-      {paymentMethod === 'upi' && (
-        <Box sx={{ textAlign: 'center', mb: 3 }}>
-          <Typography variant="h6" gutterBottom>Pay via UPI</Typography>
-          
-          {/* Instructions */}
-          <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}>
-            <Typography variant="subtitle2" gutterBottom fontWeight="bold">
-              📱 How to complete payment:
-            </Typography>
-            <Typography variant="body2" component="div">
-              1. Scan the QR code below with any UPI app (GPay, PhonePe, Paytm, etc.)<br/>
-              2. Complete the payment in your UPI app<br/>
-              3. Copy the <strong>Transaction ID</strong> from your payment app<br/>
-              4. Enter the Transaction ID in the field below<br/>
-              5. Click "Verify Payment" to confirm your booking
-            </Typography>
-          </Alert>
-          
-          {/* QR Code Section */}
-          <Paper elevation={3} sx={{ p: 3, display: 'inline-block', mb: 3, bgcolor: 'white' }}>
-            <Typography variant="subtitle2" gutterBottom color="text.primary" fontWeight="bold">
-              Scan QR Code with any UPI App
-            </Typography>
-            <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, mb: 2, border: '1px solid #e0e0e0' }}>
-              <QRCode 
-                value={generateUpiUrl(totalPrice || 0, paymentReference)}
-                size={200}
-                style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-              />
-            </Box>
-            
-            {/* UPI Apps Icons */}
-            <Typography variant="caption" display="block" sx={{ mb: 1 }}>
-              Compatible with all UPI apps:
-            </Typography>
-            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 2 }}>
-              {upiApps.slice(0, 6).map((app) => (
-                <Chip 
-                  key={app.code}
-                  label={app.icon + ' ' + app.name}
-                  size="small"
-                  variant="outlined"
-                />
-              ))}
-            </Box>
-          </Paper>
-
-          {/* Manual UPI Options */}
-          <Divider sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary">OR Pay Manually</Typography>
-          </Divider>
-          
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 3 }}>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<ContentCopy />}
-              onClick={() => copyToClipboard(process.env.NEXT_PUBLIC_GPAY_UPI_ID || 'sathiyansportacademy202525-1@okaxis', 'UPI ID copied!')}
-            >
-              Copy UPI ID
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<ContentCopy />}
-              onClick={() => copyToClipboard(totalPrice?.toString() || '0', 'Amount copied!')}
-            >
-              ₹{totalPrice?.toLocaleString()}
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<ContentCopy />}
-              onClick={() => copyToClipboard(paymentReference, 'Reference copied!')}
-            >
-              Ref: {paymentReference}
-            </Button>
-          </Box>
-
-          <Paper elevation={1} sx={{ p: 2, mb: 3, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
-            <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Timer />
-              Payment Reference: {paymentReference}
-            </Typography>
-            <Typography variant="body2">
-              Amount: ₹{totalPrice?.toLocaleString()} | 
-              Method: {paymentMethod.toUpperCase()} | 
-              Time Left: {formatTimer(paymentTimer)}
-            </Typography>
-          </Paper>
-
-          {/* Manual Transaction ID Entry */}
-          <Alert severity="warning" sx={{ mb: 3 }}>
-            <Typography variant="subtitle2" gutterBottom fontWeight="bold">
-              ⚠️ Important: Enter your actual transaction details
-            </Typography>
-            <List dense>
-              <ListItem>• Complete payment first using the QR code or UPI ID above</ListItem>
-              <ListItem>• Find the Transaction ID in your payment app's history</ListItem>
-              <ListItem>• Transaction ID format: Usually 12 digits (e.g., 123456789012)</ListItem>
-              <ListItem>• Without valid Transaction ID, booking cannot be confirmed</ListItem>
-            </List>
-          </Alert>
-
-          <TextField
-            fullWidth
-            label="Transaction ID / UTR Number"
-            value={upiTransactionId}
-            onChange={(e) => {
-              console.log('Transaction ID input changed:', e.target.value);
-              setUpiTransactionId(e.target.value);
-            }}
-            onFocus={() => console.log('Transaction ID field focused')}
-            onBlur={() => console.log('Transaction ID field blurred')}
-            placeholder="Enter 12-digit transaction ID from your payment app"
-            variant="outlined"
-            helperText="Find this in your payment app's transaction history (required)"
-            sx={{ mb: 3 }}
-            required
-            autoComplete="off"
-            autoFocus
-            error={upiTransactionId.length > 0 && upiTransactionId.length < 8}
-            inputProps={{
-              'data-testid': 'transaction-id-input',
-              style: { backgroundColor: 'white' }
-            }}
-          />
-
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-            <Button
-              variant="outlined"
-              onClick={() => setPaymentStep('method')}
-              disabled={loading}
-            >
-              Change Payment Method
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handlePaymentConfirmation}
-              disabled={loading || !upiTransactionId.trim() || upiTransactionId.length < 8}
-              startIcon={loading ? <CircularProgress size={20} /> : <Verified />}
-              size="large"
-            >
-              {loading ? 'Verifying Payment...' : 'Verify & Confirm Booking'}
-            </Button>
-          </Box>
-
-          <Typography variant="caption" display="block" sx={{ textAlign: 'center', mt: 2, color: 'text.secondary' }}>
-            Your booking will be confirmed after payment verification
-          </Typography>
-        </Box>
-      )}
-    </Box>
-  );
-
-  const PaymentSuccess = () => (
-    <Box sx={{ textAlign: 'center', py: 4 }}>
-      <CheckCircle color="success" sx={{ fontSize: 80, mb: 2 }} />
-      <Typography variant="h5" gutterBottom color="success.main">
-        Payment Successful!
-      </Typography>
-      <Typography variant="body1" gutterBottom>
-        Your booking has been confirmed
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Reference: {paymentReference}
-      </Typography>
-      <Alert severity="success">
-        {/* COMMENTED OUT: Email notifications disabled */}
-        {/* A confirmation email has been sent to {customerInfo.email} */}
-        A WhatsApp confirmation will be sent to your registered number
-      </Alert>
-    </Box>
-  );
 
   return (
     <Box className="book-slot-main-box">
@@ -1858,45 +835,31 @@ export default function BookSlot() {
                           </span>
                         ))}
                       </div>
-                      {(sport.name === "Cricket" || sport.name === "Football") ? (
-                        <>
-                          <div className="sport-pricing">
-                            <span className="price-label">Weekday:</span>
-                            <span className="price-amount" style={{ color: '#4caf50', fontWeight: 'bold' }}>₹1000 / 2 hrs</span>
-                            <span style={{ marginLeft: '6px', color: '#888', fontSize: '12px' }}>(₹250 per 30 min)</span>
-                          </div>
-                          <div className="sport-pricing">
-                            <span className="price-label">Weekend (Fri-Sun):</span>
-                            <span className="price-amount" style={{ color: '#e65100', fontWeight: 'bold' }}>₹800 / hr</span>
-                            <span style={{ marginLeft: '6px', color: '#888', fontSize: '12px' }}>(₹400 per 30 min)</span>
-                          </div>
-                          <div style={{
-                            marginTop: '10px',
-                            padding: '8px 10px',
-                            backgroundColor: '#fff8e1',
-                            border: '1.5px solid #ffb300',
-                            borderRadius: '6px',
-                            fontSize: '13px',
-                            color: '#e65100',
-                            fontWeight: 600
-                          }}>
-                            🏐 Ball extra optional • ₹80 per ball
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="sport-pricing">
-                            <span className="price-label">Weekday:</span>
-                            <span className="price-amount">₹{sport.basePrice.toLocaleString()}</span>
-                            {sport.name === "Functions and Events" ? "/hr" : "/slot"}
-                          </div>
-                          <div className="sport-pricing">
-                            <span className="price-label">Weekend (Fri-Sun):</span>
-                            <span className="price-amount">₹{sport.weekendPrice.toLocaleString()}</span>
-                            {sport.name === "Functions and Events" ? "/hr" : "/slot"}
-                          </div>
-                        </>
-                      )}
+                      {(() => {
+                        const court = getCourt(settings, sport.name);
+                        if (!court) return null;
+                        const unit = court.perHour ? "/hr" : "/30 min";
+                        const ball = settings.extras.find((e) => e.key === "ball");
+                        return (
+                          <>
+                            <div className="sport-pricing">
+                              <span className="price-label">Weekday:</span>
+                              <span className="price-amount">₹{court.weekday.toLocaleString()}</span>{unit}
+                            </div>
+                            {court.weekend !== court.weekday && (
+                              <div className="sport-pricing">
+                                <span className="price-label">Weekend:</span>
+                                <span className="price-amount">₹{court.weekend.toLocaleString()}</span>{unit}
+                              </div>
+                            )}
+                            {isBallSport(sport.name) && ball && (
+                              <div className="sport-pricing" style={{ color: '#e65100', fontWeight: 600 }}>
+                                🏐 {ball.name} optional • ₹{ball.price} each
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))}
@@ -2398,17 +1361,18 @@ export default function BookSlot() {
               {/* Ball extras for Cricket & Football */}
               {isBallSport(selectedSport) && (
                 <Box sx={{ mt: 1.5, p: 1.5, bgcolor: '#fff8e1', borderRadius: 1, border: '1px solid #ffb300' }}>
-                  <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>🏐 Add Ball (Optional, ₹80 each)</Typography>
+                  <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>🏐 Add Ball (Optional, ₹{BALL_PRICE} each)</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <Button size="small" variant="outlined" onClick={() => setBallCount(c => Math.max(0, c - 1))} sx={{ minWidth: 32, px: 0 }}>−</Button>
                     <Typography variant="body1" fontWeight="bold">{ballCount}</Typography>
                     <Button size="small" variant="outlined" onClick={() => setBallCount(c => c + 1)} sx={{ minWidth: 32, px: 0 }}>+</Button>
-                    <Typography variant="body2" color="text.secondary">ball{ballCount !== 1 ? 's' : ''} × ₹80 = ₹{ballCount * BALL_PRICE}</Typography>
+                    <Typography variant="body2" color="text.secondary">ball{ballCount !== 1 ? 's' : ''} × ₹{BALL_PRICE} = ₹{ballCount * BALL_PRICE}</Typography>
                   </Box>
                 </Box>
               )}
 
-              {/* Editable total amount */}
+              {/* Admins may override the amount (e.g. negotiated rate) */}
+              {isAdminUser ? (
               <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <TextField
                   label="Total Amount (₹)"
@@ -2419,11 +1383,14 @@ export default function BookSlot() {
                     const val = parseInt(e.target.value, 10);
                     if (!isNaN(val)) setEditableAmount(Math.max(0, val - ballCount * BALL_PRICE));
                   }}
-                  helperText="You can adjust the amount if needed"
+                  helperText="Admin override"
                   sx={{ flex: 1 }}
                   inputProps={{ min: 0 }}
                 />
               </Box>
+              ) : (
+                <Typography variant="h6" sx={{ mt: 1.5 }}>Total: ₹{totalPrice?.toLocaleString() ?? '-'}</Typography>
+              )}
             </Box>
           </Box>
         </DialogContent>
@@ -2440,105 +1407,6 @@ export default function BookSlot() {
         </DialogActions>
       </Dialog>
 
-      {/* Enhanced Payment Dialog - HDFC Bank Style */}
-      <Dialog 
-        open={paymentDialogOpen} 
-        onClose={() => {
-          if (paymentStep !== 'processing') {
-            setPaymentDialogOpen(false);
-            setTimerActive(false);
-          }
-        }} 
-        maxWidth="lg" 
-        fullWidth
-        disableEscapeKeyDown={paymentStep === 'processing'}
-      >
-        <DialogTitle sx={{ 
-          textAlign: 'center', 
-          bgcolor: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)', 
-          color: 'white',
-          backgroundImage: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)'
-        }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">Secure Payment Gateway</Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Timer fontSize="small" />
-              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                {formatTimer(paymentTimer)}
-              </Typography>
-            </Box>
-          </Box>
-          <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>
-            Amount: ₹{totalPrice?.toLocaleString()} | Reference: {paymentReference}
-          </Typography>
-        </DialogTitle>
-
-        <DialogContent sx={{ p: 0 }}>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 3, py: 2, bgcolor: 'grey.50' }}>
-            <Stepper activeStep={
-              paymentStep === 'method' ? 0 : 
-              paymentStep === 'processing' ? 1 : 
-              paymentStep === 'verification' ? 2 : 3
-            } alternativeLabel>
-              <Step>
-                <StepLabel>Choose Method</StepLabel>
-              </Step>
-              <Step>
-                <StepLabel>Processing</StepLabel>
-              </Step>
-              <Step>
-                <StepLabel>Verification</StepLabel>
-              </Step>
-              <Step>
-                <StepLabel>Complete</StepLabel>
-              </Step>
-            </Stepper>
-          </Box>
-
-          <Box sx={{ p: 3 }}>
-            {paymentStep === 'method' && <PaymentMethodSelection />}
-            {paymentStep === 'processing' && <PaymentProcessing />}
-            {paymentStep === 'verification' && <PaymentVerification />}
-            {paymentStep === 'success' && <PaymentSuccess />}
-          </Box>
-        </DialogContent>
-
-        <DialogActions sx={{ p: 3, bgcolor: 'grey.50', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Security color="primary" fontSize="small" />
-            <Typography variant="caption" color="text.secondary">
-              256-bit SSL encrypted • PCI DSS compliant
-            </Typography>
-          </Box>
-          
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            {paymentStep === 'method' && (
-              <>
-                <Button 
-                  onClick={() => {
-                    setPaymentDialogOpen(false);
-                    setTimerActive(false);
-                  }}
-                  color="error"
-                  disabled={paymentProcessing}
-                >
-                  Cancel Payment
-                </Button>
-                <Button 
-                  onClick={processPayment}
-                  variant="contained"
-                  disabled={paymentProcessing}
-                  startIcon={paymentProcessing ? <CircularProgress size={20} /> : <Security />}
-                >
-                  {paymentProcessing ? 'Processing...' : `Pay ₹${totalPrice?.toLocaleString()}`}
-                </Button>
-              </>
-            )}
-          </Box>
-        </DialogActions>
-      </Dialog>
-
-      {/* Post-booking WhatsApp share dialog */}
       <Dialog
         open={whatsAppShare.open}
         onClose={() => setWhatsAppShare(prev => ({ ...prev, open: false }))}
@@ -2576,18 +1444,21 @@ export default function BookSlot() {
         </DialogActions>
       </Dialog>
 
-      {/* Simplified Payment Dialog - WhatsApp & GPay Only */}
-      <SimplePaymentDialog
-        open={simplePaymentOpen}
-        onClose={() => {
-          setSimplePaymentOpen(false);
-          setCurrentBookingData(null);
-        }}
-        amount={totalPrice || 0}
-        customerInfo={customerInfo}
-        bookingReference={`BK_${selectedSport}_${new Date().getTime().toString().slice(-6)}`}
-        onPaymentComplete={handlePaymentComplete}
-      />
+      {upiPayment && (
+        <UpiPaymentDialog
+          open
+          kind="booking"
+          refId={upiPayment.bookingId}
+          amount={upiPayment.amount}
+          note={upiPayment.note}
+          title="Pay to confirm your slot"
+          allowPayLater
+          onClose={() => {
+            setUpiPayment(null);
+            setWhatsAppShare((prev) => ({ ...prev, open: true }));
+          }}
+        />
+      )}
     </Box>
   );
 }

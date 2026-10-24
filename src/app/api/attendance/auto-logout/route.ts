@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/app/server/mongodb';
+import { connectToMongoose } from '@/app/server/mongodb';
 import Attendance from '@/app/models/Attendance';
 
 export async function POST(request: Request) {
   try {
-    await connectToDatabase();
+    await connectToMongoose();
     
     // Auto-logout expired sessions
     const expiredSessions = await Attendance.autoLogoutExpiredSessions();

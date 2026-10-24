@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '../../../../../server/mongodb';
+import { connectToMongoose } from '../../../../../server/mongodb';
 import Match from '../../../../../models/Match';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../../lib/authConfig';
@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: { id: string; matchId: string } }
 ) {
   try {
-    await connectToDatabase();
+    await connectToMongoose();
 
     const match = await (Match.findById as any)(params.matchId)
       .populate('player1Id player2Id', 'name partner userId')
@@ -69,7 +69,7 @@ export async function PUT(
     // ---------------------------------------------------------
     // 2. Connect to database
     // ---------------------------------------------------------
-    await connectToDatabase();
+    await connectToMongoose();
 
     // ---------------------------------------------------------
     // 3. Check admin access
@@ -384,7 +384,7 @@ export async function DELETE(
       );
     }
 
-    await connectToDatabase();
+    await connectToMongoose();
     const User = (await import('../../../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
     

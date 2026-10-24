@@ -25,7 +25,7 @@ export interface IPlayer extends Document {
   paymentChoice?: 'pay_now' | 'pay_later';
   transactionId?: string;
   registrationSource?: 'public' | 'user' | 'admin';
-  paymentStatus: 'pending' | 'completed' | 'failed';
+  paymentStatus: 'pending' | 'pending_verification' | 'completed' | 'failed';
   championshipId?: string; // Link to existing user's championshipId
 }
 
@@ -134,7 +134,7 @@ const PlayerSchema = new Schema<IPlayer>({
   },
   paymentStatus: {
     type: String,
-    enum: ['pending', 'completed', 'failed'],
+    enum: ['pending', 'pending_verification', 'completed', 'failed'],
     default: 'pending'
   },
   championshipId: {

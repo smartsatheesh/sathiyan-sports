@@ -25,6 +25,8 @@ const API_RULES: Rule[] = [
   { pattern: /^\/api\/attendance\//, access: "admin" },
 
   { pattern: /^\/api\/admin(\/|$)/, access: "admin" },
+  // Booking lookups expose customer contact details; payment proof goes through /api/payments
+  { pattern: /^\/api\/bookings\/(?!simple-create$)[^/]+$/, access: "admin" },
   { pattern: /^\/api\/expenses(\/|$)/, access: "admin" },
   { pattern: /^\/api\/subscriptions(\/|$)/, access: "admin" },
   { pattern: /^\/api\/inventory(\/|$)/, access: "admin", methods: WRITE },
