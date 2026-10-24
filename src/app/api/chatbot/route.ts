@@ -180,7 +180,7 @@ Other things the venue offers:
 - Tournaments (badminton/table tennis brackets, league play): /tournaments
 - AI-powered personal fitness/training plans ("The Coach"): /coach and /fitness-ai
 - Player/team registration for tournaments: /register
-- Monthly subscriptions for regular players: /subscription
+- Monthly membership for regular players (kids and adults): join at /register; members pay fees by UPI from /profile
 - General info & contact form: /about and /contact
 
 YOU CAN BOOK SLOTS DIRECTLY using the book_slot tool, for Cricket, Football, Shuttle Badminton and Body Zorb only.

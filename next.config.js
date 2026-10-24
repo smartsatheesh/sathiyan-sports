@@ -17,6 +17,12 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      // Old fee screens were merged into Admin → Membership Fees
+      { source: "/admin/subscriptions", destination: "/admin/fees", permanent: false },
+      { source: "/admin/fee-collection", destination: "/admin/fees", permanent: false },
+      { source: "/admin/subscription-management", destination: "/admin/fees", permanent: false },
+      { source: "/subscription", destination: "/admin/fees", permanent: false },
+      { source: "/notifications", destination: "/admin", permanent: false },
       {
         source: "/:path*",
         has: [{ type: "host", value: "sathiyansports.fit" }],

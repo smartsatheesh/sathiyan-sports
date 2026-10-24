@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import MembershipFeeCard from "../components/MembershipFeeCard";
 import {
   Container,
   Paper,
@@ -320,6 +321,8 @@ export default function ProfilePage() {
           {success}
         </Alert>
       )}
+
+      <MembershipFeeCard />
 
       <Grid container spacing={3}>
         {/* Profile Information */}

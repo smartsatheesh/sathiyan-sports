@@ -4,7 +4,6 @@ import { connectToMongoose } from "@/app/server/mongodb";
 import User, { generateNextChampId } from "@/app/models/User";
 import Subscription from "@/app/models/Subscription";
 import emailService from "@/app/lib/emailService";
-import { BillingCycleService } from "@/app/services/BillingCycleService";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authConfig";
 import { getSiteSettings } from "@/app/lib/settings.server";

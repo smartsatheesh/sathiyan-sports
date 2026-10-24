@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToMongoose } from "@/app/server/mongodb";
 import User from "@/app/models/User";
+import { hashResetToken } from "@/app/lib/resetToken.server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
     await connectToMongoose();
 
     const user = await (User.findOne as any)({
-      resetPasswordToken: token,
+      resetPasswordToken: hashResetToken(token),
       resetPasswordExpires: { $gt: new Date() }, // Check if token hasn't expired
     });
 

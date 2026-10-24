@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../lib/authConfig';
-import unifiedWhatsAppService from "../../../services/UnifiedWhatsAppService";
 
 interface NotificationRequest {
   phoneNumber?: string;
@@ -218,19 +217,15 @@ Powered by The Coach AI 🤖`;
     console.log('🏃‍♂️ The Coach: Sending notification to', athleteName);
     console.log('📱 Message preview:', message.substring(0, 100) + '...');
 
-    // Send WhatsApp notification using UnifiedWhatsAppService
-    const whatsappResult = await unifiedWhatsAppService.sendCustomMessage(
-      phoneNumber,
-      message
-    );
+    // Free: hand back a WhatsApp share link instead of sending through a paid API
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
 
     return NextResponse.json({
-      success: whatsappResult,
-      message: whatsappResult ? "Training plan sent to WhatsApp successfully!" : "Failed to send WhatsApp notification",
+      success: true,
+      message: "Open WhatsApp to share your plan",
       notificationType: data.type,
       recipient: athleteName,
-      whatsappSent: whatsappResult,
-      sentAt: new Date().toISOString()
+      whatsappUrl,
     });
 
   } catch (error) {
@@ -239,51 +234,6 @@ Powered by The Coach AI 🤖`;
     return NextResponse.json(
       { 
         error: "Failed to send notification",
-        details: error instanceof Error ? error.message : "Unknown error"
-      },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * GET - Send scheduled daily notifications
- * This can be called by a cron job or scheduler
- */
-export async function GET(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const secretKey = searchParams.get('key');
-    
-    // Simple authentication for cron jobs
-    if (secretKey !== process.env.CRON_SECRET_KEY) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    console.log('🏃‍♂️ The Coach: Running daily notification scheduler');
-
-    // Here you would typically:
-    // 1. Get all users with active coaching plans from database
-    // 2. Check their schedule and timezone
-    // 3. Send appropriate notifications based on their plan
-
-    // For now, return success
-    return NextResponse.json({
-      success: true,
-      message: "Daily notifications scheduler executed",
-      executedAt: new Date().toISOString(),
-      note: "Integrate with user database to send actual notifications"
-    });
-
-  } catch (error) {
-    console.error("❌ The Coach scheduler error:", error);
-    
-    return NextResponse.json(
-      { 
-        error: "Scheduler failed",
         details: error instanceof Error ? error.message : "Unknown error"
       },
       { status: 500 }

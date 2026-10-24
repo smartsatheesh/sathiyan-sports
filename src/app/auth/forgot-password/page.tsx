@@ -1,340 +1,108 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { 
-  Box, 
-  Card, 
-  CardContent, 
-  Typography, 
-  TextField, 
-  Button, 
-  Stepper, 
-  Step, 
-  StepLabel,
+import React, { useState } from "react";
+import Link from "next/link";
+import {
   Alert,
+  Box,
+  Button,
   CircularProgress,
-  Link,
+  Container,
   InputAdornment,
-  IconButton
-} from '@mui/material';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
-
-const steps = ['Enter Mobile', 'Verify OTP', 'Reset Password'];
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
+import { LockReset, WhatsApp } from "@mui/icons-material";
+import { useSiteSettings } from "../../hooks/useSiteSettings";
+import { waNumber } from "../../lib/pricing";
 
 export default function ForgotPasswordPage() {
-  const [activeStep, setActiveStep] = useState(0);
-  const [mobile, setMobile] = useState('');
-  const [otp, setOtp] = useState('');
-  const [resetToken, setResetToken] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { settings } = useSiteSettings();
+  const [mobile, setMobile] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  
-  const router = useRouter();
+  const [done, setDone] = useState("");
+  const [error, setError] = useState("");
 
-  const validateMobile = (phone: string) => {
-    const phoneRegex = /^[6-9]\d{9}$/;
-    return phoneRegex.test(phone);
-  };
+  const valid = mobile.replace(/\D/g, "").length === 10;
 
-  const handleSendOTP = async () => {
-    if (!validateMobile(mobile)) {
-      setError('Please enter a valid 10-digit mobile number');
-      return;
-    }
-
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!valid) return;
     setLoading(true);
-    setError('');
-
+    setError("");
     try {
-      const response = await fetch('/api/auth/forgot-password-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const res = await fetch("/api/auth/request-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mobile }),
       });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setSuccess('OTP sent to your WhatsApp number');
-        setActiveStep(1);
-      } else {
-        setError(data.message || 'Failed to send OTP');
-      }
-    } catch (error) {
-      setError('Network error. Please try again.');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message);
+      setDone(data.message);
+    } catch (err: any) {
+      setError(err.message || "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyOTP = async () => {
-    if (!otp || otp.length !== 6) {
-      setError('Please enter a valid 6-digit OTP');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const response = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ mobile, otp }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setResetToken(data.resetToken); // Store the reset token
-        setSuccess('OTP verified successfully');
-        setActiveStep(2);
-      } else {
-        setError(data.message || 'Invalid OTP');
-      }
-    } catch (error) {
-      setError('Network error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetPassword = async () => {
-    if (!newPassword || newPassword.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const response = await fetch('/api/auth/reset-password-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          resetToken, 
-          mobile, 
-          newPassword,
-          confirmPassword 
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setSuccess('Password reset successfully! Redirecting to login...');
-        setTimeout(() => {
-          router.push('/auth/login');
-        }, 2000);
-      } else {
-        setError(data.message || 'Failed to reset password');
-      }
-    } catch (error) {
-      setError('Network error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const renderStepContent = () => {
-    switch (activeStep) {
-      case 0:
-        return (
-          <Box>
-            <Typography variant="body1" sx={{ mb: 3, textAlign: 'center' }}>
-              Enter your registered mobile number to receive OTP via WhatsApp
-            </Typography>
-            <TextField
-              fullWidth
-              label="Mobile Number"
-              value={mobile}
-              onChange={(e) => setMobile(e.target.value)}
-              placeholder="10-digit mobile number"
-              variant="outlined"
-              sx={{ mb: 3 }}
-              inputProps={{ maxLength: 10 }}
-            />
-            <Button
-              fullWidth
-              variant="contained"
-              onClick={handleSendOTP}
-              disabled={loading || !validateMobile(mobile)}
-              sx={{ py: 1.5 }}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Send OTP'}
-            </Button>
-          </Box>
-        );
-
-      case 1:
-        return (
-          <Box>
-            <Typography variant="body1" sx={{ mb: 3, textAlign: 'center' }}>
-              Enter the 6-digit OTP sent to your WhatsApp
-            </Typography>
-            <TextField
-              fullWidth
-              label="Enter OTP"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              placeholder="6-digit OTP"
-              variant="outlined"
-              sx={{ mb: 3 }}
-              inputProps={{ maxLength: 6 }}
-            />
-            <Button
-              fullWidth
-              variant="contained"
-              onClick={handleVerifyOTP}
-              disabled={loading || otp.length !== 6}
-              sx={{ py: 1.5, mb: 2 }}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Verify OTP'}
-            </Button>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => setActiveStep(0)}
-              disabled={loading}
-            >
-              Back
-            </Button>
-          </Box>
-        );
-
-      case 2:
-        return (
-          <Box>
-            <Typography variant="body1" sx={{ mb: 3, textAlign: 'center' }}>
-              Create your new password
-            </Typography>
-            <TextField
-              fullWidth
-              label="New Password"
-              type={showPassword ? 'text' : 'password'}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              variant="outlined"
-              sx={{ mb: 2 }}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <TextField
-              fullWidth
-              label="Confirm Password"
-              type={showConfirmPassword ? 'text' : 'password'}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              variant="outlined"
-              sx={{ mb: 3 }}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      edge="end"
-                    >
-                      {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <Button
-              fullWidth
-              variant="contained"
-              onClick={handleResetPassword}
-              disabled={loading || !newPassword || newPassword !== confirmPassword}
-              sx={{ py: 1.5 }}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Reset Password'}
-            </Button>
-          </Box>
-        );
-
-      default:
-        return null;
-    }
-  };
+  const whatsappUrl = `https://wa.me/${waNumber(settings.whatsappNumber)}?text=${encodeURIComponent(
+    `Hi, I forgot my Sathiyan Sports password. My registered mobile number is ${mobile || "<your number>"}.`
+  )}`;
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        p: 2,
-      }}
-    >
-      <Card sx={{ maxWidth: 500, width: '100%' }}>
-        <CardContent sx={{ p: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom textAlign="center">
-            Reset Password
+    <Container maxWidth="xs" sx={{ py: { xs: 4, md: 8 } }}>
+      <Paper elevation={3} sx={{ p: { xs: 3, sm: 4 }, borderRadius: 3 }}>
+        <Stack alignItems="center" spacing={1} sx={{ mb: 3 }}>
+          <LockReset color="primary" sx={{ fontSize: 48 }} />
+          <Typography variant="h5" fontWeight={800}>Forgot password?</Typography>
+          <Typography variant="body2" color="text.secondary" textAlign="center">
+            Enter your registered mobile number. We will send you a reset link on WhatsApp.
           </Typography>
-          
-          <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-            {steps.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
+        </Stack>
 
-          {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              {error}
-            </Alert>
-          )}
-
-          {success && (
-            <Alert severity="success" sx={{ mb: 3 }}>
-              {success}
-            </Alert>
-          )}
-
-          {renderStepContent()}
-
-          <Box sx={{ textAlign: 'center', mt: 3 }}>
-            <Link 
-              href="/auth/login" 
-              underline="hover"
-              sx={{ fontSize: '0.9rem' }}
-            >
-              Remember your password? Sign In
-            </Link>
+        {done ? (
+          <Stack spacing={2}>
+            <Alert severity="success">{done}</Alert>
+            <Typography variant="body2" color="text.secondary" textAlign="center">
+              In a hurry? Message us and we will send it right away.
+            </Typography>
+          </Stack>
+        ) : (
+          <Box component="form" onSubmit={submit}>
+            <TextField
+              fullWidth
+              label="Mobile number"
+              value={mobile}
+              onChange={(e) => setMobile(e.target.value.replace(/[^\d]/g, "").slice(0, 10))}
+              inputProps={{ inputMode: "tel", autoComplete: "tel" }}
+              InputProps={{ startAdornment: <InputAdornment position="start">+91</InputAdornment> }}
+              sx={{ mb: 2 }}
+            />
+            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            <Button fullWidth type="submit" size="large" variant="contained" disabled={!valid || loading} sx={{ py: 1.4 }}>
+              {loading ? <CircularProgress size={22} color="inherit" /> : "Request reset link"}
+            </Button>
           </Box>
-        </CardContent>
-      </Card>
-    </Box>
+        )}
+
+        <Button
+          fullWidth
+          href={whatsappUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          startIcon={<WhatsApp />}
+          sx={{ mt: 2, color: "#128C7E" }}
+        >
+          Chat with us on WhatsApp
+        </Button>
+
+        <Typography variant="body2" textAlign="center" sx={{ mt: 2 }}>
+          <Link href="/auth/login">Back to login</Link>
+        </Typography>
+      </Paper>
+    </Container>
   );
 }

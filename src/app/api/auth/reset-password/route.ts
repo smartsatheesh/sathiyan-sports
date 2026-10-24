@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToMongoose } from "@/app/server/mongodb";
 import User from "@/app/models/User";
+import { hashResetToken } from "@/app/lib/resetToken.server";
 import bcrypt from "bcryptjs";
 
 export async function POST(request: NextRequest) {
@@ -43,13 +44,13 @@ export async function POST(request: NextRequest) {
     await connectToMongoose();
 
     const user = await (User.findOne as any)({
-      resetPasswordToken: finalToken,
+      resetPasswordToken: hashResetToken(finalToken),
       resetPasswordExpires: { $gt: new Date() }, // Check if token hasn't expired
     });
 
     if (!user) {
       return NextResponse.json(
-        { success: false, message: "Invalid or expired reset token. Please request a new OTP." },
+        { success: false, message: "This reset link is invalid or has expired. Please request a new one." },
         { status: 400 }
       );
     }
@@ -60,10 +61,8 @@ export async function POST(request: NextRequest) {
 
     // Update password and clear reset token fields
     await (User.findByIdAndUpdate as any)(user._id, {
-      password: hashedPassword,
-      resetPasswordToken: undefined,
-      resetPasswordExpires: undefined,
-      updatedAt: new Date()
+      $set: { password: hashedPassword, updatedAt: new Date() },
+      $unset: { resetPasswordToken: 1, resetPasswordExpires: 1, resetRequestedAt: 1 },
     });
 
     console.log(`✅ Password reset successful for user: ${user.email || user.mobile}`);

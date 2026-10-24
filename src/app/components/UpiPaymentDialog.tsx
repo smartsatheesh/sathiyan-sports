@@ -30,8 +30,11 @@ interface UpiPaymentDialogProps {
   onClose: () => void;
   /** Amount to collect — display only; the server uses the stored record's amount. */
   amount: number;
-  kind: UpiPaymentKind;
-  refId: string;
+  /** Which record the proof is for; required unless submitUtr is given. */
+  kind?: UpiPaymentKind;
+  refId?: string;
+  /** Custom submission (e.g. member fee pay page); defaults to POST /api/payments. */
+  submitUtr?: (utr: string) => Promise<{ success: boolean; error?: string }>;
   title?: string;
   /** Shown in the UPI app's note so you can match the credit. */
   note: string;
@@ -47,6 +50,7 @@ export default function UpiPaymentDialog({
   amount,
   kind,
   refId,
+  submitUtr,
   title = "Pay with UPI",
   note,
   allowPayLater = false,
@@ -96,13 +100,14 @@ export default function UpiPaymentDialog({
     setSubmitting(true);
     setError("");
     try {
-      const res = await fetch("/api/payments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind, refId, utr: normalizeUtr(utr) }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
+      const data = submitUtr
+        ? await submitUtr(normalizeUtr(utr))
+        : await fetch("/api/payments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ kind, refId, utr: normalizeUtr(utr) }),
+          }).then((r) => r.json());
+      if (!data.success) {
         setError(data.error || "Could not submit payment. Please try again.");
         return;
       }

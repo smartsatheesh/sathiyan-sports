@@ -32,6 +32,7 @@ import {
   AppRegistration,
   Payments,
   Settings as SettingsIcon,
+  LockReset,
 } from "@mui/icons-material";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
@@ -90,9 +91,19 @@ const Navbar = () => {
         icon: <Dashboard />,
       },
       {
+        label: "Membership Fees",
+        href: "/admin/fees",
+        icon: <Payments />,
+      },
+      {
         label: "Verify Payments",
         href: "/admin/payments",
         icon: <Payments />,
+      },
+      {
+        label: "Password Resets",
+        href: "/admin/password-resets",
+        icon: <LockReset />,
       },
       {
         label: "Prices & Settings",
@@ -174,11 +185,11 @@ const Navbar = () => {
                 </Button>
               </Link>
               
-              {/* Pay for your health - Protected */}
+              {/* Members pay fees from their profile */}
               {isAuthenticated && (
-                <Link href="/subscription" passHref>
+                <Link href="/profile" passHref>
                   <Button sx={{ color: "#fff", ml: 2 }}>
-                    🏥 Pay for your health
+                    💳 Pay fees
                   </Button>
                 </Link>
               )}
@@ -393,11 +404,11 @@ const Navbar = () => {
                       </ListItem>
                     </Link>
                     
-                    {/* Pay for your health - Protected */}
+                    {/* Members pay fees from their profile */}
                     {isAuthenticated && (
-                      <Link href="/subscription" passHref>
+                      <Link href="/profile" passHref>
                         <ListItem button onClick={toggleDrawer}>
-                          <ListItemText primary="🏥 Pay for your health" />
+                          <ListItemText primary="💳 Pay fees" />
                         </ListItem>
                       </Link>
                     )}

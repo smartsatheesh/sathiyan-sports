@@ -474,6 +474,10 @@ const CoachPage: React.FC = () => {
 
       const result = await response.json(); 
       
+      if (result.success && result.whatsappUrl) {
+        window.open(result.whatsappUrl, '_blank', 'noopener,noreferrer');
+      }
+
       if (result.success) {
         // Show success notification
         const notification = document.createElement('div');
@@ -494,8 +498,8 @@ const CoachPage: React.FC = () => {
           <div style="display: flex; align-items: center; gap: 0.5rem;">
             <span style="font-size: 1.2rem;">📱</span>
             <div>
-              <div style="font-weight: 600;">WhatsApp Sent!</div>
-              <div style="font-size: 0.875rem; opacity: 0.9;">Training plan delivered successfully</div>
+              <div style="font-weight: 600;">WhatsApp opened</div>
+              <div style="font-size: 0.875rem; opacity: 0.9;">Choose a chat to share your plan</div>
             </div>
           </div>
         `;

@@ -931,92 +931,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Payment management functions
-  const updateOverdueStatus = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/admin/overdue-status', {
-        method: 'POST',
-      });
-      
-      if (response.ok) {
-        setAlert({ type: 'success', message: 'Overdue status updated successfully!' });
-        await fetchData(); // Refresh the data
-      } else {
-        throw new Error('Failed to update overdue status');
-      }
-    } catch (error) {
-      setAlert({ 
-        type: 'error', 
-        message: error instanceof Error ? error.message : 'Failed to update overdue status' 
-      });
-    } finally {
-      setLoading(false);
-      setTimeout(() => setAlert(null), 3000);
-    }
-  };
-
-  const registerUser = async (userId: string, subscriptionData: {
-    subscriptionType: 'monthly' | 'quarterly' | 'half yearly' | 'yearly';
-    cycleLength?: number;
-    amount: number;
-  }) => {
-    try {
-      const response = await fetch('/api/admin/payment-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, ...subscriptionData }),
-      });
-      
-      if (response.ok) {
-        setAlert({ type: 'success', message: 'User registered successfully!' });
-        await fetchData(); // Refresh the data
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to register user');
-      }
-    } catch (error) {
-      setAlert({ 
-        type: 'error', 
-        message: error instanceof Error ? error.message : 'Failed to register user' 
-      });
-    }
-    setTimeout(() => setAlert(null), 3000);
-  };
-
-  const markPaymentCompleted = async (userId: string, paymentData: {
-    amount: number;
-    method: string;
-    transactionId?: string;
-  }) => {
-    try {
-      // Use the user update endpoint instead of payment-status endpoint
-      const response = await fetch(`/api/admin/users/${userId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          paymentStatus: 'completed',
-          paymentMethod: paymentData.method,
-          transactionId: paymentData.transactionId || `TXN${Date.now()}`,
-          // The user update endpoint will automatically set subscription dates
-        }),
-      });
-      
-      if (response.ok) {
-        setAlert({ type: 'success', message: 'Payment marked as completed and subscription activated!' });
-        await fetchData(); // Refresh the data
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to complete payment');
-      }
-    } catch (error) {
-      setAlert({ 
-        type: 'error', 
-        message: error instanceof Error ? error.message : 'Failed to complete payment' 
-      });
-    }
-    setTimeout(() => setAlert(null), 3000);
-  };
 
   const handleMarkComplete = async (bookingId: string) => {
     try {
@@ -1403,7 +1317,7 @@ export default function AdminDashboard() {
             variant="contained"
             color="secondary"
             size="large"
-            onClick={() => router.push('/admin/subscriptions')}
+            onClick={() => router.push('/admin/fees')}
             sx={{
               bgcolor: 'rgba(255,255,255,0.2)',
               backdropFilter: 'blur(10px)',
@@ -1414,13 +1328,13 @@ export default function AdminDashboard() {
               }
             }}
           >
-            Subscription Management
+            Membership Fees
           </Button>
           <Button
             variant="contained"
             color="warning"
             size="large"
-            onClick={() => router.push('/admin/fee-collection')}
+            onClick={() => router.push('/admin/payments')}
             sx={{
               bgcolor: 'rgba(255,193,7,0.2)',
               backdropFilter: 'blur(10px)',
@@ -1431,7 +1345,7 @@ export default function AdminDashboard() {
               }
             }}
           >
-            Fee Collection
+            Verify Payments
           </Button>
           <Button
             variant="contained"
@@ -1510,13 +1424,13 @@ export default function AdminDashboard() {
         </Grid>
         <Grid item xs={12} md={6}>
           <Card sx={{ height: "100%", cursor: "pointer", '&:hover': { elevation: 8 } }} 
-                onClick={() => router.push('/admin/subscription-management')}>
+                onClick={() => router.push('/admin/settings')}>
             <CardContent sx={{ textAlign: "center" }}>
               <Typography variant="h6" gutterBottom>
-                🔄 Subscription Migration
+                ⚙️ Prices & Settings
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Migrate users and sync subscriptions, view data integrity status
+                Court prices, membership fees, UPI ID and WhatsApp number
               </Typography>
             </CardContent>
           </Card>
@@ -1987,7 +1901,7 @@ export default function AdminDashboard() {
                         size="small" 
                         color={user.subscribed === 'yes' ? 'success' : 'error'}
                         variant="outlined"
-                        onClick={user.subscribed === 'yes' ? () => router.push('/admin/subscriptions') : undefined}
+                        onClick={user.subscribed === 'yes' ? () => router.push('/admin/fees') : undefined}
                         sx={{ 
                           cursor: user.subscribed === 'yes' ? 'pointer' : 'default',
                           '&:hover': user.subscribed === 'yes' ? { 
@@ -2047,7 +1961,7 @@ export default function AdminDashboard() {
                             size="small" 
                             color="primary" 
                             variant="contained"
-                            onClick={() => router.push('/admin/subscriptions')}
+                            onClick={() => router.push('/admin/fees')}
                             sx={{ fontSize: '0.75rem' }}
                           >
                             View Sub

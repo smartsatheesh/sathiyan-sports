@@ -4,10 +4,10 @@ import Booking from "@/app/models/Booking";
 import Subscription from "@/app/models/Subscription";
 import Player from "@/app/models/Player";
 import Tournament from "@/app/models/Tournament";
-import User from "@/app/models/User";
 import { findBlockingConflicts } from "@/app/lib/bookingConflicts";
 import { getISTDayStart } from "@/app/lib/istDate";
 import { normalizeUtr, isValidUtr } from "@/app/lib/upi";
+import { syncUserFeeStatus } from "@/app/lib/feeStatus.server";
 
 export type PaymentKind = "booking" | "subscription" | "tournament";
 
@@ -145,10 +145,11 @@ export async function decidePayment(paymentId: string, action: "confirm" | "reje
       sub.transactionId = payment.utr;
       sub.lastPaymentDate = new Date();
       await sub.save();
-      await (User.findByIdAndUpdate as any)(sub.userId, {
-        hasActiveSubscription: true,
-        lastSubscriptionDate: sub.lastPaymentDate,
-      });
+      await (Subscription.updateMany as any)(
+        { userId: sub.userId, _id: { $ne: sub._id }, status: "active", endDate: { $lte: sub.startDate } },
+        { status: "expired" }
+      );
+      await syncUserFeeStatus(String(sub.userId));
     } else {
       await (Player.findByIdAndUpdate as any)(refId, { paymentStatus: "completed" });
     }
@@ -157,6 +158,12 @@ export async function decidePayment(paymentId: string, action: "confirm" | "reje
       await (Booking.findByIdAndUpdate as any)(refId, { paymentStatus: "pending", updatedAt: new Date() });
     } else if (payment.kind === "tournament") {
       await (Player.findByIdAndUpdate as any)(refId, { paymentStatus: "pending" });
+    } else {
+      // Member-initiated period that was never paid
+      await (Subscription.updateOne as any)(
+        { _id: refId, paymentStatus: "Pending" },
+        { status: "cancelled", paymentStatus: "Cancelled" }
+      );
     }
   }
 

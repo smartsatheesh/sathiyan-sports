@@ -7,7 +7,6 @@ import Providers from "./providers";
 import Navbar from "./components/Navbar";
 import ChatbotWidget from "./components/ChatbotWidget";
 // Temporarily disabled to fix MongoDB timeout issues
-// import "./lib/scheduler-init"; // Initialize attendance scheduler
 
 export const metadata: Metadata = {
   title: "Sathiyan Sports",

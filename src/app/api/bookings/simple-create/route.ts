@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToMongoose } from '@/app/server/mongodb';
 import Booking from '@/app/models/Booking';
-import whatsAppCloudService from '@/app/services/WhatsAppCloudService';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/lib/authConfig';
 import { addDaysFromISTDayStart, getISTDayStart, getISTTodayStart } from '@/app/lib/istDate';
@@ -183,7 +182,6 @@ export async function POST(request: NextRequest) {
       };
 
       const booking = await (Booking.create as any)(bookingData);
-      await sendWhatsAppNotifications(booking);
 
       return NextResponse.json({
         success: true,
@@ -201,13 +199,7 @@ export async function POST(request: NextRequest) {
           totalAmount: booking.totalAmount,
           bookingStatus: booking.bookingStatus,
           paymentStatus: booking.paymentStatus
-        },
-        nextSteps: [
-          '✅ Your booking is confirmed - you can play the slot',
-          '💰 Payment due before or after playing (flexible)',
-          '📱 We\'ll send you payment reminder via WhatsApp',
-          '🎫 Keep your booking reference safe'
-        ]
+        }
       });
     }
 
@@ -270,8 +262,6 @@ export async function POST(request: NextRequest) {
 
     const booking = await (Booking.create as any)(bookingData);
 
-    // Send WhatsApp notifications
-    await sendWhatsAppNotifications(booking);
 
     return NextResponse.json({
       success: true,
@@ -289,13 +279,7 @@ export async function POST(request: NextRequest) {
         totalAmount: booking.totalAmount,
         bookingStatus: booking.bookingStatus, // Use bookingStatus from the model
         paymentStatus: booking.paymentStatus
-      },
-      nextSteps: [
-        '✅ Your booking is confirmed - you can play the slot',
-        '💰 Payment due before or after playing (flexible)',
-        '📱 We\'ll send you payment reminder via WhatsApp',
-        '🎫 Keep your booking reference safe'
-      ]
+      }
     });
 
   } catch (error: any) {
@@ -309,76 +293,5 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
-  }
-}
-
-async function sendWhatsAppNotifications(booking: any) {
-  try {
-    // Format date and time for display
-    const bookingDateObj = new Date(booking.date);
-    const formattedDate = bookingDateObj.toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      timeZone: 'Asia/Kolkata',
-    });
-    const formattedWeekday = bookingDateObj.toLocaleDateString('en-GB', {
-      weekday: 'long',
-      timeZone: 'Asia/Kolkata',
-    });
-    const bookingDate = `${formattedDate} (${formattedWeekday})`;
-
-    const timeSlot = Array.isArray(booking.timeSlots) ? booking.timeSlots.join(', ') : booking.timeSlots || 'N/A';
-    const courtName = booking.sport === 'Shuttle Badminton'
-      ? `${booking.sport} (${booking.court || 'Court'})`
-      : `${booking.sport} (Full Ground)`;
-
-    const finalAmount = Number(booking.totalAmount || 0);
-    const paidAmount = booking.paymentStatus === 'completed' || booking.paymentStatus === 'paid'
-      ? finalAmount
-      : 0;
-    const pendingAmount = Math.max(finalAmount - paidAmount, 0);
-
-    // Send customer booking confirmation
-    const customerSuccess = await whatsAppCloudService.sendBookingConfirmation(
-      booking.customerPhone,
-      {
-        bookingReference: booking.bookingReference,
-        courtName,
-        date: bookingDate,
-        time: timeSlot,
-        amount: booking.totalAmount,
-        customerName: booking.customerName,
-        venue: 'Sathiyan Multisport Sport Club',
-        slotAmount: finalAmount,
-        discountAmount: 0,
-        finalAmount,
-        paidAmount,
-        pendingAmount,
-      }
-    );
-
-    // Send admin notification
-    const adminSuccess = await whatsAppCloudService.sendAdminNotification({
-      bookingReference: booking.bookingReference,
-      courtName,
-      date: bookingDate,
-      time: timeSlot,
-      amount: booking.totalAmount,
-      customerName: booking.customerName,
-      customerPhone: booking.customerPhone
-    });
-
-    console.log(`📱 WhatsApp notifications - Customer: ${customerSuccess ? '✅' : '❌'}, Admin: ${adminSuccess ? '✅' : '❌'}`);
-
-  } catch (error) {
-    console.warn('Failed to send WhatsApp notifications:', error);
-    
-    // Fallback to console logging for development/testing
-    console.log('📱 BOOKING NOTIFICATION (Fallback)');
-    console.log(`Customer: ${booking.customerName} (${booking.customerPhone})`);
-    console.log(`Booking: ${booking.bookingReference}`);
-    console.log(`Sport: ${booking.sport} | Amount: ₹${booking.totalAmount}`);
-    console.log(`Date: ${booking.date} | Time: ${booking.timeSlots}`);
   }
 }

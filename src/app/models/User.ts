@@ -180,6 +180,14 @@ const userSchema = new mongoose.Schema({
   resetPasswordExpires: {
     type: Date,
   },
+  // Member asked for a password reset; admin sends the link over WhatsApp
+  resetRequestedAt: {
+    type: Date,
+  },
+  // Last time admin opened a WhatsApp fee reminder for this member
+  feeReminderAt: {
+    type: Date,
+  },
   // New fields for registration
   comments: {
     type: String,
