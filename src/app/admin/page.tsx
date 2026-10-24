@@ -78,7 +78,7 @@ export default function AdminHome() {
     { title: "Inventory", desc: "Products & stock", href: "/admin/inventory", icon: <Inventory2 /> },
     { title: "Tournaments", desc: "Events, fixtures, results", href: "/admin/tournaments", icon: <EmojiEvents /> },
     { title: "Attendance", desc: "Check-ins and reports", href: "/admin/attendance", icon: <FactCheck /> },
-    { title: "Reports", desc: "Revenue and usage", href: "/admin/reports", icon: <BarChart /> },
+    { title: "AI coach plans", desc: "Members' plans & progress", href: "/coach/admin", icon: <BarChart /> },
     { title: "Check-in QR", desc: "Print the venue QR", href: "/admin/universal-qr", icon: <QrCode2 /> },
     { title: "Password resets", desc: "Send reset links", href: "/admin/password-resets", icon: <LockReset />, badge: o?.resetRequests },
     { title: "Shop page", desc: "What customers see", href: "/shop", icon: <Storefront /> },

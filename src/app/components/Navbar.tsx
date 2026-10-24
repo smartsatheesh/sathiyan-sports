@@ -73,14 +73,12 @@ const Navbar = () => {
   const isAuthenticated = status === "authenticated";
   const user = session?.user;
   const isAdmin = user?.role === "admin";
-  const isCoach = user?.role === "coach";
-  const hasCoachAccess = isAdmin || isCoach;
 
   // Profile menu items
   const profileMenuItems = [
     { label: "Profile", href: "/profile", icon: <Person /> },
     { label: "My Bookings", href: "/my-bookings", icon: <BookOnline /> },
-    { label: "My Plan", href: "/my-plan", icon: <Dashboard /> },
+    { label: "My AI Plan", href: "/coach", icon: <Dashboard /> },
   ];
 
   if (isAdmin) {
@@ -200,9 +198,8 @@ const Navbar = () => {
                 </Link>
               )}
               
-              {/* The Coach - AI Powered - Admin/Coach only */}
-              {hasCoachAccess && (
-                <Link href="/coach" passHref>
+              {/* AI Coach - open to everyone (login prompted on the page) */}
+              <Link href="/coach" passHref>
                   <Button 
                     sx={{ 
                       color: "#fff", 
@@ -223,10 +220,9 @@ const Navbar = () => {
                       />
                     }
                   >
-                    The Coach
+                    AI Coach
                   </Button>
                 </Link>
-              )}
               
               {/* S3 Fitness Plans */}
               <Link href="/s3" passHref>
@@ -424,9 +420,8 @@ const Navbar = () => {
                       </Link>
                     )}
                     
-                    {/* The Coach - Admin/Coach only */}
-                    {hasCoachAccess && (
-                      <Link href="/coach" passHref>
+                    {/* AI Coach - open to everyone */}
+                    <Link href="/coach" passHref>
                         <ListItem button onClick={toggleDrawer}>
                           <ListItemText 
                             primary={
@@ -440,13 +435,12 @@ const Navbar = () => {
                                     borderRadius: "3px" 
                                   }} 
                                 />
-                                The Coach
+                                AI Coach
                               </Box>
                             } 
                           />
                         </ListItem>
                       </Link>
-                    )}
                     
                     <Link href="/s3" passHref>
                       <ListItem button onClick={toggleDrawer}>

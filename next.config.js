@@ -24,6 +24,9 @@ const nextConfig = {
       { source: "/subscription", destination: "/admin/fees", permanent: false },
       { source: "/notifications", destination: "/admin", permanent: false },
       { source: "/expenses", destination: "/admin/expenses", permanent: false },
+      { source: "/my-plan", destination: "/coach", permanent: false },
+      { source: "/fitness-ai", destination: "/coach", permanent: false },
+      { source: "/admin/reports", destination: "/admin/expenses", permanent: false },
       { source: "/admin/expenses/stats", destination: "/admin/expenses", permanent: false },
       {
         source: "/:path*",

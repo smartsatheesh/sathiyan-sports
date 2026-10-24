@@ -31,7 +31,6 @@ const API_RULES: Rule[] = [
   { pattern: /^\/api\/subscriptions(\/|$)/, access: "admin" },
   // Shop list and photos are public; changes are admin-only
   { pattern: /^\/api\/inventory(\/|$)/, access: "admin", methods: WRITE },
-  { pattern: /^\/api\/coach\/admin(\/|$)/, access: "admin" },
 
   // Fitness enrollments: public may enroll (POST), only admin reads/edits the list
   { pattern: /^\/api\/fitness-plans\/generate$/, access: "user" },
@@ -47,8 +46,8 @@ const PAGE_RULES: Rule[] = [
   { pattern: /^\/admin(\/|$)/, access: "admin" },
   { pattern: /^\/expenses(\/|$)/, access: "admin" },
   { pattern: /^\/subscription$/, access: "admin" },
-  { pattern: /^\/coach\/attendance(\/|$)/, access: "staff" },
-  { pattern: /^\/(my-bookings|profile|my-plan|s3\/enrolled)(\/|$)/, access: "user" },
+  { pattern: /^\/coach\/(attendance|admin)(\/|$)/, access: "staff" },
+  { pattern: /^\/(my-bookings|profile|s3\/enrolled)(\/|$)/, access: "user" },
 ];
 
 function findRule(rules: Rule[], pathname: string, method: string): Rule | undefined {
@@ -108,9 +107,9 @@ export const config = {
     "/expenses/:path*",
     "/subscription",
     "/coach/attendance/:path*",
+    "/coach/admin/:path*",
     "/my-bookings/:path*",
     "/profile/:path*",
-    "/my-plan/:path*",
     "/s3/enrolled/:path*",
   ],
 };

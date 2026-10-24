@@ -1,8 +1,5 @@
-import { MongoClient, Db, Collection } from 'mongodb';
+import { MongoClient, Db } from 'mongodb';
 import mongoose from 'mongoose';
-import { CoachUser } from '../models/CoachUser';
-import { GeneratedPlan } from '../models/GeneratedPlan';
-import { CoachSession } from '../models/CoachSession';
 
 // Global MongoDB connection cache
 let cachedClient: MongoClient | null = null;
@@ -127,26 +124,6 @@ export async function connectToMongoose(): Promise<typeof mongoose> {
   }
 
   return cached.conn;
-}
-
-// ==========================================
-// COLLECTION GETTERS
-// ==========================================
-
-// Collection getters using native MongoDB driver
-export async function getCoachUsersCollection(): Promise<Collection<CoachUser>> {
-  const { db } = await connectToMongoDB();
-  return db.collection<CoachUser>('coach_users');
-}
-
-export async function getGeneratedPlansCollection(): Promise<Collection<GeneratedPlan>> {
-  const { db } = await connectToMongoDB();
-  return db.collection<GeneratedPlan>('generated_plans');
-}
-
-export async function getCoachSessionsCollection(): Promise<Collection<CoachSession>> {
-  const { db } = await connectToMongoDB();
-  return db.collection<CoachSession>('coach_sessions');
 }
 
 // Default exports for backward compatibility

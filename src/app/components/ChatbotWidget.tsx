@@ -35,7 +35,7 @@ const WELCOME_MESSAGE: ChatMessage = {
 };
 
 /** Floating chatbot widget rendered globally, backed by the Gemini-powered /api/chatbot route. */
-const HIDDEN_ON = ['/admin', '/pay/', '/shop'];
+const HIDDEN_ON = ['/admin', '/pay/', '/shop', '/coach'];
 
 export default function ChatbotWidget() {
   const pathname = usePathname();

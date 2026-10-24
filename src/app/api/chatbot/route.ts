@@ -178,7 +178,7 @@ ${priceLines(settings)}
 
 Other things the venue offers:
 - Tournaments (badminton/table tennis brackets, league play): /tournaments
-- AI-powered personal fitness/training plans ("The Coach"): /coach and /fitness-ai
+- Free AI Coach: personalised 4-week training plans (English or Tamil) for members at /coach
 - Player/team registration for tournaments: /register
 - Monthly membership for regular players (kids and adults): join at /register; members pay fees by UPI from /profile
 - General info & contact form: /about and /contact
