@@ -47,7 +47,7 @@ const PAGE_RULES: Rule[] = [
   { pattern: /^\/expenses(\/|$)/, access: "admin" },
   { pattern: /^\/subscription$/, access: "admin" },
   { pattern: /^\/coach\/(attendance|admin)(\/|$)/, access: "staff" },
-  { pattern: /^\/(my-bookings|profile|s3\/enrolled)(\/|$)/, access: "user" },
+  { pattern: /^\/(my-bookings|profile|review|s3\/enrolled)(\/|$)/, access: "user" },
 ];
 
 function findRule(rules: Rule[], pathname: string, method: string): Rule | undefined {
@@ -109,6 +109,7 @@ export const config = {
     "/coach/attendance/:path*",
     "/coach/admin/:path*",
     "/my-bookings/:path*",
+    "/review",
     "/profile/:path*",
     "/s3/enrolled/:path*",
   ],

@@ -3,6 +3,7 @@ import { connectToMongoose } from '@/app/server/mongodb';
 import Booking from '@/app/models/Booking';
 import Payment from '@/app/models/Payment';
 import User from '@/app/models/User';
+import Review from '@/app/models/Review';
 import { getISTDayRange } from '@/app/lib/istDate';
 import { getFeeBoard } from '@/app/lib/fees.server';
 import { getMonthReport } from '@/app/lib/expenses.server';
@@ -18,11 +19,12 @@ export async function GET() {
     const istNow = new Date(now.getTime() + 330 * 60 * 1000);
     const month = `${istNow.getUTCFullYear()}-${String(istNow.getUTCMonth() + 1).padStart(2, '0')}`;
 
-    const [todaysBookings, pendingBookings, paymentsToVerify, resetRequests, fees, report] = await Promise.all([
+    const [todaysBookings, pendingBookings, paymentsToVerify, resetRequests, pendingReviews, fees, report] = await Promise.all([
       (Booking.countDocuments as any)({ date: { $gte: dayStart, $lte: dayEnd }, bookingStatus: { $ne: 'cancelled' } }),
       (Booking.countDocuments as any)({ bookingStatus: 'pending', date: { $gte: dayStart } }),
       (Payment.countDocuments as any)({ status: 'submitted' }),
       (User.countDocuments as any)({ resetRequestedAt: { $gte: new Date(Date.now() - 7 * 864e5) } }),
+      (Review.countDocuments as any)({ status: 'pending' }),
       getFeeBoard(),
       getMonthReport(month),
     ]);
@@ -34,6 +36,7 @@ export async function GET() {
       pendingBookings,
       paymentsToVerify,
       resetRequests,
+      pendingReviews,
       feesOverdue: { count: overdue.length, amount: overdue.reduce((s, m) => s + m.monthlyFee, 0) },
       feesDueThisWeek: fees.members.filter((m) => m.state === 'due_soon').length,
       month: { moneyIn: report.summary.income.total, spent: report.summary.total, net: report.summary.net },

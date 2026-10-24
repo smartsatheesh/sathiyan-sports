@@ -30,6 +30,7 @@ import {
   ReceiptLong,
   Settings,
   Storefront,
+  Star,
 } from "@mui/icons-material";
 
 interface Overview {
@@ -37,6 +38,7 @@ interface Overview {
   pendingBookings: number;
   paymentsToVerify: number;
   resetRequests: number;
+  pendingReviews: number;
   feesOverdue: { count: number; amount: number };
   feesDueThisWeek: number;
   month: { moneyIn: number; spent: number; net: number };
@@ -81,6 +83,7 @@ export default function AdminHome() {
     { title: "AI coach plans", desc: "Members' plans & progress", href: "/coach/admin", icon: <BarChart /> },
     { title: "Check-in QR", desc: "Print the venue QR", href: "/admin/universal-qr", icon: <QrCode2 /> },
     { title: "Password resets", desc: "Send reset links", href: "/admin/password-resets", icon: <LockReset />, badge: o?.resetRequests },
+    { title: "Reviews", desc: "Approve member reviews", href: "/admin/reviews", icon: <Star />, badge: o?.pendingReviews },
     { title: "Shop page", desc: "What customers see", href: "/shop", icon: <Storefront /> },
     { title: "Prices & settings", desc: "Fees, UPI, WhatsApp", href: "/admin/settings", icon: <Settings /> },
   ];

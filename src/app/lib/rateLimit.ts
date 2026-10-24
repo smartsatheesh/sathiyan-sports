@@ -24,6 +24,7 @@ export const RATE_LIMITS: RateLimitRule[] = [
   { pattern: /^\/api\/auth\/(request-reset|reset-password|validate-reset-token)$/, limit: 5, windowMs: 15 * MIN, methods: ["POST"] },
   { pattern: /^\/api\/register$/, limit: 5, windowMs: 60 * MIN, methods: ["POST"] },
   { pattern: /^\/api\/(contact|tournaments\/public-register)$/, limit: 5, windowMs: 15 * MIN, methods: ["POST"] },
+  { pattern: /^\/api\/reviews$/, limit: 5, windowMs: 60 * MIN, methods: ["POST"] },
   { pattern: /^\/api\/chatbot$/, limit: 20, windowMs: 10 * MIN, methods: ["POST"] },
   { pattern: /^\/api\/coach\/plans$/, limit: 5, windowMs: 60 * MIN, methods: ["POST"] },
   { pattern: /^\/api\/coach\/plans\/[^/]+\/chat$/, limit: 20, windowMs: 10 * MIN, methods: ["POST"] },

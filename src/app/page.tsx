@@ -11,6 +11,7 @@ import {
   CardContent,
   CardMedia,
   Chip,
+  Rating,
   Container,
   Grid,
   Stack,
@@ -60,6 +61,14 @@ interface Tournament {
   venue?: string;
 }
 
+interface Review {
+  _id: string;
+  displayName: string;
+  label?: string;
+  rating: number;
+  text: string;
+}
+
 interface Product {
   _id: string;
   name: string;
@@ -88,6 +97,7 @@ export default function Home() {
   const [stats, setStats] = useState<{ totalUsers: number; totalBookings: number; totalEvents: number } | null>(null);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [reviews, setReviews] = useState<{ list: Review[]; average: number | null; count: number }>({ list: [], average: null, count: 0 });
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -107,6 +117,7 @@ export default function Home() {
 
     fetch("/api/public-stats").then((r) => r.json()).then((d) => d.stats && setStats(d.stats)).catch(() => {});
     fetch("/api/tournaments-native").then((r) => r.json()).then((d) => setTournaments((d.tournaments || d.data || []).slice(0, 3))).catch(() => {});
+    fetch("/api/reviews").then((r) => r.json()).then((d) => d.success && setReviews({ list: d.reviews || [], average: d.average, count: d.count })).catch(() => {});
     fetch("/api/inventory").then((r) => r.json()).then((d) => setProducts((d.products || []).filter((p: Product) => p.price > 0).slice(0, 4))).catch(() => {});
   }, []);
 
@@ -363,6 +374,30 @@ export default function Home() {
             <Button component={Link} href="/shop" endIcon={<ArrowForward />} sx={{ mt: 2, fontWeight: 800 }}>Visit the shop</Button>
           </Container>
         </Box>
+      )}
+
+      {/* ================= REVIEWS (real, approved by the academy) ================= */}
+      {reviews.list.length > 0 && (
+        <Container maxWidth="lg" sx={{ py: { xs: 6, md: 9 } }}>
+          <SectionTitle
+            kicker="Members say"
+            title={reviews.average ? `Rated ${reviews.average} ★ by our members` : "What our members say"}
+            subtitle={`${reviews.count} review${reviews.count === 1 ? "" : "s"} from people who train with us.`}
+          />
+          <Grid container spacing={2}>
+            {reviews.list.map((r) => (
+              <Grid item xs={12} sm={6} md={4} key={r._id}>
+                <Card sx={{ borderRadius: 4, height: "100%", p: 2.5, boxShadow: "0 8px 30px rgba(7,26,46,0.08)", display: "flex", flexDirection: "column" }}>
+                  <Rating value={r.rating} readOnly size="small" />
+                  <Typography sx={{ mt: 1.5, flex: 1, fontSize: "1.02rem" }}>“{r.text}”</Typography>
+                  <Typography fontWeight={800} sx={{ mt: 2 }}>{r.displayName}</Typography>
+                  {r.label && <Typography variant="caption" color="text.secondary">{r.label}</Typography>}
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+          <Button component={Link} href="/review" sx={{ mt: 2, fontWeight: 800 }}>Train with us? Write a review →</Button>
+        </Container>
       )}
 
       <FeaturesSection />

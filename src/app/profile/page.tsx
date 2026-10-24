@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import MembershipFeeCard from "../components/MembershipFeeCard";
+import ReviewForm from "../components/ReviewForm";
 import {
   Container,
   Paper,
@@ -323,6 +324,11 @@ export default function ProfilePage() {
       )}
 
       <MembershipFeeCard />
+
+      <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" sx={{ mb: 1 }}>Rate Sathiyan Sports</Typography>
+        <ReviewForm compact />
+      </Paper>
 
       <Grid container spacing={3}>
         {/* Profile Information */}
