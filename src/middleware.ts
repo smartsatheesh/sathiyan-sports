@@ -29,6 +29,7 @@ const API_RULES: Rule[] = [
   { pattern: /^\/api\/bookings\/(?!simple-create$)[^/]+$/, access: "admin" },
   { pattern: /^\/api\/expenses(\/|$)/, access: "admin" },
   { pattern: /^\/api\/subscriptions(\/|$)/, access: "admin" },
+  // Shop list and photos are public; changes are admin-only
   { pattern: /^\/api\/inventory(\/|$)/, access: "admin", methods: WRITE },
   { pattern: /^\/api\/coach\/admin(\/|$)/, access: "admin" },
 

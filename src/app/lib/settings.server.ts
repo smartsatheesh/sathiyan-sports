@@ -65,6 +65,10 @@ export function validateSettings(s: SiteSettings): string[] {
   if (!isMoney(s.membership?.flexibleSurchargePerMonth)) errors.push("Flexible surcharge is invalid");
   if (!isMoney(s.tournamentDefaultFee)) errors.push("Tournament fee is invalid");
 
+  const names = (list: unknown) => Array.isArray(list) && list.length > 0 && list.every((x) => typeof x === "string" && x.trim().length > 0 && x.length <= 40);
+  if (!names(s.expenses?.people)) errors.push("Add at least one person who pays expenses");
+  if (!names(s.expenses?.categories)) errors.push("Add at least one expense category");
+
   if (!VPA_RE.test(s.upi?.vpa || "")) errors.push("UPI ID looks invalid (example: name@okaxis)");
   if (!s.upi?.payeeName?.trim()) errors.push("UPI payee name is required");
 

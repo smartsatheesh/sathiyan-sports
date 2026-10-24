@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   Box,
   Paper,
@@ -34,7 +35,10 @@ const WELCOME_MESSAGE: ChatMessage = {
 };
 
 /** Floating chatbot widget rendered globally, backed by the Gemini-powered /api/chatbot route. */
+const HIDDEN_ON = ['/admin', '/pay/', '/shop'];
+
 export default function ChatbotWidget() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState('');
@@ -77,6 +81,9 @@ export default function ChatbotWidget() {
       setLoading(false);
     }
   };
+
+  // Admin, payment and shop screens have their own bottom buttons; keep the chat out of the way
+  if (HIDDEN_ON.some((prefix) => pathname?.startsWith(prefix))) return null;
 
   return (
     <>

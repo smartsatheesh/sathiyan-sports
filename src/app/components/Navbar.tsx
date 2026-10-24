@@ -86,7 +86,7 @@ const Navbar = () => {
   if (isAdmin) {
     profileMenuItems.unshift(
       {
-        label: "Admin Dashboard",
+        label: "Admin home",
         href: "/admin",
         icon: <Dashboard />,
       },
@@ -182,6 +182,12 @@ const Navbar = () => {
               <Link href="/bookslot" passHref>
                 <Button sx={{ color: "#fff", ml: 2 }}>
                   Book Slot
+                </Button>
+              </Link>
+
+              <Link href="/shop" passHref>
+                <Button sx={{ color: "#fff", ml: 2 }}>
+                  Shop
                 </Button>
               </Link>
               
@@ -401,6 +407,11 @@ const Navbar = () => {
                     <Link href="/bookslot" passHref>
                       <ListItem button onClick={toggleDrawer}>
                         <ListItemText primary="Book Slot" />
+                      </ListItem>
+                    </Link>
+                    <Link href="/shop" passHref>
+                      <ListItem button onClick={toggleDrawer}>
+                        <ListItemText primary="Shop" />
                       </ListItem>
                     </Link>
                     

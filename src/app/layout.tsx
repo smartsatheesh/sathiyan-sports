@@ -49,7 +49,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         
         {/* Additional favicon fallbacks for better browser compatibility */}
         <link rel="icon" href="/sathiyanlogo.png" type="image/png" />

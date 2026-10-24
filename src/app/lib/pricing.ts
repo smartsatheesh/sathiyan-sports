@@ -40,6 +40,7 @@ export interface SiteSettings {
     flexibleSurchargePerMonth: number;
   };
   tournamentDefaultFee: number;
+  expenses: { people: string[]; categories: string[] };
   upi: { vpa: string; payeeName: string };
   whatsappNumber: string; // 10-digit or with 91 prefix
 }
@@ -62,6 +63,10 @@ export const DEFAULT_SETTINGS: SiteSettings = {
     flexibleSurchargePerMonth: 300,
   },
   tournamentDefaultFee: 600,
+  expenses: {
+    people: ["Satheesh", "Sasi", "Maha", "Anu"],
+    categories: ["Sathiyan sports", "Common", "Seimurai"],
+  },
   upi: { vpa: "sathiyansportacademy202525-1@okaxis", payeeName: "Sathiyan Multi Sport Club" },
   whatsappNumber: "9787020525",
 };
@@ -88,6 +93,10 @@ export function withDefaults(stored: Partial<SiteSettings> | null | undefined): 
       ...DEFAULT_SETTINGS.membership,
       ...(s.membership || {}),
       womenWindow: { ...DEFAULT_SETTINGS.membership.womenWindow, ...(s.membership?.womenWindow || {}) },
+    },
+    expenses: {
+      people: s.expenses?.people?.length ? s.expenses.people : DEFAULT_SETTINGS.expenses.people,
+      categories: s.expenses?.categories?.length ? s.expenses.categories : DEFAULT_SETTINGS.expenses.categories,
     },
     upi: { ...DEFAULT_SETTINGS.upi, ...(s.upi || {}) },
   };

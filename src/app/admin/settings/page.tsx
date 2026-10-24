@@ -55,6 +55,42 @@ function MoneyField({ label, value, onChange }: { label: string; value: number; 
   );
 }
 
+function ChipListEditor({ label, values, onChange }: { label: string; values: string[]; onChange: (v: string[]) => void }) {
+  const [draft, setDraft] = useState("");
+  const add = () => {
+    const v = draft.trim();
+    if (v && !values.includes(v)) onChange([...values, v]);
+    setDraft("");
+  };
+  return (
+    <Box>
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>{label}</Typography>
+      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1, mb: 1 }}>
+        {values.map((v) => (
+          <Chip key={v} label={v} onDelete={values.length > 1 ? () => onChange(values.filter((x) => x !== v)) : undefined} />
+        ))}
+      </Stack>
+      <Stack direction="row" spacing={1}>
+        <TextField
+          size="small"
+          fullWidth
+          placeholder="Add new"
+          value={draft}
+          inputProps={{ maxLength: 40 }}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add();
+            }
+          }}
+        />
+        <Button variant="outlined" onClick={add} disabled={!draft.trim()}>Add</Button>
+      </Stack>
+    </Box>
+  );
+}
+
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <Card variant="outlined">
@@ -236,6 +272,13 @@ export default function AdminSettingsPage() {
           <Box sx={{ maxWidth: 240 }}>
             <MoneyField label="Default entry fee" value={s.tournamentDefaultFee} onChange={(n) => update((d) => { d.tournamentDefaultFee = n; })} />
           </Box>
+        </Section>
+
+        <Section title="Expenses" subtitle="Names and categories shown when adding an expense. Old entries keep their values.">
+          <Stack spacing={2.5}>
+            <ChipListEditor label="Paid by" values={s.expenses.people} onChange={(v) => update((d) => { d.expenses.people = v; })} />
+            <ChipListEditor label="Categories" values={s.expenses.categories} onChange={(v) => update((d) => { d.expenses.categories = v; })} />
+          </Stack>
         </Section>
 
         <Section title="UPI & WhatsApp" subtitle="Customers pay to this UPI ID. A UPI Business / merchant ID avoids app payment limits.">

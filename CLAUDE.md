@@ -11,7 +11,7 @@ Sathiyan Sports — a Next.js 14 (App Router) + TypeScript + MongoDB app for run
 ```bash
 npm run dev          # dev server on http://localhost:3000
 npm run build        # production build (also the main type/compile check)
-npm run lint         # next lint (eslint-config-next)
+npm run lint         # currently prompts for setup: eslint.config.mjs (flat config) is not supported by Next 14 lint
 npm run debug        # dev server with Node inspector
 npm run migrate:cricket-slots:dry    # preview cricket booking-slot migration
 npm run migrate:cricket-slots:apply  # apply it
@@ -40,6 +40,7 @@ Config comes from `.env` / `.env.local` (see `.env.example`). Key vars: `MONGODB
   - Security headers and the apex → `www.sathiyansports.fit` redirect are in `next.config.js`.
 - **Timezone**: business logic is IST (Asia/Kolkata). Use helpers in `src/app/lib/istDate.ts` rather than relying on server-local time.
 - **Membership fees**: `Subscription` documents are the fee ledger — one document per paid period (renewals add a new document). "Paid till" = latest `endDate` of a `Paid` period. `lib/fees.server.ts` builds the admin board (`/admin/fees`: overdue / due soon / paid / lapsed >45 days), records desk payments, and handles member self-payment via signed pay links (`/pay/<userId>.<hmac>`, HMAC with `NEXTAUTH_SECRET`). Keep the denormalised User fields in sync with `syncUserFeeStatus` (`lib/feeStatus.server.ts`).
+- **Admin area**: `/admin` is a mobile-first hub (numbers from `/api/admin/overview`); the legacy bookings/users/slot-stats dashboard lives at `/admin/manage`. Expenses (`/admin/expenses`, one month at a time via `lib/expenses.server.ts`; paid-by names and categories come from Settings) and inventory (`/admin/inventory`, products with stock history; photos resized in the browser and stored as data URLs, served by `/api/inventory/[id]/image`) back the public `/shop`, which orders via WhatsApp.
 - **Notifications**: WhatsApp only, via free `wa.me` links that an admin taps (fee reminders, payment receipts, password-reset links). There is no SMS/push/paid WhatsApp API — don't add one without asking. Password reset: member requests at `/auth/forgot-password` → admin sends a one-time link from `/admin/password-resets` (only the SHA-256 of reset tokens is stored).
 - **Scheduled jobs**: Vercel Cron (`vercel.json`) calling `/api/cron/*` with `Authorization: Bearer $CRON_SECRET`; no in-process schedulers. `src/app/services/` now only holds `geminiService.ts`.
 - **Prices & settings**: every price (court slots, extras, weekend days, membership plans, women's discount window, flexible surcharge, tournament default fee), the UPI ID and the WhatsApp number live in one `Settings` document edited at `/admin/settings`. `src/app/lib/pricing.ts` holds the types, `DEFAULT_SETTINGS` and the pure price functions shared by client and server; `lib/settings.server.ts` loads/caches/validates it; pages use `hooks/useSiteSettings`. Never hard-code a price — servers must recompute amounts with these functions (admins may override).

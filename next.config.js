@@ -23,6 +23,8 @@ const nextConfig = {
       { source: "/admin/subscription-management", destination: "/admin/fees", permanent: false },
       { source: "/subscription", destination: "/admin/fees", permanent: false },
       { source: "/notifications", destination: "/admin", permanent: false },
+      { source: "/expenses", destination: "/admin/expenses", permanent: false },
+      { source: "/admin/expenses/stats", destination: "/admin/expenses", permanent: false },
       {
         source: "/:path*",
         has: [{ type: "host", value: "sathiyansports.fit" }],

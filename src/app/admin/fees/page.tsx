@@ -340,8 +340,8 @@ export default function AdminFeesPage() {
                   )}
 
                   <Stack direction="row" spacing={1} sx={{ mt: 1.25 }}>
-                    <Button variant="contained" size="small" startIcon={<Add />} onClick={() => setRecordFor(m)} sx={{ flex: 1 }}>
-                      Record payment
+                    <Button variant="contained" size="small" startIcon={<Add />} onClick={() => setRecordFor(m)} sx={{ flex: 1, whiteSpace: "nowrap" }}>
+                      Payment
                     </Button>
                     {m.state === "lapsed" && (
                       <Button size="small" color="inherit" onClick={() => markLeft(m)} sx={{ flex: 1 }}>

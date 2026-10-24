@@ -54,7 +54,7 @@ const sports: Array<{
     icon: "🏏",
     color: "#4caf50",
     description: "Professional cricket ground with all facilities",
-    features: ["Full-size pitch", "Changing rooms", "🏏 Ball extra optional (₹80)"]
+    features: ["Full-size pitch", "Changing rooms"]
   },
   {
     id: 2,
@@ -62,7 +62,7 @@ const sports: Array<{
     icon: "⚽",
     color: "#2196f3",
     description: "FIFA standard football turf",
-    features: ["Professional turf", "Floodlights", "⚽ Ball extra optional (₹80)"]
+    features: ["Professional turf", "Floodlights"]
   },
   {
     id: 3,
