@@ -59,7 +59,13 @@ export function validateSettings(s: SiteSettings): string[] {
     errors.push("Weekend days are invalid");
   }
 
-  if (!isMoney(s.membership?.monthlyFee)) errors.push("Monthly tuition fee is invalid");
+  if (!Array.isArray(s.membership?.programs) || s.membership.programs.length === 0) {
+    errors.push("Add at least one coaching programme");
+  }
+  s.membership?.programs?.forEach((p) => {
+    if (!p.key?.trim() || !p.name?.trim()) errors.push("Every coaching programme needs a name");
+    if (!isMoney(p.monthly)) errors.push(`${p.name || "Programme"}: monthly fee is invalid`);
+  });
   if (!isMoney(s.membership?.flexibleSurchargePerMonth)) errors.push("Flexible surcharge is invalid");
   if (!isMoney(s.tournamentDefaultFee)) errors.push("Tournament fee is invalid");
 

@@ -30,6 +30,14 @@ export interface CourtPrice {
   note?: string;
 }
 
+/** A monthly coaching programme (separate from court booking prices). */
+export interface CoachingProgram {
+  key: string; // stable id stored on the member, e.g. "badminton"
+  name: string; // e.g. "Badminton coaching"
+  monthly: number; // per person per month
+  sport?: string; // members with this preferred sport default to this programme
+}
+
 export interface Holiday {
   date: string; // yyyy-MM-dd
   name: string;
@@ -39,9 +47,10 @@ export interface Holiday {
 export const SLOT_HOURS = 0.5;
 /**
  * v1: court prices per 30-minute slot. v2: per hour.
- * v3: owner's 2026-11 price list (turf blocks, nets, ₹300 badminton, single tuition fee, holidays).
+ * v3: owner's 2026-11 price list (turf blocks, nets, ₹300 badminton, holidays).
+ * v4: coaching priced per programme (badminton/football/cricket/fitness) instead of one tuition fee.
  */
-export const PRICING_VERSION = 3;
+export const PRICING_VERSION = 4;
 
 export interface Extra {
   key: string; // stable id, e.g. "ball"
@@ -56,7 +65,7 @@ export interface SiteSettings {
   weekendDays: number[]; // 0 = Sunday … 6 = Saturday
   holidays: Holiday[]; // charged at the weekend price
   membership: {
-    monthlyFee: number; // tuition per person per month, same for everyone
+    programs: CoachingProgram[]; // coaching fees per programme, per person per month
     flexibleSurchargePerMonth: number;
   };
   tournamentDefaultFee: number;
@@ -94,7 +103,15 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   extras: [{ key: "ball", name: "Ball", price: 80 }],
   weekendDays: [0, 5, 6],
   holidays: TN_FIXED_HOLIDAYS,
-  membership: { monthlyFee: 500, flexibleSurchargePerMonth: 0 },
+  membership: {
+    programs: [
+      { key: "badminton", name: "Badminton coaching", monthly: 2000, sport: "Shuttle Badminton" },
+      { key: "football", name: "Football coaching", monthly: 1500, sport: "Football" },
+      { key: "cricket", name: "Cricket coaching", monthly: 1500, sport: "Cricket" },
+      { key: "fitness", name: "Yoga / Taekwondo / Fitness", monthly: 600 },
+    ],
+    flexibleSurchargePerMonth: 0,
+  },
   tournamentDefaultFee: 600,
   expenses: {
     people: ["Satheesh", "Sasi", "Maha", "Anu"],
@@ -116,8 +133,9 @@ export const EVENT_SESSIONS = [
 /** Merge stored (possibly partial/old) settings over defaults so new fields always exist. */
 export function withDefaults(stored: Partial<SiteSettings> | null | undefined): SiteSettings {
   const s = (stored || {}) as Partial<SiteSettings> & { membership?: any };
-  // Anything saved before the v3 price list is replaced by it (the owner's instruction)
-  const current = (s.pricingVersion ?? 1) >= PRICING_VERSION;
+  // Anything saved before the v3 court price list / v4 coaching prices is replaced by them
+  const version = s.pricingVersion ?? 1;
+  const current = version >= 3;
   return {
     ...DEFAULT_SETTINGS,
     ...s,
@@ -126,7 +144,7 @@ export function withDefaults(stored: Partial<SiteSettings> | null | undefined): 
     extras: s.extras ?? DEFAULT_SETTINGS.extras,
     weekendDays: s.weekendDays ?? DEFAULT_SETTINGS.weekendDays,
     holidays: current && Array.isArray(s.holidays) ? s.holidays : DEFAULT_SETTINGS.holidays,
-    membership: current && s.membership?.monthlyFee !== undefined
+    membership: version >= 4 && Array.isArray(s.membership?.programs) && s.membership.programs.length
       ? { ...DEFAULT_SETTINGS.membership, ...s.membership }
       : DEFAULT_SETTINGS.membership,
     expenses: {
@@ -255,13 +273,28 @@ export interface MembershipPriceInput {
   champType?: string;
   gender?: string;
   preferredTimeSlot?: string;
+  preferredSport?: string;
+  coachingProgram?: string; // CoachingProgram.key
   subscriptionType: string;
   mode?: string; // fixed/standard | flexible
 }
 
-/** Tuition is one price for everyone: monthly fee × months. */
-export function membershipPlanFor(settings: SiteSettings, _input?: MembershipPriceInput): PlanPrices {
-  const fee = settings.membership.monthlyFee;
+/** The member's coaching programme: chosen key, else the one for their sport, else the first. */
+export function programFor(
+  settings: SiteSettings,
+  member?: { coachingProgram?: string; preferredSport?: string }
+): CoachingProgram {
+  const programs = settings.membership.programs;
+  return (
+    programs.find((p) => p.key === member?.coachingProgram) ||
+    programs.find((p) => p.sport && p.sport === member?.preferredSport) ||
+    programs[0]
+  );
+}
+
+/** Coaching fee for the member's programme: monthly price × months. */
+export function membershipPlanFor(settings: SiteSettings, input?: MembershipPriceInput): PlanPrices {
+  const fee = programFor(settings, input).monthly;
   return {
     monthly: fee,
     quarterly: fee * 3,

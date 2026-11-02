@@ -184,6 +184,10 @@ const userSchema = new mongoose.Schema({
   resetRequestedAt: {
     type: Date,
   },
+  // Coaching programme key from Settings (badminton/football/cricket/fitness); decides the monthly fee
+  coachingProgram: {
+    type: String,
+  },
   // Last time admin opened a WhatsApp fee reminder for this member
   feeReminderAt: {
     type: Date,

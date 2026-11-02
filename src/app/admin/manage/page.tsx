@@ -1,6 +1,6 @@
 "use client";
 import { useSiteSettings } from "../../hooks/useSiteSettings";
-import { calculateMembershipPrice } from "../../lib/pricing";
+import { calculateMembershipPrice, programFor } from "../../lib/pricing";
 import React, { useState, useEffect, useCallback, memo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -301,6 +301,7 @@ export default function AdminDashboard() {
     champType: '',
     subscribed: '',
     preferredSport: '',
+    coachingProgram: '',
     preferredTimeSlot: '',
     selectedCourt: '',
     subscriptionType: '',
@@ -591,6 +592,8 @@ export default function AdminDashboard() {
         subscriptionType: editUserFormData.subscriptionType,
         gender: editUserFormData.gender,
         preferredTimeSlot: editUserFormData.preferredTimeSlot,
+        preferredSport: editUserFormData.preferredSport,
+        coachingProgram: editUserFormData.coachingProgram,
       });
       
       setEditUserFormData(prev => ({
@@ -598,7 +601,7 @@ export default function AdminDashboard() {
         subscriptionAmount: calculatedAmount
       }));
     }
-  }, [editUserFormData.champType, editUserFormData.subscriptionType, editUserFormData.gender, editUserFormData.preferredTimeSlot]);
+  }, [editUserFormData.champType, editUserFormData.subscriptionType, editUserFormData.gender, editUserFormData.preferredTimeSlot, editUserFormData.preferredSport, editUserFormData.coachingProgram]);
 
   const handleEditUser = (user: User) => {
     console.log('Opening edit dialog for user:', user);
@@ -614,6 +617,7 @@ export default function AdminDashboard() {
       champType: user.champType || 'adult', // Default to adult for existing users
       subscribed: user.subscribed || 'no', // Default to no for existing users
       preferredSport: user.preferredSport || '',
+      coachingProgram: (user as any).coachingProgram || '',
       preferredTimeSlot: user.preferredTimeSlot || '',
       selectedCourt: user.selectedCourt || '',
       subscriptionType: user.subscriptionType || '',
@@ -741,6 +745,7 @@ export default function AdminDashboard() {
           champType: editUserFormData.champType,
           subscribed: editUserFormData.subscribed,
           preferredSport: editUserFormData.preferredSport,
+          coachingProgram: programFor(siteSettings, editUserFormData).key,
           preferredTimeSlot: editUserFormData.preferredTimeSlot,
           selectedCourt: editUserFormData.selectedCourt,
           subscriptionType: editUserFormData.subscriptionType,
@@ -2472,6 +2477,22 @@ export default function AdminDashboard() {
                 </Grid>
               )}
               
+              {/* Coaching programme (decides the monthly fee) */}
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Coaching programme</InputLabel>
+                  <Select
+                    label="Coaching programme"
+                    value={programFor(siteSettings, editUserFormData).key}
+                    onChange={(e) => setEditUserFormData(prev => ({ ...prev, coachingProgram: String(e.target.value) }))}
+                  >
+                    {siteSettings.membership.programs.map((p) => (
+                      <MenuItem key={p.key} value={p.key}>{p.name} — ₹{p.monthly}/month</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
               {/* Subscription Amount */}
               <Grid item xs={12} sm={6}>
                 <TextField
@@ -2483,7 +2504,7 @@ export default function AdminDashboard() {
                   inputProps={{ min: 0 }}
                 />
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  Tuition is ₹{siteSettings.membership.monthlyFee}/month for everyone — change it for special rates.
+                  Coaching fees: {siteSettings.membership.programs.map((p) => `${p.name} ₹${p.monthly}`).join(" · ")} per month — change the amount for special rates.
                 </Typography>
               </Grid>
               

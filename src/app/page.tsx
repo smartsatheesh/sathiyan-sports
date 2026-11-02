@@ -135,7 +135,7 @@ export default function Home() {
   const nextScene = useCallback(() => setSceneIndex((i) => (i + 1) % HERO_SCENES.length), []);
 
   const whatsapp = `https://wa.me/${waNumber(settings.whatsappNumber)}?text=${encodeURIComponent("Hi Sathiyan Sports! I'd like to know more.")}`;
-  const tuition = settings.membership.monthlyFee;
+  const programs = settings.membership.programs;
   const ball = settings.extras.find((e) => e.key === "ball");
 
   return (
@@ -307,16 +307,25 @@ export default function Home() {
           <Typography sx={{ opacity: 0.9, mb: 4, maxWidth: 640 }}>
             Regular sessions with our coaches that build fitness, skills and confidence — with equal focus on physical and mental health for our kids.
           </Typography>
-          <Box sx={{ bgcolor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 4, p: { xs: 3, md: 4 }, maxWidth: 560, backdropFilter: "blur(4px)" }}>
-            <Typography variant="h6" fontWeight={800}>Tuition — kids and adults</Typography>
-            <Stack direction="row" alignItems="baseline" spacing={0.5} sx={{ my: 1 }}>
-              <Typography sx={{ fontWeight: 900, fontSize: "2.6rem" }}>{rupees(tuition)}</Typography>
-              <Typography sx={{ opacity: 0.85 }}>per person / month</Typography>
-            </Stack>
-            <Typography sx={{ opacity: 0.88 }}>
-              3 months {rupees(tuition * 3)} · 6 months {rupees(tuition * 6)} · 12 months {rupees(tuition * 12)}
-            </Typography>
-          </Box>
+          <Grid container spacing={2}>
+            {programs.map((p) => (
+              <Grid item xs={12} sm={6} md={3} key={p.key}>
+                <Box sx={{ bgcolor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 4, p: 3, height: "100%", backdropFilter: "blur(4px)" }}>
+                  <Typography variant="h6" fontWeight={800} sx={{ lineHeight: 1.25 }}>{p.name}</Typography>
+                  <Stack direction="row" alignItems="baseline" spacing={0.5} sx={{ my: 1 }}>
+                    <Typography sx={{ fontWeight: 900, fontSize: "2.2rem" }}>{rupees(p.monthly)}</Typography>
+                    <Typography sx={{ opacity: 0.85 }}>/ month</Typography>
+                  </Stack>
+                  <Typography variant="body2" sx={{ opacity: 0.85 }}>
+                    3 months {rupees(p.monthly * 3)} · 12 months {rupees(p.monthly * 12)}
+                  </Typography>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+          <Typography variant="body2" sx={{ opacity: 0.85, mt: 2 }}>
+            Coaching fees are per person and separate from court booking prices.
+          </Typography>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mt: 4 }}>
             <Button component={Link} href="/register" size="large" variant="contained" sx={{ bgcolor: GOLD, color: NAVY, fontWeight: 900, py: 1.4, px: 4, borderRadius: 3, "&:hover": { bgcolor: "#ffd740" } }}>
               Join now

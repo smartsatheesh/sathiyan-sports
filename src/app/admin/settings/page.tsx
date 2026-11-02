@@ -278,20 +278,30 @@ export default function AdminSettingsPage() {
           <HolidayEditor holidays={s.holidays} onChange={(list) => update((d) => { d.holidays = list; })} />
         </Section>
 
-        <Section title="Tuition (monthly coaching)" subtitle="One price per person per month for kids and adults. 3, 6 and 12-month plans are this × months.">
-          <Grid container spacing={1.5}>
-            <Grid item xs={12} sm={6}>
-              <MoneyField label="Per person per month" value={s.membership.monthlyFee} onChange={(n) => update((d) => { d.membership.monthlyFee = n; })} />
-            </Grid>
-            <Grid item xs={12} sm={6}>
+        <Section title="Coaching fees (monthly)" subtitle="Per person per month for each coaching programme — separate from court booking prices. 3, 6 and 12-month plans are this × months. Members default to the programme for their sport.">
+          <Stack spacing={1.5}>
+            {s.membership.programs.map((p, i) => (
+              <Grid container spacing={1.5} key={p.key} alignItems="center">
+                <Grid item xs={7} sm={8}>
+                  <TextField size="small" fullWidth label="Programme" value={p.name}
+                    onChange={(e) => update((d) => { d.membership.programs[i].name = e.target.value.slice(0, 50); })} />
+                </Grid>
+                <Grid item xs={5} sm={4}>
+                  <MoneyField label="Per month" value={p.monthly} onChange={(n) => update((d) => { d.membership.programs[i].monthly = n; })} />
+                </Grid>
+              </Grid>
+            ))}
+            <Box>
+              <Button size="small" onClick={() => update((d) => {
+                d.membership.programs.push({ key: `program-${Date.now().toString(36)}`, name: "New programme", monthly: 0 });
+              })}>
+                + Add programme
+              </Button>
+            </Box>
+            <Box sx={{ maxWidth: 320 }}>
               <MoneyField label="Flexible timing extra per month (0 = none)" value={s.membership.flexibleSurchargePerMonth} onChange={(n) => update((d) => { d.membership.flexibleSurchargePerMonth = n; })} />
-            </Grid>
-          </Grid>
-          {Number.isFinite(s.membership.monthlyFee) && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-              1 month ₹{s.membership.monthlyFee} · 3 months ₹{s.membership.monthlyFee * 3} · 6 months ₹{s.membership.monthlyFee * 6} · 12 months ₹{s.membership.monthlyFee * 12}
-            </Typography>
-          )}
+            </Box>
+          </Stack>
         </Section>
 
         <Section title="Tournaments" subtitle="Used when a tournament does not have its own entry fee.">

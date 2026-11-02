@@ -9,6 +9,7 @@ import { PaymentError, submitPaymentProof } from "@/app/lib/payments.server";
 import { getISTTodayStart } from "@/app/lib/istDate";
 import {
   calculateMembershipPrice,
+  programFor,
   SiteSettings,
   SUBSCRIPTION_MONTHS,
   SubscriptionType,
@@ -43,6 +44,7 @@ export interface FeeMember {
   mobile: string;
   champType: string;
   sport: string;
+  program: string;
   gender: string;
   paidTill: string | null;
   daysLeft: number | null; // negative = days overdue
@@ -82,6 +84,8 @@ export const payLinkFor = (userId: string) => `${SITE_URL}/pay/${payTokenFor(use
 export function feeFor(settings: SiteSettings, user: any, months: number): number {
   return calculateMembershipPrice(settings, {
     champType: user.champType || "adult",
+    preferredSport: user.preferredSport,
+    coachingProgram: user.coachingProgram,
     gender: user.gender,
     preferredTimeSlot: user.preferredTimeSlot,
     subscriptionType: MONTHS_TO_TYPE[months] || "monthly",
@@ -112,7 +116,7 @@ export async function getFeeBoard(): Promise<{ members: FeeMember[]; collectedTh
   const today = getISTTodayStart();
 
   const users = await (User.find as any)({ role: "customer", subscribed: { $in: ["yes", "Yes"] } })
-    .select("champId name mobile phone champType preferredSport gender preferredTimeSlot mode feeReminderAt")
+    .select("champId name mobile phone champType preferredSport coachingProgram gender preferredTimeSlot mode feeReminderAt")
     .lean();
 
   const latestPaid = await (Subscription.aggregate as any)([
@@ -157,6 +161,7 @@ export async function getFeeBoard(): Promise<{ members: FeeMember[]; collectedTh
       mobile: u.mobile || u.phone || "",
       champType: u.champType || "adult",
       sport: u.preferredSport || "",
+      program: programFor(settings, u).name,
       gender: u.gender || "",
       paidTill: paidTill ? paidTill.toISOString() : null,
       daysLeft,
@@ -313,7 +318,7 @@ export async function submitMemberFee(userId: string, months: number, rawUtr: st
 export async function getMemberFeeSummary(userId: string) {
   await connectToMongoose();
   const user = await (User.findById as any)(userId)
-    .select("name champId champType gender preferredTimeSlot mode subscribed preferredSport")
+    .select("name champId champType gender preferredTimeSlot mode subscribed preferredSport coachingProgram")
     .lean();
   if (!user) return null;
 
@@ -328,6 +333,7 @@ export async function getMemberFeeSummary(userId: string) {
     champId: user.champId,
     champType: user.champType || "adult",
     sport: user.preferredSport || "",
+    program: programFor(settings, user).name,
     paidTill: paidTill ? paidTill.toISOString() : null,
     nextStart: nextPeriodStart(paidTill).toISOString(),
     awaitingVerification: Boolean(awaiting),

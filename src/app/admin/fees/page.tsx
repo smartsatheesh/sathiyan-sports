@@ -42,6 +42,7 @@ interface Member {
   mobile: string;
   champType: string;
   sport: string;
+  program: string;
   paidTill: string | null;
   daysLeft: number | null;
   state: FeeState;
@@ -81,6 +82,7 @@ function statusOf(m: Member): { label: string; color: "error" | "warning" | "suc
 function reminderText(m: Member): string {
   const first = m.name.split(" ")[0] || "there";
   const whose = m.champType === "kids" ? `${first}'s` : "your";
+  const what = m.program ? `${m.program.toLowerCase()} fee` : "monthly fee";
   const greeting = m.champType === "kids" ? "Hi" : `Hi ${first}`;
   const when =
     m.state === "overdue"
@@ -88,7 +90,7 @@ function reminderText(m: Member): string {
       : m.state === "due_soon"
         ? `is due on ${fmtDate(m.paidTill)}`
         : "is pending";
-  return `${greeting}, a friendly reminder from Sathiyan Sports 🏸⚽\n\n${whose[0].toUpperCase() + whose.slice(1)} monthly fee of ${rupees(m.monthlyFee)} ${when}.\n\nPay easily by UPI here:\n${m.payLink}\n\nThank you!`;
+  return `${greeting}, a friendly reminder from Sathiyan Sports 🏸⚽\n\n${whose[0].toUpperCase() + whose.slice(1)} ${what} of ${rupees(m.monthlyFee)}/month ${when}.\n\nPay easily by UPI here:\n${m.payLink}\n\nThank you!`;
 }
 
 const daysAgo = (iso: string | null) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / DAY) : null);
@@ -324,7 +326,7 @@ export default function AdminFeesPage() {
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography fontWeight={700} noWrap>{m.name}</Typography>
                       <Typography variant="caption" color="text.secondary" noWrap component="div">
-                        {m.champId} · {m.sport || "—"} · {m.champType === "kids" ? "Kids" : "Adult"}
+                        {m.champId} · {m.program || m.sport || "—"} · {m.champType === "kids" ? "Kids" : "Adult"}
                       </Typography>
                     </Box>
                     <Typography fontWeight={800} sx={{ whiteSpace: "nowrap" }}>

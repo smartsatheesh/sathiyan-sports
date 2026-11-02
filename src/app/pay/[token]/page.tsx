@@ -20,6 +20,7 @@ interface Summary {
   champId: string;
   champType: string;
   sport: string;
+  program: string;
   paidTill: string | null;
   nextStart: string;
   awaitingVerification: boolean;
@@ -71,7 +72,7 @@ export default function MemberPayPage({ params }: { params: { token: string } })
     <Container maxWidth="xs" sx={{ py: { xs: 3, md: 6 } }}>
       <Typography variant="h5" fontWeight={800}>Hi {summary.firstName} 👋</Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
-        {summary.champType === "kids" ? "Kids" : "Adult"} membership · {summary.sport} · {summary.champId}
+        {summary.program} · {summary.champType === "kids" ? "Kids" : "Adult"} · {summary.champId}
       </Typography>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>

@@ -7,7 +7,7 @@ import emailService from "@/app/lib/emailService";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authConfig";
 import { getSiteSettings } from "@/app/lib/settings.server";
-import { calculateMembershipPrice } from "@/app/lib/pricing";
+import { calculateMembershipPrice, programFor } from "@/app/lib/pricing";
 
 // Utility function to normalize time slot formats
 function normalizeTimeSlot(timeSlot: string): string {
@@ -123,6 +123,7 @@ export async function POST(req: Request) {
       champType: body.champType,
       subscribed: body.subscribed,
       preferredSport: body.preferredSport,
+      coachingProgram: programFor(settings, body).key,
       // Set preferred slots as optional - empty by default, users can update after payment
       // Only set selectedCourt for badminton players
       ...(body.preferredSport === "Shuttle Badminton" && body.selectedCourt && { selectedCourt: body.selectedCourt }),

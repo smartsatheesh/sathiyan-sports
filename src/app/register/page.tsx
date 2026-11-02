@@ -36,7 +36,7 @@ import { addMonths, addYears } from "date-fns";
 import Link from "next/link";
 import RegistrationSuccessPopup from "../components/RegistrationSuccessPopup";
 import { useSiteSettings } from "../hooks/useSiteSettings";
-import { calculateMembershipPrice, membershipPlanFor, SUBSCRIPTION_MONTHS, type SubscriptionType } from "../lib/pricing";
+import { calculateMembershipPrice, membershipPlanFor, programFor, SUBSCRIPTION_MONTHS, type SubscriptionType } from "../lib/pricing";
 
 const TIME_SLOTS = [
   "12:00 AM - 01:00 AM",
@@ -89,6 +89,7 @@ export default function RegisterPage() {
     preferredTimeSlot: "",
     selectedCourt: "",
     subscriptionType: "",
+    coachingProgram: "",
     role: "customer", // Default role
     comments: "",
     mode: "",
@@ -364,6 +365,7 @@ export default function RegisterPage() {
         },
         body: JSON.stringify({
           ...formData,
+          coachingProgram: programFor(settings, formData).key,
           subscriptionAmount,
           subscriptionEndDate,
         }),
@@ -398,6 +400,7 @@ export default function RegisterPage() {
         preferredTimeSlot: "",
         selectedCourt: "",
         subscriptionType: "",
+        coachingProgram: "",
         role: "customer",
         comments: "",
         mode: "",
@@ -838,6 +841,20 @@ export default function RegisterPage() {
               )}
             </>
           )}
+
+          {/* Coaching programme — defaults to the programme for the chosen sport */}
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Coaching programme</InputLabel>
+            <Select
+              value={programFor(settings, formData).key}
+              label="Coaching programme"
+              onChange={(e) => setFormData({ ...formData, coachingProgram: e.target.value })}
+            >
+              {settings.membership.programs.map((p) => (
+                <MenuItem key={p.key} value={p.key}>{p.name} — ₹{p.monthly.toLocaleString("en-IN")}/month</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
           {/* Mode Field - Moved before subscription type */}
           <FormControl fullWidth margin="normal" required error={!!fieldErrors.mode}>

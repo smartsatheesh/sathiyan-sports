@@ -353,6 +353,9 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
             subscriptionType: subscriptionType || 'monthly',
             gender,
             preferredTimeSlot,
+            // coaching fee depends on the member's programme / sport
+            preferredSport: updateData.preferredSport || currentUser.preferredSport,
+            coachingProgram: updateData.coachingProgram || currentUser.coachingProgram,
           });
         }
 
@@ -599,6 +602,9 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
             subscriptionType: subscriptionType || 'monthly',
             gender,
             preferredTimeSlot,
+            // coaching fee depends on the member's programme / sport
+            preferredSport: updateData.preferredSport || currentUser.preferredSport,
+            coachingProgram: updateData.coachingProgram || currentUser.coachingProgram,
           });
         }
 
