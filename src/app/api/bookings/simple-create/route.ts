@@ -6,7 +6,7 @@ import { authOptions } from '@/app/lib/authConfig';
 import { addDaysFromISTDayStart, getISTDayStart, getISTTodayStart } from '@/app/lib/istDate';
 import { findBlockingConflicts } from '@/app/lib/bookingConflicts';
 import { getSiteSettings } from '@/app/lib/settings.server';
-import { calculateBookingPrice, getCourt } from '@/app/lib/pricing';
+import { bookingPeople, bookingRuleError, calculateBookingPrice, getCourt } from '@/app/lib/pricing';
 
 function parseTimeSlots(timeSlot?: string, timeSlots?: string[]): string[] {
   if (Array.isArray(timeSlots) && timeSlots.length > 0) {
@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
       customerInfo,
       totalPrice: requestedPrice,
       extras,
+      people,
       paymentReference
     } = body;
 
@@ -111,12 +112,20 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const price = calculateBookingPrice(settings, {
+    const priceInput = {
       sport,
       date: String(date).slice(0, 10),
       slots: [...parsedSlots, ...(hasExplicitNextDayPayload ? parsedNextDaySlots : [])],
       extras,
-    });
+      people: courtPrice.perPerson ? Number(people) : undefined,
+    };
+    // Customers must follow the booking rules (weekday turf blocks, minimum players); admins may override
+    const ruleError = isAdmin ? null : bookingRuleError(settings, priceInput);
+    if (ruleError) {
+      return NextResponse.json({ success: false, message: ruleError }, { status: 400 });
+    }
+    const price = calculateBookingPrice(settings, priceInput);
+    const players = courtPrice.perPerson ? bookingPeople(courtPrice, people) : undefined;
     const adminPrice = Number(requestedPrice);
     const totalPrice = isAdmin && Number.isFinite(adminPrice) && adminPrice >= 0 ? adminPrice : price!.total;
 
@@ -170,6 +179,7 @@ export async function POST(request: NextRequest) {
         nextDayDate: explicitSecondaryDate,
         nextDayTimeSlots: parsedNextDaySlots,
         court: court || undefined,
+        players,
         customerName: customerInfo.name,
         customerEmail: customerInfo.email,
         customerPhone: customerInfo.phone,
@@ -249,6 +259,7 @@ export async function POST(request: NextRequest) {
       nextDayDate: secondaryDate,
       nextDayTimeSlots: secondarySlots,
       court: court || undefined, // Include court for Shuttle Badminton
+      players,
       customerName: customerInfo.name,
       customerEmail: customerInfo.email,
       customerPhone: customerInfo.phone,

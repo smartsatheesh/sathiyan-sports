@@ -1,10 +1,6 @@
 import { connectToMongoose } from "@/app/server/mongodb";
 import Settings from "@/app/models/Settings";
-import {
-  SiteSettings,
-  SUBSCRIPTION_TYPES,
-  withDefaults,
-} from "@/app/lib/pricing";
+import { SiteSettings, withDefaults } from "@/app/lib/pricing";
 
 const SETTINGS_KEY = "site";
 const CACHE_MS = 60_000;
@@ -42,7 +38,17 @@ export function validateSettings(s: SiteSettings): string[] {
   s.courts?.forEach((c) => {
     if (!c.sport?.trim()) errors.push("Every sport needs a name");
     if (!isMoney(c.weekday) || !isMoney(c.weekend)) errors.push(`${c.sport}: prices must be 0 or more`);
+    if (c.weekdayBlockHours !== undefined && ![0, 1, 2, 3, 4].includes(Number(c.weekdayBlockHours))) {
+      errors.push(`${c.sport}: weekday block must be 0–4 hours`);
+    }
+    if (c.perPerson && !(Number(c.minPeople) >= 1 && Number(c.maxPeople || 50) >= Number(c.minPeople))) {
+      errors.push(`${c.sport}: check the minimum/maximum people`);
+    }
   });
+
+  if (!Array.isArray(s.holidays) || s.holidays.some((h) => !/^\d{4}-\d{2}-\d{2}$/.test(h?.date || "") || !String(h?.name || "").trim())) {
+    errors.push("Every holiday needs a date and a name");
+  }
 
   s.extras?.forEach((e) => {
     if (!e.key?.trim() || !e.name?.trim()) errors.push("Every extra needs a name");
@@ -53,15 +59,7 @@ export function validateSettings(s: SiteSettings): string[] {
     errors.push("Weekend days are invalid");
   }
 
-  (["kids", "adultMale", "adultFemale"] as const).forEach((plan) => {
-    SUBSCRIPTION_TYPES.forEach((t) => {
-      if (!isMoney(s.membership?.[plan]?.[t])) errors.push(`Membership ${plan} ${t} price is invalid`);
-    });
-  });
-  const w = s.membership?.womenWindow;
-  if (!w || !(w.startHour >= 0 && w.endHour <= 24 && w.startHour < w.endHour)) {
-    errors.push("Women's discount hours are invalid");
-  }
+  if (!isMoney(s.membership?.monthlyFee)) errors.push("Monthly tuition fee is invalid");
   if (!isMoney(s.membership?.flexibleSurchargePerMonth)) errors.push("Flexible surcharge is invalid");
   if (!isMoney(s.tournamentDefaultFee)) errors.push("Tournament fee is invalid");
 

@@ -4,7 +4,7 @@ const bookingSchema = new mongoose.Schema({
   sport: {
     type: String,
     required: [true, "Sport is required"],
-    enum: ["Cricket", "Football", "Shuttle Badminton", "Functions and Events", "Body Zorb"],
+    enum: ["Cricket", "Football", "Shuttle Badminton", "Cricket Nets", "Functions and Events", "Body Zorb"],
   },
   date: {
     type: Date,
@@ -24,6 +24,11 @@ const bookingSchema = new mongoose.Schema({
     required: false,
   }],
   // Court selection for Shuttle Badminton
+  // Number of players, for courts priced per person (cricket nets)
+  players: {
+    type: Number,
+    min: 1,
+  },
   court: {
     type: String,
     enum: ["S1", "S2", "S3"], // Three shuttle courts

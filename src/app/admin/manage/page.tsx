@@ -2482,29 +2482,9 @@ export default function AdminDashboard() {
                   onChange={(e) => setEditUserFormData(prev => ({ ...prev, subscriptionAmount: Number(e.target.value) }))}
                   inputProps={{ min: 0 }}
                 />
-                {editUserFormData.gender === 'female' && editUserFormData.preferredTimeSlot && (
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    {(() => {
-                      const timeSlot = editUserFormData.preferredTimeSlot;
-                      if (!timeSlot) return '';
-                      
-                      const startTime = timeSlot.split(' - ')[0];
-                      const [time, period] = startTime.split(' ');
-                      const [hours, minutes] = time.split(':').map(Number);
-                      
-                      let hour24 = hours;
-                      if (period === 'PM' && hours !== 12) hour24 += 12;
-                      if (period === 'AM' && hours === 12) hour24 = 0;
-                      
-                      const startHour = hour24 + minutes / 60;
-                      const isDiscountTime = startHour >= 10.0 && startHour < 16.0;
-                      
-                      return isDiscountTime 
-                        ? '✅ Female discount applied (10 AM - 4 PM slot)'
-                        : '⚠️ Using standard pricing (outside 10 AM - 4 PM)';
-                    })()}
-                  </Typography>
-                )}
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  Tuition is ₹{siteSettings.membership.monthlyFee}/month for everyone — change it for special rates.
+                </Typography>
               </Grid>
               
               {/* Payment Method */}

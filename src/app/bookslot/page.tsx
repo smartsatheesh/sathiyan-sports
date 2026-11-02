@@ -36,13 +36,15 @@ import {
 } from "@mui/icons-material";
 import UpiPaymentDialog from "../components/UpiPaymentDialog";
 import { useSiteSettings } from "../hooks/useSiteSettings";
-import { calculateBookingPrice, getCourt, EVENT_SESSIONS } from "../lib/pricing";
+import { bookingRuleError, calculateBookingPrice, courtPriceLabel, getCourt, EVENT_SESSIONS } from "../lib/pricing";
 
 // Custom weekend function that includes Friday, Saturday, and Sunday
+type SportName = "Cricket" | "Football" | "Shuttle Badminton" | "Cricket Nets" | "Functions and Events" | "Body Zorb";
+
 // Sports data with proper typing to match selectedSport state
 const sports: Array<{
   id: number;
-  name: "Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events" | "Body Zorb";
+  name: SportName;
   icon: string;
   color: string;
   description: string;
@@ -71,6 +73,14 @@ const sports: Array<{
     color: "#ff9800",
     description: "Indoor badminton courts with wooden flooring",
     features: ["3 courts available", "Professional nets", "Rackets available"]
+  },
+  {
+    id: 6,
+    name: "Cricket Nets",
+    icon: "🏏",
+    color: "#00897b",
+    description: "Batting and bowling practice in the nets",
+    features: ["Practice nets", "Priced per person"]
   },
   {
     id: 4,
@@ -264,7 +274,7 @@ export default function BookSlot() {
   const isAdminUser = session?.user?.role === 'admin';
 
   // All useState hooks must be at the top level
-  const [selectedSport, setSelectedSport] = useState<"Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events" | "Body Zorb" | "">("");
+  const [selectedSport, setSelectedSport] = useState<SportName | "">("");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
   const [selectedNextDayTimeSlots, setSelectedNextDayTimeSlots] = useState<string[]>([]);
@@ -302,7 +312,7 @@ export default function BookSlot() {
   const [isScrollingToDate, setIsScrollingToDate] = useState(false);
 
   // Function to handle sport selection and auto-scroll to date selection
-  const handleSportSelection = (sportName: "Cricket" | "Football" | "Shuttle Badminton" | "Functions and Events" | "Body Zorb") => {
+  const handleSportSelection = (sportName: SportName) => {
     setSelectedSport(sportName);
   };
 
@@ -387,16 +397,38 @@ export default function BookSlot() {
     };
   }, [selectedDate, selectedTimeSlots, selectedNextDayTimeSlots]);
 
-  // Slot price from the owner's settings (server recalculates the same way)
-  const baseSlotPrice = useMemo(() => {
+  // Players, for courts priced per person (cricket nets)
+  const selectedCourtPrice = selectedSport ? getCourt(settings, selectedSport) : undefined;
+  const [people, setPeople] = useState(2);
+  useEffect(() => {
+    if (selectedCourtPrice?.perPerson) setPeople(selectedCourtPrice.minPeople || 1);
+  }, [selectedSport]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Price from the owner's settings (server recalculates the same way)
+  const priceDetails = useMemo(() => {
     if (!selectedSport || !bookingBreakdown.primaryDate || allSelectedSlots.length === 0) return null;
-    const price = calculateBookingPrice(settings, {
+    return calculateBookingPrice(settings, {
       sport: selectedSport,
       date: format(bookingBreakdown.primaryDate, 'yyyy-MM-dd'),
       slots: allSelectedSlots,
+      people,
     });
-    return price ? price.slotTotal : null;
-  }, [selectedSport, bookingBreakdown.primaryDate, allSelectedSlots, settings]);
+  }, [selectedSport, bookingBreakdown.primaryDate, allSelectedSlots, settings, people]);
+  const baseSlotPrice = priceDetails ? priceDetails.slotTotal : null;
+
+  // Booking rules shown before the customer proceeds (admins may override)
+  const ruleError = useMemo(() => {
+    if (isAdminUser || !selectedSport || !bookingBreakdown.primaryDate || allSelectedSlots.length === 0) return null;
+    if ((selectedSport === "Cricket" || selectedSport === "Football") && allSelectedSlots.length < 2) {
+      return `Minimum 1 hour (2 slots) required for ${selectedSport}`;
+    }
+    return bookingRuleError(settings, {
+      sport: selectedSport,
+      date: format(bookingBreakdown.primaryDate, 'yyyy-MM-dd'),
+      slots: allSelectedSlots,
+      people,
+    });
+  }, [isAdminUser, selectedSport, bookingBreakdown.primaryDate, allSelectedSlots, settings, people]);
 
   // Total price = slot price + ball extras (or manual override)
   const totalPrice = useMemo(() => {
@@ -698,6 +730,11 @@ export default function BookSlot() {
       return;
     }
 
+    if (ruleError) {
+      setAlert({ type: 'error', message: ruleError });
+      return;
+    }
+
     if (!bookingBreakdown.primaryDate || bookingBreakdown.primarySlots.length === 0) {
       setAlert({ type: 'error', message: 'Please select at least one valid slot' });
       return;
@@ -712,6 +749,7 @@ export default function BookSlot() {
       court: selectedSport === "Shuttle Badminton" ? selectedCourt : null,
       customerInfo,
       extras: ballCount > 0 ? { ball: ballCount } : undefined,
+      people: selectedCourtPrice?.perPerson ? people : undefined,
       // Only honoured for admins (manual override); customers are priced by the server
       totalPrice: isAdminUser ? totalPrice : undefined,
     };
@@ -838,18 +876,17 @@ export default function BookSlot() {
                       {(() => {
                         const court = getCourt(settings, sport.name);
                         if (!court) return null;
-                        const unit = "/hr";
                         const ball = settings.extras.find((e) => e.key === "ball");
                         return (
                           <>
                             <div className="sport-pricing">
-                              <span className="price-label">Weekday:</span>
-                              <span className="price-amount">₹{court.weekday.toLocaleString()}</span>{unit}
+                              <span className="price-label">{court.weekend !== court.weekday ? "Weekday:" : "Price:"}</span>
+                              <span className="price-amount">{courtPriceLabel(court, "weekday")}</span>
                             </div>
                             {court.weekend !== court.weekday && (
                               <div className="sport-pricing">
-                                <span className="price-label">Weekend:</span>
-                                <span className="price-amount">₹{court.weekend.toLocaleString()}</span>{unit}
+                                <span className="price-label">Fri–Sun & holidays:</span>
+                                <span className="price-amount">{courtPriceLabel(court, "weekend")}</span>
                               </div>
                             )}
                             {isBallSport(sport.name) && ball && (
@@ -1227,8 +1264,11 @@ export default function BookSlot() {
                               }, 0)} hours</p>
                             )}
                             <p className="total-amount"><strong>Total Amount: ₹{totalPrice?.toLocaleString()}</strong></p>
-                            {!isAdminUser && isBallSport(selectedSport) && allSelectedSlots.length < 2 && (
-                              <p style={{ color: '#ff9800', fontSize: '13px', marginTop: '6px' }}>⚠️ Minimum 2 slots (1 hour) required</p>
+                            {priceDetails?.holiday && (
+                              <p style={{ color: '#2e7d32', fontSize: '13px', marginTop: '6px' }}>🎉 {priceDetails.holiday} — weekend price applies</p>
+                            )}
+                            {ruleError && (
+                              <p style={{ color: '#ff9800', fontSize: '13px', marginTop: '6px' }}>⚠️ {ruleError}</p>
                             )}
                           </div>
                           <Button
@@ -1236,8 +1276,8 @@ export default function BookSlot() {
                             color="primary"
                             className="proceed-button"
                             onClick={() => {
-                              if (!isAdminUser && isBallSport(selectedSport) && allSelectedSlots.length < 2) {
-                                setAlert({ type: 'error', message: 'Minimum 1 hour (2 slots) required for ' + selectedSport });
+                              if (ruleError) {
+                                setAlert({ type: 'error', message: ruleError });
                                 return;
                               }
                               setEditableAmount(null);
@@ -1357,6 +1397,21 @@ export default function BookSlot() {
                 </>
               )}
               <Typography variant="body2" sx={{ mt: 1 }}>Slot charges: ₹{baseSlotPrice?.toLocaleString()}</Typography>
+
+              {/* Players for per-person courts (cricket nets) */}
+              {selectedCourtPrice?.perPerson && (
+                <Box sx={{ mt: 1.5, p: 1.5, bgcolor: '#e0f2f1', borderRadius: 1, border: '1px solid #00897b' }}>
+                  <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>
+                    👥 How many players? (₹{selectedCourtPrice.weekday} per person per hour, minimum {selectedCourtPrice.minPeople || 1})
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Button size="small" variant="outlined" onClick={() => setPeople(p => Math.max(selectedCourtPrice.minPeople || 1, p - 1))} sx={{ minWidth: 32, px: 0 }}>−</Button>
+                    <Typography variant="body1" fontWeight="bold">{people}</Typography>
+                    <Button size="small" variant="outlined" onClick={() => setPeople(p => Math.min(selectedCourtPrice.maxPeople || 12, p + 1))} sx={{ minWidth: 32, px: 0 }}>+</Button>
+                    <Typography variant="body2" color="text.secondary">player{people !== 1 ? 's' : ''}</Typography>
+                  </Box>
+                </Box>
+              )}
 
               {/* Ball extras for Cricket & Football */}
               {isBallSport(selectedSport) && (

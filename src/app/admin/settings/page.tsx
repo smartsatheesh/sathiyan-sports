@@ -10,6 +10,7 @@ import {
   Chip,
   CircularProgress,
   Container,
+  FormControlLabel,
   Grid,
   InputAdornment,
   Paper,
@@ -24,21 +25,13 @@ import QRCode from "react-qr-code";
 import {
   DEFAULT_SETTINGS,
   SiteSettings,
-  SUBSCRIPTION_TYPES,
   withDefaults,
-  type PlanPrices,
+  type Holiday,
 } from "@/app/lib/pricing";
 import { buildUpiUrl } from "@/app/lib/upi";
 import { invalidateSiteSettings } from "@/app/hooks/useSiteSettings";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const PLAN_ROWS: { key: "kids" | "adultMale" | "adultFemale"; label: string; hint: string }[] = [
-  { key: "kids", label: "Kids", hint: "All kids, any time" },
-  { key: "adultMale", label: "Adults", hint: "Regular adult price" },
-  { key: "adultFemale", label: "Women (discount hours)", hint: "Women booking inside the discount window" },
-];
-const TYPE_LABEL: Record<string, string> = { monthly: "1 month", quarterly: "3 months", "half yearly": "6 months", yearly: "12 months" };
-
 function MoneyField({ label, value, onChange }: { label: string; value: number; onChange: (n: number) => void }) {
   return (
     <TextField
@@ -86,6 +79,40 @@ function ChipListEditor({ label, values, onChange }: { label: string; values: st
           }}
         />
         <Button variant="outlined" onClick={add} disabled={!draft.trim()}>Add</Button>
+      </Stack>
+    </Box>
+  );
+}
+
+function HolidayEditor({ holidays, onChange }: { holidays: Holiday[]; onChange: (h: Holiday[]) => void }) {
+  const [date, setDate] = useState("");
+  const [name, setName] = useState("");
+  const today = new Date().toLocaleDateString("en-CA");
+  const upcoming = [...holidays].sort((a, b) => a.date.localeCompare(b.date));
+  const add = () => {
+    if (!date || !name.trim()) return;
+    onChange([...holidays.filter((h) => h.date !== date), { date, name: name.trim().slice(0, 40) }]);
+    setDate("");
+    setName("");
+  };
+  return (
+    <Box>
+      <Stack spacing={0.75} sx={{ mb: 2, maxHeight: 260, overflowY: "auto" }}>
+        {upcoming.length === 0 && <Typography variant="body2" color="text.secondary">No holidays added.</Typography>}
+        {upcoming.map((h) => (
+          <Stack key={h.date} direction="row" alignItems="center" spacing={1} sx={{ opacity: h.date < today ? 0.5 : 1 }}>
+            <Typography variant="body2" sx={{ width: 110, fontVariantNumeric: "tabular-nums" }}>
+              {new Date(h.date + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+            </Typography>
+            <Typography variant="body2" sx={{ flex: 1 }}>{h.name}</Typography>
+            <Button size="small" color="inherit" onClick={() => onChange(holidays.filter((x) => x.date !== h.date))}>Remove</Button>
+          </Stack>
+        ))}
+      </Stack>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+        <TextField size="small" type="date" value={date} onChange={(e) => setDate(e.target.value)} InputLabelProps={{ shrink: true }} label="Date" />
+        <TextField size="small" fullWidth label="Holiday name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Deepavali" />
+        <Button variant="outlined" onClick={add} disabled={!date || !name.trim()}>Add</Button>
       </Stack>
     </Box>
   );
@@ -154,9 +181,6 @@ export default function AdminSettingsPage() {
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
   }
 
-  const setPlan = (plan: "kids" | "adultMale" | "adultFemale", type: keyof PlanPrices, n: number) =>
-    update((d) => { d.membership[plan][type] = n; });
-
   return (
     <Container maxWidth="md" sx={{ py: { xs: 2, md: 4 }, pb: 12 }}>
       <Typography variant="h5" fontWeight={800}>Prices & settings</Typography>
@@ -178,17 +202,51 @@ export default function AdminSettingsPage() {
                 </Stack>
                 <Grid container spacing={1.5}>
                   <Grid item xs={6}>
-                    <MoneyField label="Weekday / hour" value={c.weekday} onChange={(n) => update((d) => { d.courts[i].weekday = n; })} />
+                    <MoneyField label={c.perPerson ? "Weekday / person / hr" : "Weekday / hour"} value={c.weekday} onChange={(n) => update((d) => { d.courts[i].weekday = n; })} />
                   </Grid>
                   <Grid item xs={6}>
-                    <MoneyField label="Weekend / hour" value={c.weekend} onChange={(n) => update((d) => { d.courts[i].weekend = n; })} />
+                    <MoneyField label={c.perPerson ? "Weekend / person / hr" : "Weekend & holiday / hour"} value={c.weekend} onChange={(n) => update((d) => { d.courts[i].weekend = n; })} />
+                  </Grid>
+                  {!c.perHour && !c.perPerson && (
+                    <Grid item xs={12}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            size="small"
+                            checked={(c.weekdayBlockHours || 0) >= 2}
+                            onChange={(e) => update((d) => { d.courts[i].weekdayBlockHours = e.target.checked ? 2 : 0; })}
+                          />
+                        }
+                        label={
+                          <Typography variant="body2">
+                            Weekdays: sell in 2-hour blocks (1 hour free){(c.weekdayBlockHours || 0) >= 2 ? ` — ₹${(c.weekday * 2).toLocaleString("en-IN")} per 2 hours` : ""}
+                          </Typography>
+                        }
+                      />
+                    </Grid>
+                  )}
+                  {c.perPerson && (
+                    <>
+                      <Grid item xs={6}>
+                        <TextField size="small" fullWidth type="number" label="Minimum people" value={c.minPeople ?? 1}
+                          onChange={(e) => update((d) => { d.courts[i].minPeople = Number(e.target.value); })} inputProps={{ min: 1 }} />
+                      </Grid>
+                      <Grid item xs={6}>
+                        <TextField size="small" fullWidth type="number" label="Maximum people" value={c.maxPeople ?? 12}
+                          onChange={(e) => update((d) => { d.courts[i].maxPeople = Number(e.target.value); })} inputProps={{ min: 1 }} />
+                      </Grid>
+                    </>
+                  )}
+                  <Grid item xs={12}>
+                    <TextField size="small" fullWidth label="Note shown with the price (optional)" placeholder="e.g. per court, up to 4 players"
+                      value={c.note || ""} onChange={(e) => update((d) => { d.courts[i].note = e.target.value.slice(0, 60); })} />
                   </Grid>
                 </Grid>
               </Paper>
             ))}
           </Stack>
 
-          <Typography variant="subtitle2" sx={{ mt: 3, mb: 1 }}>Weekend pricing applies on</Typography>
+          <Typography variant="subtitle2" sx={{ mt: 3, mb: 1 }}>Weekend pricing applies on (plus the holidays below)</Typography>
           <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
             {DAYS.map((label, day) => {
               const on = s.weekendDays.includes(day);
@@ -216,56 +274,24 @@ export default function AdminSettingsPage() {
           </Grid>
         </Section>
 
-        <Section title="Membership fees" subtitle="Total price for each plan length. Used for new registrations and renewals.">
-          <Stack spacing={2}>
-            {PLAN_ROWS.map((row) => (
-              <Box key={row.key}>
-                <Typography fontWeight={600}>{row.label}</Typography>
-                <Typography variant="caption" color="text.secondary">{row.hint}</Typography>
-                <Grid container spacing={1.5} sx={{ mt: 0.5 }}>
-                  {SUBSCRIPTION_TYPES.map((t) => (
-                    <Grid item xs={6} sm={3} key={t}>
-                      <MoneyField label={TYPE_LABEL[t]} value={s.membership[row.key][t]} onChange={(n) => setPlan(row.key, t, n)} />
-                    </Grid>
-                  ))}
-                </Grid>
-              </Box>
-            ))}
+        <Section title="Holidays" subtitle="Public and local holidays are charged at the weekend price. Add festivals each year (Pongal, Ramzan, Vinayakar Chathurthi, Deepavali…).">
+          <HolidayEditor holidays={s.holidays} onChange={(list) => update((d) => { d.holidays = list; })} />
+        </Section>
 
-            <Grid container spacing={1.5}>
-              <Grid item xs={6} sm={3}>
-                <TextField
-                  label="Women's window from"
-                  size="small"
-                  fullWidth
-                  type="number"
-                  value={s.membership.womenWindow.startHour}
-                  onChange={(e) => update((d) => { d.membership.womenWindow.startHour = Number(e.target.value); })}
-                  InputProps={{ endAdornment: <InputAdornment position="end">:00</InputAdornment> }}
-                  inputProps={{ min: 0, max: 23 }}
-                />
-              </Grid>
-              <Grid item xs={6} sm={3}>
-                <TextField
-                  label="until"
-                  size="small"
-                  fullWidth
-                  type="number"
-                  value={s.membership.womenWindow.endHour}
-                  onChange={(e) => update((d) => { d.membership.womenWindow.endHour = Number(e.target.value); })}
-                  InputProps={{ endAdornment: <InputAdornment position="end">:00</InputAdornment> }}
-                  inputProps={{ min: 1, max: 24 }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <MoneyField
-                  label="Flexible timing surcharge per month"
-                  value={s.membership.flexibleSurchargePerMonth}
-                  onChange={(n) => update((d) => { d.membership.flexibleSurchargePerMonth = n; })}
-                />
-              </Grid>
+        <Section title="Tuition (monthly coaching)" subtitle="One price per person per month for kids and adults. 3, 6 and 12-month plans are this × months.">
+          <Grid container spacing={1.5}>
+            <Grid item xs={12} sm={6}>
+              <MoneyField label="Per person per month" value={s.membership.monthlyFee} onChange={(n) => update((d) => { d.membership.monthlyFee = n; })} />
             </Grid>
-          </Stack>
+            <Grid item xs={12} sm={6}>
+              <MoneyField label="Flexible timing extra per month (0 = none)" value={s.membership.flexibleSurchargePerMonth} onChange={(n) => update((d) => { d.membership.flexibleSurchargePerMonth = n; })} />
+            </Grid>
+          </Grid>
+          {Number.isFinite(s.membership.monthlyFee) && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+              1 month ₹{s.membership.monthlyFee} · 3 months ₹{s.membership.monthlyFee * 3} · 6 months ₹{s.membership.monthlyFee * 6} · 12 months ₹{s.membership.monthlyFee * 12}
+            </Typography>
+          )}
         </Section>
 
         <Section title="Tournaments" subtitle="Used when a tournament does not have its own entry fee.">

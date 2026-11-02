@@ -16,16 +16,32 @@ export type PlanPrices = Record<SubscriptionType, number>;
 
 export interface CourtPrice {
   sport: string;
-  weekday: number; // price per hour (a 30-minute slot costs half)
-  weekend: number;
+  weekday: number; // price per hour (a 30-minute slot costs half); per person per hour when perPerson
+  weekend: number; // weekend & holiday price per hour
   perHour: boolean; // true = booked as named sessions by the hour (Functions and Events); false = 30-minute slots
   active: boolean;
+  /** Weekdays are sold in blocks of this many hours (e.g. 2 = "1 hour + 1 hour free"). */
+  weekdayBlockHours?: number;
+  /** Priced per person per hour (cricket nets). */
+  perPerson?: boolean;
+  minPeople?: number;
+  maxPeople?: number;
+  /** Short note shown with the price, e.g. "per court, up to 4 players" */
+  note?: string;
+}
+
+export interface Holiday {
+  date: string; // yyyy-MM-dd
+  name: string;
 }
 
 /** Slot length for court sports; prices are per hour. */
 export const SLOT_HOURS = 0.5;
-/** v1 stored court prices per 30-minute slot; v2 stores them per hour. */
-export const PRICING_VERSION = 2;
+/**
+ * v1: court prices per 30-minute slot. v2: per hour.
+ * v3: owner's 2026-11 price list (turf blocks, nets, ₹300 badminton, single tuition fee, holidays).
+ */
+export const PRICING_VERSION = 3;
 
 export interface Extra {
   key: string; // stable id, e.g. "ball"
@@ -38,11 +54,9 @@ export interface SiteSettings {
   courts: CourtPrice[];
   extras: Extra[];
   weekendDays: number[]; // 0 = Sunday … 6 = Saturday
+  holidays: Holiday[]; // charged at the weekend price
   membership: {
-    kids: PlanPrices;
-    adultMale: PlanPrices;
-    adultFemale: PlanPrices; // applies when the chosen slot is inside the women's window
-    womenWindow: { startHour: number; endHour: number };
+    monthlyFee: number; // tuition per person per month, same for everyone
     flexibleSurchargePerMonth: number;
   };
   tournamentDefaultFee: number;
@@ -51,25 +65,36 @@ export interface SiteSettings {
   whatsappNumber: string; // 10-digit or with 91 prefix
 }
 
+// Fixed-date Tamil Nadu holidays. Festivals that follow the lunar calendar (Ramzan, Bakrid,
+// Vinayakar Chathurthi, Ayudha Pooja, Deepavali, Good Friday…) are added by the owner each year.
+const TN_FIXED_HOLIDAYS: Holiday[] = [
+  { date: "2026-12-25", name: "Christmas" },
+  { date: "2027-01-01", name: "New Year's Day" },
+  { date: "2027-01-15", name: "Pongal" },
+  { date: "2027-01-16", name: "Thiruvalluvar Day" },
+  { date: "2027-01-17", name: "Uzhavar Thirunal" },
+  { date: "2027-01-26", name: "Republic Day" },
+  { date: "2027-04-14", name: "Tamil New Year" },
+  { date: "2027-05-01", name: "May Day" },
+  { date: "2027-08-15", name: "Independence Day" },
+  { date: "2027-10-02", name: "Gandhi Jayanthi" },
+  { date: "2027-12-25", name: "Christmas" },
+];
+
 export const DEFAULT_SETTINGS: SiteSettings = {
   pricingVersion: PRICING_VERSION,
-  // per hour — same charges as the old per-30-minute prices (250/400 per slot etc.)
   courts: [
-    { sport: "Cricket", weekday: 500, weekend: 800, perHour: false, active: true },
-    { sport: "Football", weekday: 500, weekend: 800, perHour: false, active: true },
-    { sport: "Shuttle Badminton", weekday: 800, weekend: 800, perHour: false, active: true },
+    { sport: "Cricket", weekday: 500, weekend: 800, perHour: false, active: true, weekdayBlockHours: 2 },
+    { sport: "Football", weekday: 500, weekend: 800, perHour: false, active: true, weekdayBlockHours: 2 },
+    { sport: "Shuttle Badminton", weekday: 300, weekend: 300, perHour: false, active: true, note: "per court, up to 4 players" },
+    { sport: "Cricket Nets", weekday: 50, weekend: 50, perHour: false, active: true, perPerson: true, minPeople: 2, maxPeople: 12 },
     { sport: "Functions and Events", weekday: 2000, weekend: 2500, perHour: true, active: true },
     { sport: "Body Zorb", weekday: 2000, weekend: 2000, perHour: false, active: true },
   ],
   extras: [{ key: "ball", name: "Ball", price: 80 }],
   weekendDays: [0, 5, 6],
-  membership: {
-    kids: { monthly: 1500, quarterly: 4000, "half yearly": 8000, yearly: 13000 },
-    adultMale: { monthly: 1199, quarterly: 3399, "half yearly": 6299, yearly: 11499 },
-    adultFemale: { monthly: 799, quarterly: 2099, "half yearly": 4099, yearly: 8399 },
-    womenWindow: { startHour: 10, endHour: 16 },
-    flexibleSurchargePerMonth: 300,
-  },
+  holidays: TN_FIXED_HOLIDAYS,
+  membership: { monthlyFee: 500, flexibleSurchargePerMonth: 0 },
   tournamentDefaultFee: 600,
   expenses: {
     people: ["Satheesh", "Sasi", "Maha", "Anu"],
@@ -90,26 +115,20 @@ export const EVENT_SESSIONS = [
 
 /** Merge stored (possibly partial/old) settings over defaults so new fields always exist. */
 export function withDefaults(stored: Partial<SiteSettings> | null | undefined): SiteSettings {
-  const s = stored || {};
-  // Settings saved before hourly pricing held per-30-minute prices for slot sports
-  const legacySlotPrices = Boolean(s.courts?.length) && (s.pricingVersion ?? 1) < PRICING_VERSION;
-  const courts = s.courts?.length
-    ? s.courts.map((c) =>
-        legacySlotPrices && !c.perHour ? { ...c, weekday: c.weekday * 2, weekend: c.weekend * 2 } : c
-      )
-    : DEFAULT_SETTINGS.courts;
+  const s = (stored || {}) as Partial<SiteSettings> & { membership?: any };
+  // Anything saved before the v3 price list is replaced by it (the owner's instruction)
+  const current = (s.pricingVersion ?? 1) >= PRICING_VERSION;
   return {
     ...DEFAULT_SETTINGS,
     ...s,
     pricingVersion: PRICING_VERSION,
-    courts,
+    courts: current && s.courts?.length ? s.courts : DEFAULT_SETTINGS.courts,
     extras: s.extras ?? DEFAULT_SETTINGS.extras,
     weekendDays: s.weekendDays ?? DEFAULT_SETTINGS.weekendDays,
-    membership: {
-      ...DEFAULT_SETTINGS.membership,
-      ...(s.membership || {}),
-      womenWindow: { ...DEFAULT_SETTINGS.membership.womenWindow, ...(s.membership?.womenWindow || {}) },
-    },
+    holidays: current && Array.isArray(s.holidays) ? s.holidays : DEFAULT_SETTINGS.holidays,
+    membership: current && s.membership?.monthlyFee !== undefined
+      ? { ...DEFAULT_SETTINGS.membership, ...s.membership }
+      : DEFAULT_SETTINGS.membership,
     expenses: {
       people: s.expenses?.people?.length ? s.expenses.people : DEFAULT_SETTINGS.expenses.people,
       categories: s.expenses?.categories?.length ? s.expenses.categories : DEFAULT_SETTINGS.expenses.categories,
@@ -124,8 +143,13 @@ export function dayOfWeek(dateStr: string): number {
   return new Date(Date.UTC(y, (m || 1) - 1, d || 1)).getUTCDay();
 }
 
+export function holidayOn(settings: SiteSettings, dateStr: string): Holiday | undefined {
+  return settings.holidays.find((h) => h.date === dateStr.slice(0, 10));
+}
+
+/** Weekend pricing applies on weekend days and on listed public/local holidays. */
 export function isWeekendDate(settings: SiteSettings, dateStr: string): boolean {
-  return settings.weekendDays.includes(dayOfWeek(dateStr));
+  return settings.weekendDays.includes(dayOfWeek(dateStr)) || Boolean(holidayOn(settings, dateStr));
 }
 
 export function getCourt(settings: SiteSettings, sport: string): CourtPrice | undefined {
@@ -137,6 +161,39 @@ export interface BookingPriceInput {
   date: string; // yyyy-MM-dd of the first slot
   slots: string[]; // all selected slots (both days)
   extras?: Record<string, number>; // extra key -> quantity
+  people?: number; // for per-person courts
+}
+
+function bookingHours(court: CourtPrice, slots: string[]) {
+  return court.perHour
+    ? slots.reduce((sum, slot) => sum + (EVENT_SESSIONS.find((s) => s.time === slot)?.hours || 1), 0)
+    : slots.length * SLOT_HOURS;
+}
+
+/** People counted for per-person courts (clamped to the court's limits). */
+export function bookingPeople(court: CourtPrice, people?: number) {
+  if (!court.perPerson) return 1;
+  const min = court.minPeople || 1;
+  const max = court.maxPeople || 50;
+  return Math.min(max, Math.max(min, Math.floor(Number(people) || min)));
+}
+
+/** A customer-facing reason the selection can't be booked as-is, or null. */
+export function bookingRuleError(settings: SiteSettings, input: BookingPriceInput): string | null {
+  const court = getCourt(settings, input.sport);
+  if (!court) return "This sport is not available for booking";
+  const weekend = isWeekendDate(settings, input.date);
+  const block = court.weekdayBlockHours || 0;
+  if (!weekend && block > 0) {
+    const hours = bookingHours(court, input.slots);
+    if (hours % block !== 0) {
+      return `On weekdays ${input.sport.toLowerCase()} is booked in ${block}-hour blocks (pay 1 hour, get 1 hour free). Please choose ${block}, ${block * 2} or ${block * 3} hours.`;
+    }
+  }
+  if (court.perPerson && input.people !== undefined && Number(input.people) < (court.minPeople || 1)) {
+    return `Minimum ${court.minPeople} people for ${input.sport.toLowerCase()}`;
+  }
+  return null;
 }
 
 export function calculateBookingPrice(settings: SiteSettings, input: BookingPriceInput) {
@@ -145,11 +202,9 @@ export function calculateBookingPrice(settings: SiteSettings, input: BookingPric
 
   const weekend = isWeekendDate(settings, input.date);
   const hourlyRate = weekend ? court.weekend : court.weekday;
-
-  const hours = court.perHour
-    ? input.slots.reduce((sum, slot) => sum + (EVENT_SESSIONS.find((s) => s.time === slot)?.hours || 1), 0)
-    : input.slots.length * SLOT_HOURS;
-  const slotTotal = Math.round(hourlyRate * hours);
+  const hours = bookingHours(court, input.slots);
+  const people = bookingPeople(court, input.people);
+  const slotTotal = Math.round(hourlyRate * hours * people);
 
   const extrasTotal = Object.entries(input.extras || {}).reduce((sum, [key, qty]) => {
     const extra = settings.extras.find((e) => e.key === key);
@@ -160,11 +215,27 @@ export function calculateBookingPrice(settings: SiteSettings, input: BookingPric
   return {
     hourlyRate,
     hours,
+    people,
     weekend,
+    holiday: holidayOn(settings, input.date)?.name,
     slotTotal,
     extrasTotal,
     total: slotTotal + extrasTotal,
   };
+}
+
+/** Human price label for a court, e.g. "₹1,000 / 2 hrs (1 hr free)" or "₹50 per person / hr". */
+export function courtPriceLabel(court: CourtPrice, which: "weekday" | "weekend"): string {
+  const rate = court[which];
+  const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+  if (which === "weekday" && court.weekdayBlockHours && court.weekdayBlockHours > 1) {
+    return `${rupees(rate * court.weekdayBlockHours)} / ${court.weekdayBlockHours} hrs (1 hr free)`;
+  }
+  if (court.perPerson) {
+    const min = court.minPeople || 1;
+    return `${rupees(rate)} per person / hr${min > 1 ? ` (${rupees(rate * min)} for ${min})` : ""}`;
+  }
+  return `${rupees(rate)} / hr${court.note ? ` · ${court.note}` : ""}`;
 }
 
 /** Parses "6:00 AM - 7:00 AM" or "06:00 - 07:00" and returns the start hour (fractional). */
@@ -181,24 +252,22 @@ export function slotStartHour(slot: string): number | null {
 }
 
 export interface MembershipPriceInput {
-  champType: string; // kids | adult | veteran
+  champType?: string;
   gender?: string;
   preferredTimeSlot?: string;
   subscriptionType: string;
   mode?: string; // fixed/standard | flexible
 }
 
-export function membershipPlanFor(settings: SiteSettings, input: MembershipPriceInput): PlanPrices {
-  const m = settings.membership;
-  if (input.champType === "kids") return m.kids;
-  if (input.gender === "female") {
-    const start = input.preferredTimeSlot ? slotStartHour(input.preferredTimeSlot) : null;
-    // No slot chosen yet → show the women's price; outside the window → regular price
-    if (start === null || (start >= m.womenWindow.startHour && start < m.womenWindow.endHour)) {
-      return m.adultFemale;
-    }
-  }
-  return m.adultMale;
+/** Tuition is one price for everyone: monthly fee × months. */
+export function membershipPlanFor(settings: SiteSettings, _input?: MembershipPriceInput): PlanPrices {
+  const fee = settings.membership.monthlyFee;
+  return {
+    monthly: fee,
+    quarterly: fee * 3,
+    "half yearly": fee * 6,
+    yearly: fee * 12,
+  };
 }
 
 export function calculateMembershipPrice(settings: SiteSettings, input: MembershipPriceInput): number {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI, SchemaType, type Content, type Part, type Tool } from '@google/generative-ai';
 import { POST as createBookingRoute } from '../bookings/simple-create/route';
 import { getSiteSettings } from '@/app/lib/settings.server';
-import { calculateBookingPrice, type SiteSettings } from '@/app/lib/pricing';
+import { calculateBookingPrice, courtPriceLabel, type SiteSettings } from '@/app/lib/pricing';
 
 // Sports the chatbot can book directly (Functions & Events uses session-based durations
 // and tournament registration has its own flow, so both are kept out of scope here).
@@ -140,23 +140,32 @@ const SPORT_DESCRIPTIONS: Record<string, string> = {
   Cricket: 'full-size pitch, changing rooms',
   Football: 'FIFA-standard turf with floodlights',
   'Shuttle Badminton': '3 indoor wooden courts (S1, S2, S3), professional nets, rackets available',
+  'Cricket Nets': 'batting and bowling practice nets (book at /bookslot and choose the number of players)',
   'Functions and Events': 'hall for 500+ guests, A/V, catering, parking. Sessions: Morning (6am-12pm), Afternoon (12pm-6pm), Evening (6pm-12am), Full day, or custom (min 3 hours)',
   'Body Zorb': 'bubble football with waterproof suits, safety gear and supervision',
 };
 
 function priceLines(settings: SiteSettings): string {
   const extras = settings.extras.map((e) => `${e.name} rental optional, ₹${e.price} each`).join('; ');
-  return settings.courts
+  const lines = settings.courts
     .filter((c) => c.active)
     .map((c) => {
-      const unit = c.perHour ? 'hour' : 'hour (booked in 30-minute slots at half the hourly price)';
       const price = c.weekday === c.weekend
-        ? `₹${c.weekday} per ${unit}, same price all week`
-        : `₹${c.weekday} per ${unit} on weekdays, ₹${c.weekend} on weekends`;
+        ? `${courtPriceLabel(c, 'weekday')}, same price every day`
+        : `Weekdays ${courtPriceLabel(c, 'weekday')}; weekends and holidays ${courtPriceLabel(c, 'weekend')}`;
       const extra = ['Cricket', 'Football'].includes(c.sport) && extras ? ` ${extras}.` : '';
       return `- ${c.sport}: ${SPORT_DESCRIPTIONS[c.sport] || ''}. ${price}.${extra}`;
-    })
-    .join('\n');
+    });
+  const upcoming = settings.holidays
+    .filter((h) => h.date >= getISTNow().dateStr)
+    .slice(0, 6)
+    .map((h) => `${h.name} (${h.date})`)
+    .join(', ');
+  lines.push(`- Courts are booked in 30-minute slots; a slot costs half the hourly price.`);
+  lines.push(`- Weekday cricket/football turf is sold in 2-hour blocks (pay for 1 hour, get 1 hour free), so weekday turf bookings must be 2, 4 or 6 hours. Weekend and holiday turf can be booked by the hour.`);
+  if (upcoming) lines.push(`- Upcoming holidays charged at the weekend price: ${upcoming}.`);
+  lines.push(`- Coaching tuition: ₹${settings.membership.monthlyFee} per person per month for kids and adults, focusing on both physical and mental health.`);
+  return lines.join('\n');
 }
 
 function buildFacilityContext(settings: SiteSettings): string {
@@ -173,7 +182,7 @@ Contact details:
 - Email: info@sathiyansports.com
 - WhatsApp community: https://chat.whatsapp.com/LosEvhkOJui4hrMUh4mUFV
 
-Sports & facilities offered, with pricing (all prices in INR, "weekend" = ${settings.weekendDays.map((d) => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join('/')}):
+Sports & facilities offered, with pricing (all prices in INR, "weekend" = ${settings.weekendDays.map((d) => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join('/')} plus public/local holidays):
 ${priceLines(settings)}
 
 Other things the venue offers:
@@ -184,7 +193,7 @@ Other things the venue offers:
 - General info & contact form: /about and /contact
 
 YOU CAN BOOK SLOTS DIRECTLY using the book_slot tool, for Cricket, Football, Shuttle Badminton and Body Zorb only.
-- Functions & Events and tournament registration are NOT bookable via chat — direct users to /bookslot, /tournaments/register or a call/WhatsApp instead.
+- Cricket Nets, Functions & Events and tournament registration are NOT bookable via chat — direct users to /bookslot, /tournaments/register or a call/WhatsApp instead.
 - Before calling book_slot you MUST have: sport, date, start time, end time, and the customer's name, email and phone number.
   If any of these are missing, ask the user for them first — do not call the tool until you have all of them.
 - Time ranges must be on the hour or half hour (e.g. 19:00, 19:30) and same-day only (no crossing midnight).

@@ -35,7 +35,7 @@ import Footer from "./components/Footer";
 import FeaturesSection from "./components/FeaturesSection";
 import { HERO_SCENES } from "./components/landing/HeroScene";
 import { useSiteSettings } from "./hooks/useSiteSettings";
-import { getCourt, waNumber } from "./lib/pricing";
+import { courtPriceLabel, getCourt, waNumber } from "./lib/pricing";
 
 // three.js only loads in the browser, after the page text is on screen
 const HeroScene = dynamic(() => import("./components/landing/HeroScene"), { ssr: false });
@@ -49,6 +49,7 @@ const SPORTS = [
   { name: "Football", court: "Football", icon: <SportsSoccer />, color: "#2196f3", blurb: "FIFA-standard turf with floodlights. Ball on hire." },
   { name: "Cricket", court: "Cricket", icon: <SportsCricket />, color: "#43a047", blurb: "Full-size pitch with changing rooms. Ball on hire." },
   { name: "Badminton", court: "Shuttle Badminton", icon: <SportsTennis />, color: "#ff9800", blurb: "Three indoor wooden-floor courts, pro nets, rackets available." },
+  { name: "Cricket Nets", court: "Cricket Nets", icon: <SportsCricket />, color: "#00897b", blurb: "Batting and bowling practice in the nets — come with a friend." },
   { name: "Events", court: "Functions and Events", icon: <Celebration />, color: "#ab47bc", blurb: "Hall for 500+ guests with A/V, catering and parking." },
 ];
 
@@ -134,10 +135,8 @@ export default function Home() {
   const nextScene = useCallback(() => setSceneIndex((i) => (i + 1) % HERO_SCENES.length), []);
 
   const whatsapp = `https://wa.me/${waNumber(settings.whatsappNumber)}?text=${encodeURIComponent("Hi Sathiyan Sports! I'd like to know more.")}`;
-  const kids = settings.membership.kids.monthly;
-  const adults = settings.membership.adultMale.monthly;
-  const women = settings.membership.adultFemale.monthly;
-  const hour = (h: number) => `${((h + 11) % 12) + 1}${h < 12 ? "am" : "pm"}`;
+  const tuition = settings.membership.monthlyFee;
+  const ball = settings.extras.find((e) => e.key === "ball");
 
   return (
     <Box sx={{ bgcolor: "#f6f8fb", overflowX: "hidden" }}>
@@ -257,13 +256,13 @@ export default function Home() {
 
       {/* ================= PLAY ================= */}
       <Container maxWidth="lg" sx={{ py: { xs: 6, md: 9 } }}>
-        <SectionTitle kicker="Play" title="Book a court in a minute" subtitle="Pick a sport, choose your slots (30 minutes each), pay by UPI. Prices per hour." />
+        <SectionTitle kicker="Play" title="Book a court in a minute" subtitle="Pick a sport, choose your time, pay by UPI. Weekend prices apply Friday to Sunday and on holidays." />
         <Grid container spacing={2}>
           {SPORTS.map((s) => {
             const court = getCourt(settings, s.court);
-            const unit = "/hr";
+            if (court && !court.active) return null;
             return (
-              <Grid item xs={12} sm={6} md={3} key={s.name}>
+              <Grid item xs={12} sm={6} md={4} lg={2.4} key={s.name}>
                 <Card sx={{ height: "100%", borderRadius: 4, overflow: "hidden", boxShadow: "0 8px 30px rgba(7,26,46,0.08)" }}>
                   <CardActionArea component={Link} href="/bookslot" sx={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "stretch" }}>
                     <Box sx={{ height: 6, bgcolor: s.color }} />
@@ -274,13 +273,19 @@ export default function Home() {
                       <Typography variant="h6" fontWeight={800}>{s.name}</Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 2, minHeight: 40 }}>{s.blurb}</Typography>
                       {court && (
-                        <Stack direction="row" alignItems="baseline" spacing={0.5}>
-                          <Typography sx={{ fontWeight: 900, fontSize: "1.5rem" }}>{rupees(court.weekday)}</Typography>
-                          <Typography variant="body2" color="text.secondary">{unit}</Typography>
+                        <Box>
+                          <Typography sx={{ fontWeight: 900, fontSize: "1.15rem", lineHeight: 1.3 }}>
+                            {courtPriceLabel(court, "weekday")}
+                          </Typography>
                           {court.weekend !== court.weekday && (
-                            <Typography variant="caption" color="text.secondary" sx={{ pl: 1 }}>weekend {rupees(court.weekend)}</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Fri–Sun & holidays: {courtPriceLabel(court, "weekend")}
+                            </Typography>
                           )}
-                        </Stack>
+                          {["Cricket", "Football"].includes(s.court) && ball && (
+                            <Typography variant="caption" color="text.secondary">Ball ₹{ball.price} extra</Typography>
+                          )}
+                        </Box>
                       )}
                       <Typography sx={{ mt: 1.5, color: s.color, fontWeight: 800, display: "flex", alignItems: "center", gap: 0.5 }}>
                         Book now <ArrowForward fontSize="small" />
@@ -298,26 +303,20 @@ export default function Home() {
       <Box sx={{ background: `linear-gradient(135deg, ${TEAL} 0%, #0d6e8a 100%)`, color: "#fff", py: { xs: 6, md: 9 } }}>
         <Container maxWidth="lg">
           <Typography sx={{ color: GOLD, fontWeight: 800, letterSpacing: 2, fontSize: 13, textTransform: "uppercase" }}>Train</Typography>
-          <Typography variant="h4" sx={{ fontWeight: 900, fontSize: { xs: "1.8rem", md: "2.4rem" }, mb: 1 }}>Monthly coaching for every age</Typography>
-          <Typography sx={{ opacity: 0.9, mb: 4, maxWidth: 640 }}>Regular sessions with our coaches. Pay monthly or save with 3, 6 and 12-month plans — renew in two taps by UPI.</Typography>
-          <Grid container spacing={2}>
-            {[
-              { title: "Kids", price: kids, note: "Fun, skills and fitness for young champions" },
-              { title: "Adults", price: adults, note: "Stay fit, play hard, meet your crew" },
-              { title: "Women", price: women, note: `Special price for slots ${hour(settings.membership.womenWindow.startHour)}–${hour(settings.membership.womenWindow.endHour)}` },
-            ].map((p) => (
-              <Grid item xs={12} md={4} key={p.title}>
-                <Box sx={{ bgcolor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 4, p: 3, height: "100%", backdropFilter: "blur(4px)" }}>
-                  <Typography variant="h6" fontWeight={800}>{p.title}</Typography>
-                  <Stack direction="row" alignItems="baseline" spacing={0.5} sx={{ my: 1 }}>
-                    <Typography sx={{ fontWeight: 900, fontSize: "2.2rem" }}>{rupees(p.price)}</Typography>
-                    <Typography sx={{ opacity: 0.8 }}>/month</Typography>
-                  </Stack>
-                  <Typography sx={{ opacity: 0.88 }}>{p.note}</Typography>
-                </Box>
-              </Grid>
-            ))}
-          </Grid>
+          <Typography variant="h4" sx={{ fontWeight: 900, fontSize: { xs: "1.8rem", md: "2.4rem" }, mb: 1 }}>Coaching for body and mind</Typography>
+          <Typography sx={{ opacity: 0.9, mb: 4, maxWidth: 640 }}>
+            Regular sessions with our coaches that build fitness, skills and confidence — with equal focus on physical and mental health for our kids.
+          </Typography>
+          <Box sx={{ bgcolor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 4, p: { xs: 3, md: 4 }, maxWidth: 560, backdropFilter: "blur(4px)" }}>
+            <Typography variant="h6" fontWeight={800}>Tuition — kids and adults</Typography>
+            <Stack direction="row" alignItems="baseline" spacing={0.5} sx={{ my: 1 }}>
+              <Typography sx={{ fontWeight: 900, fontSize: "2.6rem" }}>{rupees(tuition)}</Typography>
+              <Typography sx={{ opacity: 0.85 }}>per person / month</Typography>
+            </Stack>
+            <Typography sx={{ opacity: 0.88 }}>
+              3 months {rupees(tuition * 3)} · 6 months {rupees(tuition * 6)} · 12 months {rupees(tuition * 12)}
+            </Typography>
+          </Box>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mt: 4 }}>
             <Button component={Link} href="/register" size="large" variant="contained" sx={{ bgcolor: GOLD, color: NAVY, fontWeight: 900, py: 1.4, px: 4, borderRadius: 3, "&:hover": { bgcolor: "#ffd740" } }}>
               Join now

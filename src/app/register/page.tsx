@@ -36,7 +36,7 @@ import { addMonths, addYears } from "date-fns";
 import Link from "next/link";
 import RegistrationSuccessPopup from "../components/RegistrationSuccessPopup";
 import { useSiteSettings } from "../hooks/useSiteSettings";
-import { calculateMembershipPrice, membershipPlanFor, slotStartHour, SUBSCRIPTION_MONTHS, type SubscriptionType } from "../lib/pricing";
+import { calculateMembershipPrice, membershipPlanFor, SUBSCRIPTION_MONTHS, type SubscriptionType } from "../lib/pricing";
 
 const TIME_SLOTS = [
   "12:00 AM - 01:00 AM",
@@ -67,18 +67,9 @@ const TIME_SLOTS = [
 
 export default function RegisterPage() {
   const { settings } = useSiteSettings();
-  const womenWindow = settings.membership.womenWindow;
-  const hourLabel = (h: number) => `${((h + 11) % 12) + 1} ${h < 12 ? "AM" : "PM"}`;
-  const womenWindowText = `${hourLabel(womenWindow.startHour)} - ${hourLabel(womenWindow.endHour)}`;
   const flexiblePerMonth = settings.membership.flexibleSurchargePerMonth;
 
-  // Women's discount applies when the chosen slot starts inside the configured window
-  const isFemalDiscountTimeSlot = (timeSlot: string) => {
-    const start = slotStartHour(timeSlot);
-    return start !== null && start >= womenWindow.startHour && start < womenWindow.endHour;
-  };
-
-  // Plan prices for the current form selection (owner-editable in Admin → Settings)
+  // Tuition: one price per person per month (owner-editable in Admin → Settings)
   const getCurrentPrices = () => membershipPlanFor(settings, formData);
 
   const flexibleSurcharge = (type: SubscriptionType) => flexiblePerMonth * SUBSCRIPTION_MONTHS[type];
@@ -607,25 +598,6 @@ export default function RegisterPage() {
               </Typography>
             )}
             
-            {/* Female Pricing Information */}
-            {formData.gender === 'female' && (
-              <Box sx={{ mt: 1 }}>
-                <Alert severity="info" sx={{ py: 1 }}>
-                  <Typography variant="body2" fontWeight="bold">
-                    💡 Female Pricing Information
-                  </Typography>
-                  <Typography variant="caption" display="block">
-                    • Special female pricing applies for time slots between <strong>{womenWindowText}</strong>
-                  </Typography>
-                  <Typography variant="caption" display="block">
-                    • Time slots outside this range use regular pricing
-                  </Typography>
-                  <Typography variant="caption" display="block">
-                    • Select your preferred time slot to see applicable pricing
-                  </Typography>
-                </Alert>
-              </Box>
-            )}
           </FormControl>
 
           {/* Champion Type Selection */}
@@ -782,30 +754,6 @@ export default function RegisterPage() {
               </Typography>
             )}
             
-            {/* Pricing Information for Female Time Slot Selection */}
-            {formData.gender === 'female' && formData.preferredTimeSlot && (
-              <Box sx={{ mt: 1, p: 1.5, bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1 }}>
-                {isFemalDiscountTimeSlot(formData.preferredTimeSlot) ? (
-                  <Alert severity="success" sx={{ py: 0.5 }}>
-                    <Typography variant="caption" fontWeight="bold">
-                      🎉 Female Discount Applied! 
-                    </Typography>
-                    <Typography variant="caption" display="block">
-                      You selected a time slot between {womenWindowText} and qualify for our special women's pricing.
-                    </Typography>
-                  </Alert>
-                ) : (
-                  <Alert severity="info" sx={{ py: 0.5 }}>
-                    <Typography variant="caption" fontWeight="bold">
-                      💰 Regular Pricing Applied
-                    </Typography>
-                    <Typography variant="caption" display="block">
-                      Time slots outside {womenWindowText} use regular pricing. Select a slot between {womenWindowText} for the women's discount.
-                    </Typography>
-                  </Alert>
-                )}
-              </Box>
-            )}
           </FormControl>
 
           {/* Court Availability Check for Shuttle Badminton */}
@@ -906,8 +854,8 @@ export default function RegisterPage() {
                 }
               }}
             >
-              <MenuItem value="fixed">Fixed - Regular pricing</MenuItem>
-              <MenuItem value="flexible">Flexible - Additional ₹{flexiblePerMonth}/month for flexible scheduling</MenuItem>
+              <MenuItem value="fixed">Fixed timing</MenuItem>
+              <MenuItem value="flexible">Flexible timing{flexiblePerMonth > 0 ? ` - additional ₹${flexiblePerMonth}/month` : ""}</MenuItem>
             </Select>
             {fieldErrors.mode && (
               <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
@@ -933,19 +881,19 @@ export default function RegisterPage() {
             >
               <MenuItem value="monthly">
                 Monthly - ₹{getPriceWithSurcharge(getCurrentPrices().monthly, flexibleSurcharge("monthly"))}
-                {formData.mode === 'flexible' && ` (includes ₹${flexibleSurcharge("monthly")} flexible surcharge)`}
+                {formData.mode === 'flexible' && flexiblePerMonth > 0 && ` (includes ₹${flexibleSurcharge("monthly")} flexible surcharge)`}
               </MenuItem>
               <MenuItem value="quarterly">
                 Quarterly - ₹{getPriceWithSurcharge(getCurrentPrices().quarterly, flexibleSurcharge("quarterly"))}
-                {formData.mode === 'flexible' && ` (includes ₹${flexibleSurcharge("quarterly")} flexible surcharge)`}
+                {formData.mode === 'flexible' && flexiblePerMonth > 0 && ` (includes ₹${flexibleSurcharge("quarterly")} flexible surcharge)`}
               </MenuItem>
               <MenuItem value="half yearly">
                 Half Yearly - ₹{getPriceWithSurcharge(getCurrentPrices()["half yearly"], flexibleSurcharge("half yearly"))}
-                {formData.mode === 'flexible' && ` (includes ₹${flexibleSurcharge("half yearly")} flexible surcharge)`}
+                {formData.mode === 'flexible' && flexiblePerMonth > 0 && ` (includes ₹${flexibleSurcharge("half yearly")} flexible surcharge)`}
               </MenuItem>
               <MenuItem value="yearly">
                 Yearly - ₹{getPriceWithSurcharge(getCurrentPrices().yearly, flexibleSurcharge("yearly"))}
-                {formData.mode === 'flexible' && ` (includes ₹${flexibleSurcharge("yearly")} flexible surcharge)`}
+                {formData.mode === 'flexible' && flexiblePerMonth > 0 && ` (includes ₹${flexibleSurcharge("yearly")} flexible surcharge)`}
               </MenuItem>
             </Select>
             {fieldErrors.subscriptionType && (
