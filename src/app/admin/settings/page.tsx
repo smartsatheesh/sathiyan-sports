@@ -165,7 +165,7 @@ export default function AdminSettingsPage() {
       </Typography>
 
       <Stack spacing={2}>
-        <Section title="Court & venue prices" subtitle="Price per 30-minute slot (per hour for events). Turn a sport off to stop online bookings.">
+        <Section title="Court & venue prices" subtitle="Price per hour. Courts are booked in 30-minute slots, which cost half the hourly price. Turn a sport off to stop online bookings.">
           <Stack spacing={2}>
             {s.courts.map((c, i) => (
               <Paper key={c.sport} variant="outlined" sx={{ p: 1.5 }}>
@@ -178,10 +178,10 @@ export default function AdminSettingsPage() {
                 </Stack>
                 <Grid container spacing={1.5}>
                   <Grid item xs={6}>
-                    <MoneyField label={`Weekday ${c.perHour ? "/ hour" : "/ 30 min"}`} value={c.weekday} onChange={(n) => update((d) => { d.courts[i].weekday = n; })} />
+                    <MoneyField label="Weekday / hour" value={c.weekday} onChange={(n) => update((d) => { d.courts[i].weekday = n; })} />
                   </Grid>
                   <Grid item xs={6}>
-                    <MoneyField label={`Weekend ${c.perHour ? "/ hour" : "/ 30 min"}`} value={c.weekend} onChange={(n) => update((d) => { d.courts[i].weekend = n; })} />
+                    <MoneyField label="Weekend / hour" value={c.weekend} onChange={(n) => update((d) => { d.courts[i].weekend = n; })} />
                   </Grid>
                 </Grid>
               </Paper>

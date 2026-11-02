@@ -838,7 +838,7 @@ export default function BookSlot() {
                       {(() => {
                         const court = getCourt(settings, sport.name);
                         if (!court) return null;
-                        const unit = court.perHour ? "/hr" : "/30 min";
+                        const unit = "/hr";
                         const ball = settings.extras.find((e) => e.key === "ball");
                         return (
                           <>

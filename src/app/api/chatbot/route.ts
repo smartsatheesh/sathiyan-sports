@@ -149,7 +149,7 @@ function priceLines(settings: SiteSettings): string {
   return settings.courts
     .filter((c) => c.active)
     .map((c) => {
-      const unit = c.perHour ? 'hour' : '30-minute slot';
+      const unit = c.perHour ? 'hour' : 'hour (booked in 30-minute slots at half the hourly price)';
       const price = c.weekday === c.weekend
         ? `₹${c.weekday} per ${unit}, same price all week`
         : `₹${c.weekday} per ${unit} on weekdays, ₹${c.weekend} on weekends`;

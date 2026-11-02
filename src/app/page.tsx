@@ -257,11 +257,11 @@ export default function Home() {
 
       {/* ================= PLAY ================= */}
       <Container maxWidth="lg" sx={{ py: { xs: 6, md: 9 } }}>
-        <SectionTitle kicker="Play" title="Book a court in a minute" subtitle="Pick a sport, choose your slot, pay by UPI. Prices per 30 minutes unless noted." />
+        <SectionTitle kicker="Play" title="Book a court in a minute" subtitle="Pick a sport, choose your slots (30 minutes each), pay by UPI. Prices per hour." />
         <Grid container spacing={2}>
           {SPORTS.map((s) => {
             const court = getCourt(settings, s.court);
-            const unit = court?.perHour ? "/hr" : "/30 min";
+            const unit = "/hr";
             return (
               <Grid item xs={12} sm={6} md={3} key={s.name}>
                 <Card sx={{ height: "100%", borderRadius: 4, overflow: "hidden", boxShadow: "0 8px 30px rgba(7,26,46,0.08)" }}>

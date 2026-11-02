@@ -16,11 +16,16 @@ export type PlanPrices = Record<SubscriptionType, number>;
 
 export interface CourtPrice {
   sport: string;
-  weekday: number; // per 30-minute slot (per hour for hourly sports)
+  weekday: number; // price per hour (a 30-minute slot costs half)
   weekend: number;
-  perHour: boolean; // true for Functions and Events (priced by session hours)
+  perHour: boolean; // true = booked as named sessions by the hour (Functions and Events); false = 30-minute slots
   active: boolean;
 }
+
+/** Slot length for court sports; prices are per hour. */
+export const SLOT_HOURS = 0.5;
+/** v1 stored court prices per 30-minute slot; v2 stores them per hour. */
+export const PRICING_VERSION = 2;
 
 export interface Extra {
   key: string; // stable id, e.g. "ball"
@@ -29,6 +34,7 @@ export interface Extra {
 }
 
 export interface SiteSettings {
+  pricingVersion?: number;
   courts: CourtPrice[];
   extras: Extra[];
   weekendDays: number[]; // 0 = Sunday … 6 = Saturday
@@ -46,12 +52,14 @@ export interface SiteSettings {
 }
 
 export const DEFAULT_SETTINGS: SiteSettings = {
+  pricingVersion: PRICING_VERSION,
+  // per hour — same charges as the old per-30-minute prices (250/400 per slot etc.)
   courts: [
-    { sport: "Cricket", weekday: 250, weekend: 400, perHour: false, active: true },
-    { sport: "Football", weekday: 250, weekend: 400, perHour: false, active: true },
-    { sport: "Shuttle Badminton", weekday: 400, weekend: 400, perHour: false, active: true },
+    { sport: "Cricket", weekday: 500, weekend: 800, perHour: false, active: true },
+    { sport: "Football", weekday: 500, weekend: 800, perHour: false, active: true },
+    { sport: "Shuttle Badminton", weekday: 800, weekend: 800, perHour: false, active: true },
     { sport: "Functions and Events", weekday: 2000, weekend: 2500, perHour: true, active: true },
-    { sport: "Body Zorb", weekday: 1000, weekend: 1000, perHour: false, active: true },
+    { sport: "Body Zorb", weekday: 2000, weekend: 2000, perHour: false, active: true },
   ],
   extras: [{ key: "ball", name: "Ball", price: 80 }],
   weekendDays: [0, 5, 6],
@@ -83,10 +91,18 @@ export const EVENT_SESSIONS = [
 /** Merge stored (possibly partial/old) settings over defaults so new fields always exist. */
 export function withDefaults(stored: Partial<SiteSettings> | null | undefined): SiteSettings {
   const s = stored || {};
+  // Settings saved before hourly pricing held per-30-minute prices for slot sports
+  const legacySlotPrices = Boolean(s.courts?.length) && (s.pricingVersion ?? 1) < PRICING_VERSION;
+  const courts = s.courts?.length
+    ? s.courts.map((c) =>
+        legacySlotPrices && !c.perHour ? { ...c, weekday: c.weekday * 2, weekend: c.weekend * 2 } : c
+      )
+    : DEFAULT_SETTINGS.courts;
   return {
     ...DEFAULT_SETTINGS,
     ...s,
-    courts: s.courts?.length ? s.courts : DEFAULT_SETTINGS.courts,
+    pricingVersion: PRICING_VERSION,
+    courts,
     extras: s.extras ?? DEFAULT_SETTINGS.extras,
     weekendDays: s.weekendDays ?? DEFAULT_SETTINGS.weekendDays,
     membership: {
@@ -128,11 +144,12 @@ export function calculateBookingPrice(settings: SiteSettings, input: BookingPric
   if (!court) return null;
 
   const weekend = isWeekendDate(settings, input.date);
-  const unitPrice = weekend ? court.weekend : court.weekday;
+  const hourlyRate = weekend ? court.weekend : court.weekday;
 
-  const units = court.perHour
+  const hours = court.perHour
     ? input.slots.reduce((sum, slot) => sum + (EVENT_SESSIONS.find((s) => s.time === slot)?.hours || 1), 0)
-    : input.slots.length;
+    : input.slots.length * SLOT_HOURS;
+  const slotTotal = Math.round(hourlyRate * hours);
 
   const extrasTotal = Object.entries(input.extras || {}).reduce((sum, [key, qty]) => {
     const extra = settings.extras.find((e) => e.key === key);
@@ -141,12 +158,12 @@ export function calculateBookingPrice(settings: SiteSettings, input: BookingPric
   }, 0);
 
   return {
-    unitPrice,
-    units,
+    hourlyRate,
+    hours,
     weekend,
-    slotTotal: unitPrice * units,
+    slotTotal,
     extrasTotal,
-    total: unitPrice * units + extrasTotal,
+    total: slotTotal + extrasTotal,
   };
 }
 
