@@ -61,6 +61,16 @@ interface Tournament {
   venue?: string;
 }
 
+// Facility highlights shown until enough real reviews are approved (no names or ratings —
+// these are the academy's own words, not testimonials).
+const HIGHLIGHTS = [
+  { title: "Cricket", icon: <SportsCricket />, color: "#43a047", text: "A well-maintained cricket pitch and top-notch equipment for serious players." },
+  { title: "Football", icon: <SportsSoccer />, color: "#2196f3", text: "FIFA-standard turf with excellent lighting for evening games, and easy online booking." },
+  { title: "Badminton", icon: <SportsTennis />, color: "#ff9800", text: "Professional courts with proper wooden flooring — perfect for training sessions and tournaments." },
+  { title: "Events", icon: <Celebration />, color: "#ab47bc", text: "A spacious venue for company events and celebrations, with catering facilities and staff support." },
+];
+const MIN_REVIEWS_TO_REPLACE_HIGHLIGHTS = 3;
+
 interface Review {
   _id: string;
   displayName: string;
@@ -398,6 +408,27 @@ export default function Home() {
           </Grid>
           <Button component={Link} href="/review" sx={{ mt: 2, fontWeight: 800 }}>Train with us? Write a review →</Button>
         </Container>
+      )}
+
+      {reviews.count < MIN_REVIEWS_TO_REPLACE_HIGHLIGHTS && (
+        <Box sx={{ bgcolor: "#fff", py: { xs: 6, md: 8 } }}>
+          <Container maxWidth="lg">
+            <SectionTitle kicker="Why players choose us" title="What you'll find at Sathiyan Sports" />
+            <Grid container spacing={2}>
+              {HIGHLIGHTS.map((h) => (
+                <Grid item xs={12} sm={6} md={3} key={h.title}>
+                  <Box sx={{ height: "100%", p: 2.5, borderRadius: 4, border: 1, borderColor: "divider", borderTop: `4px solid ${h.color}` }}>
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ color: h.color, mb: 1 }}>
+                      {h.icon}
+                      <Typography fontWeight={800} color="text.primary">{h.title}</Typography>
+                    </Stack>
+                    <Typography color="text.secondary">{h.text}</Typography>
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+          </Container>
+        </Box>
       )}
 
       <FeaturesSection />
