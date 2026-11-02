@@ -312,13 +312,23 @@ export default function Home() {
               <Grid item xs={12} sm={6} md={3} key={p.key}>
                 <Box sx={{ bgcolor: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 4, p: 3, height: "100%", backdropFilter: "blur(4px)" }}>
                   <Typography variant="h6" fontWeight={800} sx={{ lineHeight: 1.25 }}>{p.name}</Typography>
-                  <Stack direction="row" alignItems="baseline" spacing={0.5} sx={{ my: 1 }}>
-                    <Typography sx={{ fontWeight: 900, fontSize: "2.2rem" }}>{rupees(p.monthly)}</Typography>
-                    <Typography sx={{ opacity: 0.85 }}>/ month</Typography>
-                  </Stack>
-                  <Typography variant="body2" sx={{ opacity: 0.85 }}>
-                    3 months {rupees(p.monthly * 3)} · 12 months {rupees(p.monthly * 12)}
-                  </Typography>
+                  {(p.adultMonthly ?? p.monthly) === p.monthly ? (
+                    <Stack direction="row" alignItems="baseline" spacing={0.5} sx={{ my: 1 }}>
+                      <Typography sx={{ fontWeight: 900, fontSize: "2.2rem" }}>{rupees(p.monthly)}</Typography>
+                      <Typography sx={{ opacity: 0.85 }}>/ month · all ages</Typography>
+                    </Stack>
+                  ) : (
+                    <Stack spacing={0.5} sx={{ my: 1 }}>
+                      <Stack direction="row" alignItems="baseline" spacing={0.75}>
+                        <Typography sx={{ fontWeight: 900, fontSize: "1.9rem" }}>{rupees(p.monthly)}</Typography>
+                        <Typography sx={{ opacity: 0.85 }}>/ month · kids</Typography>
+                      </Stack>
+                      <Stack direction="row" alignItems="baseline" spacing={0.75}>
+                        <Typography sx={{ fontWeight: 900, fontSize: "1.4rem" }}>{rupees(p.adultMonthly ?? p.monthly)}</Typography>
+                        <Typography sx={{ opacity: 0.85 }}>/ month · adults & veterans</Typography>
+                      </Stack>
+                    </Stack>
+                  )}
                 </Box>
               </Grid>
             ))}

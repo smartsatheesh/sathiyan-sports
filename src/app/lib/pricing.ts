@@ -34,8 +34,14 @@ export interface CourtPrice {
 export interface CoachingProgram {
   key: string; // stable id stored on the member, e.g. "badminton"
   name: string; // e.g. "Badminton coaching"
-  monthly: number; // per person per month
+  monthly: number; // kids, per person per month
+  adultMonthly?: number; // adults & veterans per month (defaults to `monthly`)
   sport?: string; // members with this preferred sport default to this programme
+}
+
+/** Monthly coaching fee for a member of this age group. */
+export function programMonthlyFee(program: CoachingProgram, champType?: string): number {
+  return champType === "kids" ? program.monthly : program.adultMonthly ?? program.monthly;
 }
 
 export interface Holiday {
@@ -49,8 +55,9 @@ export const SLOT_HOURS = 0.5;
  * v1: court prices per 30-minute slot. v2: per hour.
  * v3: owner's 2026-11 price list (turf blocks, nets, ₹300 badminton, holidays).
  * v4: coaching priced per programme (badminton/football/cricket/fitness) instead of one tuition fee.
+ * v5: separate adult/veteran price per programme (₹1,200 for sport coaching).
  */
-export const PRICING_VERSION = 4;
+export const PRICING_VERSION = 5;
 
 export interface Extra {
   key: string; // stable id, e.g. "ball"
@@ -105,10 +112,10 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   holidays: TN_FIXED_HOLIDAYS,
   membership: {
     programs: [
-      { key: "badminton", name: "Badminton coaching", monthly: 2000, sport: "Shuttle Badminton" },
-      { key: "football", name: "Football coaching", monthly: 1500, sport: "Football" },
-      { key: "cricket", name: "Cricket coaching", monthly: 1500, sport: "Cricket" },
-      { key: "fitness", name: "Yoga / Taekwondo / Fitness", monthly: 600 },
+      { key: "badminton", name: "Badminton coaching", monthly: 2000, adultMonthly: 1200, sport: "Shuttle Badminton" },
+      { key: "football", name: "Football coaching", monthly: 1500, adultMonthly: 1200, sport: "Football" },
+      { key: "cricket", name: "Cricket coaching", monthly: 1500, adultMonthly: 1200, sport: "Cricket" },
+      { key: "fitness", name: "Yoga / Taekwondo / Fitness", monthly: 600, adultMonthly: 600 },
     ],
     flexibleSurchargePerMonth: 0,
   },
@@ -145,7 +152,16 @@ export function withDefaults(stored: Partial<SiteSettings> | null | undefined): 
     weekendDays: s.weekendDays ?? DEFAULT_SETTINGS.weekendDays,
     holidays: current && Array.isArray(s.holidays) ? s.holidays : DEFAULT_SETTINGS.holidays,
     membership: version >= 4 && Array.isArray(s.membership?.programs) && s.membership.programs.length
-      ? { ...DEFAULT_SETTINGS.membership, ...s.membership }
+      ? {
+          ...DEFAULT_SETTINGS.membership,
+          ...s.membership,
+          // v4 had no adult price: take the default for known programmes
+          programs: s.membership.programs.map((p: CoachingProgram) =>
+            p.adultMonthly !== undefined
+              ? p
+              : { ...p, adultMonthly: DEFAULT_SETTINGS.membership.programs.find((d) => d.key === p.key)?.adultMonthly ?? p.monthly }
+          ),
+        }
       : DEFAULT_SETTINGS.membership,
     expenses: {
       people: s.expenses?.people?.length ? s.expenses.people : DEFAULT_SETTINGS.expenses.people,
@@ -292,9 +308,9 @@ export function programFor(
   );
 }
 
-/** Coaching fee for the member's programme: monthly price × months. */
+/** Coaching fee for the member's programme and age group: monthly price × months. */
 export function membershipPlanFor(settings: SiteSettings, input?: MembershipPriceInput): PlanPrices {
-  const fee = programFor(settings, input).monthly;
+  const fee = programMonthlyFee(programFor(settings, input), input?.champType);
   return {
     monthly: fee,
     quarterly: fee * 3,

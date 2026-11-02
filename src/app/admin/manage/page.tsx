@@ -1,6 +1,6 @@
 "use client";
 import { useSiteSettings } from "../../hooks/useSiteSettings";
-import { calculateMembershipPrice, programFor } from "../../lib/pricing";
+import { calculateMembershipPrice, programFor, programMonthlyFee } from "../../lib/pricing";
 import React, { useState, useEffect, useCallback, memo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -2487,7 +2487,7 @@ export default function AdminDashboard() {
                     onChange={(e) => setEditUserFormData(prev => ({ ...prev, coachingProgram: String(e.target.value) }))}
                   >
                     {siteSettings.membership.programs.map((p) => (
-                      <MenuItem key={p.key} value={p.key}>{p.name} — ₹{p.monthly}/month</MenuItem>
+                      <MenuItem key={p.key} value={p.key}>{p.name} — ₹{programMonthlyFee(p, editUserFormData.champType)}/month</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
@@ -2504,7 +2504,7 @@ export default function AdminDashboard() {
                   inputProps={{ min: 0 }}
                 />
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  Coaching fees: {siteSettings.membership.programs.map((p) => `${p.name} ₹${p.monthly}`).join(" · ")} per month — change the amount for special rates.
+                  {editUserFormData.champType === 'kids' ? 'Kids' : 'Adult/veteran'} coaching fees: {siteSettings.membership.programs.map((p) => `${p.name} ₹${programMonthlyFee(p, editUserFormData.champType)}`).join(" · ")} per month — change the amount for special rates.
                 </Typography>
               </Grid>
               

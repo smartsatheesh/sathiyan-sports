@@ -65,6 +65,7 @@ export function validateSettings(s: SiteSettings): string[] {
   s.membership?.programs?.forEach((p) => {
     if (!p.key?.trim() || !p.name?.trim()) errors.push("Every coaching programme needs a name");
     if (!isMoney(p.monthly)) errors.push(`${p.name || "Programme"}: monthly fee is invalid`);
+    if (p.adultMonthly !== undefined && !isMoney(p.adultMonthly)) errors.push(`${p.name || "Programme"}: adult fee is invalid`);
   });
   if (!isMoney(s.membership?.flexibleSurchargePerMonth)) errors.push("Flexible surcharge is invalid");
   if (!isMoney(s.tournamentDefaultFee)) errors.push("Tournament fee is invalid");

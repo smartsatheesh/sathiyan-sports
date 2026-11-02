@@ -36,7 +36,7 @@ import { addMonths, addYears } from "date-fns";
 import Link from "next/link";
 import RegistrationSuccessPopup from "../components/RegistrationSuccessPopup";
 import { useSiteSettings } from "../hooks/useSiteSettings";
-import { calculateMembershipPrice, membershipPlanFor, programFor, SUBSCRIPTION_MONTHS, type SubscriptionType } from "../lib/pricing";
+import { calculateMembershipPrice, membershipPlanFor, programFor, programMonthlyFee, SUBSCRIPTION_MONTHS, type SubscriptionType } from "../lib/pricing";
 
 const TIME_SLOTS = [
   "12:00 AM - 01:00 AM",
@@ -851,7 +851,7 @@ export default function RegisterPage() {
               onChange={(e) => setFormData({ ...formData, coachingProgram: e.target.value })}
             >
               {settings.membership.programs.map((p) => (
-                <MenuItem key={p.key} value={p.key}>{p.name} — ₹{p.monthly.toLocaleString("en-IN")}/month</MenuItem>
+                <MenuItem key={p.key} value={p.key}>{p.name} — ₹{programMonthlyFee(p, formData.champType).toLocaleString("en-IN")}/month</MenuItem>
               ))}
             </Select>
           </FormControl>

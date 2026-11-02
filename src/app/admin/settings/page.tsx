@@ -278,22 +278,25 @@ export default function AdminSettingsPage() {
           <HolidayEditor holidays={s.holidays} onChange={(list) => update((d) => { d.holidays = list; })} />
         </Section>
 
-        <Section title="Coaching fees (monthly)" subtitle="Per person per month for each coaching programme — separate from court booking prices. 3, 6 and 12-month plans are this × months. Members default to the programme for their sport.">
+        <Section title="Coaching fees (monthly)" subtitle="Per person per month for each coaching programme, for kids and for adults & veterans — separate from court booking prices. 3, 6 and 12-month plans are this × months. Members default to the programme for their sport.">
           <Stack spacing={1.5}>
             {s.membership.programs.map((p, i) => (
               <Grid container spacing={1.5} key={p.key} alignItems="center">
-                <Grid item xs={7} sm={8}>
+                <Grid item xs={12} sm={6}>
                   <TextField size="small" fullWidth label="Programme" value={p.name}
                     onChange={(e) => update((d) => { d.membership.programs[i].name = e.target.value.slice(0, 50); })} />
                 </Grid>
-                <Grid item xs={5} sm={4}>
-                  <MoneyField label="Per month" value={p.monthly} onChange={(n) => update((d) => { d.membership.programs[i].monthly = n; })} />
+                <Grid item xs={6} sm={3}>
+                  <MoneyField label="Kids / month" value={p.monthly} onChange={(n) => update((d) => { d.membership.programs[i].monthly = n; })} />
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <MoneyField label="Adults & veterans / month" value={p.adultMonthly ?? p.monthly} onChange={(n) => update((d) => { d.membership.programs[i].adultMonthly = n; })} />
                 </Grid>
               </Grid>
             ))}
             <Box>
               <Button size="small" onClick={() => update((d) => {
-                d.membership.programs.push({ key: `program-${Date.now().toString(36)}`, name: "New programme", monthly: 0 });
+                d.membership.programs.push({ key: `program-${Date.now().toString(36)}`, name: "New programme", monthly: 0, adultMonthly: 0 });
               })}>
                 + Add programme
               </Button>

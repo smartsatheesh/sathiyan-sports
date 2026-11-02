@@ -164,7 +164,11 @@ function priceLines(settings: SiteSettings): string {
   lines.push(`- Courts are booked in 30-minute slots; a slot costs half the hourly price.`);
   lines.push(`- Weekday cricket/football turf is sold in 2-hour blocks (pay for 1 hour, get 1 hour free), so weekday turf bookings must be 2, 4 or 6 hours. Weekend and holiday turf can be booked by the hour.`);
   if (upcoming) lines.push(`- Upcoming holidays charged at the weekend price: ${upcoming}.`);
-  lines.push(`- Monthly coaching (separate from court booking prices), per person: ${settings.membership.programs.map((p) => `${p.name} ₹${p.monthly}/month`).join('; ')}. Coaching focuses on both physical and mental health.`);
+  lines.push(`- Monthly coaching (separate from court booking prices), per person: ${settings.membership.programs
+    .map((p) => (p.adultMonthly ?? p.monthly) === p.monthly
+      ? `${p.name} ₹${p.monthly}/month (all ages)`
+      : `${p.name} ₹${p.monthly}/month for kids, ₹${p.adultMonthly}/month for adults and veterans`)
+    .join('; ')}. Coaching focuses on both physical and mental health.`);
   return lines.join('\n');
 }
 
