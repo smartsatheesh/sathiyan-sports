@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { ALL_EVENT_TYPES } from '../lib/tournamentSports';
 
 export interface IPlayer extends Document {
   tournamentId: mongoose.Types.ObjectId;
@@ -13,10 +14,11 @@ export interface IPlayer extends Document {
   phone?: string; // Backward-compatible alias
   category?: string;
   sex?: 'Male' | 'Female' | 'Other';
-  eventType?: 'Singles' | 'Doubles' | 'Mixed Doubles';
+  eventType?: string; // Singles/Doubles/Mixed Doubles, Team, Kata/Kumite, Forms/Sparring
   jerseyNumber?: number;
   avatar?: string;
   teamName?: string; // For team tournaments
+  captainName?: string; // Team sports: who registered the team
   clubName?: string;
   isRegisteredUser: boolean;
   registrationDate: Date;
@@ -87,7 +89,7 @@ const PlayerSchema = new Schema<IPlayer>({
   },
   eventType: {
     type: String,
-    enum: ['Singles', 'Doubles', 'Mixed Doubles']
+    enum: ALL_EVENT_TYPES
   },
   jerseyNumber: {
     type: Number,
@@ -99,6 +101,10 @@ const PlayerSchema = new Schema<IPlayer>({
     trim: true
   },
   teamName: {
+    type: String,
+    trim: true
+  },
+  captainName: {
     type: String,
     trim: true
   },

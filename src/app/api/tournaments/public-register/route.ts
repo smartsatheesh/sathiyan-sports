@@ -3,9 +3,7 @@ import { connectToMongoose } from '../../../server/mongodb';
 import Tournament from '../../../models/Tournament';
 import Player from '../../../models/Player';
 import { getSiteSettings } from '@/app/lib/settings.server';
-
-const VALID_AGE_CATEGORIES = ['20 to 40 Adult', '40 plus Veteran'];
-const VALID_EVENT_TYPES = ['Singles', 'Doubles', 'Mixed Doubles'];
+import { divisionFor, sportRules } from '@/app/lib/tournamentSports';
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,36 +16,23 @@ export async function POST(request: NextRequest) {
       phone,
       clubName,
       partnerName,
+      captainName,
       sex,
       ageCategory,
       eventType,
       paymentChoice,
     } = body;
 
-    if (!tournamentId || !name || !phone || !sex || !ageCategory || !eventType || !paymentChoice) {
+    if (!tournamentId || !name || !phone || !ageCategory || !paymentChoice) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    if (!['Male', 'Female', 'Other'].includes(sex)) {
+    if (sex && !['Male', 'Female', 'Other'].includes(sex)) {
       return NextResponse.json(
         { success: false, error: 'Invalid sex value' },
-        { status: 400 }
-      );
-    }
-
-    if (!VALID_AGE_CATEGORIES.includes(ageCategory)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid age category' },
-        { status: 400 }
-      );
-    }
-
-    if (!VALID_EVENT_TYPES.includes(eventType)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid event type' },
         { status: 400 }
       );
     }
@@ -73,6 +58,25 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'Tournament not found' },
         { status: 404 }
       );
+    }
+
+    // Events and age groups depend on the sport (teams for football/cricket, Kata/Kumite for karate...)
+    const rules = sportRules(tournament.sport);
+    const event = rules.team ? 'Team' : eventType;
+    if (!rules.ageCategories.includes(ageCategory)) {
+      return NextResponse.json({ success: false, error: 'Invalid age category' }, { status: 400 });
+    }
+    if (!rules.team && !rules.events.includes(event)) {
+      return NextResponse.json({ success: false, error: 'Invalid event type' }, { status: 400 });
+    }
+    if (rules.partnerEvents.includes(event) && !String(partnerName || '').trim()) {
+      return NextResponse.json({ success: false, error: "Please enter your partner's name" }, { status: 400 });
+    }
+    if (!rules.team && !sex) {
+      return NextResponse.json({ success: false, error: 'Please choose male, female or other' }, { status: 400 });
+    }
+    if (rules.team && !String(captainName || '').trim()) {
+      return NextResponse.json({ success: false, error: "Please enter the captain's name" }, { status: 400 });
     }
 
     if (tournament.status !== 'upcoming') {
@@ -127,10 +131,12 @@ export async function POST(request: NextRequest) {
       phone: normalizedPhone,
       mobile: normalizedPhone,
       clubName: clubName ? String(clubName).trim() : undefined,
-      partnerName: partnerName ? String(partnerName).trim() : undefined,
-      category: ageCategory,
-      sex,
-      eventType,
+      partnerName: rules.partnerEvents.includes(event) && partnerName ? String(partnerName).trim() : undefined,
+      teamName: rules.team ? String(name).trim() : undefined,
+      captainName: rules.team ? String(captainName).trim() : undefined,
+      category: divisionFor(tournament.sport, ageCategory, event),
+      sex: rules.team ? undefined : sex,
+      eventType: event,
       isRegisteredUser: false,
       registrationFee,
       paymentChoice,
@@ -150,8 +156,8 @@ export async function POST(request: NextRequest) {
         name: player.name,
         phone: player.mobile,
         sex,
-        category: ageCategory,
-        eventType,
+        category: player.category,
+        eventType: event,
         registrationFee,
         paymentChoice,
         paymentStatus: player.paymentStatus,

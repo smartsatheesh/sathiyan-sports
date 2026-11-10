@@ -104,7 +104,7 @@ export default function AdminAttendancePage() {
   useEffect(() => {
     if (status === "loading") return;
     if (!session) {
-      router.push("/auth/signin?callbackUrl=/admin/attendance");
+      router.push("/auth/login?callbackUrl=/admin/attendance");
       return;
     }
     if (session.user?.role !== "admin" && session.user?.role !== "coach") {

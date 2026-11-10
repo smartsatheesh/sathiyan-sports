@@ -56,6 +56,9 @@ import {
   AccountTree,
 } from '@mui/icons-material';
 import TournamentBracket from '../../components/TournamentBracket';
+import LeagueTable from '../../components/LeagueTable';
+import { FORMAT_LABELS, TournamentFormat, qualifierCount } from '../../lib/league';
+import { SCORE_LABEL, SPORT_KEYS, TOURNAMENT_SPORTS, divisionOptions, sportRules } from '../../lib/tournamentSports';
 
 interface Tournament {
   _id: string;
@@ -72,6 +75,9 @@ interface Tournament {
   endDate?: string;
   venue: string;
   category: string;
+  format?: TournamentFormat;
+  qualifiers?: number;
+  legs?: number;
   createdBy: {
     name: string;
     email: string;
@@ -91,6 +97,9 @@ interface Match {
   player2TeamId?: string;
   category?: string;
   nextMatchNumber?: number | null;
+  stage?: 'league' | 'knockout';
+  player1Seed?: number | null;
+  player2Seed?: number | null;
   courtNumber?: string;
   scheduledTime?: string;
   status: 'scheduled' | 'live' | 'completed' | 'cancelled';
@@ -123,6 +132,7 @@ interface RegistrationRow {
   name: string;
   phone: string;
   partnerName: string;
+  captainName?: string;
   sex: string;
   category: string;
   eventType: string;
@@ -143,7 +153,7 @@ interface RegSummary {
 }
 
 export default function AdminTournamentDashboard() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -193,7 +203,10 @@ export default function AdminTournamentDashboard() {
     startDate: '',
     endDate: '',
     venue: '',
-    category: 'Open'
+    category: 'Open',
+    format: 'knockout' as TournamentFormat,
+    qualifiers: 4,
+    legs: 1
   });
 
   const [matchForm, setMatchForm] = useState({
@@ -232,12 +245,13 @@ export default function AdminTournamentDashboard() {
 
   // Check admin access
   useEffect(() => {
+    if (status === 'loading') return;
     if (!session) {
-      router.push('/auth/signin');
+      router.push('/auth/login?callbackUrl=/admin/tournaments');
       return;
     }
     fetchTournaments();
-  }, [session]);
+  }, [session, status]);
 
   const fetchRegisteredPlayers = async (tournamentId: string) => {
     try {
@@ -532,6 +546,14 @@ export default function AdminTournamentDashboard() {
 
   const handleUpdateMatchScore = async () => {
     if (!editingMatch) return;
+    if (singleScore && scoreForm.status === 'completed' && editingMatch.stage !== 'league' && !scoreForm.winnerName) {
+      alert(rules.scoring === 'points'
+        ? 'Every bout needs a winner — pick who the judges gave it to.'
+        : rules.scoring === 'runs'
+          ? 'Knockout games need a winner — if scores are level, pick who won the super over.'
+          : 'Knockout games need a winner — if it ended level, pick who won on penalties.');
+      return;
+    }
 
     try {
       const response = await fetch(`/api/tournaments/${editingMatch.tournamentId}/matches/${editingMatch._id}`, {
@@ -552,11 +574,16 @@ export default function AdminTournamentDashboard() {
           score: {
             player1Sets: scoreForm.player1Sets,
             player2Sets: scoreForm.player2Sets,
-            sets: scoreForm.sets
+            sets: singleScore ? [] : scoreForm.sets
           },
-          winnerName: scoreForm.winnerName || undefined,
+          // football league games can end level, so an empty winner (a draw) is sent as-is
+          winnerName: singleScore && scoreForm.status === 'completed' ? scoreForm.winnerName : scoreForm.winnerName || undefined,
           duration: scoreForm.duration,
-          liveScore: scoreForm.status === 'live' ? scoreForm.liveScore : undefined
+          liveScore: scoreForm.status !== 'live'
+            ? undefined
+            : singleScore
+              ? { currentSet: 1, player1CurrentScore: scoreForm.player1Sets, player2CurrentScore: scoreForm.player2Sets, server: 'player1' }
+              : scoreForm.liveScore
         }),
       });
 
@@ -589,7 +616,10 @@ export default function AdminTournamentDashboard() {
       startDate: '',
       endDate: '',
       venue: '',
-      category: 'Open'
+      category: 'Open',
+      format: 'knockout',
+      qualifiers: 4,
+      legs: 1
     });
   };
 
@@ -620,7 +650,10 @@ export default function AdminTournamentDashboard() {
       startDate: new Date(tournament.startDate).toISOString().slice(0, 16),
       endDate: tournament.endDate ? new Date(tournament.endDate).toISOString().slice(0, 16) : '',
       venue: tournament.venue,
-      category: tournament.category
+      category: tournament.category,
+      format: tournament.format || 'knockout',
+      qualifiers: tournament.qualifiers || 4,
+      legs: tournament.legs || 1
     });
     setTournamentDialog(true);
   };
@@ -632,6 +665,13 @@ export default function AdminTournamentDashboard() {
       return acc;
     }, {});
   }, [matches]);
+
+  const currentTournament = tournaments.find((t) => t._id === selectedTournament);
+  // badminton keeps set-by-set scores; football/cricket/karate/silambam enter one number per side
+  const rules = sportRules(currentTournament?.sport);
+  const singleScore = rules.scoring !== 'sets';
+  const drawWord = rules.scoring === 'runs' ? 'Tie' : 'Draw';
+  const hasLeague = matches.some((m) => m.stage === 'league');
 
   // Dynamic grouping: one bracket per registered category (Group A, B, C...), sized to
   // however many teams actually registered under it — nothing hardcoded.
@@ -796,7 +836,7 @@ export default function AdminTournamentDashboard() {
             {tournaments.map((tournament) => (
               <MenuItem key={tournament._id} value={tournament._id}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-                  {tournament.sport === 'badminton' ? <SportsTennis /> : <SportsFootball />}
+                  <Box component="span" sx={{ fontSize: 20, lineHeight: 1 }}>{sportRules(tournament.sport).emoji}</Box>
                   <Box sx={{ flexGrow: 1 }}>
                     <Typography variant="body1">{tournament.name}</Typography>
                     <Typography variant="caption" color="text.secondary">
@@ -859,7 +899,7 @@ export default function AdminTournamentDashboard() {
                   </TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {tournament.sport === 'badminton' ? <SportsTennis fontSize="small" /> : <SportsFootball fontSize="small" />}
+                      <Box component="span" sx={{ fontSize: 16, lineHeight: 1 }}>{sportRules(tournament.sport).emoji}</Box>
                       {tournament.sport}
                     </Box>
                   </TableCell>
@@ -910,7 +950,13 @@ export default function AdminTournamentDashboard() {
               size="small"
               startIcon={<EmojiEvents />}
               onClick={async () => {
-                if (!confirm('Generate the full 24-match knockout bracket from registered players? Existing matches will be replaced.')) return;
+                const fmt = rules.formats.includes(currentTournament?.format || 'knockout') ? currentTournament?.format || 'knockout' : 'knockout';
+                const what = fmt === 'league'
+                  ? 'league fixtures (every team plays every other team)'
+                  : fmt === 'league_knockout'
+                    ? 'league fixtures plus the knockout matches that follow (filled from the league table)'
+                    : 'a knockout bracket';
+                if (!confirm(`Generate ${what} from the registered teams? Existing matches will be replaced.`)) return;
                 const res = await fetch(`/api/tournaments/${selectedTournament}/generate-fixtures`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -976,14 +1022,30 @@ export default function AdminTournamentDashboard() {
                   Group {letter} <Typography component="span" variant="body2" color="text.secondary">— {category} ({groupMatches.length} match{groupMatches.length !== 1 ? 'es' : ''})</Typography>
                 </Typography>
               )}
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: '#fafafa' }}>
-                <TournamentBracket
-                  matches={groupMatches as any}
-                  isAdmin
-                  onMatchClick={(m) => openEditScore(m as unknown as Match)}
-                  onShuffleRound={(round) => handleShuffleRound(round, category)}
+              {groupMatches.some((m) => m.stage === 'league') && (
+                <LeagueTable
+                  matches={groupMatches}
+                  qualifiers={currentTournament?.format === 'league_knockout' ? qualifierCount(currentTournament?.qualifiers, new Set(groupMatches.filter((m) => m.stage === 'league').flatMap((m) => [m.player1Name, m.player2Name])).size) : 0}
+                  title="League table"
+                  sport={currentTournament?.sport}
                 />
-              </Paper>
+              )}
+              {groupMatches.some((m) => m.stage !== 'league') && (
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: '#fafafa' }}>
+                  {hasLeague && <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>Knockout — fills from the league table when every league match is done</Typography>}
+                  <TournamentBracket
+                    matches={groupMatches.filter((m) => m.stage !== 'league') as any}
+                    isAdmin
+                    onMatchClick={(m) => openEditScore(m as unknown as Match)}
+                    onShuffleRound={(round) => handleShuffleRound(round, category)}
+                  />
+                </Paper>
+              )}
+              {hasLeague && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  League fixtures are in the <strong>List</strong> view, by matchday — tap a match there to enter the score.
+                </Alert>
+              )}
             </Box>
           ))}
 
@@ -1106,7 +1168,7 @@ export default function AdminTournamentDashboard() {
           ))}
 
           {/* Standings */}
-          {standings.length > 0 && (
+          {standings.length > 0 && !hasLeague && (
             <Box sx={{ mt: 4 }}>
               <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>🏆 Current Standings</Typography>
               <TableContainer component={Paper}>
@@ -1222,7 +1284,7 @@ export default function AdminTournamentDashboard() {
                   <TableCell>Registered</TableCell>
                   <TableCell>Tournament</TableCell>
                   <TableCell>Name</TableCell>
-                  <TableCell>Partner</TableCell>
+                  <TableCell>Partner / Captain</TableCell>
                   <TableCell>Phone</TableCell>
                   <TableCell>Sex</TableCell>
                   <TableCell>Category</TableCell>
@@ -1247,7 +1309,7 @@ export default function AdminTournamentDashboard() {
                         <Typography variant="caption" color="text.secondary">{row.sport} • {row.venue}</Typography>
                       </TableCell>
                       <TableCell>{row.name}</TableCell>
-                      <TableCell>{row.partnerName || '-'}</TableCell>
+                      <TableCell>{row.partnerName || (row.captainName ? `Capt. ${row.captainName}` : '-')}</TableCell>
                       <TableCell>{row.phone}</TableCell>
                       <TableCell>{row.sex}</TableCell>
                       <TableCell>{row.category}</TableCell>
@@ -1346,27 +1408,30 @@ export default function AdminTournamentDashboard() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Format</InputLabel>
-                  <Select value={regEditRow.eventType} label="Format" onChange={(e) => setRegEditRow((p) => p ? { ...p, eventType: e.target.value } : p)}>
-                    <MenuItem value="Singles">Singles</MenuItem>
-                    <MenuItem value="Doubles">Doubles</MenuItem>
-                    <MenuItem value="Mixed Doubles">Mixed Doubles</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              {(regEditRow.eventType === 'Doubles' || regEditRow.eventType === 'Mixed Doubles') && (
+              {sportRules(regEditRow.sport).events.length > 0 && (
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Event</InputLabel>
+                    <Select value={regEditRow.eventType} label="Event" onChange={(e) => setRegEditRow((p) => p ? { ...p, eventType: e.target.value } : p)}>
+                      {sportRules(regEditRow.sport).events.map((ev) => (
+                        <MenuItem key={ev} value={ev}>{ev}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+              {sportRules(regEditRow.sport).partnerEvents.includes(regEditRow.eventType) && (
                 <Grid item xs={12}>
                   <TextField fullWidth label="Partner Name" value={regEditRow.partnerName || ''} onChange={(e) => setRegEditRow((p) => p ? { ...p, partnerName: e.target.value } : p)} helperText="Partner for doubles events" />
                 </Grid>
               )}
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
-                  <InputLabel>Age Category</InputLabel>
-                  <Select value={regEditRow.category} label="Age Category" onChange={(e) => setRegEditRow((p) => p ? { ...p, category: e.target.value } : p)}>
-                    <MenuItem value="20 to 40 Adult">20 to 40 Adult</MenuItem>
-                    <MenuItem value="40 plus Veteran">40 plus Veteran</MenuItem>
+                  <InputLabel>Category</InputLabel>
+                  <Select value={regEditRow.category} label="Category" onChange={(e) => setRegEditRow((p) => p ? { ...p, category: e.target.value } : p)}>
+                    {Array.from(new Set([...divisionOptions(regEditRow.sport), regEditRow.category].filter((c) => c && c !== '-'))).map((c) => (
+                      <MenuItem key={c} value={c}>{c}</MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Grid>
@@ -1421,11 +1486,21 @@ export default function AdminTournamentDashboard() {
                 <InputLabel>Sport</InputLabel>
                 <Select
                   value={tournamentForm.sport}
-                  onChange={(e) => setTournamentForm({ ...tournamentForm, sport: e.target.value })}
+                  onChange={(e) => {
+                    // each sport brings its own entry type, and only football/cricket allow leagues
+                    const next = sportRules(e.target.value);
+                    setTournamentForm({
+                      ...tournamentForm,
+                      sport: e.target.value,
+                      type: next.type,
+                      format: next.formats.includes(tournamentForm.format) ? tournamentForm.format : 'knockout',
+                    });
+                  }}
                   label="Sport"
                 >
-                  <MenuItem value="badminton">Badminton</MenuItem>
-                  <MenuItem value="football">Football</MenuItem>
+                  {SPORT_KEYS.map((k) => (
+                    <MenuItem key={k} value={k}>{TOURNAMENT_SPORTS[k].emoji} {TOURNAMENT_SPORTS[k].label}</MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
@@ -1443,6 +1518,55 @@ export default function AdminTournamentDashboard() {
                 </Select>
               </FormControl>
             </Grid>
+            {sportRules(tournamentForm.sport).formats.length > 1 && (
+              <>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Format</InputLabel>
+                    <Select
+                      value={tournamentForm.format}
+                      onChange={(e) => setTournamentForm({ ...tournamentForm, format: e.target.value as TournamentFormat })}
+                      label="Format"
+                    >
+                      {sportRules(tournamentForm.sport).formats.map((f) => (
+                        <MenuItem key={f} value={f}>{FORMAT_LABELS[f]}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                {tournamentForm.format !== 'knockout' && (
+                  <Grid item xs={12} sm={6} md={3}>
+                    <FormControl fullWidth>
+                      <InputLabel>Each pair plays</InputLabel>
+                      <Select
+                        value={tournamentForm.legs}
+                        onChange={(e) => setTournamentForm({ ...tournamentForm, legs: Number(e.target.value) })}
+                        label="Each pair plays"
+                      >
+                        <MenuItem value={1}>Once</MenuItem>
+                        <MenuItem value={2}>Twice (home & away)</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
+                {tournamentForm.format === 'league_knockout' && (
+                  <Grid item xs={12} sm={6} md={3}>
+                    <FormControl fullWidth>
+                      <InputLabel>Teams to knockout</InputLabel>
+                      <Select
+                        value={tournamentForm.qualifiers}
+                        onChange={(e) => setTournamentForm({ ...tournamentForm, qualifiers: Number(e.target.value) })}
+                        label="Teams to knockout"
+                      >
+                        <MenuItem value={2}>Top 2 → Final</MenuItem>
+                        <MenuItem value={4}>Top 4 → Semi-finals</MenuItem>
+                        <MenuItem value={8}>Top 8 → Quarter-finals</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
+              </>
+            )}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -1925,9 +2049,44 @@ export default function AdminTournamentDashboard() {
       </Grid>
 
       {/* =========================
+          GOALS / RUNS / POINTS (live and final)
+      ========================== */}
+      {singleScore && (scoreForm.status === 'live' || scoreForm.status === 'completed') && (
+        <>
+          <Grid item xs={12}>
+            <Typography variant="subtitle2" fontWeight={700} color={scoreForm.status === 'live' ? 'error.main' : undefined}>
+              {SCORE_LABEL[rules.scoring]}{editingMatch?.stage === 'league' ? ` · league match (${drawWord.toLowerCase()}s allowed)` : rules.scoring === 'points' ? ' · bout' : ' · knockout match'}
+            </Typography>
+          </Grid>
+          {(['player1', 'player2'] as const).map((side) => {
+            const key = side === 'player1' ? 'player1Sets' : 'player2Sets';
+            const setGoals = (v: number) =>
+              setScoreForm((f) => {
+                const next = { ...f, [key]: Math.max(0, v) };
+                // winner follows the goals; a level knockout game needs a winner picked (penalties)
+                const g1 = side === 'player1' ? Math.max(0, v) : f.player1Sets;
+                const g2 = side === 'player2' ? Math.max(0, v) : f.player2Sets;
+                next.winnerName = g1 > g2 ? f.player1Name : g2 > g1 ? f.player2Name : editingMatch?.stage === 'league' ? '' : f.winnerName;
+                return next;
+              });
+            return (
+              <Grid item xs={6} key={side}>
+                <Typography variant="caption" noWrap display="block">{scoreForm[`${side}Name`] || (side === 'player1' ? 'Team 1' : 'Team 2')}</Typography>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <IconButton size="small" aria-label="One goal less" onClick={() => setGoals(scoreForm[key] - 1)}>−</IconButton>
+                  <Typography variant="h4" fontWeight={800} sx={{ minWidth: 40, textAlign: 'center' }}>{scoreForm[key]}</Typography>
+                  <IconButton size="small" aria-label="One goal more" onClick={() => setGoals(scoreForm[key] + 1)}>+</IconButton>
+                </Stack>
+              </Grid>
+            );
+          })}
+        </>
+      )}
+
+      {/* =========================
           LIVE SCORE ENTRY
       ========================== */}
-      {scoreForm.status === 'live' && (
+      {scoreForm.status === 'live' && !singleScore && (
         <>
           <Grid item xs={12}>
             <Typography
@@ -2134,7 +2293,7 @@ export default function AdminTournamentDashboard() {
       {/* =========================
           SET-BY-SET SCORES
       ========================== */}
-      {(scoreForm.status === 'live' ||
+      {!singleScore && (scoreForm.status === 'live' ||
         scoreForm.status === 'completed') && (
         <>
           <Grid item xs={12}>
@@ -2329,7 +2488,7 @@ export default function AdminTournamentDashboard() {
                 }
               >
                 <MenuItem value="">
-                  — Select Winner —
+                  {singleScore && editingMatch?.stage === 'league' ? drawWord : '— Select Winner —'}
                 </MenuItem>
 
                 <MenuItem

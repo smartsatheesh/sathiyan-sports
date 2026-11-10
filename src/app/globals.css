@@ -527,9 +527,6 @@ body {
 .divonabout {
   width: 100% !important;
 }
-.MuiFormLabel-root {
-  color: #ededed !important;
-}
 
 .allnavbarpadd {
   display: flex;

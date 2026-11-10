@@ -1,8 +1,9 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { SPORT_KEYS, TournamentSport } from '../lib/tournamentSports';
 
 export interface ITournament extends Document {
   name: string;
-  sport: 'badminton' | 'football';
+  sport: TournamentSport;
   type: 'singles' | 'doubles' | 'team';
   status: 'upcoming' | 'ongoing' | 'completed';
   description?: string;
@@ -16,6 +17,9 @@ export interface ITournament extends Document {
   rules?: string;
   categories?: string[];
   category?: string;
+  format?: 'knockout' | 'league' | 'league_knockout';
+  qualifiers?: number; // league_knockout: teams that go through to the knockout (2, 4 or 8)
+  legs?: number; // league: 1 = play each team once, 2 = home and away
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -32,8 +36,8 @@ const TournamentSchema = new Schema<ITournament>({
     type: String,
     required: [true, 'Sport type is required'],
     enum: {
-      values: ['badminton', 'football'],
-      message: 'Sport must be either badminton or football'
+      values: SPORT_KEYS,
+      message: 'Sport must be one of: ' + SPORT_KEYS.join(', ')
     }
   },
   type: {
@@ -106,6 +110,21 @@ const TournamentSchema = new Schema<ITournament>({
     type: String,
     trim: true,
     default: 'Open'
+  },
+  format: {
+    type: String,
+    enum: ['knockout', 'league', 'league_knockout'],
+    default: 'knockout'
+  },
+  qualifiers: {
+    type: Number,
+    enum: [2, 4, 8],
+    default: 4
+  },
+  legs: {
+    type: Number,
+    enum: [1, 2],
+    default: 1
   },
   createdBy: {
     type: Schema.Types.ObjectId,

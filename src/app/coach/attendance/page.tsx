@@ -75,7 +75,7 @@ export default function AttendancePage() {
     if (status === "loading") return;
 
     if (!session) {
-      router.push("/auth/signin?callbackUrl=/coach/attendance");
+      router.push("/auth/login?callbackUrl=/coach/attendance");
       return;
     }
 

@@ -26,10 +26,14 @@ import {
   LocationOn,
   Share,
   SportsCricket,
+  SportsMartialArts,
   SportsSoccer,
   SportsTennis,
 } from "@mui/icons-material";
 import TournamentBracket from "../../components/TournamentBracket";
+import LeagueTable from "../../components/LeagueTable";
+import { leagueFinished, leagueTable, qualifierCount } from "../../lib/league";
+import { TOURNAMENT_SPORTS, sportRules } from "../../lib/tournamentSports";
 
 interface Tournament {
   _id: string;
@@ -42,6 +46,8 @@ interface Tournament {
   endDate?: string;
   venue?: string;
   categories?: string[];
+  format?: "knockout" | "league" | "league_knockout";
+  qualifiers?: number;
 }
 
 interface Match {
@@ -60,6 +66,7 @@ interface Match {
   score?: { player1Sets: number; player2Sets: number; sets?: { set: number; player1Score: number; player2Score: number }[] };
   liveScore?: { currentSet: number; player1CurrentScore: number; player2CurrentScore: number } | null;
   nextMatchNumber?: number | null;
+  stage?: "league" | "knockout";
 }
 
 interface Player {
@@ -70,10 +77,18 @@ interface Player {
 }
 
 const ROUND_ORDER = ["Preliminary", "Round of 64", "Round of 32", "Round of 16", "Quarter Final", "Semi Final", "Final"];
+// League matchdays first (in order), then the knockout rounds
+const roundRank = (r: string) => {
+  const day = /^Matchday (\d+)$/.exec(r);
+  if (day) return Number(day[1]);
+  return 1000 + (ROUND_ORDER.indexOf(r) + 1 || 99);
+};
 const SPORT_THEME: Record<string, { icon: React.ReactNode; gradient: string }> = {
   badminton: { icon: <SportsTennis />, gradient: "linear-gradient(135deg, #3a1c71 0%, #d76d77 60%, #ffaf7b 100%)" },
   football: { icon: <SportsSoccer />, gradient: "linear-gradient(135deg, #0f2027 0%, #1f8f3a 100%)" },
   cricket: { icon: <SportsCricket />, gradient: "linear-gradient(135deg, #05233a 0%, #1565c0 100%)" },
+  karate: { icon: <SportsMartialArts />, gradient: TOURNAMENT_SPORTS.karate.gradient },
+  silambam: { icon: <SportsMartialArts />, gradient: TOURNAMENT_SPORTS.silambam.gradient },
 };
 const STATUS_COLOR: Record<string, "error" | "warning" | "success" | "default"> = { ongoing: "error", live: "error", upcoming: "warning", completed: "success" };
 
@@ -100,7 +115,7 @@ function MatchRow({ m }: { m: Match }) {
         {live ? (
           <Chip size="small" color="error" label="LIVE" sx={{ fontWeight: 800, animation: "pulse 1.5s infinite", "@keyframes pulse": { "50%": { opacity: 0.55 } } }} />
         ) : done ? (
-          <Chip size="small" label="Final" variant="outlined" />
+          <Chip size="small" label={m.stage === "league" && !m.winnerName ? "Draw" : sets.length === 0 ? "FT" : "Final"} variant="outlined" />
         ) : null}
       </Stack>
       <Box sx={{ px: 1.5, pb: 1.25, pt: 0.5 }}>
@@ -121,6 +136,9 @@ function MatchRow({ m }: { m: Match }) {
                   {s[r.side]}
                 </Typography>
               ))}
+              {done && sets.length === 0 && (
+                <Typography sx={{ width: 28, textAlign: "center", fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>{r.setsWon}</Typography>
+              )}
               {live && r.live !== undefined && (
                 <Typography sx={{ width: 28, textAlign: "center", fontWeight: 900, color: "error.main", fontVariantNumeric: "tabular-nums" }}>{r.live}</Typography>
               )}
@@ -137,7 +155,7 @@ export default function TournamentDetailPage({ params }: { params: { id: string 
   const [matches, setMatches] = useState<Match[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"matches" | "bracket" | "teams">("matches");
+  const [tab, setTab] = useState<"matches" | "table" | "bracket" | "teams">("matches");
   const [filter, setFilter] = useState<"all" | "live" | "upcoming" | "done">("all");
   const [category, setCategory] = useState<string>("");
   const [toast, setToast] = useState("");
@@ -181,9 +199,7 @@ export default function TournamentDetailPage({ params }: { params: { id: string 
       if (filter === "done") return m.status === "completed";
       return true;
     });
-    const rounds = Array.from(new Set(list.map((m) => m.round))).sort(
-      (a, b) => (ROUND_ORDER.indexOf(a) + 1 || 99) - (ROUND_ORDER.indexOf(b) + 1 || 99)
-    );
+    const rounds = Array.from(new Set(list.map((m) => m.round))).sort((a, b) => roundRank(a) - roundRank(b));
     return rounds.map((r) => ({ round: r, items: list.filter((m) => m.round === r).sort((a, b) => a.matchNumber - b.matchNumber) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches, filter, category, categories.length]);
@@ -215,7 +231,14 @@ export default function TournamentDetailPage({ params }: { params: { id: string 
 
   const theme = SPORT_THEME[(tournament.sport || "").toLowerCase()] || SPORT_THEME.badminton;
   const done = matches.filter((m) => m.status === "completed").length;
-  const champion = matches.find((m) => m.round === "Final" && m.status === "completed")?.winnerName;
+  const leagueMatches = matches.filter(inCategory).filter((m) => m.stage === "league");
+  const knockoutMatches = matches.filter(inCategory).filter((m) => m.stage !== "league");
+  const hasLeague = leagueMatches.length > 0;
+  const leagueTeams = new Set(leagueMatches.flatMap((m) => [m.player1Name, m.player2Name])).size;
+  // knockout champion, or the league winner when the competition is league-only
+  const champion =
+    matches.find((m) => m.round === "Final" && m.status === "completed")?.winnerName ||
+    (hasLeague && knockoutMatches.length === 0 && leagueFinished(leagueMatches) ? leagueTable(leagueMatches, sportRules(tournament.sport).points)[0]?.name : undefined);
 
   return (
     <Box sx={{ bgcolor: "#f6f8fb", minHeight: "100vh", pb: 6 }}>
@@ -283,7 +306,8 @@ export default function TournamentDetailPage({ params }: { params: { id: string 
         <Container maxWidth="md">
           <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth">
             <Tab value="matches" label={anyLive ? "Matches 🔴" : "Matches"} />
-            <Tab value="bracket" label="Bracket" />
+            {hasLeague && <Tab value="table" label="Table" />}
+            {(!hasLeague || knockoutMatches.length > 0) && <Tab value="bracket" label={hasLeague ? "Knockout" : "Bracket"} />}
             <Tab value="teams" label={`Teams (${players.length})`} />
           </Tabs>
         </Container>
@@ -339,10 +363,18 @@ export default function TournamentDetailPage({ params }: { params: { id: string 
           </>
         )}
 
+        {tab === "table" && (
+          <LeagueTable
+            matches={leagueMatches}
+            qualifiers={tournament.format === "league_knockout" ? qualifierCount(tournament.qualifiers, leagueTeams) : 0}
+            sport={tournament.sport}
+          />
+        )}
+
         {tab === "bracket" && (
           <Box sx={{ overflowX: "auto", mx: { xs: -2, sm: 0 }, px: { xs: 2, sm: 0 } }}>
             {matches.length ? (
-              <TournamentBracket matches={matches.filter(inCategory) as any} />
+              <TournamentBracket matches={knockoutMatches as any} />
             ) : (
               <Typography color="text.secondary" textAlign="center" sx={{ py: 6 }}>The bracket appears once fixtures are drawn.</Typography>
             )}

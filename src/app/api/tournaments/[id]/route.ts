@@ -102,7 +102,7 @@ export async function PUT(
     const updateFields = [
       'name', 'description', 'registrationFee', 'prizePool', 
       'maxParticipants', 'registrationDeadline', 'startDate', 
-      'endDate', 'venue', 'category', 'status'
+      'endDate', 'venue', 'category', 'status', 'format', 'qualifiers', 'legs'
     ];
 
     updateFields.forEach(field => {

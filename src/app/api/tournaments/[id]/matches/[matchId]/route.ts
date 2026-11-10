@@ -3,6 +3,7 @@ import { connectToMongoose } from '../../../../../server/mongodb';
 import Match from '../../../../../models/Match';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../../lib/authConfig';
+import { seedKnockoutFromLeague } from '../../../../../lib/leagueSeeding.server';
 
 export async function GET(
   request: NextRequest,
@@ -327,6 +328,13 @@ export async function PUT(
           `Next match not found: ${match.nextMatchNumber}`
         );
       }
+    }
+
+    // ---------------------------------------------------------
+    // 24b. LEAGUE RESULT: fill the semi-finals/final from the table when the league is done
+    // ---------------------------------------------------------
+    if (match.stage === 'league') {
+      await seedKnockoutFromLeague(params.id, match.category);
     }
 
     // ---------------------------------------------------------

@@ -79,6 +79,7 @@ export async function GET(req: NextRequest) {
         name: item.name || '-',
         clubName: item.clubName || '-',
         partnerName: item.partnerName || '',
+        captainName: item.captainName || '',
         phone: item.phone || item.mobile || '-',
         sex: item.sex || '-',
         category: item.category || '-',

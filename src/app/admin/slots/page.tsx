@@ -123,7 +123,7 @@ export default function SlotTrackingPage() {
     if (status === "loading") return;
     
     if (!session || session.user?.role !== "admin") {
-      router.push("/auth/signin");
+      router.push("/auth/login");
       return;
     }
   }, [session, status, router]);

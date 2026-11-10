@@ -32,10 +32,7 @@
   import { ContentCopy } from '@mui/icons-material';
   import UpiPaymentDialog from "../../components/UpiPaymentDialog";
   import { useSiteSettings } from "../../hooks/useSiteSettings";
-
-
-  const AGE_CATEGORIES = ['20 to 40 Adult', '40 plus Veteran'];
-  const EVENT_TYPES = ['Singles', 'Doubles', 'Mixed Doubles'];
+  import { sportRules } from "../../lib/tournamentSports";
 
   interface Tournament {
     _id: string;
@@ -74,9 +71,10 @@
       phone: '',
       clubName: '',
       partnerName: '',
+      captainName: '',
       sex: 'Male',
-      ageCategory: AGE_CATEGORIES[0],
-      eventType: 'Doubles',
+      ageCategory: '',
+      eventType: '',
       paymentChoice: 'pay_now',
     });
 
@@ -84,6 +82,19 @@
       () => tournaments.find((t) => t._id === formData.tournamentId),
       [tournaments, formData.tournamentId]
     );
+    // Fields depend on the sport: a team for football/cricket, Kata/Kumite for karate, pairs for badminton
+    const rules = sportRules(selectedTournament?.sport);
+    const needsPartner = rules.partnerEvents.includes(formData.eventType);
+
+    // Pick valid defaults whenever the tournament (and so the sport) changes
+    useEffect(() => {
+      setFormData((prev) => ({
+        ...prev,
+        eventType: rules.events.includes(prev.eventType) ? prev.eventType : rules.events[rules.type === 'doubles' ? 1 : 0] || '',
+        ageCategory: rules.ageCategories.includes(prev.ageCategory) ? prev.ageCategory : rules.ageCategories[0],
+      }));
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedTournament?.sport]);
 
     const fetchTournaments = async () => {
       try {
@@ -144,7 +155,15 @@
     };
     const handleSubmit = async () => {
       if (!formData.tournamentId || !formData.name.trim() || !formData.phone.trim()) {
-        setValidationSnack('Please fill Tournament, Name, and Phone Number');
+        setValidationSnack(rules.team ? 'Please fill the team name and phone number' : 'Please fill Tournament, Name, and Phone Number');
+        return;
+      }
+      if (rules.team && !formData.captainName.trim()) {
+        setValidationSnack("Please enter the captain's name");
+        return;
+      }
+      if (needsPartner && !formData.partnerName.trim()) {
+        setValidationSnack("Please enter your partner's name");
         return;
       }
 
@@ -158,8 +177,9 @@
             name: formData.name,
             phone: formData.phone,
             clubName: formData.clubName,
-            partnerName: formData.partnerName,
-            sex: formData.sex,
+            partnerName: needsPartner ? formData.partnerName : '',
+            captainName: rules.team ? formData.captainName : '',
+            sex: rules.team ? undefined : formData.sex,
             ageCategory: formData.ageCategory,
             eventType: formData.eventType,
             paymentChoice: formData.paymentChoice,
@@ -177,6 +197,8 @@
             ...prev,
             name: '',
             phone: '',
+            partnerName: '',
+            captainName: '',
             paymentChoice: 'pay_now',
           }));
         } else {
@@ -200,82 +222,32 @@
             border: '1px solid #d7eef8',
           }}
         >
-          {/* Independence Day Hero Banner */}
-          <Box sx={{
-            background: 'linear-gradient(135deg, #FF9933 0%, #FF9933 33%, #ffffff 33%, #ffffff 66%, #138808 66%, #138808 100%)',
-            px: { xs: 2, md: 4 },
-            pt: 3,
-            pb: 2,
-            position: 'relative',
-            overflow: 'hidden',
-          }}>
-            {/* Decorative overlay for readability */}
-            <Box sx={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)' }} />
-
-            {/* Decorative flag emojis scattered */}
-            {['🇮🇳', '🕊️', '🇮🇳', '⭐', '🇮🇳', '🕊️'].map((icon, i) => (
-              <Box key={i} sx={{
-                position: 'absolute',
-                fontSize: { xs: '1.2rem', md: '1.6rem' },
-                opacity: 0.35,
-                top: `${[10, 20, 60, 10, 55, 30][i]}%`,
-                left: `${[5, 88, 92, 45, 0, 70][i]}%`,
-                transform: 'rotate(' + [-15, 20, -10, 30, 15, -20][i] + 'deg)',
-                pointerEvents: 'none',
-              }}>{icon}</Box>
-            ))}
-
-            {/* Main header content */}
-            <Box sx={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-              <Typography variant="caption" sx={{ color: '#FFD700', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', display: 'block', mb: 0.5 }}>
-                🇮🇳 Jai Hind • 15 August 2026 🇮🇳
-              </Typography>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: { xs: 1.5, md: 3 }, my: 1.5 }}>
-                {/* Left flag */}
-                <Box sx={{ fontSize: { xs: '2.5rem', md: '3.5rem' }, lineHeight: 1 }}>🇮🇳</Box>
-
-                {/* Logo */}
-                <Box
-                  component="img"
-                  src="/sathiyanlogo.png"
-                  alt="Sathiyan Sports Logo"
-                  sx={{
-                    width: { xs: 100, md: 140 },
-                    height: { xs: 100, md: 140 },
-                    borderRadius: '50%',
-                    boxShadow: '0 0 0 4px #FFD700, 0 0 0 8px rgba(255,215,0,0.3)',
-                    objectFit: 'contain',
-                    background: '#fff',
-                    p: 0.5,
-                  }}
-                />
-
-                {/* Right side "Freedom to be Fit" */}
-                <Box sx={{ textAlign: 'left', maxWidth: { xs: 110, md: 180 } }}>
-                  <Typography sx={{ fontSize: { xs: '1rem', md: '1.3rem' }, color: '#FFD700', fontWeight: 900, lineHeight: 1.2, fontStyle: 'italic', textShadow: '0 2px 6px rgba(0,0,0,0.6)', whiteSpace: 'nowrap' }}>
-                    🕊️ Freedom to be Fit
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 0.3, mt: 0.8 }}>
-                    {['🧘', '🏸', '⚽', '🏃'].map(e => <span key={e} style={{ fontSize: '1.1rem' }}>{e}</span>)}
-                  </Box>
-                </Box>
-              </Box>
-
-              <Typography variant="h5" sx={{ color: '#fff', fontWeight: 900, textShadow: '0 2px 8px rgba(0,0,0,0.6)', mb: 0.5, fontSize: { xs: '1.1rem', md: '1.5rem' } }}>
-                Tournament Registration
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', display: 'block', fontWeight: 600 }}>
-                1st Sathiyan Sports Independence Day Tournament
-              </Typography>
-
-              {/* Tricolor strip */}
-              <Box sx={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', mt: 1.5, mx: 'auto', maxWidth: 200 }}>
-                <Box sx={{ flex: 1, bgcolor: '#FF9933' }} />
-                <Box sx={{ flex: 1, bgcolor: '#ffffff' }} />
-                <Box sx={{ flex: 1, bgcolor: '#138808' }} />
-              </Box>
+          {/* Banner themed by the chosen tournament's sport */}
+          <Box sx={{ background: rules.gradient, color: '#fff', px: { xs: 2.5, md: 4 }, py: { xs: 3, md: 4 }, position: 'relative', overflow: 'hidden' }}>
+            <Box aria-hidden sx={{ position: 'absolute', right: { xs: -10, md: 20 }, top: '50%', transform: 'translateY(-50%) rotate(-12deg)', fontSize: { xs: '5rem', md: '7rem' }, opacity: 0.25, lineHeight: 1 }}>
+              {rules.emoji}
             </Box>
+            <Stack direction="row" spacing={2} alignItems="center" sx={{ position: 'relative' }}>
+              <Box
+                component="img"
+                src="/sathiyanlogo.png"
+                alt="Sathiyan Sports"
+                sx={{ width: { xs: 64, md: 84 }, height: { xs: 64, md: 84 }, borderRadius: '50%', bgcolor: '#fff', p: 0.5, objectFit: 'contain', flexShrink: 0 }}
+              />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 800, letterSpacing: 2, fontSize: 12, textTransform: 'uppercase', opacity: 0.9 }}>
+                  {rules.emoji} {rules.label} tournament registration
+                </Typography>
+                <Typography sx={{ fontWeight: 900, fontSize: { xs: '1.35rem', md: '1.8rem' }, lineHeight: 1.2 }}>
+                  {selectedTournament?.name || 'Tournament registration'}
+                </Typography>
+                {selectedTournament && (
+                  <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.5 }}>
+                    {new Date(selectedTournament.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} · {selectedTournament.venue}
+                  </Typography>
+                )}
+              </Box>
+            </Stack>
           </Box>
 
           {/* Form content */}
@@ -307,53 +279,68 @@
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   <FormControl fullWidth>
-                    <FormLabel sx={{ mb: 1 }}>Tournament</FormLabel>
+                    <FormLabel sx={{ mb: 1, color: 'text.primary', fontWeight: 600 }}>Tournament</FormLabel>
                     <Select
                       value={formData.tournamentId}
                       onChange={(e) => setFormData((prev) => ({ ...prev, tournamentId: String(e.target.value) }))}
                     >
                       {tournaments.map((t) => (
                         <MenuItem key={t._id} value={t._id}>
-                          {t.name} • {new Date(t.startDate).toLocaleDateString('en-GB')} • {t.venue}
+                          {sportRules(t.sport).emoji} {t.name} • {new Date(t.startDate).toLocaleDateString('en-GB')} • {t.venue}
                         </MenuItem>
                       ))}
                     </Select>
                   </FormControl>
                 </Grid>
 
-                <Grid item xs={12}>
-                  <FormControl fullWidth>
-                    <FormLabel sx={{ mb: 1 }}>Format</FormLabel>
-                    <Select
-                      value={formData.eventType}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, eventType: String(e.target.value) }))}
-                    >
-                      {EVENT_TYPES.map((f) => (
-                        <MenuItem key={f} value={f}>{f}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
+                {rules.events.length > 0 && (
+                  <Grid item xs={12}>
+                    <FormControl fullWidth>
+                      <FormLabel sx={{ mb: 1, color: 'text.primary', fontWeight: 600 }}>Event</FormLabel>
+                      <Select
+                        value={formData.eventType}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, eventType: String(e.target.value) }))}
+                      >
+                        {rules.events.map((f) => (
+                          <MenuItem key={f} value={f}>{f}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
 
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    label="Your Name"
+                    label={rules.team ? 'Team Name' : 'Your Name'}
                     value={formData.name}
                     onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                   />
                 </Grid>
 
+                {rules.team && (
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="Captain's Name"
+                      value={formData.captainName}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, captainName: e.target.value }))}
+                    />
+                  </Grid>
+                )}
+
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    label="Phone Number"
+                    label={rules.team ? "Captain's Phone Number" : 'Phone Number'}
+                    type="tel"
+                    inputProps={{ inputMode: 'tel' }}
                     value={formData.phone}
                     onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
                   />
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid item xs={12} md={rules.team ? 6 : 12}>
                   <TextField
                     fullWidth
                     label="Club Name"
@@ -364,7 +351,7 @@
                   />
                 </Grid>
 
-                {(formData.eventType === 'Doubles' || formData.eventType === 'Mixed Doubles') && (
+                {needsPartner && (
                   <Grid item xs={12}>
                     <TextField
                       fullWidth
@@ -376,28 +363,30 @@
                   </Grid>
                 )}
 
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <FormLabel sx={{ mb: 1 }}>Sex</FormLabel>
-                    <Select
-                      value={formData.sex}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, sex: String(e.target.value) }))}
-                    >
-                      <MenuItem value="Male">Male</MenuItem>
-                      <MenuItem value="Female">Female</MenuItem>
-                      <MenuItem value="Other">Other</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
+                {!rules.team && (
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth>
+                      <FormLabel sx={{ mb: 1, color: 'text.primary', fontWeight: 600 }}>Sex</FormLabel>
+                      <Select
+                        value={formData.sex}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, sex: String(e.target.value) }))}
+                      >
+                        <MenuItem value="Male">Male</MenuItem>
+                        <MenuItem value="Female">Female</MenuItem>
+                        <MenuItem value="Other">Other</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
 
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} md={rules.team ? 12 : 6}>
                   <FormControl fullWidth>
-                    <FormLabel sx={{ mb: 1 }}>Category</FormLabel>
+                    <FormLabel sx={{ mb: 1, color: 'text.primary', fontWeight: 600 }}>{rules.team ? 'Category' : 'Age group'}</FormLabel>
                     <Select
                       value={formData.ageCategory}
                       onChange={(e) => setFormData((prev) => ({ ...prev, ageCategory: String(e.target.value) }))}
                     >
-                      {AGE_CATEGORIES.map((c) => (
+                      {rules.ageCategories.map((c) => (
                         <MenuItem key={c} value={c}>{c}</MenuItem>
                       ))}
                     </Select>
@@ -406,7 +395,7 @@
 
                 <Grid item xs={12}>
                   <FormControl>
-                    <FormLabel>Payment</FormLabel>
+                    <FormLabel sx={{ color: 'text.primary', fontWeight: 600 }}>Payment</FormLabel>
                     <RadioGroup
                       row
                       value={formData.paymentChoice}
@@ -438,7 +427,7 @@
 
             {result && (
               <Alert severity="success" sx={{ mt: 1 }}>
-                Registration ID: {result.registrationId} | Payment: {result.paymentChoice === 'pay_now' ? 'UPI' : 'At venue'} | Sex: {result.sex || formData.sex}
+                Registration ID: {result.registrationId} | Payment: {result.paymentChoice === 'pay_now' ? 'UPI' : 'At venue'} | {result.category}
               </Alert>
             )}
 

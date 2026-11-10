@@ -5,6 +5,9 @@ import Player from '../../../../models/Player';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../lib/authConfig';
 import { buildKnockoutBracket, BracketTeam } from '../../../../lib/bracket';
+import { buildKnockoutAfterLeague, buildRoundRobin, qualifierCount } from '../../../../lib/league';
+import Tournament from '../../../../models/Tournament';
+import { sportRules } from '../../../../lib/tournamentSports';
 
 export async function POST(
   request: NextRequest,
@@ -24,6 +27,12 @@ export async function POST(
     }
 
     const tournamentId = params.id;
+    const tournament = await (Tournament.findById as any)(tournamentId).lean();
+    if (!tournament) {
+      return NextResponse.json({ success: false, error: 'Tournament not found' }, { status: 404 });
+    }
+    // only sports that allow leagues (football, cricket) can use them
+    const format = sportRules(tournament.sport).formats.includes(tournament.format) ? tournament.format : 'knockout';
 
     // Fetch registered players sorted by registration date (earliest = seed 1)
     const players = await (Player.find as any)({ tournamentId })
@@ -77,8 +86,23 @@ export async function POST(
         continue;
       }
 
-      const { matches, nextMatchNumber } = buildKnockoutBracket(teams, matchCursor);
-      matchCursor = nextMatchNumber;
+      // League formats: everyone plays everyone; league_knockout then adds semi-final/final
+      // slots that fill from the league table when the last league match is done.
+      let matches: any[];
+      if (format === 'league' || format === 'league_knockout') {
+        const league = buildRoundRobin(teams, matchCursor, tournament.legs === 2 ? 2 : 1);
+        matches = league.matches.map((m) => ({ ...m, nextMatchNumber: null, nextMatchSlot: null }));
+        matchCursor = league.nextMatchNumber;
+        if (format === 'league_knockout' && teams.length >= 3) {
+          const ko = buildKnockoutAfterLeague(qualifierCount(tournament.qualifiers, teams.length), matchCursor);
+          matches = matches.concat(ko.matches);
+          matchCursor = ko.nextMatchNumber;
+        }
+      } else {
+        const ko = buildKnockoutBracket(teams, matchCursor);
+        matches = ko.matches;
+        matchCursor = ko.nextMatchNumber;
+      }
 
       for (const m of matches) {
         allDocs.push({
@@ -96,6 +120,9 @@ export async function POST(
           score: { player1Sets: 0, player2Sets: 0, sets: [] },
           nextMatchNumber: m.nextMatchNumber,
           nextMatchSlot: m.nextMatchSlot,
+          stage: m.stage || 'knockout',
+          player1Seed: m.player1Seed ?? null,
+          player2Seed: m.player2Seed ?? null,
         });
       }
 
@@ -104,7 +131,7 @@ export async function POST(
         category,
         teams: teams.length,
         matches: matches.length,
-        rounds: Array.from(new Set(matches.map((m) => m.round))),
+        rounds: Array.from(new Set(matches.map((m: any) => m.round as string))),
       });
     }
 

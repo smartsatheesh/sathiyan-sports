@@ -81,7 +81,10 @@ export async function POST(request: NextRequest) {
       startDate,
       endDate,
       venue,
-      category
+      category,
+      format,
+      qualifiers,
+      legs
     } = body;
 
     // Validate required fields
@@ -108,6 +111,9 @@ export async function POST(request: NextRequest) {
       endDate: endDate ? new Date(endDate) : null,
       venue,
       category: category || 'Open',
+      format: ['league', 'league_knockout'].includes(format) ? format : 'knockout',
+      qualifiers: [2, 4, 8].includes(Number(qualifiers)) ? Number(qualifiers) : 4,
+      legs: Number(legs) === 2 ? 2 : 1,
       createdBy: user._id,
       status: 'upcoming'
     });

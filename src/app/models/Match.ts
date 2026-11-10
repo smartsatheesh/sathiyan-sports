@@ -41,6 +41,9 @@ export interface IMatch extends Document {
   };
   nextMatchNumber?: number | null;
   nextMatchSlot?: 'player1' | 'player2' | null;
+  stage?: 'league' | 'knockout';
+  player1Seed?: number | null; // knockout after a league: league position that fills this slot
+  player2Seed?: number | null;
 }
 
 const MatchSchema = new Schema<IMatch>({
@@ -195,6 +198,14 @@ const MatchSchema = new Schema<IMatch>({
     enum: ['player1', 'player2', null],
     default: null,
   },
+  // League (round-robin) or knockout; goals for football live in score.player1Sets/player2Sets
+  stage: {
+    type: String,
+    enum: ['league', 'knockout'],
+    default: 'knockout',
+  },
+  player1Seed: { type: Number, default: null },
+  player2Seed: { type: Number, default: null },
 }, {
   timestamps: true
 });

@@ -85,7 +85,7 @@ export default function AdminTournamentRegistrationsPage() {
   useEffect(() => {
     if (status === 'loading') return;
     if (!session) {
-      router.push('/auth/signin?callbackUrl=/admin/tournament-registrations');
+      router.push('/auth/login?callbackUrl=/admin/tournament-registrations');
       return;
     }
     if (session.user?.role !== 'admin') {

@@ -64,6 +64,9 @@ export async function GET(
         maxPlayers: tournament.maxPlayers,
         venue: tournament.venue,
         categories: tournament.categories,
+        format: tournament.format || 'knockout',
+        qualifiers: tournament.qualifiers || 4,
+        legs: tournament.legs || 1,
         rules: tournament.rules,
         prizes: tournament.prizes,
         createdAt: tournament.createdAt,
@@ -108,6 +111,7 @@ export async function GET(
         winnerName: match.winnerName || '',
         nextMatchNumber: match.nextMatchNumber || null,
         nextMatchSlot: match.nextMatchSlot || null,
+        stage: match.stage || 'knockout',
         tournamentId: match.tournamentId.toString()
       }))
     };

@@ -14,7 +14,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { ArrowForward, CalendarMonth, EmojiEvents, Groups, SportsCricket, SportsSoccer, SportsTennis } from "@mui/icons-material";
+import { ArrowForward, CalendarMonth, EmojiEvents, Groups, SportsCricket, SportsMartialArts, SportsSoccer, SportsTennis } from "@mui/icons-material";
 
 interface Tournament {
   _id: string;
@@ -29,15 +29,21 @@ interface Tournament {
   matchesCount?: number;
 }
 
+import { TOURNAMENT_SPORTS } from "../lib/tournamentSports";
+
 const GRADIENT: Record<string, string> = {
   badminton: "linear-gradient(135deg, #3a1c71 0%, #d76d77 60%, #ffaf7b 100%)",
   football: "linear-gradient(135deg, #0f2027 0%, #1f8f3a 100%)",
   cricket: "linear-gradient(135deg, #05233a 0%, #1565c0 100%)",
+  karate: TOURNAMENT_SPORTS.karate.gradient,
+  silambam: TOURNAMENT_SPORTS.silambam.gradient,
 };
 const ICON: Record<string, React.ReactNode> = {
   badminton: <SportsTennis />,
   football: <SportsSoccer />,
   cricket: <SportsCricket />,
+  karate: <SportsMartialArts />,
+  silambam: <SportsMartialArts />,
 };
 const STATUS_ORDER = ["ongoing", "upcoming", "completed"];
 const STATUS_LABEL: Record<string, string> = { ongoing: "Live now", upcoming: "Upcoming", completed: "Completed" };
