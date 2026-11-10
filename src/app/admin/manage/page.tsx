@@ -1,7 +1,7 @@
 "use client";
 import { useClubOptions } from "../../hooks/useClubs";
 import { useSiteSettings } from "../../hooks/useSiteSettings";
-import { calculateMembershipPrice, programFor, programMonthlyFee } from "../../lib/pricing";
+import { calculateMembershipPrice, CLASS_SPORTS, MEMBER_SPORTS, programFor, programMonthlyFee } from "../../lib/pricing";
 import React, { useState, useEffect, useCallback, memo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -395,7 +395,7 @@ export default function AdminDashboard() {
         user.preferredSport === preferredSportFilter ||
         (preferredSportFilter === 'Other' && !user.preferredSport) ||
         (preferredSportFilter === 'Other' && user.preferredSport && 
-         !['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events', 'Body Zorb'].includes(user.preferredSport));
+         !MEMBER_SPORTS.includes(user.preferredSport));
       
       const matchesClub = clubFilter === 'all' || (user.club || 'sathiyan') === clubFilter;
 
@@ -1707,6 +1707,9 @@ export default function AdminDashboard() {
                     <MenuItem value="Cricket">Cricket</MenuItem>
                     <MenuItem value="Football">Football</MenuItem>
                     <MenuItem value="Shuttle Badminton">Shuttle Badminton</MenuItem>
+                    {CLASS_SPORTS.map((s) => (
+                      <MenuItem key={s} value={s}>{s}</MenuItem>
+                    ))}
                     <MenuItem value="Functions and Events">Functions and Events</MenuItem>
                     <MenuItem value="Other">Other</MenuItem>
                   </Select>
@@ -2397,6 +2400,9 @@ export default function AdminDashboard() {
                     <MenuItem value="Cricket">Cricket</MenuItem>
                     <MenuItem value="Football">Football</MenuItem>
                     <MenuItem value="Shuttle Badminton">Shuttle Badminton</MenuItem>
+                    {CLASS_SPORTS.map((s) => (
+                      <MenuItem key={s} value={s}>{s}</MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Grid>

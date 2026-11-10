@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { MEMBER_SPORTS } from '../lib/pricing';
 
 export interface ISubscription extends Document {
   userId: mongoose.Types.ObjectId;
@@ -20,7 +21,7 @@ export interface ISubscription extends Document {
   lastPaymentDate?: Date;
   nextDueDate: Date;
   autoRenewal: boolean;
-  preferredSport?: 'Cricket' | 'Football' | 'Shuttle Badminton' | 'Functions and Events' | 'Body Zorb';
+  preferredSport?: string;
   preferredTimeSlot?: string;
   selectedCourt?: string; // Optional, only for badminton players
   notes?: string;
@@ -131,7 +132,7 @@ const subscriptionSchema = new Schema<ISubscription>({
   },
   preferredSport: {
     type: String,
-    enum: ['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events', 'Body Zorb']
+    enum: MEMBER_SPORTS
   },
   preferredTimeSlot: {
     type: String

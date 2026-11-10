@@ -66,11 +66,18 @@ interface Student {
   champId: string;
   name: string;
   email: string;
+  category?: string;
   sport: string;
   timeSlot: string;
   isPresent: boolean;
   notes: string;
 }
+
+const CATEGORIES = [
+  { value: "kids", label: "Kids" },
+  { value: "adult", label: "Adult" },
+  { value: "veteran", label: "Veteran" },
+];
 
 interface Filters {
   sports: string[];
@@ -83,6 +90,7 @@ export default function AdminAttendancePage() {
   const [tabValue, setTabValue] = useState(0);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [selectedSport, setSelectedSport] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
   const [students, setStudents] = useState<Student[]>([]);
   const [filters, setFilters] = useState<Filters>({ sports: [], timeSlots: [] });
@@ -117,6 +125,7 @@ export default function AdminAttendancePage() {
     try {
       const params = new URLSearchParams({
         date: selectedDate,
+        ...(selectedCategory && { category: selectedCategory }),
         ...(selectedSport && { sport: selectedSport }),
         ...(selectedTimeSlot && { timeSlot: selectedTimeSlot }),
       });
@@ -205,7 +214,7 @@ export default function AdminAttendancePage() {
 
   useEffect(() => {
     if (selectedDate && tabValue === 0) fetchStudents();
-  }, [selectedDate, selectedSport, selectedTimeSlot, tabValue]);
+  }, [selectedDate, selectedCategory, selectedSport, selectedTimeSlot, tabValue]);
 
   const fetchStats = async () => {
     try {
@@ -304,10 +313,19 @@ export default function AdminAttendancePage() {
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2 }}>Select Date & Filters</Typography>
               <Grid container spacing={2} alignItems="flex-end">
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid item xs={12} sm={6} md={2.4}>
                   <TextField fullWidth label="Date" type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} size="small" />
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid item xs={12} sm={6} md={2.4}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Category</InputLabel>
+                    <Select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} label="Category">
+                      <MenuItem value="">All categories</MenuItem>
+                      {CATEGORIES.map((c) => <MenuItem key={c.value} value={c.value}>{c.label}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6} md={2.4}>
                   <FormControl fullWidth size="small">
                     <InputLabel>Sport</InputLabel>
                     <Select value={selectedSport} onChange={(e) => setSelectedSport(e.target.value)} label="Sport">
@@ -316,7 +334,7 @@ export default function AdminAttendancePage() {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid item xs={12} sm={6} md={2.4}>
                   <FormControl fullWidth size="small">
                     <InputLabel>Time Slot</InputLabel>
                     <Select value={selectedTimeSlot} onChange={(e) => setSelectedTimeSlot(e.target.value)} label="Time Slot">
@@ -325,7 +343,7 @@ export default function AdminAttendancePage() {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid item xs={12} sm={12} md={2.4}>
                   <Button variant="outlined" fullWidth onClick={fetchStudents} disabled={loading} startIcon={<Refresh />}>Reload</Button>
                 </Grid>
               </Grid>
@@ -349,7 +367,7 @@ export default function AdminAttendancePage() {
               <TableContainer>
                 <Table>
                   <TableHead sx={{ backgroundColor: "#f5f5f5" }}>
-                    <TableRow><TableCell><Checkbox checked={selectAll} onChange={handleSelectAll} /></TableCell><TableCell>ChampID</TableCell><TableCell>Name</TableCell><TableCell>Sport</TableCell><TableCell>Time Slot</TableCell><TableCell>Status</TableCell><TableCell>Notes</TableCell></TableRow>
+                    <TableRow><TableCell><Checkbox checked={selectAll} onChange={handleSelectAll} /></TableCell><TableCell>ChampID</TableCell><TableCell>Name</TableCell><TableCell>Category</TableCell><TableCell>Sport</TableCell><TableCell>Time Slot</TableCell><TableCell>Status</TableCell><TableCell>Notes</TableCell></TableRow>
                   </TableHead>
                   <TableBody>
                     {students.map((s, i) => (
@@ -357,6 +375,7 @@ export default function AdminAttendancePage() {
                         <TableCell><Checkbox checked={s.isPresent} onChange={() => toggleStudent(i)} /></TableCell>
                         <TableCell sx={{ fontWeight: 500 }}>{s.champId}</TableCell>
                         <TableCell>{s.name}</TableCell>
+                        <TableCell>{CATEGORIES.find((c) => c.value === s.category)?.label || "—"}</TableCell>
                         <TableCell>{s.sport}</TableCell>
                         <TableCell>{s.timeSlot}</TableCell>
                         <TableCell><Chip label={s.isPresent ? "Present" : "Absent"} color={s.isPresent ? "success" : "error"} size="small" /></TableCell>

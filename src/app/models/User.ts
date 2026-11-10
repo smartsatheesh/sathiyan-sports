@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { MEMBER_SPORTS } from "../lib/pricing";
 
 const userSchema = new mongoose.Schema({
   champId: {
@@ -76,7 +77,7 @@ const userSchema = new mongoose.Schema({
   },
   preferredSport: {
     type: String,
-    enum: ["Cricket", "Football", "Shuttle Badminton", "Functions and Events", "Body Zorb"],
+    enum: MEMBER_SPORTS,
   },
   preferredTimeSlot: {
     type: String,

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { MEMBER_SPORTS } from '../lib/pricing';
 
 export interface IAttendanceRecord extends mongoose.Document {
   date: string; // YYYY-MM-DD format
@@ -46,7 +47,7 @@ const attendanceRecordSchema = new mongoose.Schema<IAttendanceRecord>({
   sport: {
     type: String,
     required: [true, 'Sport is required'],
-    enum: ['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events', 'Body Zorb']
+    enum: MEMBER_SPORTS
   },
   timeSlot: {
     type: String,

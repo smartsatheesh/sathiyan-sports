@@ -4,6 +4,11 @@ import { authOptions } from '@/app/lib/authConfig';
 import { connectToMongoose } from '@/app/server/mongodb';
 import User from '@/app/models/User';
 import AttendanceRecord from '@/app/models/AttendanceRecord';
+import { clubFilter, DEFAULT_CLUB } from '@/app/lib/clubs';
+import { CLASS_SPORTS } from '@/app/lib/pricing';
+
+// Sports and classes always offered in the filter, even before anyone has signed up for them
+const COACHED = ['Cricket', 'Football', 'Shuttle Badminton', ...CLASS_SPORTS];
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +30,7 @@ export async function GET(req: NextRequest) {
     const date = searchParams.get('date'); // YYYY-MM-DD
     const sport = searchParams.get('sport');
     const timeSlot = searchParams.get('timeSlot');
+    const category = searchParams.get('category'); // kids | adult | veteran
 
     if (!date) {
       return NextResponse.json(
@@ -34,10 +40,17 @@ export async function GET(req: NextRequest) {
     }
 
     // Build query for students
-    const query: any = {
+    // Attendance is for Sathiyan's own members (partner clubs don't use it)
+    const baseQuery: any = {
       subscribed: 'yes',
-      paymentStatus: 'completed'
+      paymentStatus: 'completed',
+      ...clubFilter(DEFAULT_CLUB),
     };
+    const query: any = { ...baseQuery };
+
+    if (category) {
+      query.champType = category;
+    }
 
     if (sport) {
       query.preferredSport = sport;
@@ -49,7 +62,7 @@ export async function GET(req: NextRequest) {
 
     // Fetch students matching criteria
     const students = await (User.find as any)(query)
-      .select('_id champId name email preferredSport preferredTimeSlot')
+      .select('_id champId name email champType preferredSport preferredTimeSlot')
       .lean();
 
     // Fetch existing attendance records for this date
@@ -72,16 +85,17 @@ export async function GET(req: NextRequest) {
       champId: student.champId,
       name: student.name,
       email: student.email,
+      category: student.champType,
       sport: student.preferredSport,
       timeSlot: student.preferredTimeSlot,
       isPresent: recordMap.has(student.champId) ? recordMap.get(student.champId).isPresent : false,
       notes: recordMap.has(student.champId) ? recordMap.get(student.champId).notes : ''
     }));
 
-    // Get available sports and time slots
-    const allStudents = await (User.find as any)(query).select('preferredSport preferredTimeSlot').lean();
-    const sports = [...new Set(allStudents.map((s: any) => s.preferredSport))];
-    const timeSlots = [...new Set(allStudents.map((s: any) => s.preferredTimeSlot))];
+    // Filter options come from all members, so picking one filter doesn't shrink the others
+    const allStudents = await (User.find as any)(baseQuery).select('preferredSport preferredTimeSlot').lean();
+    const sports = [...new Set([...COACHED, ...allStudents.map((s: any) => s.preferredSport).filter(Boolean)])];
+    const timeSlots = [...new Set(allStudents.map((s: any) => s.preferredTimeSlot).filter(Boolean))].sort();
 
     return NextResponse.json({
       success: true,

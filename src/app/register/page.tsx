@@ -37,7 +37,7 @@ import Link from "next/link";
 import RegistrationSuccessPopup from "../components/RegistrationSuccessPopup";
 import { rememberClub, rememberedClub, useClub, useClubOptions } from "../hooks/useClubs";
 import { DEFAULT_CLUB, isDefaultClub } from "../lib/clubs";
-import { calculateMembershipPrice, membershipPlanFor, programFor, programMonthlyFee, SUBSCRIPTION_MONTHS, type SubscriptionType } from "../lib/pricing";
+import { calculateMembershipPrice, CLASS_SPORTS, membershipPlanFor, programFor, programMonthlyFee, SUBSCRIPTION_MONTHS, type SubscriptionType } from "../lib/pricing";
 
 const TIME_SLOTS = [
   "12:00 AM - 01:00 AM",
@@ -747,6 +747,9 @@ export default function RegisterPage() {
               <MenuItem value="Cricket">Cricket</MenuItem>
               <MenuItem value="Football">Football</MenuItem>
               <MenuItem value="Shuttle Badminton">Shuttle Badminton</MenuItem>
+              {CLASS_SPORTS.map((s) => (
+                <MenuItem key={s} value={s}>{s}</MenuItem>
+              ))}
               <MenuItem value="Functions and Events">Functions and Events</MenuItem>
             </Select>
             {fieldErrors.preferredSport && (

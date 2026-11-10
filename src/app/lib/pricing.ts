@@ -57,10 +57,13 @@ export const SLOT_HOURS = 0.5;
  * v4: coaching priced per programme (badminton/football/cricket/fitness) instead of one tuition fee.
  * v5: separate adult/veteran price per programme (₹1,200 for sport coaching).
  * v6: Karate and Silambam join the ₹600 fitness programme.
+ * v7: Academic tuition joins it too.
  */
-export const PRICING_VERSION = 6;
+export const PRICING_VERSION = 7;
 
-const FITNESS_NAME = "Yoga / Taekwondo / Fitness / Karate / Silambam";
+const FITNESS_NAME = "Yoga / Taekwondo / Fitness / Karate / Silambam / Academic Tuition";
+// Earlier default names of that programme, renamed on load unless the owner customised it
+const OLD_FITNESS_NAMES = ["Yoga / Taekwondo / Fitness", "Yoga / Taekwondo / Fitness / Karate / Silambam"];
 
 export interface Extra {
   key: string; // stable id, e.g. "ball"
@@ -163,8 +166,8 @@ export function withDefaults(stored: Partial<SiteSettings> | null | undefined): 
             const p = saved.adultMonthly !== undefined
               ? saved
               : { ...saved, adultMonthly: DEFAULT_SETTINGS.membership.programs.find((d) => d.key === saved.key)?.adultMonthly ?? saved.monthly };
-            // before v6 the fitness programme didn't list Karate and Silambam (keep any custom name)
-            return version < 6 && p.key === "fitness" && p.name === "Yoga / Taekwondo / Fitness" ? { ...p, name: FITNESS_NAME } : p;
+            // older defaults didn't list Karate, Silambam or academic tuition (keep any custom name)
+            return version < 7 && p.key === "fitness" && OLD_FITNESS_NAMES.includes(p.name) ? { ...p, name: FITNESS_NAME } : p;
           }),
         }
       : DEFAULT_SETTINGS.membership,
@@ -300,6 +303,11 @@ export interface MembershipPriceInput {
   mode?: string; // fixed/standard | flexible
 }
 
+/** Classes in the ₹600 programme ("fitness" key); members can pick them as their activity. */
+export const CLASS_SPORTS = ["Yoga", "Taekwondo", "Karate", "Silambam", "Fitness", "Academic Tuition"];
+/** Everything a member can choose as their main activity (User/Subscription/Attendance). */
+export const MEMBER_SPORTS = ["Cricket", "Football", "Shuttle Badminton", ...CLASS_SPORTS, "Functions and Events", "Body Zorb"];
+
 /** The member's coaching programme: chosen key, else the one for their sport, else the first. */
 export function programFor(
   settings: SiteSettings,
@@ -309,6 +317,7 @@ export function programFor(
   return (
     programs.find((p) => p.key === member?.coachingProgram) ||
     programs.find((p) => p.sport && p.sport === member?.preferredSport) ||
+    (CLASS_SPORTS.includes(member?.preferredSport || "") && programs.find((p) => p.key === "fitness")) ||
     programs[0] ||
     // a new partner club may not have set up its programmes yet
     { key: "none", name: "Membership", monthly: 0 }
