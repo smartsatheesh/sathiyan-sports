@@ -329,42 +329,63 @@ export default function AttendancePage() {
     }
   };
 
-  // QR Code detection logic (simplified - in production you'd use a proper QR library)
+  // Opened from the entrance QR code (/attendance?checkin=1): go straight to check-in
+  useEffect(() => {
+    if (status === 'loading') return;
+    if (new URLSearchParams(window.location.search).get('checkin') !== '1') return;
+    // Signed-in members get the one-tap "Mark Attendance" card; everyone else types their mobile
+    if (status === 'unauthenticated') setShowMobileInput(true);
+  }, [status]);
+
+  // Read QR codes from the camera with jsQR (loaded only when the scanner is opened)
+  const jsQRRef = useRef<((data: Uint8ClampedArray, w: number, h: number) => { data: string } | null) | null>(null);
   const detectQRCode = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    
+    const decode = jsQRRef.current;
+    if (!video || !canvas || !decode || video.readyState < 2 || !streamRef.current) return;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
-    
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+
+    // Decode a downscaled frame: plenty for a QR code and much faster on phones
+    const scale = Math.min(1, 640 / (video.videoWidth || 640));
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    // In a real implementation, you'd use a QR code detection library here
-    // For now, we'll simulate QR detection by looking for a pattern or using jsQR
-    try {
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      // Here you would use jsQR or similar library to decode the QR code
-      // const code = jsQR(imageData.data, imageData.width, imageData.height);
-      // if (code) {
-      //   handleUniversalQRScan(code.data);
-      // }
-    } catch (error) {
-      console.log('QR detection error:', error);
+    const code = decode(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+    if (!code?.data) return;
+
+    const text = code.data.trim();
+    // The entrance code (a check-in link, or the old plain-text code) vs a member's own ChampID code
+    if (text === 'SATHIYAN_SPORTS_ATTENDANCE' || /\/attendance\?checkin=1/.test(text)) {
+      stopScanner(); // one scan, one check-in
+      handleUniversalQRScan('SATHIYAN_SPORTS_ATTENDANCE');
+    } else if (/^[A-Z]{1,4}-?\d{3,}$/i.test(text)) {
+      stopScanner();
+      processAttendance(text);
     }
   };
 
+  // The timer always calls the latest render's detector (fresh session/profile state)
+  const detectRef = useRef(detectQRCode);
+  detectRef.current = detectQRCode;
+
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isScanning && videoRef.current) {
-      interval = setInterval(detectQRCode, 500);
-    }
+    if (!isScanning) return;
+    let interval: NodeJS.Timeout | undefined;
+    let cancelled = false;
+    import('jsqr')
+      .then((m) => {
+        if (cancelled) return;
+        jsQRRef.current = m.default as any;
+        interval = setInterval(() => detectRef.current(), 300);
+      })
+      .catch(() => setError('Could not start the scanner. Please enter your mobile number instead.'));
     return () => {
+      cancelled = true;
       if (interval) clearInterval(interval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isScanning]);
 
   const resetScan = () => {

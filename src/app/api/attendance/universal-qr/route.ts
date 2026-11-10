@@ -1,29 +1,31 @@
 import { NextResponse } from 'next/server';
 
-export async function GET() {
+export const dynamic = 'force-dynamic';
+
+export async function GET(req: Request) {
   try {
-    // Universal attendance QR code data
-    const universalQrData = 'SATHIYAN_SPORTS_ATTENDANCE';
-    
-    // Generate QR code using QR Server API
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(universalQrData)}&format=png&margin=15&bgcolor=FFFFFF&color=000000`;
-    
+    // A link to the check-in page, so any phone camera opens it straight away.
+    // Built from the address this site is served on — reprint the code after a domain change.
+    const checkInUrl = `${new URL(req.url).origin}/attendance?checkin=1`;
+
+    // Generate QR code using QR Server API (free)
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(checkInUrl)}&format=png&margin=15&bgcolor=FFFFFF&color=000000`;
+
     return NextResponse.json({
       success: true,
       data: {
-        qrCodeUrl: qrCodeUrl,
-        qrData: universalQrData,
+        qrCodeUrl,
+        qrData: checkInUrl,
         description: 'Universal attendance QR code for turf entrance'
       }
     });
-    
   } catch (error: any) {
     console.error('Universal QR generation error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         message: 'Failed to generate universal QR code',
-        error: error.message 
+        error: error.message
       },
       { status: 500 }
     );
