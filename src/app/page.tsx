@@ -36,6 +36,7 @@ import FeaturesSection from "./components/FeaturesSection";
 import { HERO_SCENES } from "./components/landing/HeroScene";
 import ScrambleText from "./components/landing/ScrambleText";
 import ScrollBalls from "./components/landing/ScrollBalls";
+import FacilitiesShowcase from "./components/landing/FacilitiesShowcase";
 import { useSiteSettings } from "./hooks/useSiteSettings";
 import { courtPriceLabel, getCourt, waNumber } from "./lib/pricing";
 
@@ -44,6 +45,33 @@ const HeroScene = dynamic(() => import("./components/landing/HeroScene"), { ssr:
 
 const NAVY = "#071a2e";
 const GOLD = "#ffc400";
+
+// Hero title: metallic gradient letters with a light sweep, extruded with stacked drop-shadows
+const shinyFill = (gradient: string) => ({
+  display: "inline-block",
+  backgroundImage: gradient,
+  backgroundSize: "250% 100%",
+  backgroundClip: "text",
+  WebkitBackgroundClip: "text",
+  color: "transparent",
+  WebkitTextFillColor: "transparent",
+  animation: "heroShine 5s ease-in-out infinite",
+  "@keyframes heroShine": { "0%, 55%": { backgroundPosition: "100% 0" }, "100%": { backgroundPosition: "-50% 0" } },
+  "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+});
+const STEEL_FILL = shinyFill(
+  "linear-gradient(100deg, #5b636e 0%, #8a939e 18%, #3d434b 34%, #5b636e 42%, #f4f7fa 48%, #5b636e 54%, #3d434b 66%, #8a939e 82%, #5b636e 100%)"
+);
+const GOLD_FILL = {
+  ...shinyFill(
+    "linear-gradient(100deg, #e0a200 0%, #ffd23f 18%, #c98c00 34%, #ffc400 42%, #fffbe6 48%, #ffc400 54%, #c98c00 66%, #ffd23f 82%, #e0a200 100%)"
+  ),
+  animationDelay: "1.2s",
+};
+const STEEL_DEPTH =
+  "drop-shadow(0 1px 0 #2a2f36) drop-shadow(0 1px 0 #22262c) drop-shadow(0 1px 0 #1a1d22) drop-shadow(0 2px 0 #121418) drop-shadow(0 8px 14px rgba(0,0,0,0.6))";
+const GOLD_DEPTH =
+  "drop-shadow(0 1px 0 #a86f00) drop-shadow(0 1px 0 #8a5a00) drop-shadow(0 1px 0 #6e4700) drop-shadow(0 2px 0 #4f3300) drop-shadow(0 8px 14px rgba(0,0,0,0.55))";
 const ORANGE = "#ff6d00";
 const TEAL = "#20b2aa";
 
@@ -56,7 +84,7 @@ const SPORTS = [
 ];
 
 // Everything we coach, shown as chips above the programme fees
-const DISCIPLINES = ["🏸 Badminton", "⚽ Football", "🏏 Cricket", "🧘 Yoga", "🥋 Taekwondo", "🥋 Karate", "🪵 Silambam", "💪 Fitness"];
+const DISCIPLINES = ["🏸 Badminton", "⚽ Football", "🏏 Cricket", "🧘 Yoga", "🥋 Taekwondo", "🥋 Karate", "🪵 Silambam", "💪 Fitness", "📚 Academic tuition"];
 
 interface Tournament {
   _id: string;
@@ -212,11 +240,10 @@ export default function Home() {
               fontSize: { xs: "2.6rem", sm: "3.6rem", md: "5rem" },
               textTransform: "uppercase",
               letterSpacing: "-0.02em",
-              textShadow: "0 4px 24px rgba(0,0,0,0.5)",
             }}
           >
-            <ScrambleText text="Sathiyan" />
-            <Box component="span" sx={{ display: "block", color: GOLD }}><ScrambleText text="Multisport Club" delay={350} /></Box>
+            <Box component="span" sx={{ filter: STEEL_DEPTH }}><ScrambleText text="Sathiyan" textSx={STEEL_FILL} /></Box>
+            <Box component="span" sx={{ display: "block", filter: GOLD_DEPTH }}><ScrambleText text="Multisport Club" delay={350} textSx={GOLD_FILL} /></Box>
           </Typography>
           <Typography sx={{ mt: 2, maxWidth: 560, fontSize: { xs: "1.05rem", md: "1.25rem" }, opacity: 0.92 }}>
             Football, cricket and badminton under floodlights, plus yoga, karate, taekwondo and silambam — coaching for kids and adults, courts by the hour, and a venue for your big day.
@@ -246,7 +273,7 @@ export default function Home() {
               { icon: <Groups />, value: stats ? `${stats.totalUsers}+` : "—", label: "Members" },
               { icon: <EventAvailable />, value: stats ? `${stats.totalBookings}+` : "—", label: "Bookings" },
               { icon: <EmojiEvents />, value: stats ? `${stats.totalEvents}+` : "—", label: "Events hosted" },
-              { icon: <Star />, value: String(DISCIPLINES.length), label: "Sports & martial arts" },
+              { icon: <Star />, value: String(DISCIPLINES.length), label: "Sports & classes" },
             ].map((s) => (
               <Grid item xs={6} md={3} key={s.label}>
                 <Stack direction="row" spacing={1.5} alignItems="center">
@@ -261,6 +288,9 @@ export default function Home() {
           </Grid>
         </Container>
       </Box>
+
+      {/* ================= FACILITIES ================= */}
+      <FacilitiesShowcase />
 
       {/* ================= PLAY ================= */}
       <Container maxWidth="lg" sx={{ py: { xs: 6, md: 9 } }}>

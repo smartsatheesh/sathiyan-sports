@@ -45,7 +45,7 @@ export interface Kit {
   shoes: string;
   laces: string;
   wristbands?: string;
-  badge: "club" | "star";
+  badge: "club" | "star" | "plain"; // plain: opposition kits without the club crest
   number?: string; // printed on the back
 }
 
@@ -136,6 +136,7 @@ function canvasTexture(draw: (ctx: CanvasRenderingContext2D, size: number) => vo
 function badgeTexture(kit: Kit) {
   return canvasTexture((ctx, size) => {
     const cx = size / 2;
+    if (kit.badge === "plain") return;
     if (kit.badge === "star") {
       // yellow star on the left chest (viewer's right)
       ctx.fillStyle = "#ffe14d";
@@ -191,6 +192,28 @@ function numberTexture(kit: Kit) {
     ctx.textBaseline = "middle";
     ctx.fillText(kit.number || "", size / 2, size / 2 + 8);
   });
+}
+
+/**
+ * Cartoon hand: a flattened palm facing the body, four stubby fingers and a thumb pointing forward.
+ * `inward` is the direction (±X) towards the body; a fist curls the fingers round a grip.
+ */
+function Hand({ geo, skin, inward, fist }: { geo: Record<"palm" | "finger" | "thumb", THREE.BufferGeometry>; skin: THREE.Material; inward: number; fist: boolean }) {
+  const curl = fist ? 1.9 : 0.35;
+  return (
+    <>
+      <Part geometry={geo.palm} material={skin} scale={[0.68, 1, 1]} />
+      {[-0.033, -0.011, 0.011, 0.033].map((z, i) => (
+        // each finger pivots at the knuckle and curls towards the palm
+        <group key={z} position={[inward * 0.006, -0.042, z * 0.95]} rotation={[0, 0, inward * (curl + (fist ? 0 : i * 0.06))]}>
+          <Part geometry={geo.finger} material={skin} position={[0, -0.03 + Math.abs(z) * 0.25, 0]} />
+        </group>
+      ))}
+      <group position={[inward * 0.024, -0.008, 0.038]} rotation={[fist ? -1.5 : -0.85, 0, inward * 0.45]}>
+        <Part geometry={geo.thumb} material={skin} position={[0, -0.03, 0]} />
+      </group>
+    </>
+  );
 }
 
 interface AthleteProps {
@@ -277,7 +300,9 @@ const Athlete = forwardRef<AthleteHandle, AthleteProps>(function Athlete({ kit =
       upperArm: limb(0.14, 0.064),
       foreArm: limb(0.13, 0.058),
       wristband: new THREE.CylinderGeometry(0.066, 0.066, 0.06, 16),
-      hand: new THREE.SphereGeometry(0.078, 16, 12),
+      palm: new THREE.SphereGeometry(0.058, 16, 12),
+      finger: limb(0.04, 0.019),
+      thumb: limb(0.035, 0.021),
       thigh: limb(0.2, 0.086),
       shortsLeg: new THREE.CylinderGeometry(0.115, 0.125, 0.2, 16),
       trouserLeg: limb(0.2, 0.1),
@@ -375,8 +400,8 @@ const Athlete = forwardRef<AthleteHandle, AthleteProps>(function Athlete({ kit =
             <group ref={bind(`${side}Elbow` as Joint)} position={[0, -0.24, 0]}>
               <Part geometry={geo.foreArm} material={mats.skin} position={[0, -0.1, 0]} />
               {kit.wristbands && <Part geometry={geo.wristband} material={mats.bands} position={[0, -0.18, 0]} />}
-              <group position={[0, -0.235, 0]}>
-                <Part geometry={geo.hand} material={mats.skin} scale={[0.9, 1, 1]} />
+              <group position={[0, -0.225, 0]}>
+                <Hand geo={geo} skin={mats.skin} inward={side === "l" ? -1 : 1} fist={side === "r" && Boolean(rightHandItem)} />
                 {side === "r" && rightHandItem}
               </group>
             </group>

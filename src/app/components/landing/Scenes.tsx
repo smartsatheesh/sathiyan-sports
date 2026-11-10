@@ -63,52 +63,115 @@ function Sky({ top, horizon }: { top: string; horizon: string }) {
 
 // ---------------- shared stadium ----------------
 
-function Crowd({ radius = 13, count = 520 }: { radius?: number; count?: number }) {
-  const ref = useRef<THREE.InstancedMesh>(null);
-  const seats = useMemo(
+const SHIRTS = ["#ff3d00", "#ffd600", "#00e5ff", "#ffffff", "#76ff03", "#ff4081", "#2979ff", "#ffe11a", "#ffe11a", "#d62839"];
+const SKINS = ["#f5c39e", "#e0a67e", "#c68b62", "#a8714a", "#8a5a3a"];
+const HAIR = ["#1a120c", "#2a1a10", "#3a2414", "#111111"];
+
+/** Fans on tiered stands: shirt, head, hair, and a V of raised arms for the noisiest ones. */
+function Crowd({ radius = 13, rows = 4, perRow = 170 }: { radius?: number; rows?: number; perRow?: number }) {
+  const bodies = useRef<THREE.InstancedMesh>(null);
+  const heads = useRef<THREE.InstancedMesh>(null);
+  const hair = useRef<THREE.InstancedMesh>(null);
+  const arms = useRef<THREE.InstancedMesh>(null);
+  const count = rows * perRow;
+  const fans = useMemo(
     () =>
       Array.from({ length: count }, (_, i) => {
-        const row = i % 4;
-        const a = (i / count) * Math.PI * 2 * 4 + row * 0.07;
+        const row = Math.floor(i / perRow);
+        const a = ((i % perRow) / perRow) * Math.PI * 2 + row * 0.018 + (Math.random() - 0.5) * 0.01;
         const r = radius + row * 0.9;
-        return { x: Math.cos(a) * r, y: 0.5 + row * 0.55, z: Math.sin(a) * r, phase: i * 1.7 };
+        return {
+          x: Math.cos(a) * r,
+          y: 0.45 + row * 0.55,
+          z: Math.sin(a) * r,
+          face: Math.atan2(-Math.cos(a), -Math.sin(a)), // look at the pitch
+          phase: Math.random() * 10,
+          cheer: Math.random() < 0.35,
+          scale: 0.9 + Math.random() * 0.2,
+          shirt: new THREE.Color(SHIRTS[Math.floor(Math.random() * SHIRTS.length)]),
+          skin: new THREE.Color(SKINS[Math.floor(Math.random() * SKINS.length)]),
+          hair: new THREE.Color(HAIR[Math.floor(Math.random() * HAIR.length)]),
+        };
       }),
-    [radius, count]
+    [radius, rows, perRow, count]
   );
+  const geo = useMemo(() => {
+    const arm = (side: number) => {
+      const g = new THREE.CapsuleGeometry(0.035, 0.26, 4, 8);
+      g.translate(0, 0.15, 0);
+      g.rotateZ(-side * 0.45);
+      g.translate(side * 0.12, 0.1, 0);
+      return g;
+    };
+    return {
+      body: new THREE.CapsuleGeometry(0.13, 0.16, 4, 10),
+      head: new THREE.SphereGeometry(0.105, 12, 10),
+      hair: new THREE.SphereGeometry(0.11, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5),
+      arms: mergeSimple([arm(1), arm(-1)]),
+    };
+  }, []);
 
   // Colours are fixed, so set them before the first frame (the shader then knows about them)
   useLayoutEffect(() => {
-    const mesh = ref.current;
-    if (!mesh) return;
-    const palette = ["#ff3d00", "#ffd600", "#00e5ff", "#ffffff", "#76ff03", "#ff4081", "#2979ff"].map((c) => new THREE.Color(c));
-    const m = new THREE.Matrix4();
-    seats.forEach((s, i) => {
-      m.makeTranslation(s.x, s.y, s.z);
-      mesh.setMatrixAt(i, m);
-      mesh.setColorAt(i, palette[Math.floor(Math.random() * palette.length)]);
+    fans.forEach((f, i) => {
+      bodies.current?.setColorAt(i, f.shirt);
+      heads.current?.setColorAt(i, f.skin);
+      hair.current?.setColorAt(i, f.hair);
+      arms.current?.setColorAt(i, f.skin);
     });
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, [seats]);
+    [bodies, heads, hair, arms].forEach((m) => m.current?.instanceColor && (m.current.instanceColor.needsUpdate = true));
+  }, [fans]);
 
-  // Fans bouncing in the stands
-  const m = useMemo(() => new THREE.Matrix4(), []);
+  // Fans bouncing in the stands; cheering ones jump higher with their arms up
+  const dummy = useMemo(() => new THREE.Object3D(), []);
   useFrame((state) => {
-    const mesh = ref.current;
-    if (!mesh) return;
     const t = state.clock.elapsedTime;
-    seats.forEach((s, i) => {
-      m.makeTranslation(s.x, s.y + Math.max(0, Math.sin(t * 6 + s.phase)) * 0.08, s.z);
-      mesh.setMatrixAt(i, m);
+    fans.forEach((f, i) => {
+      const bounce = Math.max(0, Math.sin(t * (f.cheer ? 7 : 5) + f.phase)) * (f.cheer ? 0.12 : 0.05);
+      const set = (mesh: THREE.InstancedMesh | null, dy: number, hidden = false) => {
+        if (!mesh) return;
+        dummy.position.set(f.x, f.y + bounce + dy * f.scale, f.z);
+        dummy.rotation.set(0, f.face, 0);
+        dummy.scale.setScalar(hidden ? 0 : f.scale);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+      };
+      set(bodies.current, 0);
+      set(heads.current, 0.33);
+      set(hair.current, 0.35);
+      set(arms.current, 0.12, !f.cheer);
     });
-    mesh.instanceMatrix.needsUpdate = true;
+    [bodies, heads, hair, arms].forEach((m) => m.current && (m.current.instanceMatrix.needsUpdate = true));
   });
 
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, count]}>
-      <boxGeometry args={[0.28, 0.42, 0.22]} />
-      <meshStandardMaterial roughness={0.8} />
-    </instancedMesh>
+    <>
+      {/* stepped concrete stands */}
+      {Array.from({ length: rows }, (_, row) => (
+        <group key={row}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.2 + row * 0.55, 0]}>
+            <ringGeometry args={[radius + row * 0.9 - 0.45, radius + row * 0.9 + 0.45, 96]} />
+            <meshStandardMaterial color={row % 2 ? "#2a3240" : "#323b4b"} side={THREE.DoubleSide} roughness={0.9} />
+          </mesh>
+          <mesh position={[0, row * 0.275 + 0.1, 0]}>
+            <cylinderGeometry args={[radius + row * 0.9 - 0.45, radius + row * 0.9 - 0.45, 0.2 + row * 0.55, 96, 1, true]} />
+            <meshStandardMaterial color="#1b222d" side={THREE.DoubleSide} roughness={0.9} />
+          </mesh>
+        </group>
+      ))}
+      <instancedMesh ref={bodies} args={[geo.body, undefined, count]}>
+        <meshStandardMaterial roughness={0.8} />
+      </instancedMesh>
+      <instancedMesh ref={heads} args={[geo.head, undefined, count]}>
+        <meshStandardMaterial roughness={0.7} />
+      </instancedMesh>
+      <instancedMesh ref={hair} args={[geo.hair, undefined, count]}>
+        <meshStandardMaterial roughness={0.9} />
+      </instancedMesh>
+      <instancedMesh ref={arms} args={[geo.arms, undefined, count]}>
+        <meshStandardMaterial roughness={0.7} />
+      </instancedMesh>
+    </>
   );
 }
 
@@ -234,17 +297,68 @@ function TrailBall({
   );
 }
 
-/** Burst of confetti that fires once at `at` seconds. */
-function Confetti({ clock, at, origin, count = 140 }: { clock: (e: number) => number; at: number; origin: Vec3; count?: number }) {
+// ---------------- celebration burst ----------------
+
+// A trophy cup: lathe profile (foot, stem, bowl), plus a medal disc and a bat with handle.
+let celebrationGeos: { ball: THREE.BufferGeometry; bat: THREE.BufferGeometry; cup: THREE.BufferGeometry; medal: THREE.BufferGeometry } | null = null;
+function celebrationGeometry() {
+  if (celebrationGeos) return celebrationGeos;
+  const cupProfile = [
+    [0, 0], [0.07, 0], [0.07, 0.015], [0.022, 0.03], [0.016, 0.08], [0.03, 0.1], [0.075, 0.13], [0.085, 0.2], [0.08, 0.2], [0.065, 0.14], [0, 0.12],
+  ].map(([x, y]) => new THREE.Vector2(x, y - 0.1));
+  const blade = new THREE.BoxGeometry(0.055, 0.26, 0.022);
+  blade.translate(0, -0.04, 0);
+  const handle = new THREE.CylinderGeometry(0.012, 0.012, 0.13, 8);
+  handle.translate(0, 0.15, 0);
+  celebrationGeos = {
+    ball: new THREE.SphereGeometry(0.06, 14, 10),
+    bat: mergeSimple([blade, handle]),
+    cup: new THREE.LatheGeometry(cupProfile, 16),
+    medal: new THREE.CylinderGeometry(0.06, 0.06, 0.014, 20).rotateX(Math.PI / 2),
+  };
+  return celebrationGeos;
+}
+
+/** Joins non-indexed copies of a few geometries (enough for a bat: blade + handle). */
+function mergeSimple(parts: THREE.BufferGeometry[]) {
+  const flat = parts.map((g) => (g.index ? g.toNonIndexed() : g));
+  const count = flat.reduce((n, g) => n + g.getAttribute("position").count, 0);
+  const pos = new Float32Array(count * 3);
+  const nor = new Float32Array(count * 3);
+  let o = 0;
+  flat.forEach((g) => {
+    pos.set(g.getAttribute("position").array as Float32Array, o * 3);
+    nor.set(g.getAttribute("normal").array as Float32Array, o * 3);
+    o += g.getAttribute("position").count;
+  });
+  const out = new THREE.BufferGeometry();
+  out.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  out.setAttribute("normal", new THREE.BufferAttribute(nor, 3));
+  return out;
+}
+
+type FlyerKind = "ball" | "bat" | "cup" | "medal";
+const FLYER_COLORS: Record<FlyerKind, string[]> = {
+  ball: ["#ffffff", "#c62828", "#d4e157", "#ff7043", "#fafafa"], // football, cricket ball, tennis, basketball
+  bat: ["#e0b97a", "#d9a866"],
+  cup: ["#ffc400", "#ffd54f"],
+  medal: ["#ffc400", "#cfd8dc", "#cd7f32"], // gold, silver, bronze
+};
+
+/** One kind of flying prop: instanced, thrown from `origin` once `at` seconds have passed. */
+function Flyers({ kind, clock, at, origin, count, size }: { kind: FlyerKind; clock: (e: number) => number; at: number; origin: Vec3; count: number; size: number }) {
   const ref = useRef<THREE.InstancedMesh>(null);
+  const geometry = celebrationGeometry()[kind];
   const seeds = useMemo(
     () =>
       Array.from({ length: count }, () => ({
         v: new THREE.Vector3((Math.random() - 0.5) * 5, 3 + Math.random() * 4, (Math.random() - 0.5) * 5),
-        spin: Math.random() * 10,
-        color: new THREE.Color(["#ff1744", "#ffea00", "#00e5ff", "#76ff03", "#ffffff", "#ff9100"][Math.floor(Math.random() * 6)]),
+        spin: (Math.random() - 0.5) * 12,
+        axis: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(),
+        scale: (0.8 + Math.random() * 0.5) * size,
+        color: new THREE.Color(FLYER_COLORS[kind][Math.floor(Math.random() * FLYER_COLORS[kind].length)]),
       })),
-    [count]
+    [count, kind, size]
   );
   const colored = useRef(false);
   useFrame((state) => {
@@ -255,14 +369,15 @@ function Confetti({ clock, at, origin, count = 140 }: { clock: (e: number) => nu
     if (!mesh.visible) return;
     const m = new THREE.Matrix4();
     const q = new THREE.Quaternion();
+    const sc = new THREE.Vector3();
     seeds.forEach((s, i) => {
       const pos = new THREE.Vector3(
         origin[0] + s.v.x * dt,
-        Math.max(0.02, origin[1] + s.v.y * dt - 4.9 * dt * dt * 0.6),
+        Math.max(0.06, origin[1] + s.v.y * dt - 4.9 * dt * dt * 0.6),
         origin[2] + s.v.z * dt
       );
-      q.setFromEuler(new THREE.Euler(s.spin * dt, s.spin * dt * 0.7, 0));
-      m.compose(pos, q, new THREE.Vector3(1, 1, 1));
+      q.setFromAxisAngle(s.axis, s.spin * dt);
+      m.compose(pos, q, sc.setScalar(s.scale));
       mesh.setMatrixAt(i, m);
       if (!colored.current) mesh.setColorAt(i, s.color);
     });
@@ -270,11 +385,30 @@ function Confetti({ clock, at, origin, count = 140 }: { clock: (e: number) => nu
     if (!colored.current && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     colored.current = true;
   });
+  const shiny = kind === "cup" || kind === "medal";
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, count]} visible={false}>
-      <planeGeometry args={[0.07, 0.11]} />
-      <meshBasicMaterial side={THREE.DoubleSide} />
+    <instancedMesh ref={ref} args={[geometry, undefined, count]} visible={false}>
+      <meshStandardMaterial
+        roughness={shiny ? 0.25 : 0.55}
+        metalness={shiny ? 0.55 : 0}
+        emissive={shiny ? "#5a3d00" : "#000000"}
+        side={kind === "cup" ? THREE.DoubleSide : THREE.FrontSide}
+      />
     </instancedMesh>
+  );
+}
+
+/** Celebration burst of balls, bats, trophy cups and medals that fires once at `at` seconds. */
+function Celebration({ clock, at, origin, count = 140, size = 1 }: { clock: (e: number) => number; at: number; origin: Vec3; count?: number; size?: number }) {
+  const n = Math.max(8, Math.round(count / 3));
+  const props = { clock, at, origin, size };
+  return (
+    <>
+      <Flyers kind="ball" count={n} {...props} />
+      <Flyers kind="bat" count={Math.round(n * 0.35)} {...props} />
+      <Flyers kind="cup" count={Math.round(n * 0.35)} {...props} />
+      <Flyers kind="medal" count={Math.round(n * 0.5)} {...props} />
+    </>
   );
 }
 
@@ -475,14 +609,51 @@ function useCamera(fn: (t: number) => { pos: Vec3; look: Vec3 }, clock: (e: numb
   });
 }
 
-// ---------------- 1. Football: "SIUUU!" and pointing to the sky ----------------
+// ---------------- 1. Football: dribble, score, run and "SIUUU!" ----------------
 
-export const FOOTBALL_DURATION = 6.5;
+export const FOOTBALL_DURATION = 8;
+
+/** Second teammate and the opposition (no club crest on rival kits). */
+const TEAMMATE2_KIT: Kit = { ...MASCOT_KIT, hair: "#151515", skin: "#e8b48c" };
+const RIVAL_KIT: Kit = { ...MASCOT_KIT, shirt: "#d62839", trim: "#ffffff", shorts: "#ffffff", socks: "#d62839", hair: "#3a2414", skin: "#c68b62", badge: "plain" };
+const KEEPER_KIT: Kit = { ...MASCOT_KIT, shirt: "#39e07a", trim: "#103b22", shorts: "#103b22", socks: "#39e07a", hair: "#2a1a10", skin: "#f0bf98", badge: "plain" };
+
+// Football timeline (seconds)
+const F = { kickFrom: 1.3, contact: 1.58, turn: 1.95, runEnd: 3.35, jump: 3.47, land: 4.0 };
+const F_START: Vec3 = [-2.1, HIP_HEIGHT, 1.3];
+const F_KICK: Vec3 = [-0.55, HIP_HEIGHT, -1.75];
+const F_SIU: Vec3 = [-0.4, HIP_HEIGHT, 0.6];
+const F_TOP_CORNER: Vec3 = [1.15, 1.55, -4.75];
+const TO_GOAL = Math.atan2(F_KICK[0] - F_START[0], F_KICK[2] - F_START[2]);
+
+/** Where the scorer is while dribbling in (used by the ball too). */
+const dribblePos = (t: number): Vec3 => lerpV(F_START, F_KICK, Math.min(1, Math.max(0, t) / F.kickFrom));
+
+/** The ball: at the scorer's feet, then into the top corner and down into the net. */
+function footballPath(t: number): Vec3 | null {
+  if (t < F.contact) {
+    const p = dribblePos(t);
+    const touch = 0.3 + 0.16 * Math.abs(Math.sin(t * Math.PI * 1.6)); // knocked ahead and caught up with
+    return [p[0] + Math.sin(TO_GOAL) * touch, 0.11, p[2] + Math.cos(TO_GOAL) * touch];
+  }
+  const kicked = footballPath(F.contact - 0.0001)!;
+  const k = (t - F.contact) / 0.42;
+  if (k < 1) {
+    const p = lerpV(kicked, F_TOP_CORNER, k);
+    p[1] += Math.sin(k * Math.PI) * 0.35;
+    return p;
+  }
+  const drop = t - F.contact - 0.42;
+  return [F_TOP_CORNER[0], Math.max(0.11, F_TOP_CORNER[1] - drop * drop * 6), -5.0];
+}
 
 export function FootballScene({ still, freezeAt }: SceneProps) {
-  const clock = useSceneClock(still, 3.0, freezeAt);
+  const clock = useSceneClock(still, 4.6, freezeAt);
   const p7 = useRef<AthleteHandle>(null);
   const p10 = useRef<AthleteHandle>(null);
+  const p11 = useRef<AthleteHandle>(null);
+  const rival = useRef<AthleteHandle>(null);
+  const keeper = useRef<AthleteHandle>(null);
 
   const siuPose: Pose["joints"] = {
     spine: [-0.2, 0, 0],
@@ -496,48 +667,95 @@ export function FootballScene({ still, freezeAt }: SceneProps) {
     lKnee: [0.35, 0, 0],
     rKnee: [0.35, 0, 0],
   };
+  const windUp: Pose["joints"] = { spine: [0.25, 0, 0], lHip: [-0.25, 0, 0], rHip: [0.85, 0, 0], lKnee: [0.35, 0, 0], rKnee: [1.5, 0, 0], lShoulder: [-0.5, 0, 0.7], rShoulder: [0.5, 0, -0.6], lElbow: [-0.4, 0, 0], rElbow: [-0.4, 0, 0] };
+  const strike: Pose["joints"] = { spine: [-0.05, 0, 0], lHip: [0.1, 0, 0], rHip: [-1.35, 0, 0], lKnee: [0.3, 0, 0], rKnee: [0.1, 0, 0], lShoulder: [0.5, 0, 0.8], rShoulder: [-0.7, 0, -0.7], lElbow: [-0.3, 0, 0], rElbow: [-0.3, 0, 0] };
+  const skyPoint: Pose["joints"] = { spine: [-0.12, 0, 0], neck: [-0.55, 0, 0], lShoulder: [-2.85, 0, 0.18], rShoulder: [-2.85, 0, -0.18], lElbow: [-0.1, 0, 0], rElbow: [-0.1, 0, 0] };
+  const handsOnHead: Pose["joints"] = { spine: [0.1, 0, 0], neck: [0.25, 0, 0], lShoulder: [-2.5, 0, 0.75], rShoulder: [-2.5, 0, -0.75], lElbow: [-2.1, 0, 0], rElbow: [-2.1, 0, 0] };
+  const keeperReady: Pose["joints"] = { spine: [0.35, 0, 0], lHip: [-0.6, 0, 0.25], rHip: [-0.6, 0, -0.25], lKnee: [1.0, 0, 0], rKnee: [1.0, 0, 0], lShoulder: [-0.6, 0, 0.6], rShoulder: [-0.6, 0, -0.6], lElbow: [-0.6, 0, 0], rElbow: [-0.6, 0, 0] };
+  const keeperDive: Pose["joints"] = { spine: [0, 0, 0], neck: [0, 0, 0.3], lShoulder: [-3.0, 0, 0.1], rShoulder: [-3.0, 0, -0.1], lElbow: [0, 0, 0], rElbow: [0, 0, 0], lHip: [0, 0, 0.15], rHip: [0, 0, -0.35], lKnee: [0.3, 0, 0], rKnee: [0.6, 0, 0] };
 
   useFrame((state) => {
     const t = clock(state.clock.elapsedTime);
 
-    // Mascot — run in, leap, spin all the way round in the air, land in the celebration pose facing us
-    const runEnd = 1.5;
-    const jumpStart = 1.62;
-    const land = 2.15;
-    const from: Vec3 = [-3.2, HIP_HEIGHT, -1.6];
-    const to: Vec3 = [-0.4, HIP_HEIGHT, 0.6];
+    // Scorer — dribble in, strike it into the top corner, turn and sprint to the fans, leap, spin, land: SIUUU!
     let pose: Pose;
-    if (t < runEnd) {
-      const k = t / runEnd;
-      pose = { position: lerpV(from, to, k), rotationY: Math.atan2(to[0] - from[0], to[2] - from[2]), joints: runCycle(t, 1.8) };
-    } else if (t < jumpStart) {
-      const k = phase(t, runEnd, jumpStart);
+    if (t < F.kickFrom) {
+      pose = { position: dribblePos(t), rotationY: TO_GOAL, joints: runCycle(t, 1.9) };
+    } else if (t < F.contact) {
+      const k = phase(t, F.kickFrom, F.contact - 0.1);
+      const hit = phase(t, F.contact - 0.1, F.contact);
+      pose = { position: F_KICK, rotationY: TO_GOAL, joints: blendJoints(blendJoints(runCycle(F.kickFrom, 1.9), windUp, k), strike, hit) };
+    } else if (t < F.turn) {
+      const k = phase(t, F.contact, F.turn);
+      pose = { position: lerpV(F_KICK, [F_KICK[0] + 0.15, HIP_HEIGHT, F_KICK[2] - 0.25], k), rotationY: TO_GOAL, joints: blendJoints(strike, IDLE, k) };
+    } else if (t < F.runEnd) {
+      const k = (t - F.turn) / (F.runEnd - F.turn);
+      const run = runCycle(t, 2.0);
+      const aeroplane: Pose["joints"] = { ...run, spine: [0.1, 0, 0], lShoulder: [0.15, 0, 1.25], rShoulder: [0.15, 0, -1.25], lElbow: [-0.15, 0, 0], rElbow: [-0.15, 0, 0] };
+      pose = { position: lerpV(F_KICK, F_SIU, k), rotationY: lerp(TO_GOAL, 0.05, phase(t, F.turn, F.turn + 0.3)), joints: aeroplane };
+    } else if (t < F.jump) {
+      const k = phase(t, F.runEnd, F.jump);
       const crouch: Pose["joints"] = { spine: [0.35, 0, 0], lHip: [-0.9, 0, 0], rHip: [-0.9, 0, 0], lKnee: [1.4, 0, 0], rKnee: [1.4, 0, 0], lShoulder: [0.6, 0, 0.2], rShoulder: [0.6, 0, -0.2] };
-      pose = { position: [to[0], HIP_HEIGHT - 0.22 * k, to[2]], rotationY: Math.atan2(to[0] - from[0], to[2] - from[2]) * (1 - k), joints: blendJoints(runCycle(runEnd, 1.8), crouch, k) };
-    } else if (t < land) {
-      const k = (t - jumpStart) / (land - jumpStart);
-      const height = Math.sin(k * Math.PI) * 0.75;
+      pose = { position: [F_SIU[0], HIP_HEIGHT - 0.22 * k, F_SIU[2]], rotationY: 0.05 * (1 - k), joints: blendJoints(runCycle(F.runEnd, 2.0), crouch, k) };
+    } else if (t < F.land) {
+      const k = (t - F.jump) / (F.land - F.jump);
       const tuck: Pose["joints"] = { spine: [-0.1, 0, 0], lHip: [-0.5, 0, 0.2], rHip: [-0.5, 0, -0.2], lKnee: [1.2, 0, 0], rKnee: [1.2, 0, 0], lShoulder: [-0.4, 0, 1.4], rShoulder: [-0.4, 0, -1.4] };
-      pose = { position: [to[0], HIP_HEIGHT + height, to[2]], rotationY: Math.PI * 2 * phase(k, 0, 1), joints: tuck }; // full spin, lands facing the camera
+      pose = { position: [F_SIU[0], HIP_HEIGHT + Math.sin(k * Math.PI) * 0.75, F_SIU[2]], rotationY: Math.PI * 2 * phase(k, 0, 1), joints: tuck }; // full spin, lands facing the camera
     } else {
-      const k = phase(t, land, land + 0.18);
-      const breathe = Math.sin(t * 3) * 0.02;
-      pose = { position: [to[0], HIP_HEIGHT - 0.12 * k + breathe, to[2]], rotationY: 0, joints: siuPose };
+      const k = phase(t, F.land, F.land + 0.18);
+      pose = { position: [F_SIU[0], HIP_HEIGHT - 0.12 * k + Math.sin(t * 3) * 0.02, F_SIU[2]], rotationY: 0, joints: siuPose };
     }
     p7.current?.applyPose(pose);
 
-    // Teammate — jog in place, then both arms point to the sky
-    const raise = phase(t, 1.0, 1.6);
-    const jog = runCycle(t, 1.2, 0.35 * (1 - raise));
-    const sky: Pose["joints"] = { spine: [-0.12, 0, 0], neck: [-0.55, 0, 0], lShoulder: [-2.85, 0, 0.18], rShoulder: [-2.85, 0, -0.18], lElbow: [-0.1, 0, 0], rElbow: [-0.1, 0, 0] };
-    p10.current?.applyPose({
-      position: [1.8, HIP_HEIGHT + Math.abs(Math.sin(t * 4)) * 0.04 * (1 - raise), -0.9],
-      rotationY: -0.35,
-      joints: blendJoints(jog, sky, raise),
+    // Defender — chases the dribble a step behind, then hands on head
+    const chase = Math.min(t, F.contact + 0.2);
+    const behind = dribblePos(chase - 0.45);
+    const stop = phase(t, F.contact, F.contact + 0.5);
+    rival.current?.applyPose({
+      position: [behind[0] + 0.55, HIP_HEIGHT, behind[2] + 0.2],
+      rotationY: TO_GOAL,
+      joints: blendJoints(runCycle(t, 1.9), handsOnHead, stop),
     });
+
+    // Keeper — shuffles on the line, dives the wrong way and stays down
+    const dive = phase(t, F.contact, F.contact + 0.35);
+    const k = keeper.current;
+    k?.applyPose({
+      position: [lerp(Math.sin(t * 2.2) * 0.3, -1.25, dive), lerp(HIP_HEIGHT - 0.12, 0.32, dive), -4.05],
+      rotationY: 0,
+      joints: blendJoints(keeperReady, keeperDive, dive),
+    });
+    if (k?.root) k.root.rotation.z = dive * 1.35;
+
+    // Teammates — celebrate the goal, then run over to the scorer
+    const goal = phase(t, F.contact + 0.45, F.contact + 0.8);
+    const join = (t - 3.0) / 1.1;
+    const mate = (ref: React.RefObject<AthleteHandle>, from: Vec3, to: Vec3, cheer: number) => {
+      const running = join > 0 && join < 1;
+      const arrived = join >= 1;
+      ref.current?.applyPose({
+        position: lerpV(from, to, Math.min(1, Math.max(0, join))),
+        rotationY: running ? Math.atan2(to[0] - from[0], to[2] - from[2]) : arrived ? -0.4 * Math.sign(to[0] - F_SIU[0]) : -0.35,
+        joints: running
+          ? runCycle(t, 1.9)
+          : arrived
+          ? { ...skyPoint, spine: [-0.12, 0, 0] }
+          : blendJoints(runCycle(t, 1.2, 0.35), skyPoint, goal * cheer),
+      });
+      if (ref.current?.root && arrived) ref.current.root.position.y = HIP_HEIGHT + Math.abs(Math.sin(t * 5)) * 0.1;
+    };
+    mate(p10, [1.3, HIP_HEIGHT, -2.3], [0.75, HIP_HEIGHT, 0.15], 1);
+    mate(p11, [2.5, HIP_HEIGHT, -3.3], [1.55, HIP_HEIGHT, -0.6], 0.8);
   });
 
-  useCamera((t) => ({ pos: [Math.sin(t * 0.18) * 1.2 + 0.6, 1.75, 5.6 - Math.min(t, 3) * 0.25], look: [0.3, 1.05, -0.2] }), clock);
+  useCamera((t) => {
+    // behind the attack for the goal, then round to the front for the celebration
+    const k = phase(t, 2.0, 3.3);
+    return {
+      pos: lerpV([-0.6, 3.1, 4.6], [0.6 + Math.sin(t * 0.18) * 0.8, 1.75, 4.9], k),
+      look: lerpV([-0.6, 0.7, -2.4], [0.3, 1.05, -0.2], k),
+    };
+  }, clock);
 
   const lines = (
     <>
@@ -574,23 +792,17 @@ export function FootballScene({ still, freezeAt }: SceneProps) {
       <Stadium ground="#1f8f3a" lines={lines} />
       <Athlete ref={p7} />
       <Athlete ref={p10} kit={TEAMMATE_KIT} />
-      <Shadow target={p7} />
-      <Shadow target={p10} />
-      {/* the goal that started it: ball ends in the net */}
-      <TrailBall
-        clock={clock}
-        radius={0.11}
-        color="#ffffff"
-        trailColor="#7df9ff"
-        path={(t) => {
-          if (t < 0) return null;
-          if (t < 0.6) return lerpV([-2.6, 0.11, -1.2], [0.7, 1.4, -4.9], t / 0.6);
-          return [0.7, Math.max(0.11, 1.4 - (t - 0.6) * 2.2), -5.0];
-        }}
-      />
-      <Confetti clock={clock} at={2.15} origin={[-0.4, 1.4, 0.4]} />
-      <Lightning clock={clock} at={2.12} center={[-0.4, 0.9, 0.6]} />
-      <GlowRing target={p7} clock={clock} at={2.15} />
+      <Athlete ref={p11} kit={TEAMMATE2_KIT} />
+      <Athlete ref={rival} kit={RIVAL_KIT} />
+      <Athlete ref={keeper} kit={KEEPER_KIT} />
+      {[p7, p10, p11, rival, keeper].map((r, i) => (
+        <Shadow key={i} target={r} />
+      ))}
+      <TrailBall clock={clock} radius={0.11} color="#ffffff" trailColor="#7df9ff" path={footballPath} />
+      <Lightning clock={clock} at={F.contact + 0.42} duration={0.8} center={F_TOP_CORNER} color="#ffe14d" />
+      <Celebration clock={clock} at={F.land} origin={[F_SIU[0], 1.4, F_SIU[2] - 0.2]} />
+      <Lightning clock={clock} at={F.land - 0.03} center={[F_SIU[0], 0.9, F_SIU[2]]} />
+      <GlowRing target={p7} clock={clock} at={F.land} />
     </>
   );
 }
@@ -643,6 +855,7 @@ function Shuttle() {
 export function BadmintonScene({ still, freezeAt }: SceneProps) {
   const clock = useSceneClock(still, 1.5, freezeAt);
   const player = useRef<AthleteHandle>(null);
+  const rival = useRef<AthleteHandle>(null);
 
   const ready: Pose["joints"] = { ...IDLE, spine: [0.15, 0, 0], lHip: [-0.3, 0, 0.15], rHip: [-0.3, 0, -0.15], lKnee: [0.5, 0, 0], rKnee: [0.5, 0, 0], rShoulder: [-0.8, 0, -0.3], rElbow: [-1.2, 0, 0] };
   const cocked: Pose["joints"] = { spine: [-0.3, 0.35, 0], neck: [-0.5, 0, 0], lShoulder: [-2.6, 0, 0.2], lElbow: [-0.1, 0, 0], rShoulder: [-2.5, 0, -0.55], rElbow: [-2.3, 0, 0], lHip: [-0.7, 0, 0.1], rHip: [0.4, 0, -0.1], lKnee: [1.1, 0, 0], rKnee: [0.9, 0, 0] };
@@ -671,6 +884,19 @@ export function BadmintonScene({ still, freezeAt }: SceneProps) {
     }
     pose.rotationY = Math.PI; // facing the net (−Z)
     player.current?.applyPose(pose);
+
+    // Opponent — lifts the shuttle high, waits for it, lunges at the smash and can only watch it land
+    const lift: Pose["joints"] = { ...ready, rShoulder: [lerp(0.7, -2.2, phase(t, 0, 0.25)), 0, -0.3], rElbow: [-0.2, 0, 0], lShoulder: [-0.6, 0, 0.4] };
+    const lunge: Pose["joints"] = { spine: [0.45, 0, 0.15], neck: [-0.2, 0, 0], lHip: [0.5, 0, 0.2], rHip: [-1.3, 0, -0.35], lKnee: [1.2, 0, 0], rKnee: [0.9, 0, 0], rShoulder: [-1.4, 0, -0.9], rElbow: [-0.1, 0, 0], lShoulder: [0.4, 0, 0.6] };
+    const dismay: Pose["joints"] = { spine: [0.15, 0, 0], neck: [0.3, 0, 0], lShoulder: [-2.5, 0, 0.75], rShoulder: [-0.4, 0, -0.3], lElbow: [-2.1, 0, 0], rElbow: [-0.5, 0, 0] };
+    const reach = phase(t, CONTACT + 0.02, CONTACT + 0.3);
+    const giveUp = phase(t, CONTACT + 0.9, CONTACT + 1.3);
+    const rivalBase: Vec3 = [lerp(-0.75, -0.2, phase(t, 0.3, 1.2)), HIP_HEIGHT - 0.1, lerp(-7.0, -6.3, phase(t, 0.3, 1.2))];
+    rival.current?.applyPose({
+      position: [lerp(rivalBase[0], 0.75, reach), rivalBase[1] - 0.25 * reach * (1 - giveUp) + Math.sin(t * 7) * 0.012 * (1 - reach), lerp(rivalBase[2], -5.4, reach)],
+      rotationY: 0.4 * reach * (1 - giveUp),
+      joints: t < 0.4 ? lift : blendJoints(blendJoints(ready, lunge, reach), dismay, giveUp),
+    });
   });
 
   useCamera((t) => ({ pos: [4.0 + Math.sin(t * 0.25) * 0.4, 1.9, 4.6], look: [0, 1.45, -0.9] }), clock);
@@ -720,7 +946,9 @@ export function BadmintonScene({ still, freezeAt }: SceneProps) {
       <fog attach="fog" args={["#22104d", 13, 28]} />
       <Stadium ground="#7a4a24" lines={lines} />
       <Athlete ref={player} rightHandItem={<Racket />} />
+      <Athlete ref={rival} kit={RIVAL_KIT} rightHandItem={<Racket />} />
       <Shadow target={player} />
+      <Shadow target={rival} />
       <TrailBall
         clock={clock}
         radius={0.04}
@@ -730,7 +958,7 @@ export function BadmintonScene({ still, freezeAt }: SceneProps) {
           if (t < CONTACT) {
             // high lob from the far court
             const k = Math.max(0, t / CONTACT);
-            const start: Vec3 = [-0.6, 1.4, -7.5];
+            const start: Vec3 = [-1.0, 1.25, -6.9]; // off the opponent's racket
             const p = lerpV(start, contactPoint, k);
             p[1] += Math.sin(k * Math.PI) * 2.6;
             return p;
@@ -742,7 +970,7 @@ export function BadmintonScene({ still, freezeAt }: SceneProps) {
       >
         <Shuttle />
       </TrailBall>
-      <Confetti clock={clock} at={CONTACT + 0.35} origin={[0.4, 0.3, -4.6]} count={90} />
+      <Celebration clock={clock} at={CONTACT + 0.35} origin={[0.4, 0.3, -4.6]} count={90} size={1.5} />
       <Lightning clock={clock} at={CONTACT} duration={1.1} center={contactPoint} color="#b388ff" />
       <Lightning clock={clock} at={CONTACT + 0.32} duration={0.9} center={[0.4, 0.1, -4.6]} color="#b388ff" />
       <GlowRing target={player} clock={clock} at={1.95} color="#b388ff" />
@@ -775,10 +1003,17 @@ function Bat({ clock }: { clock: (e: number) => number }) {
   );
 }
 
+/** The fielding side: green with gold panels, no club crest. */
+const FIELDING_KIT: Kit = { ...CRICKET_KIT, shirt: "#1f8a4c", trim: "#0f4d2a", panel: "#ffd23f", shorts: "#1f8a4c", socks: "#1f8a4c", cap: "#14663a", skin: "#c98d64", hair: "#1b120b", wristbands: undefined, badge: "plain" };
+
 export function CricketScene({ still, freezeAt }: SceneProps) {
   const clock = useSceneClock(still, 1.6, freezeAt);
   const batter = useRef<AthleteHandle>(null);
+  const bowler = useRef<AthleteHandle>(null);
+  const keeper = useRef<AthleteHandle>(null);
+  const fielder = useRef<AthleteHandle>(null);
   const CONTACT = 1.42;
+  const RELEASE = 0.5;
 
   const stance: Pose["joints"] = { spine: [0.3, 0.5, 0], neck: [0, -0.6, 0], lHip: [-0.15, 0, 0.12], rHip: [-0.15, 0, -0.12], lKnee: [0.4, 0, 0], rKnee: [0.4, 0, 0], lShoulder: [-0.6, 0, -0.5], rShoulder: [-0.6, 0, 0.2], lElbow: [-0.5, 0, 0], rElbow: [-0.6, 0, 0] };
   const backlift: Pose["joints"] = { ...stance, spine: [0.15, 0.85, 0], lShoulder: [-2.0, 0, -0.9], rShoulder: [-2.4, 0, -0.2], lElbow: [-1.0, 0, 0], rElbow: [-1.4, 0, 0], lKnee: [0.55, 0, 0], rKnee: [0.3, 0, 0] };
@@ -793,6 +1028,38 @@ export function CricketScene({ still, freezeAt }: SceneProps) {
     else if (t < CONTACT) joints = blendJoints(backlift, impact, phase(t, 1.28, CONTACT));
     else joints = blendJoints(impact, finish, phase(t, CONTACT, CONTACT + 0.35));
     batter.current?.applyPose({ position: [0, HIP_HEIGHT - 0.1, 0], rotationY: Math.PI / 2, joints });
+
+    // Bowler — short run-up, windmill arm over the top at release, follow through, then hands on head
+    const runIn = Math.min(t, RELEASE);
+    const swing = phase(t, RELEASE - 0.25, RELEASE + 0.15);
+    const bowl: Pose["joints"] = { spine: [0.25, 0, 0], lShoulder: [-2.6, 0, 0.3], rShoulder: [lerp(0.4, -5.6, swing), 0, -0.15], lElbow: [-0.3, 0, 0], rElbow: [0, 0, 0], lHip: [-0.6, 0, 0], rHip: [0.4, 0, 0], lKnee: [0.2, 0, 0], rKnee: [0.6, 0, 0] };
+    const despair: Pose["joints"] = { spine: [0.05, 0, 0], neck: [-0.4, 0, 0], lShoulder: [-2.5, 0, 0.75], rShoulder: [-2.5, 0, -0.75], lElbow: [-2.1, 0, 0], rElbow: [-2.1, 0, 0] };
+    bowler.current?.applyPose({
+      position: [0.1, HIP_HEIGHT, -12.5 + runIn * 6.4 + Math.max(0, Math.min(t - RELEASE, 0.6)) * 1.2],
+      rotationY: 0,
+      joints:
+        t < RELEASE - 0.25
+          ? runCycle(t, 2.2)
+          : t < RELEASE + 0.4
+          ? blendJoints(runCycle(RELEASE - 0.25, 2.2), bowl, phase(t, RELEASE - 0.25, RELEASE - 0.1))
+          : blendJoints(bowl, despair, phase(t, CONTACT + 0.4, CONTACT + 0.9)),
+    });
+
+    // Wicketkeeper — crouched behind the stumps, springs up to watch it go
+    const up = phase(t, CONTACT + 0.1, CONTACT + 0.5);
+    const crouch: Pose["joints"] = { spine: [0.5, 0, 0], neck: [-0.4, 0, 0], lHip: [-1.3, 0, 0.35], rHip: [-1.3, 0, -0.35], lKnee: [2.1, 0, 0], rKnee: [2.1, 0, 0], lShoulder: [-1.1, 0, -0.25], rShoulder: [-1.1, 0, 0.25], lElbow: [-0.3, 0, 0], rElbow: [-0.3, 0, 0] };
+    const watch: Pose["joints"] = { spine: [-0.1, 0, 0], neck: [-0.7, 0, 0], lShoulder: [-0.3, 0, 0.3], rShoulder: [-0.3, 0, -0.3], lElbow: [-0.4, 0, 0], rElbow: [-0.4, 0, 0] };
+    keeper.current?.applyPose({ position: [-0.75, lerp(HIP_HEIGHT - 0.4, HIP_HEIGHT, up), 1.9], rotationY: Math.PI + 0.6 * up, joints: blendJoints(crouch, watch, up) });
+
+    // Deep fielder — backpedals towards the rope and leaps, but it sails over
+    const chase = phase(t, CONTACT + 0.2, CONTACT + 0.95);
+    const leap = Math.max(0, Math.sin(Math.min(1, Math.max(0, (t - CONTACT - 0.95) / 0.5)) * Math.PI));
+    const reach: Pose["joints"] = { spine: [-0.25, 0, 0], neck: [-0.6, 0, 0], lShoulder: [-3.0, 0, 0.25], rShoulder: [-3.0, 0, -0.25], lElbow: [-0.1, 0, 0], rElbow: [-0.1, 0, 0], lHip: [-0.3, 0, 0], rHip: [0.3, 0, 0], lKnee: [0.6, 0, 0], rKnee: [0.9, 0, 0] };
+    fielder.current?.applyPose({
+      position: [lerp(3.2, 3.9, chase), HIP_HEIGHT + leap * 0.55, lerp(-7.2, -9.6, chase)],
+      rotationY: lerp(-2.6, -2.9, chase),
+      joints: t < CONTACT + 0.2 ? { ...IDLE, spine: [0.3, 0, 0], lKnee: [0.4, 0, 0], rKnee: [0.4, 0, 0] } : t < CONTACT + 0.95 ? runCycle(t, 2.2) : blendJoints(runCycle(t, 2.2), reach, Math.min(1, (t - CONTACT - 0.95) / 0.15)),
+    });
   });
 
   useCamera(
@@ -840,7 +1107,12 @@ export function CricketScene({ still, freezeAt }: SceneProps) {
         kit={CRICKET_KIT}
         rightHandItem={<Bat clock={clock} />}
       />
-      <Shadow target={batter} />
+      <Athlete ref={bowler} kit={FIELDING_KIT} />
+      <Athlete ref={keeper} kit={FIELDING_KIT} />
+      <Athlete ref={fielder} kit={FIELDING_KIT} />
+      {[batter, bowler, keeper, fielder].map((r, i) => (
+        <Shadow key={i} target={r} />
+      ))}
       <TrailBall
         clock={clock}
         radius={0.05}
@@ -860,7 +1132,7 @@ export function CricketScene({ still, freezeAt }: SceneProps) {
           return p;
         }}
       />
-      <Confetti clock={clock} at={CONTACT + 0.9} origin={[3.5, 5, -8]} count={110} />
+      <Celebration clock={clock} at={CONTACT + 0.9} origin={[3.5, 5, -8]} count={110} size={2.4} />
       <Lightning clock={clock} at={CONTACT} duration={1.2} center={contactPoint} color="#ffe14d" />
       <GlowRing target={batter} clock={clock} at={CONTACT} color="#ffe14d" />
     </>
