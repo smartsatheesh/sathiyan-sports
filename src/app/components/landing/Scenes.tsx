@@ -7,6 +7,9 @@ import Athlete, {
   AthleteHandle,
   HIP_HEIGHT,
   IDLE,
+  CRICKET_KIT,
+  Kit,
+  MASCOT_KIT,
   Pose,
   blendJoints,
   lerp,
@@ -32,6 +35,30 @@ function useSceneClock(still: boolean | undefined, stillAt: number, freezeAt?: n
     if (start.current === null) start.current = elapsed;
     return elapsed - start.current;
   };
+}
+
+/** Teammate in the same club kit, with darker hair and skin so the two kids read apart. */
+const TEAMMATE_KIT: Kit = { ...MASCOT_KIT, hair: "#24160d", skin: "#d39c74" };
+
+/** Written by HeroScene: how far the hero has scrolled away (0 → 1) and the pointer (−1 → 1). */
+export const heroInput = { scroll: 0, px: 0, py: 0 };
+
+/** Night sky: a gradient dome, no textures. */
+function Sky({ top, horizon }: { top: string; horizon: string }) {
+  const uniforms = useMemo(() => ({ top: { value: new THREE.Color(top) }, horizon: { value: new THREE.Color(horizon) } }), [top, horizon]);
+  return (
+    <mesh scale={40}>
+      <sphereGeometry args={[1, 32, 16]} />
+      <shaderMaterial
+        side={THREE.BackSide}
+        depthWrite={false}
+        fog={false}
+        uniforms={uniforms}
+        vertexShader={"varying float vY; void main(){ vY = normalize(position).y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }"}
+        fragmentShader={"uniform vec3 top; uniform vec3 horizon; varying float vY; void main(){ gl_FragColor = vec4(mix(horizon, top, smoothstep(-0.05, 0.55, vY)), 1.0); }"}
+      />
+    </mesh>
+  );
 }
 
 // ---------------- shared stadium ----------------
@@ -113,8 +140,10 @@ function Floodlights() {
 function Stadium({ ground, lines }: { ground: string; lines?: React.ReactNode }) {
   return (
     <>
-      <hemisphereLight args={["#bfe3ff", "#14324a", 0.9]} />
-      <directionalLight position={[4, 8, 6]} intensity={1.6} color="#fff4e0" />
+      <hemisphereLight args={["#d6ecff", "#1a2a55", 0.7]} />
+      <directionalLight position={[4, 8, 6]} intensity={1.25} color="#fff6e8" />
+      {/* electric rim light from behind */}
+      <directionalLight position={[-2, 4, -7]} intensity={1.6} color="#3ff2ff" />
       <directionalLight position={[-6, 5, -4]} intensity={0.6} color="#7fd4ff" />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
         <circleGeometry args={[12.5, 64]} />
@@ -123,6 +152,7 @@ function Stadium({ ground, lines }: { ground: string; lines?: React.ReactNode })
       {lines}
       <Crowd />
       <Floodlights />
+      <EnergyDust />
     </>
   );
 }
@@ -197,7 +227,7 @@ function TrailBall({
       {Array.from({ length: N }).map((_, i) => (
         <mesh key={i} ref={(m) => { trail.current[i] = m; }}>
           <sphereGeometry args={[radius * (1 - i / (N + 2)), 8, 6]} />
-          <meshBasicMaterial color={trailColor} transparent opacity={0.55 * (1 - i / N)} depthWrite={false} />
+          <meshBasicMaterial color={trailColor} transparent opacity={0.7 * (1 - i / N)} depthWrite={false} blending={THREE.AdditiveBlending} />
         </mesh>
       ))}
     </>
@@ -248,10 +278,175 @@ function Confetti({ clock, at, origin, count = 140 }: { clock: (e: number) => nu
   );
 }
 
+// ---------------- electric effects ----------------
+
+let dotTexture: THREE.Texture | null = null;
+function softDot() {
+  if (dotTexture) return dotTexture;
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const ctx = c.getContext("2d")!;
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.35, "rgba(160,245,255,0.6)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  dotTexture = new THREE.CanvasTexture(c);
+  return dotTexture;
+}
+
+/** Glowing specks drifting up through the stadium. */
+function EnergyDust({ count = 260 }: { count?: number }) {
+  const ref = useRef<THREE.Points>(null);
+  const seeds = useMemo(
+    () => Array.from({ length: count }, () => ({ x: (Math.random() - 0.5) * 18, z: (Math.random() - 0.5) * 16 - 2, y: Math.random() * 7, v: 0.15 + Math.random() * 0.45, w: Math.random() * 6 })),
+    [count]
+  );
+  const positions = useMemo(() => new Float32Array(count * 3), [count]);
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    seeds.forEach((p, i) => {
+      positions[i * 3] = p.x + Math.sin(t * 0.6 + p.w) * 0.3;
+      positions[i * 3 + 1] = (p.y + t * p.v) % 7;
+      positions[i * 3 + 2] = p.z + Math.cos(t * 0.5 + p.w) * 0.3;
+    });
+    const attr = ref.current?.geometry.getAttribute("position");
+    if (attr) attr.needsUpdate = true;
+  });
+  return (
+    <points ref={ref}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <pointsMaterial map={softDot()} color="#9ff6ff" size={0.16} transparent depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation fog={false} />
+    </points>
+  );
+}
+
+function jaggedPath(a: THREE.Vector3, b: THREE.Vector3, segments: number, jitter: number) {
+  const path = new THREE.CurvePath<THREE.Vector3>();
+  let prev = a.clone();
+  for (let j = 1; j <= segments; j++) {
+    const next = a.clone().lerp(b, j / segments);
+    if (j < segments) next.add(new THREE.Vector3((Math.random() - 0.5) * jitter, (Math.random() - 0.5) * jitter, (Math.random() - 0.5) * jitter));
+    path.add(new THREE.LineCurve3(prev, next));
+    prev = next;
+  }
+  return path;
+}
+
+/**
+ * A lightning strike from the sky onto `center` at `at` seconds, then crackling arcs around it
+ * that fade over `duration`. Bolts re-randomise every 50 ms; tubes are tiny so rebuilding is cheap.
+ */
+function Lightning({ clock, at, duration = 1.3, center, color = "#6ff7ff" }: { clock: (e: number) => number; at: number; duration?: number; center: Vec3; color?: string }) {
+  const K = 7; // bolt 0 is the sky strike
+  const core = useRef<(THREE.Mesh | null)[]>([]);
+  const glow = useRef<(THREE.Mesh | null)[]>([]);
+  const light = useRef<THREE.PointLight>(null);
+  const last = useRef(-1);
+  const coreMat = useMemo(() => new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }), []);
+  const glowMat = useMemo(() => new THREE.MeshBasicMaterial({ color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }), [color]);
+  const c = useMemo(() => new THREE.Vector3(...center), [center]);
+
+  useFrame((state) => {
+    const dt = clock(state.clock.elapsedTime) - at;
+    const on = dt >= 0 && dt <= duration;
+    const fade = on ? 1 - dt / duration : 0;
+    coreMat.opacity = fade;
+    glowMat.opacity = 0.45 * fade;
+    if (light.current) light.current.intensity = on ? 4 * fade * (0.6 + Math.random() * 0.4) : 0;
+    for (let i = 0; i < K; i++) {
+      const visible = on && (i > 0 || dt < 0.35);
+      if (core.current[i]) core.current[i]!.visible = visible;
+      if (glow.current[i]) glow.current[i]!.visible = visible;
+    }
+    if (!on) return;
+    const tick = Math.floor(dt / 0.05);
+    if (tick === last.current) return;
+    last.current = tick;
+    for (let i = 0; i < K; i++) {
+      let path: THREE.CurvePath<THREE.Vector3>;
+      if (i === 0) {
+        path = jaggedPath(new THREE.Vector3(c.x + 1.5, 9, c.z - 3), c, 14, 0.9);
+      } else {
+        const a = Math.random() * Math.PI * 2;
+        const dist = 0.6 + Math.random() * 0.8;
+        const end = new THREE.Vector3(c.x + Math.cos(a) * dist, c.y + (Math.random() - 0.3) * 1.2, c.z + Math.sin(a) * dist);
+        path = jaggedPath(c, end, 7, 0.22);
+      }
+      const cm = core.current[i];
+      const gm = glow.current[i];
+      if (cm) {
+        cm.geometry.dispose();
+        cm.geometry = new THREE.TubeGeometry(path, 28, i === 0 ? 0.03 : 0.012, 4, false);
+      }
+      if (gm) {
+        gm.geometry.dispose();
+        gm.geometry = new THREE.TubeGeometry(path, 28, i === 0 ? 0.11 : 0.045, 5, false);
+      }
+    }
+  });
+
+  return (
+    <>
+      {Array.from({ length: K }).map((_, i) => (
+        <React.Fragment key={i}>
+          <mesh ref={(m) => { core.current[i] = m; }} material={coreMat} visible={false} />
+          <mesh ref={(m) => { glow.current[i] = m; }} material={glowMat} visible={false} />
+        </React.Fragment>
+      ))}
+      <pointLight ref={light} position={center} color={color} intensity={0} distance={7} />
+    </>
+  );
+}
+
+/** Neon ring under a player that sends out a shockwave at `at` seconds. */
+function GlowRing({ target, clock, at, color = "#45f3ff" }: { target: React.RefObject<AthleteHandle>; clock: (e: number) => number; at: number; color?: string }) {
+  const base = useRef<THREE.Mesh>(null);
+  const wave = useRef<THREE.Mesh>(null);
+  useFrame((state) => {
+    const root = target.current?.root;
+    if (!root) return;
+    const t = clock(state.clock.elapsedTime);
+    const pulse = 0.45 + Math.sin(t * 5) * 0.15;
+    if (base.current) {
+      base.current.position.set(root.position.x, 0.015, root.position.z);
+      (base.current.material as THREE.MeshBasicMaterial).opacity = pulse;
+    }
+    if (wave.current) {
+      const dt = t - at;
+      const on = dt >= 0 && dt < 0.9;
+      wave.current.visible = on;
+      wave.current.position.set(root.position.x, 0.02, root.position.z);
+      const k = Math.max(0, dt) / 0.9;
+      wave.current.scale.setScalar(1 + k * 4);
+      (wave.current.material as THREE.MeshBasicMaterial).opacity = (1 - k) * 0.9;
+    }
+  });
+  return (
+    <>
+      <mesh ref={base} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.42, 0.5, 48]} />
+        <meshBasicMaterial color={color} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
+      </mesh>
+      <mesh ref={wave} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
+        <ringGeometry args={[0.45, 0.52, 48]} />
+        <meshBasicMaterial color={color} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
+      </mesh>
+    </>
+  );
+}
+
+const UP = new THREE.Vector3(0, 1, 0);
+
 function useCamera(fn: (t: number) => { pos: Vec3; look: Vec3 }, clock: (e: number) => number) {
   const look = useMemo(() => new THREE.Vector3(), []);
   const side = useMemo(() => new THREE.Vector3(), []);
-  useFrame((state) => {
+  const offset = useMemo(() => new THREE.Vector3(), []);
+  const lean = useRef({ x: 0, y: 0 });
+  useFrame((state, delta) => {
     const t = clock(state.clock.elapsedTime);
     const { pos, look: l } = fn(t);
     state.camera.position.set(...pos);
@@ -269,6 +464,13 @@ function useCamera(fn: (t: number) => { pos: Vec3; look: Vec3 }, clock: (e: numb
       side.subVectors(state.camera.position, look).normalize().multiplyScalar(2.2);
       state.camera.position.add(side); // narrow stage: step back so both players fit
     }
+    // Look around with the mouse / a finger, and drift up and back as the hero scrolls away
+    lean.current.x = THREE.MathUtils.damp(lean.current.x, heroInput.px, 3, delta);
+    lean.current.y = THREE.MathUtils.damp(lean.current.y, heroInput.py, 3, delta);
+    offset.subVectors(state.camera.position, look).applyAxisAngle(UP, -lean.current.x * 0.45);
+    offset.y += -lean.current.y * 0.6 + heroInput.scroll * 1.6;
+    offset.multiplyScalar(1 + heroInput.scroll * 0.35);
+    state.camera.position.copy(look).add(offset);
     state.camera.lookAt(look);
   });
 }
@@ -298,7 +500,7 @@ export function FootballScene({ still, freezeAt }: SceneProps) {
   useFrame((state) => {
     const t = clock(state.clock.elapsedTime);
 
-    // No.7 — run in, leap, spin 180° in the air, land in the celebration pose
+    // Mascot — run in, leap, spin all the way round in the air, land in the celebration pose facing us
     const runEnd = 1.5;
     const jumpStart = 1.62;
     const land = 2.15;
@@ -316,15 +518,15 @@ export function FootballScene({ still, freezeAt }: SceneProps) {
       const k = (t - jumpStart) / (land - jumpStart);
       const height = Math.sin(k * Math.PI) * 0.75;
       const tuck: Pose["joints"] = { spine: [-0.1, 0, 0], lHip: [-0.5, 0, 0.2], rHip: [-0.5, 0, -0.2], lKnee: [1.2, 0, 0], rKnee: [1.2, 0, 0], lShoulder: [-0.4, 0, 1.4], rShoulder: [-0.4, 0, -1.4] };
-      pose = { position: [to[0], HIP_HEIGHT + height, to[2]], rotationY: Math.PI * phase(k, 0, 1), joints: tuck };
+      pose = { position: [to[0], HIP_HEIGHT + height, to[2]], rotationY: Math.PI * 2 * phase(k, 0, 1), joints: tuck }; // full spin, lands facing the camera
     } else {
       const k = phase(t, land, land + 0.18);
       const breathe = Math.sin(t * 3) * 0.02;
-      pose = { position: [to[0], HIP_HEIGHT - 0.12 * k + breathe, to[2]], rotationY: Math.PI, joints: siuPose };
+      pose = { position: [to[0], HIP_HEIGHT - 0.12 * k + breathe, to[2]], rotationY: 0, joints: siuPose };
     }
     p7.current?.applyPose(pose);
 
-    // No.10 — jog in place, then both arms point to the sky
+    // Teammate — jog in place, then both arms point to the sky
     const raise = phase(t, 1.0, 1.6);
     const jog = runCycle(t, 1.2, 0.35 * (1 - raise));
     const sky: Pose["joints"] = { spine: [-0.12, 0, 0], neck: [-0.55, 0, 0], lShoulder: [-2.85, 0, 0.18], rShoulder: [-2.85, 0, -0.18], lElbow: [-0.1, 0, 0], rElbow: [-0.1, 0, 0] };
@@ -367,11 +569,11 @@ export function FootballScene({ still, freezeAt }: SceneProps) {
 
   return (
     <>
-      <color attach="background" args={["#071a2e"]} />
-      <fog attach="fog" args={["#071a2e", 12, 26]} />
+      <Sky top="#02040f" horizon="#0f3a7a" />
+      <fog attach="fog" args={["#0a2250", 14, 30]} />
       <Stadium ground="#1f8f3a" lines={lines} />
-      <Athlete ref={p7} kit={{ shirt: "#d50032", shorts: "#ffffff", socks: "#d50032", number: "7", numberColor: "#ffffff" }} />
-      <Athlete ref={p10} kit={{ shirt: "#75c4ef", stripes: "#ffffff", shorts: "#111827", socks: "#ffffff", number: "10", numberColor: "#0b1f44", hair: "#4a2f1d" }} />
+      <Athlete ref={p7} />
+      <Athlete ref={p10} kit={TEAMMATE_KIT} />
       <Shadow target={p7} />
       <Shadow target={p10} />
       {/* the goal that started it: ball ends in the net */}
@@ -379,7 +581,7 @@ export function FootballScene({ still, freezeAt }: SceneProps) {
         clock={clock}
         radius={0.11}
         color="#ffffff"
-        trailColor="#fff59d"
+        trailColor="#7df9ff"
         path={(t) => {
           if (t < 0) return null;
           if (t < 0.6) return lerpV([-2.6, 0.11, -1.2], [0.7, 1.4, -4.9], t / 0.6);
@@ -387,6 +589,8 @@ export function FootballScene({ still, freezeAt }: SceneProps) {
         }}
       />
       <Confetti clock={clock} at={2.15} origin={[-0.4, 1.4, 0.4]} />
+      <Lightning clock={clock} at={2.12} center={[-0.4, 0.9, 0.6]} />
+      <GlowRing target={p7} clock={clock} at={2.15} />
     </>
   );
 }
@@ -471,7 +675,7 @@ export function BadmintonScene({ still, freezeAt }: SceneProps) {
 
   useCamera((t) => ({ pos: [4.0 + Math.sin(t * 0.25) * 0.4, 1.9, 4.6], look: [0, 1.45, -0.9] }), clock);
 
-  const contactPoint: Vec3 = [-0.2, 2.75, 0.25];
+  const contactPoint: Vec3 = [-0.2, 2.55, 0.25];
   const lines = (
     <>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.006, -1.5]}>
@@ -512,16 +716,16 @@ export function BadmintonScene({ still, freezeAt }: SceneProps) {
 
   return (
     <>
-      <color attach="background" args={["#160b2e"]} />
-      <fog attach="fog" args={["#160b2e", 11, 24]} />
+      <Sky top="#05020f" horizon="#3a1a7a" />
+      <fog attach="fog" args={["#22104d", 13, 28]} />
       <Stadium ground="#7a4a24" lines={lines} />
-      <Athlete ref={player} kit={{ shirt: "#ffd400", shorts: "#1a237e", socks: "#ffffff", number: "", numberColor: "#1a237e" }} rightHandItem={<Racket />} />
+      <Athlete ref={player} rightHandItem={<Racket />} />
       <Shadow target={player} />
       <TrailBall
         clock={clock}
         radius={0.04}
         color="#fff"
-        trailColor="#80d8ff"
+        trailColor="#d1b3ff"
         path={(t) => {
           if (t < CONTACT) {
             // high lob from the far court
@@ -539,6 +743,9 @@ export function BadmintonScene({ still, freezeAt }: SceneProps) {
         <Shuttle />
       </TrailBall>
       <Confetti clock={clock} at={CONTACT + 0.35} origin={[0.4, 0.3, -4.6]} count={90} />
+      <Lightning clock={clock} at={CONTACT} duration={1.1} center={contactPoint} color="#b388ff" />
+      <Lightning clock={clock} at={CONTACT + 0.32} duration={0.9} center={[0.4, 0.1, -4.6]} color="#b388ff" />
+      <GlowRing target={player} clock={clock} at={1.95} color="#b388ff" />
     </>
   );
 }
@@ -596,7 +803,7 @@ export function CricketScene({ still, freezeAt }: SceneProps) {
     clock
   );
 
-  const contactPoint: Vec3 = [0.55, 0.85, -0.15];
+  const contactPoint: Vec3 = [0.55, 0.7, -0.15];
   const lines = (
     <>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.006, -6]}>
@@ -625,12 +832,12 @@ export function CricketScene({ still, freezeAt }: SceneProps) {
 
   return (
     <>
-      <color attach="background" args={["#05233a"]} />
-      <fog attach="fog" args={["#05233a", 13, 30]} />
+      <Sky top="#010812" horizon="#0b4a6e" />
+      <fog attach="fog" args={["#082e47", 15, 32]} />
       <Stadium ground="#2e9e48" lines={lines} />
       <Athlete
         ref={batter}
-        kit={{ shirt: "#1565c0", shorts: "#0d47a1", socks: "#ffffff", hair: "#0b2a5b", number: "", numberColor: "#ff9800" }}
+        kit={CRICKET_KIT}
         rightHandItem={<Bat clock={clock} />}
       />
       <Shadow target={batter} />
@@ -638,7 +845,7 @@ export function CricketScene({ still, freezeAt }: SceneProps) {
         clock={clock}
         radius={0.05}
         color="#d50000"
-        trailColor="#ffab40"
+        trailColor="#ffe14d"
         path={(t) => {
           if (t < 0.5) return null;
           if (t < 1.18) {
@@ -654,6 +861,8 @@ export function CricketScene({ still, freezeAt }: SceneProps) {
         }}
       />
       <Confetti clock={clock} at={CONTACT + 0.9} origin={[3.5, 5, -8]} count={110} />
+      <Lightning clock={clock} at={CONTACT} duration={1.2} center={contactPoint} color="#ffe14d" />
+      <GlowRing target={batter} clock={clock} at={CONTACT} color="#ffe14d" />
     </>
   );
 }

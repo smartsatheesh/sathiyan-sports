@@ -34,6 +34,8 @@ import {
 import Footer from "./components/Footer";
 import FeaturesSection from "./components/FeaturesSection";
 import { HERO_SCENES } from "./components/landing/HeroScene";
+import ScrambleText from "./components/landing/ScrambleText";
+import ScrollBalls from "./components/landing/ScrollBalls";
 import { useSiteSettings } from "./hooks/useSiteSettings";
 import { courtPriceLabel, getCourt, waNumber } from "./lib/pricing";
 
@@ -52,6 +54,9 @@ const SPORTS = [
   { name: "Cricket Nets", court: "Cricket Nets", icon: <SportsCricket />, color: "#00897b", blurb: "Batting and bowling practice in the nets — come with a friend." },
   { name: "Events", court: "Functions and Events", icon: <Celebration />, color: "#ab47bc", blurb: "Hall for 500+ guests with A/V, catering and parking." },
 ];
+
+// Everything we coach, shown as chips above the programme fees
+const DISCIPLINES = ["🏸 Badminton", "⚽ Football", "🏏 Cricket", "🧘 Yoga", "🥋 Taekwondo", "🥋 Karate", "🪵 Silambam", "💪 Fitness"];
 
 interface Tournament {
   _id: string;
@@ -140,6 +145,9 @@ export default function Home() {
 
   return (
     <Box sx={{ bgcolor: "#f6f8fb", overflowX: "hidden" }}>
+      {/* balls drift up behind the content as you scroll */}
+      <ScrollBalls />
+      <Box sx={{ position: "relative", zIndex: 1 }}>
       {/* ================= HERO ================= */}
       <Box
         component="section"
@@ -207,11 +215,11 @@ export default function Home() {
               textShadow: "0 4px 24px rgba(0,0,0,0.5)",
             }}
           >
-            Sathiyan
-            <Box component="span" sx={{ display: "block", color: GOLD }}>Multisport Club</Box>
+            <ScrambleText text="Sathiyan" />
+            <Box component="span" sx={{ display: "block", color: GOLD }}><ScrambleText text="Multisport Club" delay={350} /></Box>
           </Typography>
           <Typography sx={{ mt: 2, maxWidth: 560, fontSize: { xs: "1.05rem", md: "1.25rem" }, opacity: 0.92 }}>
-            Football, cricket and badminton under floodlights — coaching for kids and adults, courts by the half hour, and a venue for your big day.
+            Football, cricket and badminton under floodlights, plus yoga, karate, taekwondo and silambam — coaching for kids and adults, courts by the hour, and a venue for your big day.
           </Typography>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mt: 3, maxWidth: { xs: "100%", sm: "none" } }}>
             <Button component={Link} href="/bookslot" size="large" variant="contained" endIcon={<ArrowForward />}
@@ -238,7 +246,7 @@ export default function Home() {
               { icon: <Groups />, value: stats ? `${stats.totalUsers}+` : "—", label: "Members" },
               { icon: <EventAvailable />, value: stats ? `${stats.totalBookings}+` : "—", label: "Bookings" },
               { icon: <EmojiEvents />, value: stats ? `${stats.totalEvents}+` : "—", label: "Events hosted" },
-              { icon: <Star />, value: "3", label: "Sports, one venue" },
+              { icon: <Star />, value: String(DISCIPLINES.length), label: "Sports & martial arts" },
             ].map((s) => (
               <Grid item xs={6} md={3} key={s.label}>
                 <Stack direction="row" spacing={1.5} alignItems="center">
@@ -304,9 +312,14 @@ export default function Home() {
         <Container maxWidth="lg">
           <Typography sx={{ color: GOLD, fontWeight: 800, letterSpacing: 2, fontSize: 13, textTransform: "uppercase" }}>Train</Typography>
           <Typography variant="h4" sx={{ fontWeight: 900, fontSize: { xs: "1.8rem", md: "2.4rem" }, mb: 1 }}>Coaching for body and mind</Typography>
-          <Typography sx={{ opacity: 0.9, mb: 4, maxWidth: 640 }}>
+          <Typography sx={{ opacity: 0.9, mb: 2.5, maxWidth: 640 }}>
             Regular sessions with our coaches that build fitness, skills and confidence — with equal focus on physical and mental health for our kids.
           </Typography>
+          <Stack direction="row" useFlexGap flexWrap="wrap" spacing={1} sx={{ mb: 4 }} aria-label="What we teach">
+            {DISCIPLINES.map((d) => (
+              <Chip key={d} label={d} sx={{ bgcolor: "rgba(255,255,255,0.16)", color: "#fff", fontWeight: 700, border: "1px solid rgba(255,255,255,0.3)" }} />
+            ))}
+          </Stack>
           <Grid container spacing={2}>
             {programs.map((p) => (
               <Grid item xs={12} sm={6} md={3} key={p.key}>
@@ -474,6 +487,7 @@ export default function Home() {
       </Box>
 
       <Footer />
+      </Box>
     </Box>
   );
 }

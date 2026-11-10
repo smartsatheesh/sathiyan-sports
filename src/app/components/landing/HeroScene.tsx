@@ -9,6 +9,7 @@ import {
   CRICKET_DURATION,
   FootballScene,
   FOOTBALL_DURATION,
+  heroInput,
 } from "./Scenes";
 
 export const HERO_SCENES = [
@@ -45,6 +46,26 @@ export default function HeroScene({ index, onFinished, still, freezeAt }: HeroSc
   }, []);
 
   const running = visible && pageVisible && !still && freezeAt === undefined;
+
+  // Feed scroll and pointer into the camera (look-around + scroll dolly)
+  useEffect(() => {
+    if (!running) return;
+    const onScroll = () => {
+      const h = wrapper.current?.offsetHeight || window.innerHeight;
+      heroInput.scroll = Math.min(1, Math.max(0, window.scrollY / h));
+    };
+    const onPointer = (e: PointerEvent) => {
+      heroInput.px = (e.clientX / window.innerWidth) * 2 - 1;
+      heroInput.py = -((e.clientY / window.innerHeight) * 2 - 1);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("pointermove", onPointer, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("pointermove", onPointer);
+    };
+  }, [running]);
 
   // Advance to the next scene when this one ends (only while actually playing)
   useEffect(() => {
