@@ -5,6 +5,22 @@ import User from '@/app/models/User';
 import Subscription from '@/app/models/Subscription';
 import { getMemberHistory } from '@/app/lib/fees.server';
 import { syncUserFeeStatus } from '@/app/lib/feeStatus.server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/authConfig';
+import { scopeClub } from '@/app/lib/clubs.server';
+import { clubOf } from '@/app/lib/clubs';
+
+/** The member, if the signed-in admin may manage them (club admins: own club only). */
+async function memberInScope(userId: string) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return null;
+  await connectToMongoose();
+  const member = await (User.findById as any)(userId).select('club').lean();
+  if (!member) return null;
+  // the owner may act on any club's member; a club admin only on their own
+  const club = scopeClub(session.user, clubOf(member));
+  return club === clubOf(member) ? member : null;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +28,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(_req: NextRequest, { params }: { params: { userId: string } }) {
   if (!mongoose.isValidObjectId(params.userId)) {
     return NextResponse.json({ success: false, error: 'Invalid member' }, { status: 400 });
+  }
+  if (!(await memberInScope(params.userId))) {
+    return NextResponse.json({ success: false, error: 'Member not found' }, { status: 404 });
   }
   const history = await getMemberHistory(params.userId);
   return NextResponse.json({ success: true, history });
@@ -24,7 +43,9 @@ export async function POST(request: NextRequest, { params }: { params: { userId:
   if (!mongoose.isValidObjectId(params.userId)) {
     return NextResponse.json({ success: false, error: 'Invalid member' }, { status: 400 });
   }
-  await connectToMongoose();
+  if (!(await memberInScope(params.userId))) {
+    return NextResponse.json({ success: false, error: 'Member not found' }, { status: 404 });
+  }
   const { action, subscriptionId } = await request.json();
 
   if (action === 'reminded') {

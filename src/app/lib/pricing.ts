@@ -309,7 +309,9 @@ export function programFor(
   return (
     programs.find((p) => p.key === member?.coachingProgram) ||
     programs.find((p) => p.sport && p.sport === member?.preferredSport) ||
-    programs[0]
+    programs[0] ||
+    // a new partner club may not have set up its programmes yet
+    { key: "none", name: "Membership", monthly: 0 }
   );
 }
 

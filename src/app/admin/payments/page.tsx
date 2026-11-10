@@ -11,6 +11,7 @@ import {
   CircularProgress,
   Container,
   IconButton,
+  MenuItem,
   Stack,
   Tab,
   Tabs,
@@ -20,6 +21,7 @@ import {
 } from "@mui/material";
 import { CheckCircle, Cancel, ContentCopy, Refresh, WhatsApp } from "@mui/icons-material";
 import { waNumber } from "@/app/lib/pricing";
+import { useSession } from "next-auth/react";
 
 type Status = "submitted" | "confirmed" | "rejected";
 
@@ -37,6 +39,7 @@ interface PaymentRow {
   decidedAt?: string;
   note?: string;
   createdAt: string;
+  club?: string;
 }
 
 const KIND_LABEL: Record<PaymentRow["kind"], string> = {
@@ -45,12 +48,12 @@ const KIND_LABEL: Record<PaymentRow["kind"], string> = {
   tournament: "Tournament entry",
 };
 
-function receiptMessage(p: PaymentRow): string {
-  return `Hi ${p.payerName || ""}, we have received your payment of ₹${p.amount} for ${KIND_LABEL[p.kind].toLowerCase()} (${p.reference}). UPI ref: ${p.utr}. Thank you! – Sathiyan Sports`;
+function receiptMessage(p: PaymentRow, from: string): string {
+  return `Hi ${p.payerName || ""}, we have received your payment of ₹${p.amount} for ${KIND_LABEL[p.kind].toLowerCase()} (${p.reference}). UPI ref: ${p.utr}. Thank you! – ${from}`;
 }
 
-function rejectMessage(p: PaymentRow): string {
-  return `Hi ${p.payerName || ""}, we could not find your UPI payment of ₹${p.amount} for ${p.reference} (ref ${p.rejectedUtr || p.utr}). Please check the reference number or reply here with a screenshot. – Sathiyan Sports`;
+function rejectMessage(p: PaymentRow, from: string): string {
+  return `Hi ${p.payerName || ""}, we could not find your UPI payment of ₹${p.amount} for ${p.reference} (ref ${p.rejectedUtr || p.utr}). Please check the reference number or reply here with a screenshot. – ${from}`;
 }
 
 export default function AdminPaymentsPage() {
@@ -62,22 +65,30 @@ export default function AdminPaymentsPage() {
   const [error, setError] = useState("");
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [justDecided, setJustDecided] = useState<PaymentRow | null>(null);
+  // The owner can narrow the list to one club; club admins only ever see their own club's fees
+  const { data: session } = useSession();
+  const isOwner = session?.user?.role === "admin";
+  const [club, setClub] = useState("all");
+  const [clubs, setClubs] = useState<{ slug: string; name: string }[]>([]);
+  const clubName = (slug?: string) =>
+    !slug || slug === "sathiyan" ? "Sathiyan Sports" : clubs.find((c) => c.slug === slug)?.name || "Sathiyan Sports";
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/admin/payments?status=${tab}`);
+      const res = await fetch(`/api/admin/payments?status=${tab}&club=${encodeURIComponent(club)}`);
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       setRows(data.payments);
       setPendingCount(data.pendingCount);
+      setClubs(data.clubs || []);
     } catch (e: any) {
       setError(e.message || "Failed to load payments");
     } finally {
       setLoading(false);
     }
-  }, [tab]);
+  }, [tab, club]);
 
   useEffect(() => {
     load();
@@ -106,7 +117,7 @@ export default function AdminPaymentsPage() {
 
   const waLink = (p: PaymentRow) =>
     `https://wa.me/${waNumber(p.payerPhone)}?text=${encodeURIComponent(
-      p.status === "rejected" ? rejectMessage(p) : receiptMessage(p)
+      p.status === "rejected" ? rejectMessage(p, clubName(p.club)) : receiptMessage(p, clubName(p.club))
     )}`;
 
   return (
@@ -120,6 +131,15 @@ export default function AdminPaymentsPage() {
         </Box>
         <IconButton onClick={load} aria-label="Refresh"><Refresh /></IconButton>
       </Stack>
+
+      {isOwner && clubs.length > 1 && (
+        <TextField select fullWidth size="small" label="Club" value={club} onChange={(e) => setClub(e.target.value)} sx={{ mb: 2 }}>
+          <MenuItem value="all">All clubs</MenuItem>
+          {clubs.map((c) => (
+            <MenuItem key={c.slug} value={c.slug}>{c.name}</MenuItem>
+          ))}
+        </TextField>
+      )}
 
       <Tabs value={tab} onChange={(_, v) => { setTab(v); setJustDecided(null); }} variant="fullWidth" sx={{ mb: 2 }}>
         <Tab value="submitted" label={`To verify${pendingCount ? ` (${pendingCount})` : ""}`} />
@@ -163,6 +183,7 @@ export default function AdminPaymentsPage() {
                     <Typography variant="body2" color="text.secondary">{p.payerPhone}</Typography>
                     <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: "wrap", rowGap: 1 }}>
                       <Chip size="small" label={KIND_LABEL[p.kind]} />
+                      {isOwner && p.club && p.club !== "sathiyan" && <Chip size="small" color="secondary" label={clubName(p.club)} />}
                       {p.reference && <Chip size="small" variant="outlined" label={p.reference} />}
                     </Stack>
                   </Box>

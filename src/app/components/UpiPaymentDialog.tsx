@@ -42,6 +42,8 @@ interface UpiPaymentDialogProps {
   allowPayLater?: boolean;
   onSubmitted?: () => void;
   onPayLater?: () => void;
+  /** Pay a partner club instead of Sathiyan (its own UPI ID and WhatsApp). */
+  payee?: { upi: { vpa: string; payeeName: string }; whatsappNumber: string };
 }
 
 export default function UpiPaymentDialog({
@@ -56,8 +58,10 @@ export default function UpiPaymentDialog({
   allowPayLater = false,
   onSubmitted,
   onPayLater,
+  payee,
 }: UpiPaymentDialogProps) {
-  const { settings } = useSiteSettings();
+  const { settings: site } = useSiteSettings();
+  const settings = payee ? { ...site, upi: payee.upi, whatsappNumber: payee.whatsappNumber } : site;
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
 

@@ -19,6 +19,7 @@ import {
   Grid,
   IconButton,
   InputAdornment,
+  MenuItem,
   Paper,
   Stack,
   Tab,
@@ -79,7 +80,7 @@ function statusOf(m: Member): { label: string; color: "error" | "warning" | "suc
   }
 }
 
-function reminderText(m: Member): string {
+function reminderText(m: Member, clubName = "Sathiyan Sports"): string {
   const first = m.name.split(" ")[0] || "there";
   const whose = m.champType === "kids" ? `${first}'s` : "your";
   const what = m.program ? `${m.program.toLowerCase()} fee` : "monthly fee";
@@ -90,7 +91,7 @@ function reminderText(m: Member): string {
       : m.state === "due_soon"
         ? `is due on ${fmtDate(m.paidTill)}`
         : "is pending";
-  return `${greeting}, a friendly reminder from Sathiyan Sports 🏸⚽\n\n${whose[0].toUpperCase() + whose.slice(1)} ${what} of ${rupees(m.monthlyFee)}/month ${when}.\n\nPay easily by UPI here:\n${m.payLink}\n\nThank you!`;
+  return `${greeting}, a friendly reminder from ${clubName} 🏸⚽\n\n${whose[0].toUpperCase() + whose.slice(1)} ${what} of ${rupees(m.monthlyFee)}/month ${when}.\n\nPay easily by UPI here:\n${m.payLink}\n\nThank you!`;
 }
 
 const daysAgo = (iso: string | null) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / DAY) : null);
@@ -124,21 +125,28 @@ export default function AdminFeesPage() {
   const [recordFor, setRecordFor] = useState<Member | null>(null);
   const [queue, setQueue] = useState<Member[] | null>(null);
 
+  // Each club has its own board. The owner switches clubs here; a club admin only ever gets theirs.
+  const [club, setClub] = useState("sathiyan");
+  const [clubName, setClubName] = useState("Sathiyan Sports");
+  const [clubs, setClubs] = useState<{ slug: string; name: string }[]>([]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/admin/fees");
+      const res = await fetch(`/api/admin/fees?club=${encodeURIComponent(club)}`);
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       setMembers(data.members);
       setCollected(data.collectedThisMonth);
+      setClubName(data.club?.isDefault ? "Sathiyan Sports" : data.club?.name || "");
+      setClubs(data.clubs || []);
     } catch (e: any) {
       setError(e.message || "Failed to load fees");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [club]);
 
   useEffect(() => {
     load();
@@ -175,7 +183,7 @@ export default function AdminFeesPage() {
   }, [members, tab, group, query]);
 
   const openReminder = async (m: Member) => {
-    window.open(`https://wa.me/${waNumber(m.mobile)}?text=${encodeURIComponent(reminderText(m))}`, "_blank", "noopener,noreferrer");
+    window.open(`https://wa.me/${waNumber(m.mobile)}?text=${encodeURIComponent(reminderText(m, clubName))}`, "_blank", "noopener,noreferrer");
     setMembers((prev) => prev.map((x) => (x.userId === m.userId ? { ...x, feeReminderAt: new Date().toISOString() } : x)));
     fetch(`/api/admin/fees/${m.userId}`, {
       method: "POST",
@@ -236,10 +244,18 @@ export default function AdminFeesPage() {
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
         <Box>
           <Typography variant="h5" fontWeight={800}>Membership fees</Typography>
-          <Typography variant="body2" color="text.secondary">Kids and adults, all in one place</Typography>
+          <Typography variant="body2" color="text.secondary">{clubName ? `${clubName} · ` : ""}kids and adults, all in one place</Typography>
         </Box>
         <IconButton onClick={load} aria-label="Refresh"><Refresh /></IconButton>
       </Stack>
+
+      {clubs.length > 1 && (
+        <TextField select fullWidth size="small" label="Club" value={club} onChange={(e) => setClub(e.target.value)} sx={{ mb: 2 }}>
+          {clubs.map((c) => (
+            <MenuItem key={c.slug} value={c.slug}>{c.name}</MenuItem>
+          ))}
+        </TextField>
+      )}
 
       <Grid container spacing={1.5} sx={{ mb: 2 }}>
         {[
@@ -405,6 +421,7 @@ export default function AdminFeesPage() {
       {recordFor && (
         <RecordPaymentDialog
           member={recordFor}
+          club={club}
           fullScreen={fullScreen}
           onClose={() => setRecordFor(null)}
           onSaved={(msg) => {
@@ -422,6 +439,7 @@ export default function AdminFeesPage() {
       {queue && (
         <ReminderQueue
           members={queue}
+          clubName={clubName}
           fullScreen={fullScreen}
           onSend={openReminder}
           onClose={() => setQueue(null)}
@@ -433,11 +451,13 @@ export default function AdminFeesPage() {
 
 function RecordPaymentDialog({
   member,
+  club,
   fullScreen,
   onClose,
   onSaved,
 }: {
   member: Member;
+  club: string;
   fullScreen: boolean;
   onClose: () => void;
   onSaved: (message: string) => void;
@@ -468,7 +488,7 @@ function RecordPaymentDialog({
       const res = await fetch("/api/admin/fees", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: member.userId, months, amount: Number(amount), method, utr: method === "upi" ? utr : undefined, startDate }),
+        body: JSON.stringify({ userId: member.userId, months, amount: Number(amount), method, utr: method === "upi" ? utr : undefined, startDate, club }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
@@ -566,11 +586,13 @@ function RecordPaymentDialog({
 // WhatsApp can't send in bulk for free, so walk through the list one tap per member.
 function ReminderQueue({
   members,
+  clubName,
   fullScreen,
   onSend,
   onClose,
 }: {
   members: Member[];
+  clubName: string;
   fullScreen: boolean;
   onSend: (m: Member) => void;
   onClose: () => void;
@@ -595,7 +617,7 @@ function ReminderQueue({
             <Typography fontWeight={700}>{m.name}</Typography>
             <Typography variant="body2" color="text.secondary">{statusOf(m).label}</Typography>
             <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "#e7fbe9", whiteSpace: "pre-wrap", fontSize: 14 }}>
-              {reminderText(m)}
+              {reminderText(m, clubName)}
             </Paper>
           </Stack>
         )}

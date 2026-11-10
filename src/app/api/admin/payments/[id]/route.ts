@@ -3,14 +3,24 @@ import { getServerSession } from 'next-auth';
 import mongoose from 'mongoose';
 import { authOptions } from '@/app/lib/authConfig';
 import { decidePayment, PaymentError } from '@/app/lib/payments.server';
+import { connectToMongoose } from '@/app/server/mongodb';
+import Payment from '@/app/models/Payment';
+import { isClubAdmin } from '@/app/lib/clubs';
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== 'admin') {
+  const role = session?.user?.role;
+  if (role !== 'admin' && !isClubAdmin(role)) {
     return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 });
   }
   if (!mongoose.isValidObjectId(params.id)) {
     return NextResponse.json({ success: false, error: 'Invalid payment id' }, { status: 400 });
+  }
+  if (isClubAdmin(role)) {
+    // a club admin may only decide their own club's membership-fee payments
+    await connectToMongoose();
+    const own = await (Payment.exists as any)({ _id: params.id, kind: 'subscription', club: session!.user.club });
+    if (!own) return NextResponse.json({ success: false, error: 'Payment not found' }, { status: 404 });
   }
 
   try {

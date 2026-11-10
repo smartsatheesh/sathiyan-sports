@@ -31,6 +31,9 @@ import {
   Settings,
   Storefront,
   Star,
+  Diversity3,
+  PersonAdd,
+  Public,
 } from "@mui/icons-material";
 
 interface Overview {
@@ -61,17 +64,29 @@ function Snapshot({ label, value, sub, href, tone }: { label: string; value: Rea
 }
 
 export default function AdminHome() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [o, setO] = useState<Overview | null>(null);
+  // A partner club's admin only handles their own club's members and fees
+  const clubAdmin = session?.user?.role === "club_admin";
+  const club = session?.user?.club;
 
   useEffect(() => {
+    if (status !== "authenticated" || clubAdmin) return;
     fetch("/api/admin/overview")
       .then((r) => r.json())
       .then((d) => d.success && setO(d))
       .catch(() => {});
-  }, []);
+  }, [status, clubAdmin]);
 
-  const sections: { title: string; desc: string; href: string; icon: React.ReactNode; badge?: number }[] = [
+  const clubSections: { title: string; desc: string; href: string; icon: React.ReactNode; badge?: number }[] = [
+    { title: "Membership fees", desc: "Who has paid, reminders", href: "/admin/fees", icon: <AccountBalanceWallet /> },
+    { title: "Verify payments", desc: "Confirm UPI payments", href: "/admin/payments", icon: <Payments /> },
+    { title: "Add a member", desc: "Register at the desk", href: `/register?club=${club}`, icon: <PersonAdd /> },
+    { title: "Club settings", desc: "Fees, UPI, WhatsApp", href: "/admin/club", icon: <Settings /> },
+    { title: "Club page", desc: "What members see", href: `/club/${club}`, icon: <Public /> },
+  ];
+
+  const ownerSections: { title: string; desc: string; href: string; icon: React.ReactNode; badge?: number }[] = [
     { title: "Bookings & members", desc: "All bookings, users, slot stats", href: "/admin/manage", icon: <Groups /> },
     { title: "Book a slot", desc: "Walk-in or phone booking", href: "/bookslot", icon: <EventAvailable /> },
     { title: "Membership fees", desc: "Who has paid, reminders", href: "/admin/fees", icon: <AccountBalanceWallet />, badge: o?.feesOverdue.count },
@@ -86,7 +101,9 @@ export default function AdminHome() {
     { title: "Reviews", desc: "Approve member reviews", href: "/admin/reviews", icon: <Star />, badge: o?.pendingReviews },
     { title: "Shop page", desc: "What customers see", href: "/shop", icon: <Storefront /> },
     { title: "Prices & settings", desc: "Fees, UPI, WhatsApp", href: "/admin/settings", icon: <Settings /> },
+    { title: "Partner clubs", desc: "Other clubs, club admins", href: "/admin/clubs", icon: <Diversity3 /> },
   ];
+  const sections = clubAdmin ? clubSections : ownerSections;
 
   const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
 
@@ -102,6 +119,7 @@ export default function AdminHome() {
         </Stack>
       </Box>
 
+      {!clubAdmin && (
       <Grid container spacing={1.5} sx={{ mb: 3 }}>
         {!o ? (
           [0, 1, 2, 3].map((i) => (
@@ -146,6 +164,7 @@ export default function AdminHome() {
           </>
         )}
       </Grid>
+      )}
 
       <Grid container spacing={1.5}>
         {sections.map((s) => (

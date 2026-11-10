@@ -1,4 +1,5 @@
 "use client";
+import { useClubOptions } from "../../hooks/useClubs";
 import { useSiteSettings } from "../../hooks/useSiteSettings";
 import { calculateMembershipPrice, programFor, programMonthlyFee } from "../../lib/pricing";
 import React, { useState, useEffect, useCallback, memo } from "react";
@@ -160,6 +161,7 @@ interface Booking {
 
 interface User {
   _id: string;
+  club?: string; // missing = Sathiyan
   champId?: string;
   name: string;
   email: string;
@@ -281,6 +283,9 @@ export default function AdminDashboard() {
   const [champTypeFilter, setChampTypeFilter] = useState('all');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
   const [preferredSportFilter, setPreferredSportFilter] = useState('all');
+  // Partner clubs' members are kept apart: Sathiyan's list by default, other clubs on demand
+  const [clubFilter, setClubFilter] = useState('sathiyan');
+  const clubOptions = useClubOptions();
   
   // Booking date filter states for alerts
   const [bookingStartDateFilter, setBookingStartDateFilter] = useState('');
@@ -354,7 +359,7 @@ export default function AdminDashboard() {
     if (status === "loading") return;
     
     if (!session) {
-      router.push("/auth/signin?callbackUrl=/admin");
+      router.push("/auth/login?callbackUrl=/admin");
       return;
     }
     
@@ -392,7 +397,9 @@ export default function AdminDashboard() {
         (preferredSportFilter === 'Other' && user.preferredSport && 
          !['Cricket', 'Football', 'Shuttle Badminton', 'Functions and Events', 'Body Zorb'].includes(user.preferredSport));
       
-      return matchesSearch && matchesChampType && matchesPaymentStatus && matchesSport;
+      const matchesClub = clubFilter === 'all' || (user.club || 'sathiyan') === clubFilter;
+
+      return matchesSearch && matchesChampType && matchesPaymentStatus && matchesSport && matchesClub;
     });
 
     // Then, sort the filtered users
@@ -420,7 +427,7 @@ export default function AdminDashboard() {
     }
 
     return filtered;
-  }, [users, userSearchTerm, champTypeFilter, paymentStatusFilter, preferredSportFilter, sortConfig]);
+  }, [users, userSearchTerm, champTypeFilter, paymentStatusFilter, preferredSportFilter, clubFilter, sortConfig]);
   
   // Apply pagination to filtered users with useMemo
   const paginatedUsers = React.useMemo(() => {
@@ -581,7 +588,7 @@ export default function AdminDashboard() {
   // Reset user page when filters change to avoid pagination errors
   useEffect(() => {
     setUserPage(0);
-  }, [userSearchTerm, champTypeFilter, paymentStatusFilter, preferredSportFilter]);
+  }, [userSearchTerm, champTypeFilter, paymentStatusFilter, preferredSportFilter, clubFilter]);
 
   // Auto-calculate subscription amount based on time-based pricing
   useEffect(() => {
@@ -1629,7 +1636,7 @@ export default function AdminDashboard() {
           {/* User Filters */}
           <Paper sx={{ p: 2, mb: 2 }}>
             <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={3}>
                 <TextField
                   fullWidth
                   label="Search Users"
@@ -1645,6 +1652,17 @@ export default function AdminDashboard() {
                     ),
                   }}
                 />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Club</InputLabel>
+                  <Select value={clubFilter} label="Club" onChange={(e) => setClubFilter(e.target.value)}>
+                    <MenuItem value="all">All clubs</MenuItem>
+                    {clubOptions.map((c) => (
+                      <MenuItem key={c.slug} value={c.slug}>{c.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12} md={2}>
                 <FormControl fullWidth size="small">
@@ -1694,7 +1712,7 @@ export default function AdminDashboard() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={2}>
+              <Grid item xs={12} md={1}>
                 <Button
                   fullWidth
                   variant="outlined"
@@ -1703,6 +1721,7 @@ export default function AdminDashboard() {
                     setChampTypeFilter('all');
                     setPaymentStatusFilter('all');
                     setPreferredSportFilter('all');
+                    setClubFilter('sathiyan');
                   }}
                   size="small"
                 >

@@ -8,6 +8,7 @@ import { findBlockingConflicts } from "@/app/lib/bookingConflicts";
 import { getISTDayStart } from "@/app/lib/istDate";
 import { normalizeUtr, isValidUtr } from "@/app/lib/upi";
 import { syncUserFeeStatus } from "@/app/lib/feeStatus.server";
+import { DEFAULT_CLUB } from "@/app/lib/clubs";
 
 export type PaymentKind = "booking" | "subscription" | "tournament";
 
@@ -23,6 +24,7 @@ interface Target {
   payerName: string;
   payerPhone: string;
   alreadyPaid: boolean;
+  club?: string; // membership fees belong to the member's club
 }
 
 // The amount always comes from the stored record, never from the browser.
@@ -47,6 +49,7 @@ async function loadTarget(kind: PaymentKind, refId: string): Promise<Target> {
       payerName: s.userName || "",
       payerPhone: s.userMobile || "",
       alreadyPaid: s.paymentStatus === "Paid",
+      club: s.club || DEFAULT_CLUB,
     };
   }
   const p = await (Player.findById as any)(refId).lean();

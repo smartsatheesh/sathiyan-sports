@@ -7,6 +7,7 @@ import { connectToMongoose } from '@/app/server/mongodb';
 import User from '@/app/models/User';
 import { JWT } from 'next-auth/jwt';
 import { Session } from 'next-auth';
+import { clubFilter, clubOf, DEFAULT_CLUB } from '@/app/lib/clubs';
 
 // Extend the default session and JWT types
 declare module "next-auth" {
@@ -18,6 +19,7 @@ declare module "next-auth" {
       image?: string | null;
       role?: string;
       mobile?: string;
+      club?: string;
     }
   }
   
@@ -28,6 +30,7 @@ declare module "next-auth" {
     image?: string | null;
     role?: string;
     mobile?: string;
+    club?: string;
   }
 }
 
@@ -36,6 +39,7 @@ declare module "next-auth/jwt" {
     role?: string;
     mobile?: string;
     userId?: string;
+    club?: string;
   }
 }
 
@@ -65,7 +69,8 @@ export const authOptions: AuthOptions = {
       credentials: {
         mobile: { label: 'Mobile Number', type: 'text' },
         password: { label: 'Password', type: 'password' },
-        champId: { label: 'Champion ID (if multiple users)', type: 'text' }
+        champId: { label: 'Champion ID (if multiple users)', type: 'text' },
+        club: { label: 'Club', type: 'text' }
       },
       async authorize(credentials) {
         console.log('🔐 Authorization attempt:', { 
@@ -84,12 +89,13 @@ export const authOptions: AuthOptions = {
           await connectToMongoose();
           
           console.log('🔍 Looking for users with mobile:', credentials.mobile);
-          // Find all users with this mobile number
-          const users = await (User.find as any)({ mobile: credentials.mobile });
+          // Members log in to their own club, so the same mobile can exist in two clubs
+          const club = String(credentials.club || DEFAULT_CLUB).toLowerCase();
+          const users = await (User.find as any)({ mobile: credentials.mobile, ...clubFilter(club) });
           
           if (!users || users.length === 0) {
             console.error('❌ No users found with mobile:', credentials.mobile);
-            throw new Error('No user found with this mobile number');
+            throw new Error('No member with this mobile number in the selected club');
           }
 
           console.log(`✅ Found ${users.length} user(s) with this mobile number`);
@@ -122,6 +128,7 @@ export const authOptions: AuthOptions = {
               email: selectedUser.email,
               role: selectedUser.role || 'customer',
               mobile: selectedUser.mobile,
+              club: clubOf(selectedUser),
             };
           }
 
@@ -166,6 +173,7 @@ export const authOptions: AuthOptions = {
             mobile: user.mobile,
             role: user.role,
             image: user.image || null,
+            club: clubOf(user),
           };
         } catch (error: any) {
           console.error('💥 Auth error:', error.message);
@@ -227,6 +235,7 @@ export const authOptions: AuthOptions = {
         token.role = user.role;
         token.mobile = user.mobile;
         token.userId = user.id;
+        token.club = user.club || DEFAULT_CLUB;
       }
       return token;
     },
@@ -236,6 +245,7 @@ export const authOptions: AuthOptions = {
       if (token) {
         session.user.role = token.role;
         session.user.mobile = token.mobile;
+        session.user.club = token.club || DEFAULT_CLUB;
         if (token.userId) {
           session.user.id = token.userId;
         }

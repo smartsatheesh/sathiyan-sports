@@ -3,7 +3,8 @@ import { connectToMongoose } from "@/app/server/mongodb";
 import User from "../../../../models/User";
 import Booking from "../../../../models/Booking";
 import Subscription from "../../../../models/Subscription";
-import { getSiteSettings } from "@/app/lib/settings.server";
+import { getClubSettings } from "@/app/lib/clubs.server";
+import { clubOf } from "@/app/lib/clubs";
 import { calculateMembershipPrice } from "@/app/lib/pricing";
 
 // GET - Fetch a specific user
@@ -46,9 +47,11 @@ export async function GET(req: NextRequest, { params }: { params: { userId: stri
 export async function PUT(req: NextRequest, { params }: { params: { userId: string } }) {
   try {
     await connectToMongoose();
-    const siteSettings = await getSiteSettings();
 
     const { userId } = params;
+    // Fees follow the member's own club (partner clubs have their own programmes and prices)
+    const owner = await (User.findById as any)(userId).select("club").lean();
+    const siteSettings = await getClubSettings(clubOf(owner));
     const body = await req.json();
 
     if (!userId) {

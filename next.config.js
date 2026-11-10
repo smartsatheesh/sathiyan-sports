@@ -18,6 +18,8 @@ const nextConfig = {
   async redirects() {
     return [
       // Old fee screens were merged into Admin → Membership Fees
+      // Sathiyan is the default club, so its "club page" is the homepage
+      { source: "/club/sathiyan", destination: "/", permanent: false },
       { source: "/admin/subscriptions", destination: "/admin/fees", permanent: false },
       { source: "/admin/fee-collection", destination: "/admin/fees", permanent: false },
       { source: "/admin/subscription-management", destination: "/admin/fees", permanent: false },

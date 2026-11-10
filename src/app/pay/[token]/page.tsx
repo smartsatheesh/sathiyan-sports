@@ -25,6 +25,7 @@ interface Summary {
   nextStart: string;
   awaitingVerification: boolean;
   options: { months: number; amount: number }[];
+  club: { slug: string; name: string; upi: { vpa: string; payeeName: string }; whatsappNumber: string } | null;
 }
 
 const fmt = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
@@ -74,6 +75,9 @@ export default function MemberPayPage({ params }: { params: { token: string } })
       <Typography color="text.secondary" sx={{ mb: 3 }}>
         {summary.program} · {summary.champType === "kids" ? "Kids" : "Adult"} · {summary.champId}
       </Typography>
+      {summary.club && summary.club.slug !== "sathiyan" && (
+        <Typography variant="body2" fontWeight={700} sx={{ mt: -2, mb: 3 }}>{summary.club.name}</Typography>
+      )}
 
       <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
         {summary.paidTill ? (
@@ -121,14 +125,21 @@ export default function MemberPayPage({ params }: { params: { token: string } })
             Covers {fmt(summary.nextStart)} to {fmt(until.toISOString())}
           </Typography>
 
-          <Button fullWidth size="large" variant="contained" sx={{ py: 1.5 }} onClick={() => setPaying(true)}>
-            Pay ₹{selected.amount.toLocaleString("en-IN")} by UPI
-          </Button>
+          {summary.club && !summary.club.upi.vpa ? (
+            // the club hasn't added its UPI ID yet
+            <Alert severity="info">Please pay ₹{selected.amount.toLocaleString("en-IN")} at the {summary.club.name} desk.</Alert>
+          ) : (
+            <Button fullWidth size="large" variant="contained" sx={{ py: 1.5 }} onClick={() => setPaying(true)}>
+              Pay ₹{selected.amount.toLocaleString("en-IN")} by UPI
+            </Button>
+          )}
         </>
       )}
 
       <Stack sx={{ mt: 4 }} alignItems="center">
-        <Typography variant="caption" color="text.secondary">Sathiyan Sports · www.sathiyansports.fit</Typography>
+        <Typography variant="caption" color="text.secondary">
+          {summary.club && summary.club.slug !== "sathiyan" ? `${summary.club.name} · powered by ` : ""}Sathiyan Sports · www.sathiyansports.fit
+        </Typography>
       </Stack>
 
       <UpiPaymentDialog
@@ -136,6 +147,7 @@ export default function MemberPayPage({ params }: { params: { token: string } })
         amount={selected.amount}
         note={`Fee ${summary.champId} ${months}m`}
         title="Pay membership fee"
+        payee={summary.club ? { upi: summary.club.upi, whatsappNumber: summary.club.whatsappNumber } : undefined}
         submitUtr={async (utr) => {
           const res = await fetch("/api/fees/pay", {
             method: "POST",

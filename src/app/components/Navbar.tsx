@@ -73,13 +73,29 @@ const Navbar = () => {
   const isAuthenticated = status === "authenticated";
   const user = session?.user;
   const isAdmin = user?.role === "admin";
+  const isClubAdmin = user?.role === "club_admin";
+  // Members of partner clubs get their club's page instead of Sathiyan's bookings
+  const partnerClub = user?.club && user.club !== "sathiyan" ? user.club : null;
 
   // Profile menu items
-  const profileMenuItems = [
-    { label: "Profile", href: "/profile", icon: <Person /> },
-    { label: "My Bookings", href: "/my-bookings", icon: <BookOnline /> },
-    { label: "My AI Plan", href: "/coach", icon: <Dashboard /> },
-  ];
+  const profileMenuItems = partnerClub
+    ? [
+        { label: "My club", href: `/club/${partnerClub}`, icon: <Dashboard /> },
+        { label: "Profile", href: "/profile", icon: <Person /> },
+      ]
+    : [
+        { label: "Profile", href: "/profile", icon: <Person /> },
+        { label: "My Bookings", href: "/my-bookings", icon: <BookOnline /> },
+        { label: "My AI Plan", href: "/coach", icon: <Dashboard /> },
+      ];
+
+  if (isClubAdmin) {
+    profileMenuItems.unshift(
+      { label: "Club admin", href: "/admin", icon: <Dashboard /> },
+      { label: "Membership Fees", href: "/admin/fees", icon: <Payments /> },
+      { label: "Verify Payments", href: "/admin/payments", icon: <Payments /> }
+    );
+  }
 
   if (isAdmin) {
     profileMenuItems.unshift(
@@ -232,10 +248,10 @@ const Navbar = () => {
               </Link>
 
               {/* Admin Dashboard - Admin only */}
-              {isAdmin && (
+              {(isAdmin || isClubAdmin) && (
                 <Link href="/admin" passHref>
                   <Button sx={{ color: "#fff", ml: 2 }}>
-                    🛠️ Admin
+                    🛠️ {isClubAdmin ? "Club admin" : "Admin"}
                   </Button>
                 </Link>
               )}

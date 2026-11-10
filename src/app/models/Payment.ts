@@ -10,6 +10,7 @@ const paymentSchema = new mongoose.Schema(
       required: true,
     },
     refId: { type: mongoose.Schema.Types.ObjectId, required: true }, // Booking / Subscription / Player id
+    club: { type: String }, // membership fees: the member's club slug; missing = Sathiyan
     reference: { type: String, default: "" }, // human-readable (booking ref, champId, tournament name)
     payerName: { type: String, default: "" },
     payerPhone: { type: String, default: "" },
@@ -32,6 +33,7 @@ const paymentSchema = new mongoose.Schema(
 paymentSchema.index({ utr: 1 }, { unique: true, partialFilterExpression: { utr: { $type: "string" } } });
 paymentSchema.index({ status: 1, createdAt: -1 });
 paymentSchema.index({ kind: 1, refId: 1 });
+paymentSchema.index({ club: 1, status: 1 });
 
 const Payment = mongoose.models.Payment || mongoose.model("Payment", paymentSchema);
 

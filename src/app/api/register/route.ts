@@ -6,7 +6,8 @@ import Subscription from "@/app/models/Subscription";
 import emailService from "@/app/lib/emailService";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authConfig";
-import { getSiteSettings } from "@/app/lib/settings.server";
+import { clubExists, getClubDoc, getClubSettings } from "@/app/lib/clubs.server";
+import { DEFAULT_CLUB, isClubAdmin, isDefaultClub } from "@/app/lib/clubs";
 import { calculateMembershipPrice, programFor } from "@/app/lib/pricing";
 
 // Utility function to normalize time slot formats
@@ -31,6 +32,11 @@ export async function POST(req: Request) {
     });
 
     // Validate required fields
+    // Partner clubs have no courts or slots, so their members pick a programme instead of a sport
+    const club = String(body.club || DEFAULT_CLUB).toLowerCase();
+    if (!(await clubExists(club))) {
+      return NextResponse.json({ success: false, message: "Please choose a club" }, { status: 400 });
+    }
     const requiredFields = [
       "name",
       "email",
@@ -38,7 +44,7 @@ export async function POST(req: Request) {
       "gender", 
       "champType",
       "subscribed",
-      "preferredSport",
+      ...(isDefaultClub(club) ? ["preferredSport"] : []),
       "subscriptionType",
       "mode"
     ];
@@ -86,13 +92,15 @@ export async function POST(req: Request) {
 
     // Only an admin (front-desk registration) may assign roles or mark a subscription as paid
     const session = await getServerSession(authOptions);
-    const isAdmin = session?.user?.role === "admin";
+    // A club admin registering at their own desk counts as admin for their club (members only)
+    const isOwner = session?.user?.role === "admin";
+    const isAdmin = isOwner || (isClubAdmin(session?.user?.role) && session?.user?.club === club);
     const allowedRoles = ["customer", "coach", "admin"];
-    const role = isAdmin && allowedRoles.includes(body.role) ? body.role : "customer";
+    const role = isOwner && allowedRoles.includes(body.role) ? body.role : "customer";
     const markPaid = isAdmin && body.subscribed === "yes";
 
-    // Membership price comes from the owner's settings; admins may override at the desk
-    const settings = await getSiteSettings();
+    // Membership price comes from the club's own fees; admins may override at the desk
+    const settings = await getClubSettings(club);
     const adminAmount = Number(body.subscriptionAmount);
     const subscriptionAmount = isAdmin && Number.isFinite(adminAmount) && adminAmount >= 0
       ? adminAmount
@@ -102,7 +110,8 @@ export async function POST(req: Request) {
     const hashedPassword = await bcrypt.hash(body.password, 12);
 
     // Generate unique ChampID for new registration
-    const champId = await generateNextChampId();
+    const clubDoc = isDefaultClub(club) ? null : await getClubDoc(club);
+    const champId = await generateNextChampId(clubDoc?.champIdPrefix || "S");
     
     // Ensure ChampID was generated successfully
     if (!champId) {
@@ -115,6 +124,7 @@ export async function POST(req: Request) {
     // Create new user with authentication fields
     const userData = {
       champId,
+      ...(!isDefaultClub(club) && { club }),
       name: body.name,
       email: body.email,
       mobile: body.mobile,
@@ -122,7 +132,7 @@ export async function POST(req: Request) {
       gender: body.gender,
       champType: body.champType,
       subscribed: body.subscribed,
-      preferredSport: body.preferredSport,
+      ...(body.preferredSport && { preferredSport: body.preferredSport }),
       coachingProgram: programFor(settings, body).key,
       // Set preferred slots as optional - empty by default, users can update after payment
       // Only set selectedCourt for badminton players
@@ -227,6 +237,7 @@ export async function POST(req: Request) {
 
         const subscriptionData = {
           userId: user._id,
+          ...(!isDefaultClub(club) && { club }),
           champId: user.champId,
           userName: user.name,
           userEmail: user.email,
@@ -289,7 +300,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         success: true,
-        message: "Registration successful! Welcome to Sathiyan Sports.",
+        message: `Registration successful! Welcome to ${clubDoc?.name || "Sathiyan Sports"}.`,
         user: {
           id: user._id,
           champId: user.champId,

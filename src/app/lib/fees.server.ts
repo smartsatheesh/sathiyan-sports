@@ -4,7 +4,8 @@ import { connectToMongoose } from "@/app/server/mongodb";
 import Subscription from "@/app/models/Subscription";
 import User from "@/app/models/User";
 import Payment from "@/app/models/Payment";
-import { getSiteSettings } from "@/app/lib/settings.server";
+import { getClubSettings, getPublicClub } from "@/app/lib/clubs.server";
+import { clubFilter, clubOf, DEFAULT_CLUB } from "@/app/lib/clubs";
 import { PaymentError, submitPaymentProof } from "@/app/lib/payments.server";
 import { getISTTodayStart } from "@/app/lib/istDate";
 import {
@@ -110,17 +111,20 @@ function addMonths(date: Date, months: number): Date {
 
 // ----- the fee board -----
 
-export async function getFeeBoard(): Promise<{ members: FeeMember[]; collectedThisMonth: number }> {
+/** Fee board for one club (each club has its own members, prices and collections). */
+export async function getFeeBoard(club: string = DEFAULT_CLUB): Promise<{ members: FeeMember[]; collectedThisMonth: number }> {
   await connectToMongoose();
-  const settings = await getSiteSettings();
+  const settings = await getClubSettings(club);
   const today = getISTTodayStart();
 
-  const users = await (User.find as any)({ role: "customer", subscribed: { $in: ["yes", "Yes"] } })
+  const users = await (User.find as any)({ role: "customer", subscribed: { $in: ["yes", "Yes"] }, ...clubFilter(club) })
     .select("champId name mobile phone champType preferredSport coachingProgram gender preferredTimeSlot mode feeReminderAt")
     .lean();
+  // Periods are matched by member, so Sathiyan's older periods (no club field) still count
+  const userIds = users.map((u: any) => u._id);
 
   const latestPaid = await (Subscription.aggregate as any)([
-    { $match: { paymentStatus: "Paid" } },
+    { $match: { paymentStatus: "Paid", userId: { $in: userIds } } },
     { $sort: { endDate: -1 } },
     {
       $group: {
@@ -177,7 +181,7 @@ export async function getFeeBoard(): Promise<{ members: FeeMember[]; collectedTh
 
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const [collected] = await (Subscription.aggregate as any)([
-    { $match: { paymentStatus: "Paid", lastPaymentDate: { $gte: monthStart } } },
+    { $match: { paymentStatus: "Paid", lastPaymentDate: { $gte: monthStart }, userId: { $in: userIds } } },
     { $group: { _id: null, total: { $sum: "$amount" } } },
   ]);
 
@@ -204,6 +208,7 @@ async function buildPeriod(user: any, months: number, amount: number, startDate?
 
   return {
     userId: user._id,
+    club: clubOf(user),
     champId: user.champId,
     userName: user.name,
     userEmail: user.email || "not-provided",
@@ -233,12 +238,14 @@ export async function recordFeePayment(opts: {
   utr?: string;
   startDate?: string;
   adminName: string;
+  /** Club the admin is acting for; members of other clubs are refused. */
+  club: string;
 }) {
   await connectToMongoose();
   const user = await (User.findById as any)(opts.userId).lean();
-  if (!user) throw new PaymentError("Member not found", 404);
+  if (!user || clubOf(user) !== opts.club) throw new PaymentError("Member not found", 404);
 
-  const settings = await getSiteSettings();
+  const settings = await getClubSettings(opts.club);
   const amount = Number.isFinite(opts.amount) && opts.amount! >= 0 ? opts.amount! : feeFor(settings, user, opts.months);
 
   let utr: string | undefined;
@@ -264,6 +271,7 @@ export async function recordFeePayment(opts: {
   await (Payment.create as any)({
     kind: "subscription",
     refId: sub._id,
+    club: opts.club,
     reference: user.champId,
     payerName: user.name,
     payerPhone: user.mobile || user.phone || "",
@@ -296,7 +304,7 @@ export async function submitMemberFee(userId: string, months: number, rawUtr: st
   const user = await (User.findById as any)(userId).lean();
   if (!user) throw new PaymentError("Member not found", 404);
 
-  const settings = await getSiteSettings();
+  const settings = await getClubSettings(clubOf(user));
   const amount = feeFor(settings, user, months);
   const period = await buildPeriod(user, months, amount);
   const sub = await (Subscription.create as any)({
@@ -318,11 +326,12 @@ export async function submitMemberFee(userId: string, months: number, rawUtr: st
 export async function getMemberFeeSummary(userId: string) {
   await connectToMongoose();
   const user = await (User.findById as any)(userId)
-    .select("name champId champType gender preferredTimeSlot mode subscribed preferredSport coachingProgram")
+    .select("name champId champType gender preferredTimeSlot mode subscribed preferredSport coachingProgram club")
     .lean();
   if (!user) return null;
 
-  const settings = await getSiteSettings();
+  const club = await getPublicClub(clubOf(user));
+  const settings = await getClubSettings(clubOf(user));
   const paidTill = await latestPaidTill(userId);
   const pending = await (Subscription.findOne as any)({ userId, status: "pending", paymentStatus: "Pending" }).select("_id amount").lean();
   const awaiting = pending ? await (Payment.exists as any)({ kind: "subscription", refId: pending._id, status: "submitted" }) : null;
@@ -338,5 +347,7 @@ export async function getMemberFeeSummary(userId: string) {
     nextStart: nextPeriodStart(paidTill).toISOString(),
     awaitingVerification: Boolean(awaiting),
     options: [1, 3, 6, 12].map((m) => ({ months: m, amount: feeFor(settings, user, m) })),
+    // fees go to the member's own club
+    club: club ? { slug: club.slug, name: club.name, upi: club.upi, whatsappNumber: club.whatsappNumber } : null,
   };
 }

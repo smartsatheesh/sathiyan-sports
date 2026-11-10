@@ -18,7 +18,11 @@ import {
   Grid,
   Card,
   CardContent,
-  CircularProgress
+  CircularProgress,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import {
   Visibility,
@@ -30,6 +34,8 @@ import {
   Login as LoginIcon
 } from '@mui/icons-material';
 import Link from 'next/link';
+import { rememberClub, rememberedClub, useClubOptions } from '../../hooks/useClubs';
+import { DEFAULT_CLUB, isDefaultClub } from '../../lib/clubs';
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -47,6 +53,14 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/';
+  const explicitCallback = searchParams.has('callbackUrl');
+
+  // Members sign in to their own club (default Sathiyan): ?club= from a club page, else the last one used
+  const clubs = useClubOptions();
+  const [club, setClub] = useState(DEFAULT_CLUB);
+  useEffect(() => {
+    setClub(searchParams.get('club') || rememberedClub());
+  }, [searchParams]);
 
   // Check if user is already logged in
   useEffect(() => {
@@ -97,6 +111,7 @@ export default function LoginPage() {
         mobile: formData.mobile,
         password: formData.password,
         champId: formData.champId || '',
+        club,
         redirect: false,
       });
 
@@ -121,8 +136,18 @@ export default function LoginPage() {
           setError(result.error);
         }
       } else if (result?.ok) {
-        console.log('Login successful, redirecting to:', callbackUrl);
-        router.push(callbackUrl);
+        rememberClub(club);
+        // Club admins go to their fee board and partner-club members to their club's page,
+        // unless they were sent here from a specific page
+        const session: any = await getSession();
+        const destination = explicitCallback
+          ? callbackUrl
+          : session?.user?.role === 'club_admin'
+            ? '/admin/fees'
+            : !isDefaultClub(session?.user?.club)
+              ? `/club/${session.user.club}`
+              : callbackUrl;
+        router.push(destination);
       } else {
         setError('Login failed. Please check your credentials.');
       }
@@ -182,7 +207,7 @@ export default function LoginPage() {
               variant="body1" 
               className="login-subtitle"
             >
-              Sign in to access Sathiyan Sports Club
+              Sign in to {clubs.find((c) => c.slug === club)?.name || 'Sathiyan Sports Club'}
             </Typography>
           </Box>
 
@@ -305,6 +330,24 @@ export default function LoginPage() {
 
           {/* Credentials Login Form */}
           <Box component="form" onSubmit={handleSubmit}>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Club</InputLabel>
+              <Select
+                value={clubs.some((c) => c.slug === club) ? club : DEFAULT_CLUB}
+                label="Club"
+                onChange={(e) => {
+                  setClub(String(e.target.value));
+                  setError('');
+                }}
+              >
+                {clubs.map((c) => (
+                  <MenuItem key={c.slug} value={c.slug}>
+                    {c.name}
+                    {c.city ? ` · ${c.city}` : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             <TextField
               fullWidth
               label="Mobile Number"

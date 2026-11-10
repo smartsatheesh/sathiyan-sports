@@ -5,7 +5,8 @@ import { checkRateLimit } from "@/app/lib/rateLimit";
 // Central access control. Route handlers may still do their own checks, but every
 // sensitive path is guarded here first so a forgotten check can't expose data.
 
-type Access = "public" | "admin" | "staff" | "user";
+// clubAdmin = owner admin or a partner club's admin; those routes scope data to the club themselves
+type Access = "public" | "admin" | "clubAdmin" | "staff" | "user";
 
 interface Rule {
   pattern: RegExp;
@@ -24,6 +25,7 @@ const API_RULES: Rule[] = [
   { pattern: /^\/api\/attendance\/record$/, access: "staff" },
   { pattern: /^\/api\/attendance\//, access: "admin" },
 
+  { pattern: /^\/api\/admin\/(fees|payments|club)(\/|$)/, access: "clubAdmin" },
   { pattern: /^\/api\/admin(\/|$)/, access: "admin" },
   // Booking lookups expose customer contact details; payment proof goes through /api/payments
   { pattern: /^\/api\/bookings\/(?!simple-create$)[^/]+$/, access: "admin" },
@@ -43,6 +45,8 @@ const API_RULES: Rule[] = [
 ];
 
 const PAGE_RULES: Rule[] = [
+  { pattern: /^\/admin\/?$/, access: "clubAdmin" },
+  { pattern: /^\/admin\/(fees|payments|club)(\/|$)/, access: "clubAdmin" },
   { pattern: /^\/admin(\/|$)/, access: "admin" },
   { pattern: /^\/expenses(\/|$)/, access: "admin" },
   { pattern: /^\/subscription$/, access: "admin" },
@@ -60,6 +64,7 @@ function isAllowed(access: Access, role: string | undefined): boolean {
   if (!role) return false;
   if (access === "user") return true;
   if (access === "staff") return role === "admin" || role === "coach";
+  if (access === "clubAdmin") return role === "admin" || role === "club_admin";
   return role === "admin";
 }
 
@@ -67,7 +72,12 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isApi = pathname.startsWith("/api/");
 
-  if (isApi) {
+  // Admins and club admins register members at the desk, many in a row from one phone
+  const deskRegistration =
+    pathname === "/api/register" &&
+    ["admin", "club_admin"].includes(String((await getToken({ req, secret: process.env.NEXTAUTH_SECRET }))?.role || ""));
+
+  if (isApi && !deskRegistration) {
     const ip = req.ip || req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
     const { limited, retryAfterSec } = checkRateLimit(pathname, req.method, ip);
     if (limited) {

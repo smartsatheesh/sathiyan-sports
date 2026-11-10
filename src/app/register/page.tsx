@@ -1,6 +1,6 @@
 // pages/register.tsx
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Box,
   Container,
@@ -35,7 +35,8 @@ import {
 import { addMonths, addYears } from "date-fns";
 import Link from "next/link";
 import RegistrationSuccessPopup from "../components/RegistrationSuccessPopup";
-import { useSiteSettings } from "../hooks/useSiteSettings";
+import { rememberClub, rememberedClub, useClub, useClubOptions } from "../hooks/useClubs";
+import { DEFAULT_CLUB, isDefaultClub } from "../lib/clubs";
 import { calculateMembershipPrice, membershipPlanFor, programFor, programMonthlyFee, SUBSCRIPTION_MONTHS, type SubscriptionType } from "../lib/pricing";
 
 const TIME_SLOTS = [
@@ -66,7 +67,15 @@ const TIME_SLOTS = [
 ];
 
 export default function RegisterPage() {
-  const { settings } = useSiteSettings();
+  // Which club the member joins: ?club=<slug> (from a club's page), else the last one used here
+  const [club, setClub] = useState(DEFAULT_CLUB);
+  useEffect(() => {
+    setClub(new URLSearchParams(window.location.search).get("club") || rememberedClub());
+  }, []);
+  const clubs = useClubOptions();
+  const { club: clubInfo, settings } = useClub(club);
+  // Partner clubs have no courts or time slots: members just pick a coaching programme
+  const isHomeClub = isDefaultClub(club);
   const flexiblePerMonth = settings.membership.flexibleSurchargePerMonth;
 
   // Tuition: one price per person per month (owner-editable in Admin → Settings)
@@ -299,11 +308,11 @@ export default function RegisterPage() {
       errors.gender = 'Please select your gender';
     }
     
-    if (!formData.preferredSport) {
+    if (isHomeClub && !formData.preferredSport) {
       errors.preferredSport = 'Please select your preferred sport';
     }
     
-    if (!formData.preferredTimeSlot) {
+    if (isHomeClub && !formData.preferredTimeSlot) {
       errors.preferredTimeSlot = 'Please select your preferred time slot';
     }
     
@@ -320,7 +329,7 @@ export default function RegisterPage() {
     }
     
     // Make preferred slots mandatory
-    if (!formData.preferredTimeSlot) {
+    if (isHomeClub && !formData.preferredTimeSlot) {
       errors.preferredTimeSlot = 'Please select a preferred time slot';
     }
 
@@ -365,6 +374,8 @@ export default function RegisterPage() {
         },
         body: JSON.stringify({
           ...formData,
+          club,
+          mode: isHomeClub ? formData.mode : "fixed",
           coachingProgram: programFor(settings, formData).key,
           subscriptionAmount,
           subscriptionEndDate,
@@ -385,7 +396,8 @@ export default function RegisterPage() {
       console.log('✅ Registration successful!');
       
       const champIdMessage = data.user?.champId ? ` Your Champion ID is: ${data.user.champId}` : '';
-      setSuccess(`Registration successful! Welcome to Sathiyan Sports.${champIdMessage} You can now login with your mobile number and password.`);
+      rememberClub(club);
+      setSuccess(`Registration successful! Welcome to ${clubInfo?.name || "Sathiyan Sports"}.${champIdMessage} You can now login with your mobile number and password.`);
       setShowSuccessPopup(true);
       setFormData({
         name: "",
@@ -433,6 +445,19 @@ export default function RegisterPage() {
         >
           Register for Membership
         </Typography>
+
+        {/* Club first: it decides the programmes and fees below */}
+        <FormControl fullWidth margin="normal">
+          <InputLabel>Club</InputLabel>
+          <Select value={clubs.some((c) => c.slug === club) ? club : DEFAULT_CLUB} label="Club" onChange={(e) => setClub(String(e.target.value))}>
+            {clubs.map((c) => (
+              <MenuItem key={c.slug} value={c.slug}>
+                {c.name}
+                {c.city ? ` · ${c.city}` : ""}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -701,6 +726,8 @@ export default function RegisterPage() {
             />
           </Box>
 
+          {isHomeClub && (
+          <>
           {/* Sport Selection */}
           <FormControl fullWidth margin="normal" required error={!!fieldErrors.preferredSport}>
             <InputLabel data-field="preferredSport">Preferred Sport</InputLabel>
@@ -842,6 +869,9 @@ export default function RegisterPage() {
             </>
           )}
 
+          </>
+          )}
+
           {/* Coaching programme — defaults to the programme for the chosen sport */}
           <FormControl fullWidth margin="normal">
             <InputLabel>Coaching programme</InputLabel>
@@ -857,6 +887,7 @@ export default function RegisterPage() {
           </FormControl>
 
           {/* Mode Field - Moved before subscription type */}
+          {isHomeClub && (
           <FormControl fullWidth margin="normal" required error={!!fieldErrors.mode}>
             <InputLabel data-field="mode">Mode</InputLabel>
             <Select
@@ -880,6 +911,7 @@ export default function RegisterPage() {
               </Typography>
             )}
           </FormControl>
+          )}
 
           {/* Subscription Type Selection */}
           <FormControl fullWidth margin="normal" required error={!!fieldErrors.subscriptionType}>

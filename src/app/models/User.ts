@@ -31,7 +31,15 @@ const userSchema = new mongoose.Schema({
   role: {
     type: String,
     default: "customer",
-    enum: ["customer", "admin", "coach"],
+    // club_admin manages members and fees of their own club only
+    enum: ["customer", "admin", "coach", "club_admin"],
+  },
+  // Club the member belongs to (slug). Missing = Sathiyan, the default club, so the
+  // existing members need no migration.
+  club: {
+    type: String,
+    lowercase: true,
+    trim: true,
   },
   provider: {
     type: String,
@@ -241,6 +249,7 @@ const userSchema = new mongoose.Schema({
 
 // Add indexes for performance (only champId has unique constraint now)
 userSchema.index({ role: 1 });
+userSchema.index({ club: 1, mobile: 1 });
 // Note: champId index is already created by the unique: true option above
 
 // Update timestamp on save
@@ -251,25 +260,19 @@ userSchema.pre('save', function(next) {
 
 const User = mongoose.models.User || mongoose.model("User", userSchema);
 
-// Utility function to generate next ChampID (separate from schema)
-export async function generateNextChampId(): Promise<string> {
+// Utility function to generate next ChampID (separate from schema).
+// Sathiyan uses S25911, S25912…; partner clubs use their own prefix (e.g. MK1001) so IDs never collide.
+export async function generateNextChampId(prefix = 'S'): Promise<string> {
+  const start = prefix === 'S' ? 25911 : 1001;
   try {
-    const lastUser = await (User as any).findOne(
-      { champId: { $regex: /^S\d+$/ } },
-      {},
-      { sort: { champId: -1 } }
-    );
-    
-    if (!lastUser || !lastUser.champId) {
-      return 'S25911'; // Starting ChampID
-    }
-    
-    const lastNumber = parseInt(lastUser.champId.substring(1)); // Remove 'S' prefix
-    const nextNumber = lastNumber + 1;
-    return `S${nextNumber}`;
+    const pattern = new RegExp(`^${prefix}\\d+$`);
+    const users = await (User as any).find({ champId: { $regex: pattern } }).select('champId').lean();
+    // Compare numerically ("S100000" sorts before "S99999" as a string)
+    const highest = users.reduce((max: number, u: any) => Math.max(max, parseInt(String(u.champId).slice(prefix.length), 10) || 0), 0);
+    return `${prefix}${highest ? highest + 1 : start}`;
   } catch (error) {
     console.error('Error generating ChampID:', error);
-    return 'S25911'; // Fallback to starting ID
+    return `${prefix}${start}`; // Fallback to starting ID
   }
 }
 

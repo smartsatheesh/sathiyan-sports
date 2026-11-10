@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ISubscription extends Document {
   userId: mongoose.Types.ObjectId;
+  club?: string; // club slug; missing = Sathiyan
   champId: string;
   userName: string;
   userEmail: string;
@@ -44,6 +45,11 @@ const subscriptionSchema = new Schema<ISubscription>({
     type: Schema.Types.ObjectId,
     ref: 'User',
     required: true,
+    index: true
+  },
+  // Club the member belongs to (slug); missing = Sathiyan, the default club
+  club: {
+    type: String,
     index: true
   },
   champId: {
