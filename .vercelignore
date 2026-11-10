@@ -1,0 +1,13 @@
+# Never upload: a logged-in WhatsApp Web session and local secrets
+whatsapp-session/
+.env
+.env.*
+
+# Local build output and tooling
+.next/
+node_modules/
+tsconfig.tsbuildinfo
+.vercel/
+
+# Old 3D models no page loads (the hero is drawn procedurally)
+public/models/
