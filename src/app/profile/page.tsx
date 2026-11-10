@@ -306,8 +306,8 @@ export default function ProfilePage() {
   }
 
   return (
-    <Container maxWidth="md" sx={{ mt: 8, mb: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 4 }}>
+    <Container maxWidth="md" sx={{ mt: { xs: 3, md: 8 }, mb: 4 }}>
+      <Typography variant="h4" component="h1" gutterBottom sx={{ mb: { xs: 2, md: 4 } }}>
         My Profile
       </Typography>
 
@@ -330,7 +330,7 @@ export default function ProfilePage() {
         <ReviewForm compact />
       </Paper>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={{ xs: 2, sm: 3 }}>
         {/* Profile Information */}
         <Grid item xs={12} md={8}>
           <Paper elevation={2} sx={{ p: 3 }}>

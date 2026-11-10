@@ -56,8 +56,11 @@ export const SLOT_HOURS = 0.5;
  * v3: owner's 2026-11 price list (turf blocks, nets, ₹300 badminton, holidays).
  * v4: coaching priced per programme (badminton/football/cricket/fitness) instead of one tuition fee.
  * v5: separate adult/veteran price per programme (₹1,200 for sport coaching).
+ * v6: Karate and Silambam join the ₹600 fitness programme.
  */
-export const PRICING_VERSION = 5;
+export const PRICING_VERSION = 6;
+
+const FITNESS_NAME = "Yoga / Taekwondo / Fitness / Karate / Silambam";
 
 export interface Extra {
   key: string; // stable id, e.g. "ball"
@@ -115,7 +118,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
       { key: "badminton", name: "Badminton coaching", monthly: 2000, adultMonthly: 1200, sport: "Shuttle Badminton" },
       { key: "football", name: "Football coaching", monthly: 1500, adultMonthly: 1200, sport: "Football" },
       { key: "cricket", name: "Cricket coaching", monthly: 1500, adultMonthly: 1200, sport: "Cricket" },
-      { key: "fitness", name: "Yoga / Taekwondo / Fitness", monthly: 600, adultMonthly: 600 },
+      { key: "fitness", name: FITNESS_NAME, monthly: 600, adultMonthly: 600 },
     ],
     flexibleSurchargePerMonth: 0,
   },
@@ -155,12 +158,14 @@ export function withDefaults(stored: Partial<SiteSettings> | null | undefined): 
       ? {
           ...DEFAULT_SETTINGS.membership,
           ...s.membership,
-          // v4 had no adult price: take the default for known programmes
-          programs: s.membership.programs.map((p: CoachingProgram) =>
-            p.adultMonthly !== undefined
-              ? p
-              : { ...p, adultMonthly: DEFAULT_SETTINGS.membership.programs.find((d) => d.key === p.key)?.adultMonthly ?? p.monthly }
-          ),
+          programs: s.membership.programs.map((saved: CoachingProgram) => {
+            // v4 had no adult price: take the default for known programmes
+            const p = saved.adultMonthly !== undefined
+              ? saved
+              : { ...saved, adultMonthly: DEFAULT_SETTINGS.membership.programs.find((d) => d.key === saved.key)?.adultMonthly ?? saved.monthly };
+            // before v6 the fitness programme didn't list Karate and Silambam (keep any custom name)
+            return version < 6 && p.key === "fitness" && p.name === "Yoga / Taekwondo / Fitness" ? { ...p, name: FITNESS_NAME } : p;
+          }),
         }
       : DEFAULT_SETTINGS.membership,
     expenses: {
