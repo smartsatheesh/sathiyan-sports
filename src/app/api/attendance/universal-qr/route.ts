@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
+import { SITE_URL } from '@/app/lib/site';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    // A link to the check-in page, so any phone camera opens it straight away.
-    // Built from the address this site is served on — reprint the code after a domain change.
-    const checkInUrl = `${new URL(req.url).origin}/attendance?checkin=1`;
+    // A link to the check-in page, so any phone camera opens it straight away. Uses the
+    // site's public address (behind Cloud Run's proxy the request URL is the internal
+    // 0.0.0.0:8080) — reprint the code after a domain change.
+    const base = (process.env.NEXTAUTH_URL || SITE_URL).replace(/\/$/, '');
+    const checkInUrl = `${base}/attendance?checkin=1`;
 
     // Generate QR code using QR Server API (free)
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(checkInUrl)}&format=png&margin=15&bgcolor=FFFFFF&color=000000`;
