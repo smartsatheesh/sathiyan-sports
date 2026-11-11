@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "migrate:cricket-slots:dry": "node -r dotenv/config src/scripts/migrate-cricket-booking-slots.js",
+    "deploy:gcp": "gcloud run deploy sathiyan-sports --source . --region asia-southeast1 --project inductive-voice-477212-d8",
     "migrate:cricket-slots:apply": "node -r dotenv/config src/scripts/migrate-cricket-booking-slots.js --apply"
   },
   "dependencies": {
@@ -41,6 +42,7 @@
     "react-dom": "^18.2.0",
     "react-qr-code": "^2.0.18",
     "recharts": "^3.3.0",
+    "sharp": "^0.33.5",
     "three": "^0.160.1"
   },
   "devDependencies": {

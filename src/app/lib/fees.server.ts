@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "crypto";
+import { SITE_URL as PUBLIC_SITE_URL } from "./site";
 import mongoose from "mongoose";
 import { connectToMongoose } from "@/app/server/mongodb";
 import Subscription from "@/app/models/Subscription";
@@ -21,7 +22,7 @@ import { latestPaidTill, syncUserFeeStatus } from "@/app/lib/feeStatus.server";
 // Membership fees are stored as one Subscription document per paid period.
 // "Paid till" = latest endDate of a Paid period; a member is due once that date passes.
 
-export const SITE_URL = process.env.NEXTAUTH_URL?.replace(/\/$/, "") || "https://www.sathiyansports.fit";
+export const SITE_URL = process.env.NEXTAUTH_URL?.replace(/\/$/, "") || PUBLIC_SITE_URL;
 const DAY = 24 * 60 * 60 * 1000;
 const DUE_SOON_DAYS = 7;
 // Overdue longer than this is treated as "probably left" and kept out of the Due list

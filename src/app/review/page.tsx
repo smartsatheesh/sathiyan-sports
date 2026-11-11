@@ -4,7 +4,7 @@ import React from "react";
 import { Container, Paper, Typography } from "@mui/material";
 import ReviewForm from "../components/ReviewForm";
 
-// Shareable link (www.sathiyansports.fit/review) the academy sends to members on WhatsApp.
+// Shareable link (<site>/review) the academy sends to members on WhatsApp.
 export default function ReviewPage() {
   return (
     <Container maxWidth="sm" sx={{ py: { xs: 3, md: 6 } }}>

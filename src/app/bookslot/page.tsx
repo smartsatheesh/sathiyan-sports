@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from "react";
+import { SITE_HOST } from "@/app/lib/site";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
@@ -781,7 +782,7 @@ export default function BookSlot() {
         ? `${selectedSport} (${bookingData.court})`
         : `${selectedSport}${isBallSport(selectedSport) ? ' (Full Ground)' : ''}`;
 
-      const bookingMessage = `Dear ${customerInfo.name || 'Customer'},\n\nYour booking request has been received.\n\n*Booking Details*\n\n• Booking ID: *${booking.bookingReference}*\n• Venue: *Sathiyan Multisport Sport Club*\n• Slot: *${slotText}*\n• Date: *${dateText}*\n• Time: *${timeText}*\n\n• Amount: *₹${amount}*\n\nThank you for booking with us!\n\nwww.sathiyansports.fit\n\nBest regards,\nSathiyan Multisport Sport Club`;
+      const bookingMessage = `Dear ${customerInfo.name || 'Customer'},\n\nYour booking request has been received.\n\n*Booking Details*\n\n• Booking ID: *${booking.bookingReference}*\n• Venue: *Sathiyan Multisport Sport Club*\n• Slot: *${slotText}*\n• Date: *${dateText}*\n• Time: *${timeText}*\n\n• Amount: *₹${amount}*\n\nThank you for booking with us!\n\n${SITE_HOST}\n\nBest regards,\nSathiyan Multisport Sport Club`;
 
       setWhatsAppShare({
         open: isAdminUser, // admins share immediately; customers see it after paying

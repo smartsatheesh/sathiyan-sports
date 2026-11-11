@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { SITE_HOST } from "@/app/lib/site";
 import {
   Accordion,
   AccordionDetails,
@@ -58,7 +59,7 @@ export default function PlanView({ inputs, plan, progress, onProgress }: Props) 
   const shareText =
     `🏋️ My ${plan.title} — Sathiyan Sports AI Coach\n\n` +
     plan.days.map((d) => `${d.day}: ${d.focus} (${d.durationMinutes} min)`).join("\n") +
-    `\n\nMake yours at www.sathiyansports.fit/coach`;
+    `\n\nMake yours at ${SITE_HOST}/coach`;
 
   return (
     <Stack spacing={2}>

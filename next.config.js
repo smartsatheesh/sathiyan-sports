@@ -11,6 +11,8 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  // Self-contained server for the Cloud Run image (see Dockerfile); Vercel handles this too
+  output: "standalone",
   poweredByHeader: false,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
@@ -32,8 +34,8 @@ const nextConfig = {
       { source: "/admin/expenses/stats", destination: "/admin/expenses", permanent: false },
       {
         source: "/:path*",
-        has: [{ type: "host", value: "sathiyansports.fit" }],
-        destination: "https://www.sathiyansports.fit/:path*",
+        has: [{ type: "host", value: "sathiyansports.in" }],
+        destination: "https://www.sathiyansports.in/:path*",
         permanent: true,
       },
     ];

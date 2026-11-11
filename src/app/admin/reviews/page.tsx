@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { SITE_URL } from "@/app/lib/site";
 import {
   Alert,
   Box,
@@ -29,7 +30,7 @@ interface Review {
 }
 
 const ASK_MESSAGE =
-  "Hi everyone! 🙏 If you enjoy training at Sathiyan Sports, could you leave us a short review? It takes 30 seconds and helps other families find us:\n\nhttps://www.sathiyansports.fit/review\n\nThank you! 🏸⚽🏏";
+  `Hi everyone! 🙏 If you enjoy training at Sathiyan Sports, could you leave us a short review? It takes 30 seconds and helps other families find us:\n\n${SITE_URL}/review\n\nThank you! 🏸⚽🏏`;
 
 export default function AdminReviewsPage() {
   const [reviews, setReviews] = useState<Review[] | null>(null);

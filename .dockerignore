@@ -1,0 +1,20 @@
+# Never put these in the image: local secrets and a logged-in WhatsApp Web session
+.env
+.env.*
+whatsapp-session
+.wwebjs_auth
+.wwebjs_cache
+
+# Rebuilt inside the image
+node_modules
+.next
+out
+*.tsbuildinfo
+
+# Not needed to run the site
+.git
+.vercel
+docs
+scripts
+src/scripts
+public/models

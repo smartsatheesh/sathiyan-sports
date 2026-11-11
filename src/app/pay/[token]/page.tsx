@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import { SITE_HOST } from "@/app/lib/site";
 import {
   Alert,
   Box,
@@ -138,7 +139,7 @@ export default function MemberPayPage({ params }: { params: { token: string } })
 
       <Stack sx={{ mt: 4 }} alignItems="center">
         <Typography variant="caption" color="text.secondary">
-          {summary.club && summary.club.slug !== "sathiyan" ? `${summary.club.name} · powered by ` : ""}Sathiyan Sports · www.sathiyansports.fit
+          {summary.club && summary.club.slug !== "sathiyan" ? `${summary.club.name} · powered by ` : ""}Sathiyan Sports · {SITE_HOST}
         </Typography>
       </Stack>
 
