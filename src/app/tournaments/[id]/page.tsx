@@ -27,6 +27,7 @@ import {
   Share,
   SportsCricket,
   SportsMartialArts,
+  SelfImprovement,
   SportsSoccer,
   SportsTennis,
 } from "@mui/icons-material";
@@ -89,6 +90,8 @@ const SPORT_THEME: Record<string, { icon: React.ReactNode; gradient: string }> =
   cricket: { icon: <SportsCricket />, gradient: "linear-gradient(135deg, #05233a 0%, #1565c0 100%)" },
   karate: { icon: <SportsMartialArts />, gradient: TOURNAMENT_SPORTS.karate.gradient },
   silambam: { icon: <SportsMartialArts />, gradient: TOURNAMENT_SPORTS.silambam.gradient },
+  taekwondo: { icon: <SportsMartialArts />, gradient: TOURNAMENT_SPORTS.taekwondo.gradient },
+  yoga: { icon: <SelfImprovement />, gradient: TOURNAMENT_SPORTS.yoga.gradient },
 };
 const STATUS_COLOR: Record<string, "error" | "warning" | "success" | "default"> = { ongoing: "error", live: "error", upcoming: "warning", completed: "success" };
 

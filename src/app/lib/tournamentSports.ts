@@ -4,7 +4,7 @@
 
 import type { TournamentFormat } from './league';
 
-export type TournamentSport = 'badminton' | 'football' | 'cricket' | 'karate' | 'silambam';
+export type TournamentSport = 'badminton' | 'football' | 'cricket' | 'karate' | 'silambam' | 'taekwondo' | 'yoga';
 
 export interface SportRules {
   label: string;
@@ -28,8 +28,16 @@ export interface SportRules {
   points: { win: number; draw: number };
 }
 
-const YOUTH_AGES = ['Under 10', 'Under 14', 'Under 18', 'Adult (18+)'];
-const TEAM_AGES = ['Open', 'Under 14', 'Under 18', 'Veterans (40+)'];
+/** Age groups every sport offers: Under 6 … Under 21, Under 23, then open/adult/veteran. */
+export const AGE_GROUPS = [
+  ...Array.from({ length: 16 }, (_, i) => `Under ${i + 6}`), // Under 6 … Under 21
+  'Under 23',
+  'Open',
+  'Adult (18+)',
+  'Veterans (40+)',
+];
+// Labels used by badminton entries registered before the common list existed
+const LEGACY_BADMINTON_AGES = ['20 to 40 Adult', '40 plus Veteran'];
 
 export const TOURNAMENT_SPORTS: Record<TournamentSport, SportRules> = {
   badminton: {
@@ -40,7 +48,7 @@ export const TOURNAMENT_SPORTS: Record<TournamentSport, SportRules> = {
     type: 'doubles',
     events: ['Singles', 'Doubles', 'Mixed Doubles'],
     partnerEvents: ['Doubles', 'Mixed Doubles'],
-    ageCategories: ['20 to 40 Adult', '40 plus Veteran'],
+    ageCategories: [...AGE_GROUPS, ...LEGACY_BADMINTON_AGES],
     divisionByEvent: false,
     scoring: 'sets',
     formats: ['knockout'],
@@ -54,7 +62,7 @@ export const TOURNAMENT_SPORTS: Record<TournamentSport, SportRules> = {
     type: 'team',
     events: [],
     partnerEvents: [],
-    ageCategories: TEAM_AGES,
+    ageCategories: AGE_GROUPS,
     divisionByEvent: false,
     scoring: 'goals',
     formats: ['knockout', 'league', 'league_knockout'],
@@ -68,7 +76,7 @@ export const TOURNAMENT_SPORTS: Record<TournamentSport, SportRules> = {
     type: 'team',
     events: [],
     partnerEvents: [],
-    ageCategories: TEAM_AGES,
+    ageCategories: AGE_GROUPS,
     divisionByEvent: false,
     scoring: 'runs',
     formats: ['knockout', 'league', 'league_knockout'],
@@ -82,7 +90,7 @@ export const TOURNAMENT_SPORTS: Record<TournamentSport, SportRules> = {
     type: 'singles',
     events: ['Kata', 'Kumite'],
     partnerEvents: [],
-    ageCategories: YOUTH_AGES,
+    ageCategories: AGE_GROUPS,
     divisionByEvent: true,
     scoring: 'points',
     formats: ['knockout'],
@@ -96,7 +104,35 @@ export const TOURNAMENT_SPORTS: Record<TournamentSport, SportRules> = {
     type: 'singles',
     events: ['Forms', 'Sparring'],
     partnerEvents: [],
-    ageCategories: YOUTH_AGES,
+    ageCategories: AGE_GROUPS,
+    divisionByEvent: true,
+    scoring: 'points',
+    formats: ['knockout'],
+    points: { win: 2, draw: 1 },
+  },
+  taekwondo: {
+    label: 'Taekwondo',
+    emoji: '🥋',
+    gradient: 'linear-gradient(135deg, #0d1b3d 0%, #1e40af 55%, #dc2626 100%)',
+    team: false,
+    type: 'singles',
+    events: ['Poomsae', 'Kyorugi (Sparring)'],
+    partnerEvents: [],
+    ageCategories: AGE_GROUPS,
+    divisionByEvent: true,
+    scoring: 'points',
+    formats: ['knockout'],
+    points: { win: 2, draw: 1 },
+  },
+  yoga: {
+    label: 'Yoga',
+    emoji: '🧘',
+    gradient: 'linear-gradient(135deg, #134e4a 0%, #0d9488 60%, #fbbf24 100%)',
+    team: false,
+    type: 'singles',
+    events: ['Yogasana', 'Artistic Yoga'],
+    partnerEvents: [],
+    ageCategories: AGE_GROUPS,
     divisionByEvent: true,
     scoring: 'points',
     formats: ['knockout'],

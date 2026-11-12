@@ -271,7 +271,7 @@ function ProductDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({ success: false, error: `The server returned an error (${res.status}). Please try again.` }));
       if (!data.success) throw new Error(data.error);
 
       const change = Math.trunc(Number(adjustBy));

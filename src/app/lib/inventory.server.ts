@@ -1,4 +1,36 @@
+import Inventory from '@/app/models/Inventory';
+
 const MAX_IMAGE_CHARS = 400_000; // ~300 KB image; the browser resizes before upload
+
+let legacyIndexesDropped = false;
+/**
+ * The old inventory schema left unique indexes (e.g. `itemName_1`) on the collection; products
+ * no longer have those fields, so every second insert failed as a "duplicate null". Drop any
+ * unique index the current schema doesn't define, once per server instance.
+ */
+export async function dropLegacyIndexes() {
+  if (legacyIndexesDropped) return;
+  legacyIndexesDropped = true;
+  try {
+    const indexes: { name?: string; key: Record<string, unknown>; unique?: boolean }[] = await Inventory.collection.indexes();
+    for (const idx of indexes) {
+      if (idx.unique && idx.name && idx.name !== '_id_') {
+        await Inventory.collection.dropIndex(idx.name);
+        console.log(`Inventory: dropped legacy unique index ${idx.name}`);
+      }
+    }
+  } catch (e) {
+    legacyIndexesDropped = false; // try again on the next request
+    console.error('Inventory: could not check legacy indexes', e);
+  }
+}
+
+/** Turns an unexpected error into a JSON response so the admin screen shows the reason. */
+export function inventoryError(e: unknown) {
+  const msg = e instanceof Error ? e.message : 'Unexpected error';
+  console.error('Inventory error:', e);
+  return { success: false, error: msg.includes('E11000') ? 'A product with these details already exists' : msg };
+}
 
 /** Validates product fields from a request body. Returns [data, error]. */
 export function parseProduct(body: any, opts: { partial?: boolean } = {}): [any, string | null] {

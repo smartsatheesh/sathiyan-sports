@@ -49,7 +49,13 @@ const KIND_LABEL: Record<PaymentRow["kind"], string> = {
 };
 
 function receiptMessage(p: PaymentRow, from: string): string {
-  return `Hi ${p.payerName || ""}, we have received your payment of ₹${p.amount} for ${KIND_LABEL[p.kind].toLowerCase()} (${p.reference}). UPI ref: ${p.utr}. Thank you! – ${from}`;
+  const confirmed =
+    p.kind === "booking"
+      ? `your court booking *${p.reference}* is confirmed. Please show this message at the desk.`
+      : p.kind === "tournament"
+      ? `your entry for *${p.reference}* is confirmed. See you at the tournament!`
+      : `your membership fee is paid (member ID ${p.reference}). Thank you for being part of the academy!`;
+  return `Hi ${p.payerName || ""}! ✅ Payment received: ₹${p.amount} (UPI ref ${p.utr}) — ${confirmed}\n\n– ${from}`;
 }
 
 function rejectMessage(p: PaymentRow, from: string): string {
@@ -156,8 +162,8 @@ export default function AdminPaymentsPage() {
           onClose={() => setJustDecided(null)}
           action={
             justDecided.payerPhone ? (
-              <Button color="inherit" size="small" startIcon={<WhatsApp />} href={waLink(justDecided)} target="_blank" rel="noopener noreferrer">
-                Notify
+              <Button color="inherit" size="small" variant="outlined" startIcon={<WhatsApp />} href={waLink(justDecided)} target="_blank" rel="noopener noreferrer">
+                {justDecided.status === "confirmed" ? "Send confirmation" : "Ask on WhatsApp"}
               </Button>
             ) : undefined
           }
@@ -246,7 +252,7 @@ export default function AdminPaymentsPage() {
                 ) : (
                   p.payerPhone && (
                     <Button size="small" startIcon={<WhatsApp />} href={waLink(p)} target="_blank" rel="noopener noreferrer" sx={{ mt: 1, color: "#128C7E" }}>
-                      Message on WhatsApp
+                      {p.status === "confirmed" ? "Send confirmation on WhatsApp" : "Message on WhatsApp"}
                     </Button>
                   )
                 )}

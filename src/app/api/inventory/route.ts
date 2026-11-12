@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/authConfig';
 import { connectToMongoose } from '@/app/server/mongodb';
 import Inventory from '@/app/models/Inventory';
-import { parseProduct } from '@/app/lib/inventory.server';
+import { dropLegacyIndexes, inventoryError, parseProduct } from '@/app/lib/inventory.server';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,10 +41,15 @@ export async function POST(request: NextRequest) {
   const [data, error] = parseProduct(await request.json());
   if (error) return NextResponse.json({ success: false, error }, { status: 400 });
 
-  await connectToMongoose();
-  const product = await (Inventory.create as any)({
-    ...data,
-    history: data.stock ? [{ change: data.stock, reason: 'Opening stock', by: session.user.name }] : [],
-  });
-  return NextResponse.json({ success: true, id: product._id });
+  try {
+    await connectToMongoose();
+    await dropLegacyIndexes();
+    const product = await (Inventory.create as any)({
+      ...data,
+      history: data.stock ? [{ change: data.stock, reason: 'Opening stock', by: session.user.name }] : [],
+    });
+    return NextResponse.json({ success: true, id: product._id });
+  } catch (e) {
+    return NextResponse.json(inventoryError(e), { status: 500 });
+  }
 }
