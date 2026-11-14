@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { canManageTournaments } from '@/app/lib/roles';
 import { connectToMongoose } from '../../../server/mongodb';
 import Tournament from '../../../models/Tournament';
 import Player from '../../../models/Player';
@@ -80,9 +81,9 @@ export async function PUT(
     const User = (await import('../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
     
-    if (!user || user.role !== 'admin') {
+    if (!user || !canManageTournaments(user.role)) {
       return NextResponse.json(
-        { success: false, error: 'Admin access required' },
+        { success: false, error: 'Staff access required' },
         { status: 403 }
       );
     }
@@ -156,9 +157,9 @@ export async function DELETE(
     const User = (await import('../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
     
-    if (!user || user.role !== 'admin') {
+    if (!user || !canManageTournaments(user.role)) {
       return NextResponse.json(
-        { success: false, error: 'Admin access required' },
+        { success: false, error: 'Staff access required' },
         { status: 403 }
       );
     }

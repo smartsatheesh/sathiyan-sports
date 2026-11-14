@@ -2,6 +2,7 @@
 import { useClubOptions } from "../../hooks/useClubs";
 import { useSiteSettings } from "../../hooks/useSiteSettings";
 import { calculateMembershipPrice, CLASS_SPORTS, MEMBER_SPORTS, programFor, programMonthlyFee } from "../../lib/pricing";
+import { ASSIGNABLE_ROLES, isStaff, ROLE_LABELS } from "../../lib/roles";
 import React, { useState, useEffect, useCallback, memo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -169,6 +170,7 @@ interface User {
   mobile: string;
   gender?: string;
   champType?: string;
+  role?: string;
   subscribed?: string;
   preferredSport: string;
   preferredTimeSlot?: string;
@@ -303,6 +305,7 @@ export default function AdminDashboard() {
     email: '',
     mobile: '',
     gender: '',
+    role: 'customer',
     champType: '',
     subscribed: '',
     preferredSport: '',
@@ -363,7 +366,8 @@ export default function AdminDashboard() {
       return;
     }
     
-    if (session.user?.role !== "admin") {
+    // Admins and coaches (coaches see bookings only, without amounts)
+    if (!isStaff(session.user?.role)) {
       router.push("/");
       return;
     }
@@ -468,13 +472,14 @@ export default function AdminDashboard() {
       
       const [bookingsRes, usersRes] = await Promise.all([
         fetch('/api/admin/bookings?limit=1000', { signal: controller.signal }),
-        fetch('/api/admin/users?limit=1000', { signal: controller.signal })
+        // Members are the owner's screen; a coach only loads bookings
+        isAdmin ? fetch('/api/admin/users?limit=1000', { signal: controller.signal }) : Promise.resolve(null)
       ]);
       
       clearTimeout(timeoutId);
 
       const bookingsData = await bookingsRes.json();
-      const usersData = await usersRes.json();
+      const usersData = usersRes ? await usersRes.json() : { success: true, users: [] };
 
       if (bookingsData.success) {
         // Sort bookings by date in chronological order (oldest first)
@@ -577,10 +582,10 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
-    if (session?.user?.role === "admin") {
+    if (isStaff(session?.user?.role)) {
       fetchData();
     }
   }, [session]);
@@ -621,6 +626,7 @@ export default function AdminDashboard() {
       email: user.email || '',
       mobile: user.phone || user.mobile || '',
       gender: user.gender || '',
+      role: user.role || 'customer',
       champType: user.champType || 'adult', // Default to adult for existing users
       subscribed: user.subscribed || 'no', // Default to no for existing users
       preferredSport: user.preferredSport || '',
@@ -749,6 +755,7 @@ export default function AdminDashboard() {
           mobile: editUserFormData.mobile,
           phone: editUserFormData.mobile,
           gender: editUserFormData.gender,
+          role: editUserFormData.role,
           champType: editUserFormData.champType,
           subscribed: editUserFormData.subscribed,
           preferredSport: editUserFormData.preferredSport,
@@ -1279,15 +1286,18 @@ export default function AdminDashboard() {
         </Alert>
       )}
 
-      <Typography variant="h5" fontWeight={800} sx={{ mb: 2 }}>Bookings & members</Typography>
+      <Typography variant="h5" fontWeight={800} sx={{ mb: 2 }}>{isAdmin ? "Bookings & members" : "Bookings"}</Typography>
 
       {/* Stats Cards */}
       <Grid container spacing={1.5} sx={{ mb: 3 }}>
         {[
           { title: "Total Bookings", value: stats.totalBookings, color: "primary.main" },
           { title: "Today's Bookings", value: stats.todaysBookings, color: "success.main" },
-          { title: "Total Revenue", value: `₹${Math.round(stats.totalRevenue).toLocaleString('en-IN')}`, color: "warning.main" },
-          { title: "Monthly Revenue", value: `₹${Math.round(stats.monthlyRevenue).toLocaleString('en-IN')}`, color: "info.main" },
+          // Revenue is the owner's view only
+          ...(isAdmin ? [
+            { title: "Total Revenue", value: `₹${Math.round(stats.totalRevenue).toLocaleString('en-IN')}`, color: "warning.main" },
+            { title: "Monthly Revenue", value: `₹${Math.round(stats.monthlyRevenue).toLocaleString('en-IN')}`, color: "info.main" },
+          ] : []),
         ].map((stat, index) => (
           <Grid item xs={6} md={3} key={index}>
             <Card variant="outlined" sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -1325,8 +1335,8 @@ export default function AdminDashboard() {
           scrollButtons="auto"
         >
           <Tab label="Booking" />
-          <Tab label="Users" />
-          <Tab label="Slots Stats" />
+          {isAdmin && <Tab label="Users" />}
+          {isAdmin && <Tab label="Slots Stats" />}
         </Tabs>
 
         {/* Bookings Tab */}
@@ -1454,7 +1464,7 @@ export default function AdminDashboard() {
                   <TableCell>Slots</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Payment</TableCell>
-                  <TableCell>Amount</TableCell>
+                  {isAdmin && <TableCell>Amount</TableCell>}
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -1543,11 +1553,11 @@ export default function AdminDashboard() {
                         size="small"
                       />
                     </TableCell>
-                    <TableCell>₹{booking.totalAmount}</TableCell>
+                    {isAdmin && <TableCell>₹{booking.totalAmount}</TableCell>}
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                         {/* Verify Button - Show for confirmed bookings that are not marked paid */}
-                        {booking.bookingStatus === 'confirmed' && booking.paymentStatus !== 'paid' && booking.paymentStatus !== 'completed' && (
+                        {isAdmin && booking.bookingStatus === 'confirmed' && booking.paymentStatus !== 'paid' && booking.paymentStatus !== 'completed' && (
                           <Tooltip title="Mark Payment Complete">
                             <IconButton 
                               size="small" 
@@ -1580,7 +1590,8 @@ export default function AdminDashboard() {
                           </Tooltip>
                         )}
 
-                        {/* Delete Button - Permanently remove */}
+                        {/* Delete Button - owner only; coaches cancel instead */}
+                        {isAdmin && (
                         <Tooltip title="Delete Booking">
                           <IconButton 
                             size="small" 
@@ -1594,6 +1605,7 @@ export default function AdminDashboard() {
                             <Delete fontSize="small" />
                           </IconButton>
                         </Tooltip>
+                        )}
 
                         {/* Edit Button */}
                         <Tooltip title="Edit Booking">
@@ -1743,6 +1755,7 @@ export default function AdminDashboard() {
                     <SortableHeader column="name">Name</SortableHeader>
                     <SortableHeader column="mobile">Mobile</SortableHeader>
                     <SortableHeader column="champType">Type</SortableHeader>
+                    <TableCell>Role</TableCell>
                     <SortableHeader column="subscribed">Subscribed</SortableHeader>
                     <SortableHeader column="subscriptionType">Sub Type</SortableHeader>
                     <TableCell>Comments</TableCell>
@@ -1768,11 +1781,19 @@ export default function AdminDashboard() {
                     <TableCell>{user.name}</TableCell>
                     <TableCell>{user.mobile || user.phone}</TableCell>
                     <TableCell>
-                      <Chip 
-                        label={user.champType || 'Not Set'} 
-                        size="small" 
+                      <Chip
+                        label={user.champType || 'Not Set'}
+                        size="small"
                         color={user.champType === 'kids' ? 'primary' : user.champType === 'adult' ? 'secondary' : user.champType === 'veteran' ? 'warning' : 'default'}
                         variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={ROLE_LABELS[(user.role || 'customer') as keyof typeof ROLE_LABELS] || user.role}
+                        size="small"
+                        color={user.role === 'admin' ? 'error' : user.role === 'coach' ? 'info' : 'default'}
+                        variant={user.role && user.role !== 'customer' ? 'filled' : 'outlined'}
                       />
                     </TableCell>
                     <TableCell>
@@ -2279,6 +2300,23 @@ export default function AdminDashboard() {
                   </Select>
                 </FormControl>
               </Grid>
+              {/* Role: coach = tournaments, attendance and booking status (no revenue); admin = everything */}
+              {!selectedUser?.club && (
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Role</InputLabel>
+                  <Select
+                    value={editUserFormData.role}
+                    onChange={(e) => setEditUserFormData(prev => ({ ...prev, role: e.target.value }))}
+                    label="Role"
+                  >
+                    {ASSIGNABLE_ROLES.map((r) => (
+                      <MenuItem key={r} value={r}>{ROLE_LABELS[r]}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              )}
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
                   <InputLabel>Champion Type</InputLabel>
@@ -2738,7 +2776,7 @@ export default function AdminDashboard() {
                         <TableCell>{booking.customerName}</TableCell>
                         <TableCell>{booking.customerEmail}</TableCell>
                         <TableCell>{booking.customerPhone}</TableCell>
-                        <TableCell>₹{booking.totalAmount}</TableCell>
+                        {isAdmin && <TableCell>₹{booking.totalAmount}</TableCell>}
                         <TableCell>
                           <Chip 
                             label={booking.paymentStatus} 
@@ -2883,6 +2921,8 @@ export default function AdminDashboard() {
                 </Select>
               </FormControl>
             </Grid>
+            {/* Money fields are the owner's; the server ignores them from a coach anyway */}
+            {isAdmin && (
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -2892,6 +2932,7 @@ export default function AdminDashboard() {
                 onChange={(e) => setEditForm(prev => ({ ...prev, totalAmount: Number(e.target.value) }))}
               />
             </Grid>
+            )}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Booking Status</InputLabel>
@@ -2907,6 +2948,7 @@ export default function AdminDashboard() {
                 </Select>
               </FormControl>
             </Grid>
+            {isAdmin && (
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Payment Status</InputLabel>
@@ -2922,6 +2964,8 @@ export default function AdminDashboard() {
                 </Select>
               </FormControl>
             </Grid>
+            )}
+            {isAdmin && (
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -2930,6 +2974,7 @@ export default function AdminDashboard() {
                 onChange={(e) => setEditForm(prev => ({ ...prev, receivedBy: e.target.value }))}
               />
             </Grid>
+            )}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth

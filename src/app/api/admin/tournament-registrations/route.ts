@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { canManageTournaments } from '@/app/lib/roles';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../lib/authConfig';
 import { connectToMongoose } from '../../../server/mongodb';
@@ -23,8 +24,8 @@ export async function GET(req: NextRequest) {
 
     const User = (await import('../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 });
+    if (!user || !canManageTournaments(user.role)) {
+      return NextResponse.json({ success: false, error: 'Staff access required' }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -173,8 +174,8 @@ export async function PATCH(req: NextRequest) {
     await connectToMongoose();
     const User = (await import('../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 });
+    if (!user || !canManageTournaments(user.role)) {
+      return NextResponse.json({ success: false, error: 'Staff access required' }, { status: 403 });
     }
 
     const { id, ...updates } = await req.json();
@@ -206,8 +207,8 @@ export async function DELETE(req: NextRequest) {
     await connectToMongoose();
     const User = (await import('../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 });
+    if (!user || !canManageTournaments(user.role)) {
+      return NextResponse.json({ success: false, error: 'Staff access required' }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);

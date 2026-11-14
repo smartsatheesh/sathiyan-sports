@@ -37,6 +37,7 @@ import {
 } from "@mui/icons-material";
 
 interface Overview {
+  money: boolean; // false for a coach: only the booking counts come back
   todaysBookings: number;
   pendingBookings: number;
   paymentsToVerify: number;
@@ -68,6 +69,7 @@ export default function AdminHome() {
   const [o, setO] = useState<Overview | null>(null);
   // A partner club's admin only handles their own club's members and fees
   const clubAdmin = session?.user?.role === "club_admin";
+  const coach = session?.user?.role === "coach";
   const club = session?.user?.club;
 
   useEffect(() => {
@@ -89,7 +91,7 @@ export default function AdminHome() {
   const ownerSections: { title: string; desc: string; href: string; icon: React.ReactNode; badge?: number }[] = [
     { title: "Bookings & members", desc: "All bookings, users, slot stats", href: "/admin/manage", icon: <Groups /> },
     { title: "Book a slot", desc: "Walk-in or phone booking", href: "/bookslot", icon: <EventAvailable /> },
-    { title: "Membership fees", desc: "Who has paid, reminders", href: "/admin/fees", icon: <AccountBalanceWallet />, badge: o?.feesOverdue.count },
+    { title: "Membership fees", desc: "Who has paid, reminders", href: "/admin/fees", icon: <AccountBalanceWallet />, badge: o?.feesOverdue?.count },
     { title: "Verify payments", desc: "Confirm UPI payments", href: "/admin/payments", icon: <Payments />, badge: o?.paymentsToVerify },
     { title: "Expenses", desc: "Add spends, monthly report", href: "/admin/expenses", icon: <ReceiptLong /> },
     { title: "Inventory", desc: "Products & stock", href: "/admin/inventory", icon: <Inventory2 /> },
@@ -103,7 +105,16 @@ export default function AdminHome() {
     { title: "Prices & settings", desc: "Fees, UPI, WhatsApp", href: "/admin/settings", icon: <Settings /> },
     { title: "Partner clubs", desc: "Other clubs, club admins", href: "/admin/clubs", icon: <Diversity3 /> },
   ];
-  const sections = clubAdmin ? clubSections : ownerSections;
+  // A coach runs the ground: bookings (status only, no amounts), tournaments, attendance
+  const coachSections: { title: string; desc: string; href: string; icon: React.ReactNode; badge?: number }[] = [
+    { title: "Bookings", desc: "Today's slots, confirm or cancel", href: "/admin/manage", icon: <Groups /> },
+    { title: "Book a slot", desc: "Walk-in or phone booking", href: "/bookslot", icon: <EventAvailable /> },
+    { title: "Tournaments", desc: "Events, fixtures, results", href: "/admin/tournaments", icon: <EmojiEvents /> },
+    { title: "Attendance", desc: "Check-ins and reports", href: "/admin/attendance", icon: <FactCheck /> },
+    { title: "AI coach plans", desc: "Members' plans & progress", href: "/coach/admin", icon: <BarChart /> },
+    { title: "Check-in QR", desc: "Print the venue QR", href: "/admin/universal-qr", icon: <QrCode2 /> },
+  ];
+  const sections = clubAdmin ? clubSections : coach ? coachSections : ownerSections;
 
   const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
 
@@ -135,32 +146,36 @@ export default function AdminHome() {
                 href="/admin/manage"
               />
             </Grid>
-            <Grid item xs={6} sm={3}>
-              <Snapshot
-                label="Payments to verify"
-                value={o.paymentsToVerify}
-                href="/admin/payments"
-                tone={o.paymentsToVerify ? "warning" : undefined}
-              />
-            </Grid>
-            <Grid item xs={6} sm={3}>
-              <Snapshot
-                label="Fees overdue"
-                value={o.feesOverdue.count}
-                sub={`${rupees(o.feesOverdue.amount)} · ${o.feesDueThisWeek} due this week`}
-                href="/admin/fees"
-                tone={o.feesOverdue.count ? "error" : undefined}
-              />
-            </Grid>
-            <Grid item xs={6} sm={3}>
-              <Snapshot
-                label="This month"
-                value={rupees(o.month.net)}
-                sub={`in ${rupees(o.month.moneyIn)} · out ${rupees(o.month.spent)}`}
-                href="/admin/expenses"
-                tone={o.month.net >= 0 ? "success" : "error"}
-              />
-            </Grid>
+            {o.money && (
+              <>
+                <Grid item xs={6} sm={3}>
+                  <Snapshot
+                    label="Payments to verify"
+                    value={o.paymentsToVerify}
+                    href="/admin/payments"
+                    tone={o.paymentsToVerify ? "warning" : undefined}
+                  />
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <Snapshot
+                    label="Fees overdue"
+                    value={o.feesOverdue.count}
+                    sub={`${rupees(o.feesOverdue.amount)} · ${o.feesDueThisWeek} due this week`}
+                    href="/admin/fees"
+                    tone={o.feesOverdue.count ? "error" : undefined}
+                  />
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <Snapshot
+                    label="This month"
+                    value={rupees(o.month.net)}
+                    sub={`in ${rupees(o.month.moneyIn)} · out ${rupees(o.month.spent)}`}
+                    href="/admin/expenses"
+                    tone={o.month.net >= 0 ? "success" : "error"}
+                  />
+                </Grid>
+              </>
+            )}
           </>
         )}
       </Grid>

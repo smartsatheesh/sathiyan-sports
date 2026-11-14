@@ -9,8 +9,12 @@ import { isPreviewHost, TENANT_COOKIE, TENANT_HEADER, tenantFromHost } from "@/a
 // It also decides which club ("tenant") a request is for, from the host name, and passes
 // that on in the x-club request header.
 
-// clubAdmin = owner admin or a partner club's admin; those routes scope data to the club themselves
-type Access = "public" | "admin" | "clubAdmin" | "staff" | "user";
+// Roles (see lib/roles.ts): admin = owner; coach = tournaments, attendance and booking status
+// (never revenue); club_admin = a partner club's admin.
+//   staff     = admin or coach
+//   clubAdmin = admin or club_admin; those routes scope data to the club themselves
+//   adminArea = admin, coach or club_admin (the /admin hub itself)
+type Access = "public" | "admin" | "clubAdmin" | "staff" | "adminArea" | "user";
 
 interface Rule {
   pattern: RegExp;
@@ -26,11 +30,18 @@ const API_RULES: Rule[] = [
   { pattern: /^\/api\/attendance\/(check-mobile|scan)$/, access: "public" },
   { pattern: /^\/api\/attendance\/qr$/, access: "user" },
   { pattern: /^\/api\/attendance$/, access: "user" }, // route scopes members to their own records
-  { pattern: /^\/api\/attendance\/record$/, access: "staff" },
+  { pattern: /^\/api\/attendance\/(record|stats|summary|universal-qr|auto-logout)$/, access: "staff" },
   { pattern: /^\/api\/attendance\//, access: "admin" },
 
   { pattern: /^\/api\/admin\/(fees|payments|club|settings)(\/|$)/, access: "clubAdmin" },
+  // Coaches run tournaments and bookings (the handlers hide amounts from them)
+  { pattern: /^\/api\/admin\/(bookings|tournament-registrations|check-champid)(\/|$)/, access: "staff" },
+  { pattern: /^\/api\/admin\/overview$/, access: "adminArea" },
   { pattern: /^\/api\/admin(\/|$)/, access: "admin" },
+  // Players register themselves; everything else that changes a tournament is staff work
+  // (handlers re-check the role); reads stay public for the fixtures pages
+  { pattern: /^\/api\/tournaments\/(public-register|[^/]+\/register)$/, access: "public" },
+  { pattern: /^\/api\/(tournaments|tournaments-native|players-native|matches-native)(\/|$)/, access: "staff", methods: WRITE },
   // Booking lookups expose customer contact details; payment proof goes through /api/payments
   { pattern: /^\/api\/bookings\/(?!simple-create$)[^/]+$/, access: "admin" },
   { pattern: /^\/api\/expenses(\/|$)/, access: "admin" },
@@ -49,8 +60,10 @@ const API_RULES: Rule[] = [
 ];
 
 const PAGE_RULES: Rule[] = [
-  { pattern: /^\/admin\/?$/, access: "clubAdmin" },
+  { pattern: /^\/admin\/?$/, access: "adminArea" },
   { pattern: /^\/admin\/(fees|payments|club|settings)(\/|$)/, access: "clubAdmin" },
+  // Coach pages: bookings (no money), tournaments, attendance, the check-in QR
+  { pattern: /^\/admin\/(manage|tournaments|tournament-management|tournament-registrations|live-score|import-tournament|attendance|universal-qr)(\/|$)/, access: "staff" },
   { pattern: /^\/admin(\/|$)/, access: "admin" },
   { pattern: /^\/expenses(\/|$)/, access: "admin" },
   { pattern: /^\/subscription$/, access: "admin" },
@@ -74,6 +87,7 @@ function isAllowed(access: Access, role: string | undefined): boolean {
   if (access === "user") return true;
   if (access === "staff") return role === "admin" || role === "coach";
   if (access === "clubAdmin") return role === "admin" || role === "club_admin";
+  if (access === "adminArea") return role === "admin" || role === "coach" || role === "club_admin";
   return role === "admin";
 }
 

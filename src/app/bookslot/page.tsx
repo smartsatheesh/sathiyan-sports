@@ -269,6 +269,49 @@ const resolveBookingDateForSelection = (baseDate: Date, slots: string[]) => {
   return baseDate;
 };
 
+// "14:30" -> "2:30 PM"
+const to12Hour = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}:${String(m).padStart(2, '0')} ${suffix}`;
+};
+
+// Collapses 30-minute slots into continuous ranges for the WhatsApp message:
+// ["00:00 - 00:30", "00:30 - 01:00", "01:00 - 01:30"] -> "12:00 AM - 1:30 AM"
+const slotRangeText = (slots: string[]) => {
+  const parsed = slots
+    .map((s) => s.split(' - ').map((t) => t.trim()))
+    .filter((p) => p.length === 2)
+    .sort((a, b) => a[0].localeCompare(b[0]));
+  const ranges: Array<[string, string]> = [];
+  for (const [start, end] of parsed) {
+    const last = ranges[ranges.length - 1];
+    if (last && last[1] === start) last[1] = end;
+    else ranges.push([start, end]);
+  }
+  return ranges.map(([s, e]) => `${to12Hour(s)} - ${to12Hour(e)}`).join(', ');
+};
+
+interface BookingMessageDetails {
+  customerName: string;
+  reference: string;
+  slotText: string;
+  dateText: string;
+  timeText: string;
+  amount: number;
+}
+
+// Advance received is keyed in by the admin; the balance is worked out here.
+const composeBookingMessage = (d: BookingMessageDetails, advance: number) => {
+  const paid = Math.min(Math.max(0, Math.round(advance || 0)), d.amount);
+  const paymentLines =
+    paid > 0
+      ? `• Amount: *₹${d.amount}*\n• Advance received: *₹${paid}*\n• Balance to pay: *₹${d.amount - paid}*`
+      : `• Amount: *₹${d.amount}*`;
+  return `Dear ${d.customerName || 'Customer'},\n\nYour booking request has been received.\n\n*Booking Details*\n\n• Booking ID: *${d.reference}*\n• Venue: *Sathiyan Multisport Sport Club*\n• Slot: *${d.slotText}*\n• Date: *${d.dateText}*\n• Time: *${d.timeText}*\n\n${paymentLines}\n\nThank you for booking with us!\n\n${SITE_HOST}\n\nBest regards,\nSathiyan Multisport Sport Club`;
+};
+
 export default function BookSlot() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -299,13 +342,23 @@ export default function BookSlot() {
   // Enhanced Payment dialog states - HDFC Bank Style
   const [whatsAppShare, setWhatsAppShare] = useState<{
     open: boolean;
-    message: string;
-    url: string;
+    details: BookingMessageDetails | null;
   }>({
     open: false,
-    message: '',
-    url: ''
+    details: null,
   });
+  // Advance (₹) received at the desk; admins key it in and the message shows the balance
+  const [advanceAmount, setAdvanceAmount] = useState<string>('');
+  const advanceValue = Math.max(0, parseInt(advanceAmount, 10) || 0);
+  const whatsAppMessage = useMemo(
+    () => (whatsAppShare.details ? composeBookingMessage(whatsAppShare.details, advanceValue) : ''),
+    [whatsAppShare.details, advanceValue]
+  );
+  const whatsAppUrl = `https://wa.me/?text=${encodeURIComponent(whatsAppMessage)}`;
+  const closeWhatsAppShare = () => {
+    setWhatsAppShare((prev) => ({ ...prev, open: false }));
+    setAdvanceAmount(''); // next booking starts with no advance
+  };
 
   // Ref for date-time selection area to enable auto-scroll
   const dateTimeSelectionRef = useRef<HTMLDivElement>(null);
@@ -777,17 +830,22 @@ export default function BookSlot() {
       const booking = result.booking;
       const amount = Number(booking.totalAmount || 0);
       const dateText = format(bookingBreakdown.primaryDate, 'd MMM yyyy (EEEE)');
-      const timeText = bookingBreakdown.primarySlots.join(', ');
+      const timeText = slotRangeText(bookingBreakdown.primarySlots);
       const slotText = bookingData.court
         ? `${selectedSport} (${bookingData.court})`
         : `${selectedSport}${isBallSport(selectedSport) ? ' (Full Ground)' : ''}`;
 
-      const bookingMessage = `Dear ${customerInfo.name || 'Customer'},\n\nYour booking request has been received.\n\n*Booking Details*\n\n• Booking ID: *${booking.bookingReference}*\n• Venue: *Sathiyan Multisport Sport Club*\n• Slot: *${slotText}*\n• Date: *${dateText}*\n• Time: *${timeText}*\n\n• Amount: *₹${amount}*\n\nThank you for booking with us!\n\n${SITE_HOST}\n\nBest regards,\nSathiyan Multisport Sport Club`;
-
+      if (!isAdminUser) setAdvanceAmount('');
       setWhatsAppShare({
         open: isAdminUser, // admins share immediately; customers see it after paying
-        message: bookingMessage,
-        url: `https://wa.me/?text=${encodeURIComponent(bookingMessage)}`
+        details: {
+          customerName: customerInfo.name,
+          reference: booking.bookingReference,
+          slotText,
+          dateText,
+          timeText,
+          amount,
+        },
       });
 
       setAlert({
@@ -1443,6 +1501,20 @@ export default function BookSlot() {
                   sx={{ flex: 1 }}
                   inputProps={{ min: 0 }}
                 />
+                <TextField
+                  label="Advance received (₹)"
+                  type="number"
+                  size="small"
+                  value={advanceAmount}
+                  onChange={(e) => setAdvanceAmount(e.target.value)}
+                  helperText={
+                    advanceValue > 0
+                      ? `Balance ₹${Math.max(0, (totalPrice ?? 0) - advanceValue).toLocaleString()}`
+                      : 'Optional'
+                  }
+                  sx={{ flex: 1 }}
+                  inputProps={{ min: 0, max: totalPrice ?? undefined }}
+                />
               </Box>
               ) : (
                 <Typography variant="h6" sx={{ mt: 1.5 }}>Total: ₹{totalPrice?.toLocaleString() ?? '-'}</Typography>
@@ -1465,7 +1537,7 @@ export default function BookSlot() {
 
       <Dialog
         open={whatsAppShare.open}
-        onClose={() => setWhatsAppShare(prev => ({ ...prev, open: false }))}
+        onClose={closeWhatsAppShare}
         maxWidth="sm"
         fullWidth
       >
@@ -1474,26 +1546,45 @@ export default function BookSlot() {
           <Typography variant="body2" sx={{ mb: 1.5, color: 'text.secondary' }}>
             Copy this message and send it to your mobile WhatsApp.
           </Typography>
+          {isAdminUser && whatsAppShare.details && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5, flexWrap: 'wrap' }}>
+              <TextField
+                label="Advance received (₹)"
+                type="number"
+                size="small"
+                value={advanceAmount}
+                onChange={(e) => setAdvanceAmount(e.target.value)}
+                inputProps={{ min: 0, max: whatsAppShare.details.amount }}
+                sx={{ width: 200 }}
+              />
+              <Typography variant="body2">
+                Amount ₹{whatsAppShare.details.amount.toLocaleString()} ·{' '}
+                <strong>
+                  Balance ₹{Math.max(0, whatsAppShare.details.amount - Math.min(advanceValue, whatsAppShare.details.amount)).toLocaleString()}
+                </strong>
+              </Typography>
+            </Box>
+          )}
           <TextField
             fullWidth
             multiline
             minRows={10}
-            value={whatsAppShare.message}
+            value={whatsAppMessage}
             InputProps={{ readOnly: true }}
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setWhatsAppShare(prev => ({ ...prev, open: false }))}>Close</Button>
+          <Button onClick={closeWhatsAppShare}>Close</Button>
           <Button
             variant="outlined"
             startIcon={<ContentCopy />}
-            onClick={() => copyToClipboard(whatsAppShare.message, 'WhatsApp message copied')}
+            onClick={() => copyToClipboard(whatsAppMessage, 'WhatsApp message copied')}
           >
             Copy Message
           </Button>
           <Button
             variant="contained"
-            onClick={() => window.open(whatsAppShare.url, '_blank')}
+            onClick={() => window.open(whatsAppUrl, '_blank')}
           >
             Open WhatsApp
           </Button>

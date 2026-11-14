@@ -80,6 +80,8 @@ const Navbar = () => {
   const user = session?.user;
   const isAdmin = user?.role === "admin";
   const isClubAdmin = user?.role === "club_admin";
+  // Coaches get the staff hub: bookings (no amounts), tournaments, attendance
+  const isCoach = user?.role === "coach";
   // Members of partner clubs get their club's page instead of Sathiyan's bookings
   const partnerClub = user?.club && user.club !== "sathiyan" ? user.club : null;
 
@@ -102,6 +104,15 @@ const Navbar = () => {
       { label: "Verify Payments", href: "/admin/payments", icon: <Payments /> },
       { label: "Club profile & branding", href: "/admin/club", icon: <Dashboard /> },
       { label: "Prices & settings", href: "/admin/settings", icon: <Dashboard /> }
+    );
+  }
+
+  if (isCoach) {
+    profileMenuItems.unshift(
+      { label: "Staff home", href: "/admin", icon: <Dashboard /> },
+      { label: "Bookings", href: "/admin/manage", icon: <BookOnline /> },
+      { label: "Tournament Management", href: "/admin/tournaments", icon: <Dashboard /> },
+      { label: "Attendance", href: "/admin/attendance", icon: <Dashboard /> }
     );
   }
 
@@ -260,10 +271,10 @@ const Navbar = () => {
               </>)}
 
               {/* Admin Dashboard - Admin only */}
-              {(isAdmin || isClubAdmin) && (
+              {(isAdmin || isClubAdmin || isCoach) && (
                 <Link href="/admin" passHref>
                   <Button sx={{ color: "#fff", ml: 2 }}>
-                    🛠️ {isClubAdmin ? "Club admin" : "Admin"}
+                    🛠️ {isClubAdmin ? "Club admin" : isCoach ? "Staff" : "Admin"}
                   </Button>
                 </Link>
               )}

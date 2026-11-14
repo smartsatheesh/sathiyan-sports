@@ -6,6 +6,9 @@ import Subscription from "../../../../models/Subscription";
 import { getClubSettings } from "@/app/lib/clubs.server";
 import { clubOf } from "@/app/lib/clubs";
 import { calculateMembershipPrice } from "@/app/lib/pricing";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/lib/authConfig";
+import { ASSIGNABLE_ROLES, isOwner } from "@/app/lib/roles";
 
 // GET - Fetch a specific user
 export async function GET(req: NextRequest, { params }: { params: { userId: string } }) {
@@ -63,6 +66,14 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
 
     // Remove sensitive fields that shouldn't be updated via this endpoint
     const { password, _id, __v, ...updateData } = body;
+
+    // Only the owner hands out roles, and only Sathiyan's own roles (club admins are made at /admin/clubs)
+    if ("role" in updateData) {
+      const session = await getServerSession(authOptions);
+      if (!isOwner(session?.user?.role) || !ASSIGNABLE_ROLES.includes(updateData.role)) {
+        delete updateData.role;
+      }
+    }
 
     // Validate required champId field
     if (!updateData.champId || updateData.champId.trim() === '') {

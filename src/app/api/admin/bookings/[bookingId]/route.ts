@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../../lib/authConfig';
 import { connectToMongoose } from '@/app/server/mongodb';
 import Booking from "../../../../models/Booking";
+import { canManageBookings, canSeeMoney, isOwner } from '@/app/lib/roles';
+import { requireRole } from '@/app/lib/roles.server';
 
 const CRICKET_DEFAULT_SLOT = '12:00 AM - 01:00 AM';
+
+// A coach changes slots, dates and booking status — never the money side
+const MONEY_FIELDS = ['totalAmount', 'refundAmount', 'paymentStatus', 'paymentId', 'paymentMethod', 'transactionId', 'utr', 'paidAt'];
 
 const normalizePaymentStatus = (paymentStatus?: string) => {
   if (!paymentStatus) return paymentStatus;
@@ -23,11 +26,9 @@ export async function DELETE(
   { params }: { params: { bookingId: string } }
 ) {
   try {
-    // Check authentication and admin access
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
+    // Deleting is the owner's job; coaches cancel instead
+    const auth = await requireRole(isOwner);
+    if (!auth.ok) return auth.response;
 
     // Connect to database
     await connectToMongoose();
@@ -71,11 +72,8 @@ export async function PATCH(
   { params }: { params: { bookingId: string } }
 ) {
   try {
-    // Check authentication and admin access
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireRole(canManageBookings);
+    if (!auth.ok) return auth.response;
 
     // Connect to database
     await connectToMongoose();
@@ -83,6 +81,9 @@ export async function PATCH(
     const { bookingId } = params;
     const updateData = await req.json();
     const normalizedUpdateData = { ...updateData };
+    if (!canSeeMoney(auth.role)) {
+      for (const field of MONEY_FIELDS) delete normalizedUpdateData[field];
+    }
 
     if (typeof normalizedUpdateData.paymentStatus === 'string') {
       normalizedUpdateData.paymentStatus = normalizePaymentStatus(normalizedUpdateData.paymentStatus);

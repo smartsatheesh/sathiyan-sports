@@ -3,10 +3,17 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../lib/authConfig';
 import { connectToMongoose } from '@/app/server/mongodb';
 import Booking from "../../../models/Booking";
+import { canManageBookings, canSeeMoney } from '@/app/lib/roles';
+import { requireRole } from '@/app/lib/roles.server';
 
-// GET - Fetch all bookings (for admin)
+// Money fields a coach never receives or changes
+const MONEY_FIELDS = '-totalAmount -refundAmount -paymentId -paymentMethod -transactionId -utr';
+
+// GET - Fetch all bookings (admin sees everything; a coach sees bookings without amounts)
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireRole(canManageBookings);
+    if (!auth.ok) return auth.response;
     await connectToMongoose();
 
     const { searchParams } = new URL(req.url);
@@ -24,7 +31,8 @@ export async function GET(req: NextRequest) {
     const bookings = await (Booking.find as any)(query)
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .select(canSeeMoney(auth.role) ? '' : MONEY_FIELDS);
 
     const total = await (Booking.countDocuments as any)(query);
 
@@ -46,13 +54,16 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// PUT - Update booking status
+// PUT - Update booking status (payment status is the owner's call)
 export async function PUT(req: NextRequest) {
   try {
+    const auth = await requireRole(canManageBookings);
+    if (!auth.ok) return auth.response;
     const body = await req.json();
     await connectToMongoose();
 
-    const { bookingId, status, paymentStatus } = body;
+    const { bookingId, status } = body;
+    const paymentStatus = canSeeMoney(auth.role) ? body.paymentStatus : undefined;
 
     if (!bookingId) {
       return NextResponse.json(

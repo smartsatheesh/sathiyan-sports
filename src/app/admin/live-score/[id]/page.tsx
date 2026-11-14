@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { canManageTournaments } from '@/app/lib/roles';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Box,
@@ -68,7 +69,7 @@ export default function LiveScoreUpdate() {
   ]);
 
   useEffect(() => {
-    if (!session || session.user?.role !== 'admin') {
+    if (!session || !canManageTournaments(session.user?.role)) {
       router.push('/auth/login');
       return;
     }

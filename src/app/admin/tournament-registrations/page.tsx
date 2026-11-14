@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { canManageTournaments } from '@/app/lib/roles';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import {
@@ -88,7 +89,7 @@ export default function AdminTournamentRegistrationsPage() {
       router.push('/auth/login?callbackUrl=/admin/tournament-registrations');
       return;
     }
-    if (session.user?.role !== 'admin') {
+    if (!canManageTournaments(session.user?.role)) {
       router.push('/');
       return;
     }
@@ -142,7 +143,7 @@ export default function AdminTournamentRegistrationsPage() {
   };
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user?.role === 'admin') {
+    if (status === 'authenticated' && canManageTournaments(session?.user?.role)) {
       fetchRegistrations();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,7 +171,7 @@ export default function AdminTournamentRegistrationsPage() {
     }
   };
 
-  if (status === 'loading' || (status === 'authenticated' && session?.user?.role !== 'admin')) {
+  if (status === 'loading' || (status === 'authenticated' && !canManageTournaments(session?.user?.role))) {
     return (
       <Container maxWidth="lg" sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
         <CircularProgress />

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { canManageTournaments } from '@/app/lib/roles';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -394,7 +395,7 @@ export default function AdminTournamentManagement() {
   // Check admin access
   useEffect(() => {
     if (status === 'loading') return;
-    if (!session || session.user?.role !== 'admin') {
+    if (!session || !canManageTournaments(session.user?.role)) {
       router.push('/auth/login');
       return;
     }
