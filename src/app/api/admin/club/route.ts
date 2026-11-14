@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authConfig";
 import { connectToMongoose } from "@/app/server/mongodb";
 import Club from "@/app/models/Club";
-import { ClubError, cleanClubInput } from "@/app/lib/clubs.server";
+import { ClubError, cleanClubInput, invalidatePublicClub } from "@/app/lib/clubs.server";
 import { isClubAdmin } from "@/app/lib/clubs";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ async function ownClub() {
 export async function GET() {
   const club = await ownClub();
   if (!club) return NextResponse.json({ success: false, error: "Only club admins have a club here" }, { status: 404 });
-  return NextResponse.json({ success: true, club });
+  return NextResponse.json({ success: true, club: { ...club.toObject(), logoUrl: club.hasLogo ? `/api/clubs/${club.slug}/logo?v=${new Date(club.updatedAt || 0).getTime()}` : null } });
 }
 
 export async function PUT(request: NextRequest) {
@@ -28,6 +28,7 @@ export async function PUT(request: NextRequest) {
     if (!club) throw new ClubError("Club not found", 404);
     Object.assign(club, cleanClubInput(await request.json(), false));
     await club.save();
+    invalidatePublicClub(club.slug);
     return NextResponse.json({ success: true, club });
   } catch (error) {
     if (error instanceof ClubError) return NextResponse.json({ success: false, error: error.message }, { status: error.status });

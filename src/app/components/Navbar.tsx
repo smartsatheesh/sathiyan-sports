@@ -36,6 +36,7 @@ import {
 } from "@mui/icons-material";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
+import { useTenant } from "./TenantProvider";
 
 const publicNavItems = [
   { label: "Home", href: "/" },
@@ -51,6 +52,11 @@ const Navbar = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("xl")); // Changed to xl for better detection
   const { data: session, status } = useSession();
+  // The club whose site this is: Sathiyan's own, or a partner club on its subdomain
+  const tenant = useTenant();
+  const navItems = tenant.isDefault ? publicNavItems : [{ label: "Home", href: "/" }];
+  const logoSrc = tenant.logoUrl || (tenant.isDefault ? "/sathiyanlogo.png" : "/club-logo.svg");
+  const brandName = tenant.isDefault ? "SATHIYAN SPORTS" : tenant.name.toUpperCase();
 
   const toggleDrawer = () => {
     setDrawerOpen(!drawerOpen);
@@ -93,7 +99,9 @@ const Navbar = () => {
     profileMenuItems.unshift(
       { label: "Club admin", href: "/admin", icon: <Dashboard /> },
       { label: "Membership Fees", href: "/admin/fees", icon: <Payments /> },
-      { label: "Verify Payments", href: "/admin/payments", icon: <Payments /> }
+      { label: "Verify Payments", href: "/admin/payments", icon: <Payments /> },
+      { label: "Club profile & branding", href: "/admin/club", icon: <Dashboard /> },
+      { label: "Prices & settings", href: "/admin/settings", icon: <Dashboard /> }
     );
   }
 
@@ -154,8 +162,8 @@ const Navbar = () => {
           <Link href="/" className="navbar-logo-section">
             <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <img
-                src="/sathiyanlogo.png"
-                alt="Sathiyan Sports Logo"
+                src={logoSrc}
+                alt={`${tenant.name} logo`}
                 className="navbar-logo-img"
                 style={{
                   height: isMobile ? '32px' : '40px',
@@ -176,7 +184,7 @@ const Navbar = () => {
                   whiteSpace: 'nowrap'
                 }}
               >
-                SATHIYAN SPORTS
+                {brandName}
               </Typography>
             </Box>
           </Link>
@@ -184,7 +192,7 @@ const Navbar = () => {
           {/* Desktop Menu - Hidden on mobile */}
           {!isMobile && (
             <Box className="navbar-desktop-menu" sx={{ flexGrow: 1, ml: 4, display: 'flex' }}>
-              {publicNavItems.map((item) => (
+              {navItems.map((item) => (
                 <Link key={item.label} href={item.href} passHref>
                   <Button sx={{ color: "#fff", ml: 2 }}>
                     {item.label}
@@ -192,18 +200,21 @@ const Navbar = () => {
                 </Link>
               ))}
               
-              {/* Book Slot - Protected */}
+              {tenant.features.bookings && (
               <Link href="/bookslot" passHref>
                 <Button sx={{ color: "#fff", ml: 2 }}>
                   Book Slot
                 </Button>
               </Link>
+              )}
 
+              {tenant.features.shop && (
               <Link href="/shop" passHref>
                 <Button sx={{ color: "#fff", ml: 2 }}>
                   Shop
                 </Button>
               </Link>
+              )}
               
               {/* Members pay fees from their profile */}
               {isAuthenticated && (
@@ -214,7 +225,7 @@ const Navbar = () => {
                 </Link>
               )}
               
-              {/* AI Coach - open to everyone (login prompted on the page) */}
+              {tenant.features.coach && (<>
               <Link href="/coach" passHref>
                   <Button 
                     sx={{ 
@@ -246,6 +257,7 @@ const Navbar = () => {
                 💪 S³ Fitness Plans
                 </Button>
               </Link>
+              </>)}
 
               {/* Admin Dashboard - Admin only */}
               {(isAdmin || isClubAdmin) && (
@@ -375,12 +387,12 @@ const Navbar = () => {
                   {/* Logo Section for Mobile */}
                   <div className="navbar-drawer-logo">
                     <img
-                      src="/sathiyanlogo.png"
-                      alt="Sathiyan Sports Logo"
+                      src={logoSrc}
+                      alt={`${tenant.name} logo`}
                       className="navbar-drawer-logo-img"
                     />
                     <Typography variant="h6" className="navbar-drawer-logo-text">
-                      SATHIYAN SPORTS
+                      {brandName}
                     </Typography>
                   </div>
                   
@@ -408,7 +420,7 @@ const Navbar = () => {
                   )}
 
                   <List>
-                    {publicNavItems.map((item) => (
+                    {navItems.map((item) => (
                       <Link key={item.label} href={item.href} passHref>
                         <ListItem button onClick={toggleDrawer}>
                           <ListItemText primary={item.label} />
@@ -416,16 +428,20 @@ const Navbar = () => {
                       </Link>
                     ))}
                     
+                    {tenant.features.bookings && (
                     <Link href="/bookslot" passHref>
                       <ListItem button onClick={toggleDrawer}>
                         <ListItemText primary="Book Slot" />
                       </ListItem>
                     </Link>
+                    )}
+                    {tenant.features.shop && (
                     <Link href="/shop" passHref>
                       <ListItem button onClick={toggleDrawer}>
                         <ListItemText primary="Shop" />
                       </ListItem>
                     </Link>
+                    )}
                     
                     {/* Members pay fees from their profile */}
                     {isAuthenticated && (
@@ -436,7 +452,7 @@ const Navbar = () => {
                       </Link>
                     )}
                     
-                    {/* AI Coach - open to everyone */}
+                    {tenant.features.coach && (<>
                     <Link href="/coach" passHref>
                         <ListItem button onClick={toggleDrawer}>
                           <ListItemText 
@@ -463,6 +479,7 @@ const Navbar = () => {
                         <ListItemText primary="💪 S3 Fitness Plans" />
                       </ListItem>
                     </Link>
+                    </>)}
 
                     {isAuthenticated && (
                       <>

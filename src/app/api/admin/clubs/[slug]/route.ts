@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 import { connectToMongoose } from "@/app/server/mongodb";
 import Club from "@/app/models/Club";
 import User from "@/app/models/User";
-import { ClubError, cleanClubInput } from "@/app/lib/clubs.server";
+import { ClubError, cleanClubInput, invalidatePublicClub } from "@/app/lib/clubs.server";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +28,7 @@ export async function PUT(request: NextRequest, { params }: { params: { slug: st
     }
     Object.assign(club, data);
     await club.save();
+    invalidatePublicClub(club.slug);
     return NextResponse.json({ success: true, club });
   } catch (error: any) {
     if (error?.code === 11000) return NextResponse.json({ success: false, error: "That web address or ID prefix is taken" }, { status: 409 });

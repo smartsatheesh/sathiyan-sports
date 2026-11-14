@@ -10,14 +10,41 @@ export interface ClubProgram {
   adultMonthly?: number; // adults & veterans
 }
 
-/** What anyone may see about a club (club page, login and registration dropdowns). */
+export interface ClubFacility {
+  name: string;
+  emoji: string;
+  description: string;
+}
+
+/** Which parts of the app a club's site shows. */
+export interface ClubFeatures {
+  memberships: boolean;
+  attendance: boolean;
+  bookings: boolean;
+  tournaments: boolean;
+  shop: boolean;
+  coach: boolean;
+}
+
+/** Sathiyan's own site has everything; a new partner club starts with memberships and attendance. */
+export const ALL_FEATURES: ClubFeatures = { memberships: true, attendance: true, bookings: true, tournaments: true, shop: true, coach: true };
+export const PARTNER_DEFAULT_FEATURES: ClubFeatures = { memberships: true, attendance: true, bookings: false, tournaments: false, shop: false, coach: false };
+
+/** What anyone may see about a club (its site header and home page, login and registration). */
 export interface PublicClub {
   slug: string;
   name: string;
   city: string;
   tagline: string;
-  color: string;
+  color: string; // header / primary colour
+  accentColor: string; // buttons and highlights
+  logoUrl: string | null;
   isDefault: boolean;
+  location: { address: string; mapUrl: string };
+  contact: { phone: string; email: string; instagram: string };
+  facilities: ClubFacility[];
+  features: ClubFeatures;
+  plan: string;
   whatsappNumber: string;
   upi: { vpa: string; payeeName: string };
   programs: ClubProgram[];

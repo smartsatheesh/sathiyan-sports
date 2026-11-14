@@ -6,9 +6,12 @@ import type { Metadata } from "next";
 import Providers from "./providers";
 import Navbar from "./components/Navbar";
 import ChatbotWidget from "./components/ChatbotWidget";
-// Temporarily disabled to fix MongoDB timeout issues
+import { getTenant } from "./lib/tenant.server";
 
-export const metadata: Metadata = {
+export const dynamic = "force-dynamic"; // the tenant comes from the request host
+
+// Sathiyan's own metadata; a partner club's site gets its name and logo instead
+const sathiyanMetadata: Metadata = {
   title: "Sathiyan Sports",
   description: "Multi-sport training and coaching platform inspired by legendary coaching excellence",
   icons: {
@@ -41,28 +44,40 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
 };
 
-export default function RootLayout({
+export async function generateMetadata(): Promise<Metadata> {
+  const tenant = await getTenant();
+  if (tenant.isDefault) return sathiyanMetadata;
+  const icon = tenant.logoUrl || "/icon.png";
+  return {
+    title: { default: tenant.name, template: `%s · ${tenant.name}` },
+    description: tenant.tagline || `${tenant.name}${tenant.city ? `, ${tenant.city}` : ""}: coaching programmes, memberships and easy UPI fee payments.`,
+    icons: { icon: [{ url: icon }], shortcut: [{ url: icon }], apple: [{ url: icon }] },
+  };
+}
+
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const tenant = await getTenant();
+  const favicon = tenant.isDefault ? "/sathiyanlogo.png" : tenant.logoUrl || "/icon.png";
   return (
     <html lang="en">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         
         {/* Additional favicon fallbacks for better browser compatibility */}
-        <link rel="icon" href="/sathiyanlogo.png" type="image/png" />
-        <link rel="shortcut icon" href="/sathiyanlogo.png" type="image/png" />
-        <link rel="apple-touch-icon" href="/apple-icon.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon.png" />
+        <link rel="icon" href={favicon} type="image/png" />
+        <link rel="shortcut icon" href={favicon} type="image/png" />
+        <link rel="apple-touch-icon" href={tenant.isDefault ? "/apple-icon.png" : favicon} />
         
       </head>
       <body className="Arial">
-        <Providers>
+        <Providers tenant={tenant}>
           <Navbar />
           <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
-          <ChatbotWidget />
+          {tenant.isDefault && <ChatbotWidget />}
         </Providers>
       </body>
     </html>

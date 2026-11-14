@@ -32,6 +32,8 @@ import {
   EventAvailable,
 } from "@mui/icons-material";
 import Footer from "./components/Footer";
+import ClubHome from "./club/[slug]/ClubHome";
+import { useTenant } from "./components/TenantProvider";
 import FeaturesSection from "./components/FeaturesSection";
 import { HERO_SCENES } from "./components/landing/HeroScene";
 import ScrambleText from "./components/landing/ScrambleText";
@@ -133,6 +135,13 @@ function SectionTitle({ kicker, title, subtitle }: { kicker: string; title: stri
 }
 
 export default function Home() {
+  const tenant = useTenant();
+  // A partner club's site (<club>.sathiyansports.in) gets its own home page, not Sathiyan's
+  if (!tenant.isDefault) return <ClubHome club={tenant} />;
+  return <SathiyanHome />;
+}
+
+function SathiyanHome() {
   const { settings } = useSiteSettings();
   const [sceneIndex, setSceneIndex] = useState(0);
   const [load3D, setLoad3D] = useState(false);

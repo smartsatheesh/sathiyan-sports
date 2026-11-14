@@ -36,6 +36,7 @@ import {
 import Link from 'next/link';
 import { rememberClub, rememberedClub, useClubOptions } from '../../hooks/useClubs';
 import { DEFAULT_CLUB, isDefaultClub } from '../../lib/clubs';
+import { useTenant } from '../../components/TenantProvider';
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -57,9 +58,10 @@ export default function LoginPage() {
 
   // Members sign in to their own club (default Sathiyan): ?club= from a club page, else the last one used
   const clubs = useClubOptions();
+  const tenant = useTenant(); // on <club>.sathiyansports.in members sign in to that club only
   const [club, setClub] = useState(DEFAULT_CLUB);
   useEffect(() => {
-    setClub(searchParams.get('club') || rememberedClub());
+    setClub(tenant.isDefault ? searchParams.get('club') || rememberedClub() : tenant.slug);
   }, [searchParams]);
 
   // Check if user is already logged in
@@ -145,7 +147,7 @@ export default function LoginPage() {
           : session?.user?.role === 'club_admin'
             ? '/admin/fees'
             : !isDefaultClub(session?.user?.club)
-              ? `/club/${session.user.club}`
+              ? tenant.isDefault ? `/club/${session.user.club}` : '/' 
               : callbackUrl;
         router.push(destination);
       } else {
@@ -207,7 +209,7 @@ export default function LoginPage() {
               variant="body1" 
               className="login-subtitle"
             >
-              Sign in to {clubs.find((c) => c.slug === club)?.name || 'Sathiyan Sports Club'}
+              Sign in to {tenant.isDefault ? clubs.find((c) => c.slug === club)?.name || 'Sathiyan Sports Club' : tenant.name}
             </Typography>
           </Box>
 
@@ -330,6 +332,7 @@ export default function LoginPage() {
 
           {/* Credentials Login Form */}
           <Box component="form" onSubmit={handleSubmit}>
+            {tenant.isDefault && (
             <FormControl fullWidth margin="normal">
               <InputLabel>Club</InputLabel>
               <Select
@@ -348,6 +351,7 @@ export default function LoginPage() {
                 ))}
               </Select>
             </FormControl>
+            )}
             <TextField
               fullWidth
               label="Mobile Number"

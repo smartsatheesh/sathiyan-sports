@@ -36,6 +36,7 @@ import { addMonths, addYears } from "date-fns";
 import Link from "next/link";
 import RegistrationSuccessPopup from "../components/RegistrationSuccessPopup";
 import { rememberClub, rememberedClub, useClub, useClubOptions } from "../hooks/useClubs";
+import { useTenant } from "../components/TenantProvider";
 import { DEFAULT_CLUB, isDefaultClub } from "../lib/clubs";
 import { calculateMembershipPrice, CLASS_SPORTS, membershipPlanFor, programFor, programMonthlyFee, SUBSCRIPTION_MONTHS, type SubscriptionType } from "../lib/pricing";
 
@@ -70,8 +71,9 @@ export default function RegisterPage() {
   // Which club the member joins: ?club=<slug> (from a club's page), else the last one used here
   const [club, setClub] = useState(DEFAULT_CLUB);
   useEffect(() => {
-    setClub(new URLSearchParams(window.location.search).get("club") || rememberedClub());
+    setClub(tenant.isDefault ? new URLSearchParams(window.location.search).get("club") || rememberedClub() : tenant.slug);
   }, []);
+  const tenant = useTenant();
   const clubs = useClubOptions();
   const { club: clubInfo, settings } = useClub(club);
   // Partner clubs have no courts or time slots: members just pick a coaching programme
@@ -446,7 +448,8 @@ export default function RegisterPage() {
           Register for Membership
         </Typography>
 
-        {/* Club first: it decides the programmes and fees below */}
+        {/* Club first: it decides the programmes and fees below (fixed on a club's own site) */}
+        {tenant.isDefault && (
         <FormControl fullWidth margin="normal">
           <InputLabel>Club</InputLabel>
           <Select value={clubs.some((c) => c.slug === club) ? club : DEFAULT_CLUB} label="Club" onChange={(e) => setClub(String(e.target.value))}>
@@ -458,6 +461,7 @@ export default function RegisterPage() {
             ))}
           </Select>
         </FormControl>
+        )}
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>

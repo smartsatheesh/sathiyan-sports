@@ -4,12 +4,14 @@ import React from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Box, Button, Card, CardContent, Chip, Container, Grid, Stack, Typography } from "@mui/material";
-import { ArrowForward, Login, LocationOn, Settings, WhatsApp } from "@mui/icons-material";
+import { ArrowForward, Call, Email, Instagram, Login, LocationOn, Map, Settings, WhatsApp } from "@mui/icons-material";
 import MembershipFeeCard from "../../components/MembershipFeeCard";
 import { PublicClub } from "../../lib/clubs";
 import { waNumber } from "../../lib/pricing";
+import { siteUrlFor } from "../../lib/tenant";
 
 const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+const SATHIYAN_URL = siteUrlFor(null);
 
 export default function ClubHome({ club }: { club: PublicClub }) {
   const { data: session } = useSession();
@@ -24,9 +26,15 @@ export default function ClubHome({ club }: { club: PublicClub }) {
     <Box sx={{ bgcolor: "#f6f8fb", minHeight: "100vh" }}>
       <Box sx={{ background: `linear-gradient(135deg, ${club.color} 0%, #071a2e 100%)`, color: "#fff", py: { xs: 5, md: 8 } }}>
         <Container maxWidth="md">
-          {club.city && (
-            <Chip icon={<LocationOn sx={{ color: "#fff !important" }} />} label={club.city} sx={{ bgcolor: "rgba(255,255,255,0.15)", color: "#fff", mb: 2, fontWeight: 600 }} />
-          )}
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+            {club.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={club.logoUrl} alt={`${club.name} logo`} style={{ width: 72, height: 72, borderRadius: 14, objectFit: "contain", background: "rgba(255,255,255,0.92)", padding: 4 }} />
+            )}
+            {club.city && (
+              <Chip icon={<LocationOn sx={{ color: "#fff !important" }} />} label={club.city} sx={{ bgcolor: "rgba(255,255,255,0.15)", color: "#fff", fontWeight: 600 }} />
+            )}
+          </Stack>
           <Typography component="h1" sx={{ fontWeight: 900, fontSize: { xs: "2.2rem", md: "3.4rem" }, lineHeight: 1.05 }}>
             {club.name}
           </Typography>
@@ -39,7 +47,7 @@ export default function ClubHome({ club }: { club: PublicClub }) {
               </Button>
             ) : !isMember ? (
               <>
-                <Button component={Link} href={`/register?club=${club.slug}`} size="large" variant="contained" endIcon={<ArrowForward />} sx={{ bgcolor: "#ffc400", color: "#111", fontWeight: 900, "&:hover": { bgcolor: "#ffd740" } }}>
+                <Button component={Link} href={`/register?club=${club.slug}`} size="large" variant="contained" endIcon={<ArrowForward />} sx={{ bgcolor: club.accentColor, color: "#111", fontWeight: 900, "&:hover": { bgcolor: club.accentColor, filter: "brightness(1.1)" } }}>
                   Join the club
                 </Button>
                 <Button component={Link} href={`/auth/login?club=${club.slug}`} size="large" variant="outlined" startIcon={<Login />} sx={{ color: "#fff", borderColor: "rgba(255,255,255,0.7)", fontWeight: 800 }}>
@@ -97,14 +105,78 @@ export default function ClubHome({ club }: { club: PublicClub }) {
         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
           Pay monthly, quarterly, half-yearly or yearly by UPI{club.upi.payeeName ? ` to ${club.upi.payeeName}` : ""} — you&apos;ll get a reminder on WhatsApp when it&apos;s due.
         </Typography>
+
+        {club.facilities.length > 0 && (
+          <Box sx={{ mt: 6 }}>
+            <Typography sx={{ color: club.color, fontWeight: 800, letterSpacing: 2, fontSize: 13, textTransform: "uppercase" }}>Facilities</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 900, fontSize: { xs: "1.7rem", md: "2.2rem" }, mb: 2.5 }}>What we have</Typography>
+            <Grid container spacing={2}>
+              {club.facilities.map((f) => (
+                <Grid item xs={12} sm={6} md={4} key={f.name}>
+                  <Card sx={{ height: "100%", borderRadius: 3 }}>
+                    <CardContent>
+                      <Typography sx={{ fontSize: "2rem", lineHeight: 1 }}>{f.emoji}</Typography>
+                      <Typography variant="h6" fontWeight={800} sx={{ mt: 1 }}>{f.name}</Typography>
+                      {f.description && <Typography variant="body2" color="text.secondary">{f.description}</Typography>}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        )}
+
+        {(club.location.address || club.contact.phone || club.contact.email || club.contact.instagram) && (
+          <Box sx={{ mt: 6 }}>
+            <Typography sx={{ color: club.color, fontWeight: 800, letterSpacing: 2, fontSize: 13, textTransform: "uppercase" }}>Find us</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 900, fontSize: { xs: "1.7rem", md: "2.2rem" }, mb: 2 }}>Location & contact</Typography>
+            <Card sx={{ borderRadius: 3 }}>
+              <CardContent>
+                <Stack spacing={1.2}>
+                  {club.location.address && (
+                    <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                      <LocationOn sx={{ color: club.color }} />
+                      <Typography>{club.location.address}</Typography>
+                    </Stack>
+                  )}
+                  {club.contact.phone && (
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Call sx={{ color: club.color }} />
+                      <Typography component="a" href={`tel:${club.contact.phone.replace(/\s/g, "")}`} sx={{ color: "inherit" }}>{club.contact.phone}</Typography>
+                    </Stack>
+                  )}
+                  {club.contact.email && (
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Email sx={{ color: club.color }} />
+                      <Typography component="a" href={`mailto:${club.contact.email}`} sx={{ color: "inherit" }}>{club.contact.email}</Typography>
+                    </Stack>
+                  )}
+                  {club.contact.instagram && (
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Instagram sx={{ color: club.color }} />
+                      <Typography component="a" href={`https://instagram.com/${club.contact.instagram}`} target="_blank" rel="noopener noreferrer" sx={{ color: "inherit" }}>@{club.contact.instagram}</Typography>
+                    </Stack>
+                  )}
+                  {club.location.mapUrl && (
+                    <Box>
+                      <Button href={club.location.mapUrl} target="_blank" rel="noopener noreferrer" variant="outlined" startIcon={<Map />} sx={{ mt: 0.5 }}>
+                        Open in Google Maps
+                      </Button>
+                    </Box>
+                  )}
+                </Stack>
+              </CardContent>
+            </Card>
+          </Box>
+        )}
       </Container>
 
       <Box sx={{ borderTop: 1, borderColor: "divider", py: 3, textAlign: "center", bgcolor: "#fff" }}>
         <Typography variant="body2" color="text.secondary">
           Memberships & fees powered by{" "}
-          <Link href="/" style={{ fontWeight: 700, color: "inherit" }}>
+          <a href={SATHIYAN_URL} style={{ fontWeight: 700, color: "inherit" }}>
             Sathiyan Sports
-          </Link>{" "}
+          </a>{" "}
           · run your club here too
         </Typography>
       </Box>

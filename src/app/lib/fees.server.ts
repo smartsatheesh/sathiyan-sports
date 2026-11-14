@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { SITE_URL as PUBLIC_SITE_URL } from "./site";
+import { siteUrlFor } from "./tenant";
+import { isDefaultClub } from "./clubs";
 import mongoose from "mongoose";
 import { connectToMongoose } from "@/app/server/mongodb";
 import Subscription from "@/app/models/Subscription";
@@ -79,7 +81,7 @@ export function userIdFromPayToken(token: string): string | null {
   return expected.length === given.length && timingSafeEqual(expected, given) ? userId : null;
 }
 
-export const payLinkFor = (userId: string) => `${SITE_URL}/pay/${payTokenFor(userId)}`;
+export const payLinkFor = (userId: string, club?: string | null) => `${isDefaultClub(club) ? SITE_URL : siteUrlFor(club)}/pay/${payTokenFor(userId)}`;
 
 // ----- pricing helpers -----
 
@@ -176,7 +178,7 @@ export async function getFeeBoard(club: string = DEFAULT_CLUB): Promise<{ member
       lastAmount: paid?.lastAmount ?? null,
       lastPaidOn: paid?.lastPaidOn ? new Date(paid.lastPaidOn).toISOString() : null,
       feeReminderAt: u.feeReminderAt ? new Date(u.feeReminderAt).toISOString() : null,
-      payLink: payLinkFor(id),
+      payLink: payLinkFor(id, club),
     };
   });
 

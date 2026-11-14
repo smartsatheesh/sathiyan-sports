@@ -2,39 +2,55 @@ import { connectToMongoose } from "@/app/server/mongodb";
 import Settings from "@/app/models/Settings";
 import { SiteSettings, withDefaults } from "@/app/lib/pricing";
 
-const SETTINGS_KEY = "site";
+import { isDefaultClub } from "@/app/lib/clubs";
+
+const SETTINGS_KEY = "site"; // Sathiyan's settings
 const CACHE_MS = 60_000;
 
-let cache: { value: SiteSettings; at: number } | null = null;
+// One Settings document per club: Sathiyan's under "site", partner clubs under "club:<slug>"
+export const settingsKeyFor = (club?: string | null) => (isDefaultClub(club) ? SETTINGS_KEY : `club:${String(club).toLowerCase()}`);
 
-export async function getSiteSettings(): Promise<SiteSettings> {
-  if (cache && Date.now() - cache.at < CACHE_MS) return cache.value;
+const cache = new Map<string, { value: SiteSettings | null; at: number }>();
+
+/** Raw saved settings for a key (null when the club hasn't saved any yet). */
+export async function loadSettingsDoc(key: string): Promise<SiteSettings | null> {
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
   await connectToMongoose();
-  const doc = await (Settings.findOne as any)({ key: SETTINGS_KEY }).lean();
-  const value = withDefaults(doc?.data);
-  cache = { value, at: Date.now() };
+  const doc = await (Settings.findOne as any)({ key }).lean();
+  const value = doc?.data ? withDefaults(doc.data) : null;
+  cache.set(key, { value, at: Date.now() });
   return value;
 }
 
-export async function saveSiteSettings(value: SiteSettings, updatedBy: string): Promise<SiteSettings> {
+/** Forget cached settings for a key (e.g. when a club is created or removed). */
+export function invalidateSettings(key: string) {
+  cache.delete(key);
+}
+
+export async function saveSettingsDoc(key: string, value: SiteSettings, updatedBy: string): Promise<SiteSettings> {
   await connectToMongoose();
-  await (Settings.findOneAndUpdate as any)(
-    { key: SETTINGS_KEY },
-    { $set: { data: value, updatedBy } },
-    { upsert: true }
-  );
-  cache = { value, at: Date.now() };
+  await (Settings.findOneAndUpdate as any)({ key }, { $set: { data: value, updatedBy } }, { upsert: true });
+  cache.set(key, { value, at: Date.now() });
   return value;
+}
+
+export async function getSiteSettings(): Promise<SiteSettings> {
+  return (await loadSettingsDoc(SETTINGS_KEY)) || withDefaults(undefined);
+}
+
+export async function saveSiteSettings(value: SiteSettings, updatedBy: string): Promise<SiteSettings> {
+  return saveSettingsDoc(SETTINGS_KEY, value, updatedBy);
 }
 
 const isMoney = (n: unknown) => typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 1_000_000;
 const VPA_RE = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z][a-zA-Z0-9]{2,64}$/;
 
 /** Validates an incoming settings object; returns a list of problems (empty = valid). */
-export function validateSettings(s: SiteSettings): string[] {
+export function validateSettings(s: SiteSettings, opts: { allowNoCourts?: boolean } = {}): string[] {
   const errors: string[] = [];
 
-  if (!Array.isArray(s.courts) || s.courts.length === 0) errors.push("At least one sport price is required");
+  if (!Array.isArray(s.courts) || (s.courts.length === 0 && !opts.allowNoCourts)) errors.push("At least one sport price is required");
   s.courts?.forEach((c) => {
     if (!c.sport?.trim()) errors.push("Every sport needs a name");
     if (!isMoney(c.weekday) || !isMoney(c.weekend)) errors.push(`${c.sport}: prices must be 0 or more`);

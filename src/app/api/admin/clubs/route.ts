@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToMongoose } from "@/app/server/mongodb";
 import Club from "@/app/models/Club";
 import User from "@/app/models/User";
-import { ClubError, cleanClubInput, listClubDocs } from "@/app/lib/clubs.server";
+import { ClubError, cleanClubInput, invalidatePublicClub, listClubDocs } from "@/app/lib/clubs.server";
+import { invalidateSettings, settingsKeyFor } from "@/app/lib/settings.server";
 import { slugify } from "@/app/lib/clubs";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,7 @@ export async function GET() {
     clubs: clubs.map((c: any) => ({
       ...c,
       _id: String(c._id),
+      logoUrl: c.hasLogo ? `/api/clubs/${c.slug}/logo?v=${new Date(c.updatedAt || 0).getTime()}` : null,
       members: countBy.get(c.slug) || 0,
       admins: admins.filter((a: any) => a.club === c.slug).map((a: any) => ({ id: String(a._id), name: a.name, mobile: a.mobile })),
     })),
@@ -36,6 +38,9 @@ export async function POST(request: NextRequest) {
     if (!data.champIdPrefix) throw new ClubError("Member ID prefix is required");
     await connectToMongoose();
     const club = await (Club.create as any)({ programs: [], ...data });
+    // a visit to the new subdomain before the club existed may have cached "no such club"
+    invalidatePublicClub(club.slug);
+    invalidateSettings(settingsKeyFor(club.slug));
     return NextResponse.json({ success: true, club });
   } catch (error: any) {
     if (error instanceof ClubError) return NextResponse.json({ success: false, error: error.message }, { status: error.status });
