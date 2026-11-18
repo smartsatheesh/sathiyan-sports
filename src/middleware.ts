@@ -38,6 +38,8 @@ const API_RULES: Rule[] = [
   // changing or deleting a registration is the owner's
   { pattern: /^\/api\/admin\/tournament-registrations(\/|$)/, access: "admin", methods: WRITE },
   { pattern: /^\/api\/admin\/(bookings|tournament-registrations|check-champid)(\/|$)/, access: "staff" },
+  // The desk prefills a returning customer from their mobile; the customer book itself is the owner's
+  { pattern: /^\/api\/admin\/customers\/lookup$/, access: "staff" },
   { pattern: /^\/api\/admin\/overview$/, access: "adminArea" },
   { pattern: /^\/api\/admin(\/|$)/, access: "admin" },
   // Players register themselves; reads stay public for the fixtures pages. A coach may enter

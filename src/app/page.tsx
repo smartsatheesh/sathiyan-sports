@@ -39,6 +39,7 @@ import { HERO_SCENES } from "./components/landing/HeroScene";
 import ScrambleText from "./components/landing/ScrambleText";
 import ScrollBalls from "./components/landing/ScrollBalls";
 import FacilitiesShowcase from "./components/landing/FacilitiesShowcase";
+import BookingChamps, { ChampCard } from "./components/landing/BookingChamps";
 import { useSiteSettings } from "./hooks/useSiteSettings";
 import { courtPriceLabel, getCourt, waNumber } from "./lib/pricing";
 
@@ -151,6 +152,7 @@ function SathiyanHome() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<{ list: Review[]; average: number | null; count: number }>({ list: [], average: null, count: 0 });
+  const [champs, setChamps] = useState<ChampCard[]>([]);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -172,6 +174,7 @@ function SathiyanHome() {
     fetch("/api/tournaments-native").then((r) => r.json()).then((d) => setTournaments((d.tournaments || d.data || []).slice(0, 3))).catch(() => {});
     fetch("/api/reviews").then((r) => r.json()).then((d) => d.success && setReviews({ list: d.reviews || [], average: d.average, count: d.count })).catch(() => {});
     fetch("/api/inventory").then((r) => r.json()).then((d) => setProducts((d.products || []).filter((p: Product) => p.price > 0).slice(0, 4))).catch(() => {});
+    fetch("/api/champs").then((r) => r.json()).then((d) => d.success && setChamps(d.champs || [])).catch(() => {});
   }, []);
 
   const nextScene = useCallback(() => setSceneIndex((i) => (i + 1) % HERO_SCENES.length), []);
@@ -398,6 +401,16 @@ function SathiyanHome() {
           </Stack>
         </Container>
       </Box>
+
+      {/* ================= BOOKING CHAMPS ================= */}
+      {champs.length > 0 && (
+        <Box sx={{ bgcolor: "#fff", py: { xs: 6, md: 8 } }}>
+          <Container maxWidth="lg">
+            <SectionTitle kicker="Regulars" title="Booking champs of the week" subtitle="Our most active players over the last 7 days. Keep booking and your name goes up here — offers go to our champs first." />
+            <BookingChamps champs={champs} />
+          </Container>
+        </Box>
+      )}
 
       {/* ================= COMPETE ================= */}
       {tournaments.length > 0 && (

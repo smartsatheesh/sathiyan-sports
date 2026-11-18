@@ -7,6 +7,7 @@ import { addDaysFromISTDayStart, getISTDayStart, getISTTodayStart } from '@/app/
 import { findBlockingConflicts } from '@/app/lib/bookingConflicts';
 import { getSiteSettings } from '@/app/lib/settings.server';
 import { bookingPeople, bookingRuleError, calculateBookingPrice, getCourt } from '@/app/lib/pricing';
+import { rememberCustomer } from '@/app/lib/customers.server';
 
 function parseTimeSlots(timeSlot?: string, timeSlots?: string[]): string[] {
   if (Array.isArray(timeSlots) && timeSlots.length > 0) {
@@ -192,6 +193,8 @@ export async function POST(request: NextRequest) {
       };
 
       const booking = await (Booking.create as any)(bookingData);
+    // keep the customer book current so the desk can prefill them next time
+    await rememberCustomer(customerInfo);
 
       return NextResponse.json({
         success: true,
@@ -272,6 +275,8 @@ export async function POST(request: NextRequest) {
     };
 
     const booking = await (Booking.create as any)(bookingData);
+    // keep the customer book current so the desk can prefill them next time
+    await rememberCustomer(customerInfo);
 
 
     return NextResponse.json({

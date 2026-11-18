@@ -56,9 +56,11 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     required: [true, "Customer name is required"],
   },
+  // Optional: notifications go by WhatsApp, and walk-in customers rarely have one
   customerEmail: {
     type: String,
-    required: [true, "Customer email is required"],
+    default: "",
+    trim: true,
   },
   customerPhone: {
     type: String,

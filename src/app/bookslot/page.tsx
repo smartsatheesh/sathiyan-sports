@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { SITE_HOST } from "@/app/lib/site";
+import { isStaff } from "@/app/lib/roles";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
@@ -316,6 +317,8 @@ export default function BookSlot() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const isAdminUser = session?.user?.role === 'admin';
+  // Staff at the desk get a returning customer's details filled in from the customer book
+  const isStaffUser = isStaff(session?.user?.role);
 
   // All useState hooks must be at the top level
   const [selectedSport, setSelectedSport] = useState<SportName | "">("");
@@ -558,6 +561,27 @@ export default function BookSlot() {
       ...prev,
       phone
     }));
+
+    // Staff: look the mobile up in the customer book (every past booking, any device)
+    const digits = phone.replace(/\D/g, '');
+    if (isStaffUser && digits.length >= 10) {
+      fetch(`/api/admin/customers/lookup?mobile=${digits.slice(-10)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (!d?.success || !d.customer) return;
+          setCustomerInfo(prev => ({
+            ...prev,
+            name: d.customer.name || prev.name,
+            email: d.customer.email || prev.email,
+          }));
+          setAlert({
+            type: 'info',
+            message: `${d.customer.name || 'This customer'} has booked ${d.customer.bookingCount} time${d.customer.bookingCount === 1 ? '' : 's'} before${d.customer.favouriteSport ? ` (mostly ${d.customer.favouriteSport})` : ''} — details filled in.`,
+          });
+        })
+        .catch(() => {});
+      return;
+    }
 
     // Try to load saved details for this phone number
     if (phone && phone.length >= 10) {
