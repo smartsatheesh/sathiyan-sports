@@ -5,22 +5,29 @@ import { Box, Chip, Paper, Stack, Table, TableBody, TableCell, TableContainer, T
 import { leagueFinished, leagueTable, TableMatch } from "../lib/league";
 import { sportRules } from "../lib/tournamentSports";
 
-// Goals for/against are dropped on phones so GD and points always fit
-const HIDE_ON_PHONE = new Set(["GF", "GA", "RF", "RA"]);
+// What the "for / against / difference" columns count, per sport scoring, and what a level game is called
+const COLUMNS = {
+  goals: { for: "GF", against: "GA", diff: "GD", level: "D", levelWord: "Draw", unit: "goal" },
+  runs: { for: "RF", against: "RA", diff: "RD", level: "T", levelWord: "Tie", unit: "run" },
+  sets: { for: "SW", against: "SL", diff: "SD", level: "D", levelWord: "Draw", unit: "set" },
+  points: { for: "PF", against: "PA", diff: "PD", level: "D", levelWord: "Draw", unit: "point" },
+} as const;
 const FORM_COLORS = { W: "#2e7d32", D: "#9e9e9e", L: "#c62828" } as const;
 
 /**
- * League table (P W D L GF GA GD Pts — runs and ties for cricket); the top `qualifiers` rows are
- * highlighted.
+ * League table (P W D L GF GA GD Pts; runs and ties for cricket, sets for badminton, points for
+ * the martial arts); the top `qualifiers` rows are highlighted. For/against are dropped on phones
+ * so the difference and points always fit.
  */
 export default function LeagueTable({ matches, qualifiers = 0, title, sport }: { matches: TableMatch[]; qualifiers?: number; title?: string; sport?: string }) {
   const rules = sportRules(sport);
-  const runs = rules.scoring === "runs";
+  const cols = COLUMNS[rules.scoring] || COLUMNS.goals;
   const rows = useMemo(() => leagueTable(matches, rules.points), [matches, rules.points]);
   const done = useMemo(() => leagueFinished(matches), [matches]);
   if (!rows.length) return null;
 
-  const head = runs ? ["#", "Team", "P", "W", "T", "L", "RF", "RA", "RD", "Pts"] : ["#", "Team", "P", "W", "D", "L", "GF", "GA", "GD", "Pts"];
+  const HIDE_ON_PHONE = new Set<string>([cols.for, cols.against]);
+  const head = ["#", "Team", "P", "W", cols.level, "L", cols.for, cols.against, cols.diff, "Pts"];
   return (
     <Box sx={{ mb: 3 }}>
       {title && (
@@ -63,7 +70,7 @@ export default function LeagueTable({ matches, qualifiers = 0, title, sport }: {
                   <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
                     <Stack direction="row" spacing={0.4}>
                       {r.form.map((f, k) => (
-                        <Box key={k} title={f === "W" ? "Won" : f === "D" ? (runs ? "Tied" : "Drawn") : "Lost"} sx={{ width: 18, height: 18, borderRadius: "50%", bgcolor: FORM_COLORS[f], color: "#fff", fontSize: 10, fontWeight: 800, display: "grid", placeItems: "center" }}>
+                        <Box key={k} title={f === "W" ? "Won" : f === "D" ? (cols.levelWord === "Tie" ? "Tied" : "Drawn") : "Lost"} sx={{ width: 18, height: 18, borderRadius: "50%", bgcolor: FORM_COLORS[f], color: "#fff", fontSize: 10, fontWeight: 800, display: "grid", placeItems: "center" }}>
                           {f}
                         </Box>
                       ))}
@@ -76,9 +83,7 @@ export default function LeagueTable({ matches, qualifiers = 0, title, sport }: {
         </Table>
       </TableContainer>
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75 }}>
-        {runs
-          ? `Win ${rules.points.win} pts · Tie ${rules.points.draw} pt · Level teams split by run difference, runs scored, then head-to-head.`
-          : `Win ${rules.points.win} pts · Draw ${rules.points.draw} pt · Ties split by goal difference, goals scored, then head-to-head.`}
+        {`Win ${rules.points.win} pts · ${cols.levelWord} ${rules.points.draw} pt · Level teams split by ${cols.unit} difference, ${cols.unit}s ${cols.unit === "set" ? "won" : "scored"}, then head-to-head.`}
         {qualifiers > 0 && (done ? ` Top ${qualifiers} are through to the knockouts.` : ` Top ${qualifiers} go through to the knockouts.`)}
       </Typography>
     </Box>

@@ -28,6 +28,9 @@ export interface SportRules {
   points: { win: number; draw: number };
 }
 
+/** Every sport can be run as a knockout, a league (round robin) or a league followed by a knockout. */
+export const ALL_FORMATS: TournamentFormat[] = ['knockout', 'league', 'league_knockout'];
+
 /** Age groups every sport offers: Under 6 … Under 21, Under 23, then open/adult/veteran. */
 export const AGE_GROUPS = [
   ...Array.from({ length: 16 }, (_, i) => `Under ${i + 6}`), // Under 6 … Under 21
@@ -51,7 +54,7 @@ export const TOURNAMENT_SPORTS: Record<TournamentSport, SportRules> = {
     ageCategories: [...AGE_GROUPS, ...LEGACY_BADMINTON_AGES],
     divisionByEvent: false,
     scoring: 'sets',
-    formats: ['knockout'],
+    formats: ALL_FORMATS,
     points: { win: 2, draw: 1 },
   },
   football: {
@@ -65,7 +68,7 @@ export const TOURNAMENT_SPORTS: Record<TournamentSport, SportRules> = {
     ageCategories: AGE_GROUPS,
     divisionByEvent: false,
     scoring: 'goals',
-    formats: ['knockout', 'league', 'league_knockout'],
+    formats: ALL_FORMATS,
     points: { win: 3, draw: 1 },
   },
   cricket: {
@@ -79,7 +82,7 @@ export const TOURNAMENT_SPORTS: Record<TournamentSport, SportRules> = {
     ageCategories: AGE_GROUPS,
     divisionByEvent: false,
     scoring: 'runs',
-    formats: ['knockout', 'league', 'league_knockout'],
+    formats: ALL_FORMATS,
     points: { win: 2, draw: 1 }, // a tie (or no result) is shared
   },
   karate: {
@@ -93,7 +96,7 @@ export const TOURNAMENT_SPORTS: Record<TournamentSport, SportRules> = {
     ageCategories: AGE_GROUPS,
     divisionByEvent: true,
     scoring: 'points',
-    formats: ['knockout'],
+    formats: ALL_FORMATS,
     points: { win: 2, draw: 1 },
   },
   silambam: {
@@ -107,7 +110,7 @@ export const TOURNAMENT_SPORTS: Record<TournamentSport, SportRules> = {
     ageCategories: AGE_GROUPS,
     divisionByEvent: true,
     scoring: 'points',
-    formats: ['knockout'],
+    formats: ALL_FORMATS,
     points: { win: 2, draw: 1 },
   },
   taekwondo: {
@@ -121,7 +124,7 @@ export const TOURNAMENT_SPORTS: Record<TournamentSport, SportRules> = {
     ageCategories: AGE_GROUPS,
     divisionByEvent: true,
     scoring: 'points',
-    formats: ['knockout'],
+    formats: ALL_FORMATS,
     points: { win: 2, draw: 1 },
   },
   yoga: {
@@ -135,7 +138,7 @@ export const TOURNAMENT_SPORTS: Record<TournamentSport, SportRules> = {
     ageCategories: AGE_GROUPS,
     divisionByEvent: true,
     scoring: 'points',
-    formats: ['knockout'],
+    formats: ALL_FORMATS,
     points: { win: 2, draw: 1 },
   },
 };

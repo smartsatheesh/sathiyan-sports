@@ -9,8 +9,8 @@ import { isPreviewHost, TENANT_COOKIE, TENANT_HEADER, tenantFromHost } from "@/a
 // It also decides which club ("tenant") a request is for, from the host name, and passes
 // that on in the x-club request header.
 
-// Roles (see lib/roles.ts): admin = owner; coach = tournaments, attendance and booking status
-// (never revenue); club_admin = a partner club's admin.
+// Roles (see lib/roles.ts): admin = owner; coach = match scores, attendance and booking status
+// (never revenue, never tournament set-up); club_admin = a partner club's admin.
 //   staff     = admin or coach
 //   clubAdmin = admin or club_admin; those routes scope data to the club themselves
 //   adminArea = admin, coach or club_admin (the /admin hub itself)
@@ -34,14 +34,20 @@ const API_RULES: Rule[] = [
   { pattern: /^\/api\/attendance\//, access: "admin" },
 
   { pattern: /^\/api\/admin\/(fees|payments|club|settings)(\/|$)/, access: "clubAdmin" },
-  // Coaches run tournaments and bookings (the handlers hide amounts from them)
+  // Coaches see registrations and run bookings (the handlers hide amounts from them);
+  // changing or deleting a registration is the owner's
+  { pattern: /^\/api\/admin\/tournament-registrations(\/|$)/, access: "admin", methods: WRITE },
   { pattern: /^\/api\/admin\/(bookings|tournament-registrations|check-champid)(\/|$)/, access: "staff" },
   { pattern: /^\/api\/admin\/overview$/, access: "adminArea" },
   { pattern: /^\/api\/admin(\/|$)/, access: "admin" },
-  // Players register themselves; everything else that changes a tournament is staff work
-  // (handlers re-check the role); reads stay public for the fixtures pages
+  // Players register themselves; reads stay public for the fixtures pages. A coach may enter
+  // scores (match PUT — the handler limits a coach to score fields); creating, editing or
+  // deleting tournaments, generating or reshuffling fixtures and adding or removing matches
+  // is the owner's (handlers re-check the role)
   { pattern: /^\/api\/tournaments\/(public-register|[^/]+\/register)$/, access: "public" },
-  { pattern: /^\/api\/(tournaments|tournaments-native|players-native|matches-native)(\/|$)/, access: "staff", methods: WRITE },
+  { pattern: /^\/api\/tournaments\/[^/]+\/matches\/[^/]+$/, access: "staff", methods: ["PUT"] },
+  { pattern: /^\/api\/matches-native\/[^/]+$/, access: "staff", methods: ["PUT"] },
+  { pattern: /^\/api\/(tournaments|tournaments-native|players-native|matches-native)(\/|$)/, access: "admin", methods: WRITE },
   // Booking lookups expose customer contact details; payment proof goes through /api/payments
   { pattern: /^\/api\/bookings\/(?!simple-create$)[^/]+$/, access: "admin" },
   { pattern: /^\/api\/expenses(\/|$)/, access: "admin" },
@@ -62,8 +68,9 @@ const API_RULES: Rule[] = [
 const PAGE_RULES: Rule[] = [
   { pattern: /^\/admin\/?$/, access: "adminArea" },
   { pattern: /^\/admin\/(fees|payments|club|settings)(\/|$)/, access: "clubAdmin" },
-  // Coach pages: bookings (no money), tournaments, attendance, the check-in QR
-  { pattern: /^\/admin\/(manage|tournaments|tournament-management|tournament-registrations|live-score|import-tournament|attendance|universal-qr)(\/|$)/, access: "staff" },
+  // Coach pages: bookings (no money), tournaments (scores only — the page hides set-up actions),
+  // attendance, the check-in QR. The legacy tournament editors stay with the owner.
+  { pattern: /^\/admin\/(manage|tournaments|tournament-registrations|attendance|universal-qr)(\/|$)/, access: "staff" },
   { pattern: /^\/admin(\/|$)/, access: "admin" },
   { pattern: /^\/expenses(\/|$)/, access: "admin" },
   { pattern: /^\/subscription$/, access: "admin" },

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { canManageTournaments } from '@/app/lib/roles';
+import { canEditTournaments } from "@/app/lib/roles";
 import { connectToMongoose } from '../../../../server/mongodb';
 import Match from '../../../../models/Match';
 import Tournament from '../../../../models/Tournament';
@@ -86,9 +86,9 @@ export async function POST(
     const User = (await import('../../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
     
-    if (!user || !canManageTournaments(user.role)) {
+    if (!user || !canEditTournaments(user.role)) {
       return NextResponse.json(
-        { success: false, error: 'Staff access required' },
+        { success: false, error: 'Admin access required' },
         { status: 403 }
       );
     }
@@ -187,7 +187,7 @@ export async function DELETE(
     await connectToMongoose();
     const User = (await import('../../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
-    if (!user || !canManageTournaments(user.role)) return NextResponse.json({ success: false, error: 'Staff access required' }, { status: 403 });
+    if (!user || !canEditTournaments(user.role)) return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 });
 
     const result = await (Match.deleteMany as any)({ tournamentId: params.id });
     return NextResponse.json({ success: true, deleted: result.deletedCount });

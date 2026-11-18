@@ -105,11 +105,11 @@ export default function AdminHome() {
     { title: "Prices & settings", desc: "Fees, UPI, WhatsApp", href: "/admin/settings", icon: <Settings /> },
     { title: "Partner clubs", desc: "Other clubs, club admins", href: "/admin/clubs", icon: <Diversity3 /> },
   ];
-  // A coach runs the ground: bookings (status only, no amounts), tournaments, attendance
+  // A coach runs the ground: bookings (status only, no amounts), match scores, attendance
   const coachSections: { title: string; desc: string; href: string; icon: React.ReactNode; badge?: number }[] = [
     { title: "Bookings", desc: "Today's slots, confirm or cancel", href: "/admin/manage", icon: <Groups /> },
     { title: "Book a slot", desc: "Walk-in or phone booking", href: "/bookslot", icon: <EventAvailable /> },
-    { title: "Tournaments", desc: "Events, fixtures, results", href: "/admin/tournaments", icon: <EmojiEvents /> },
+    { title: "Match scores", desc: "Live scores and results", href: "/admin/tournaments", icon: <EmojiEvents /> },
     { title: "Attendance", desc: "Check-ins and reports", href: "/admin/attendance", icon: <FactCheck /> },
     { title: "AI coach plans", desc: "Members' plans & progress", href: "/coach/admin", icon: <BarChart /> },
     { title: "Check-in QR", desc: "Print the venue QR", href: "/admin/universal-qr", icon: <QrCode2 /> },

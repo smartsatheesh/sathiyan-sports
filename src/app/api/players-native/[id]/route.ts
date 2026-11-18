@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { canManageTournaments } from '@/app/lib/roles';
+import { canEditTournaments } from "@/app/lib/roles";
 import { MongoClient, ObjectId } from 'mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../lib/authConfig';
@@ -14,7 +14,7 @@ export async function PUT(
   try {
     // Check authentication and admin role
     const session = await getServerSession(authOptions);
-    if (!session || !canManageTournaments(session.user?.role)) {
+    if (!session || !canEditTournaments(session.user?.role)) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -88,7 +88,7 @@ export async function DELETE(
   try {
     // Check authentication and admin role
     const session = await getServerSession(authOptions);
-    if (!session || !canManageTournaments(session.user?.role)) {
+    if (!session || !canEditTournaments(session.user?.role)) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }

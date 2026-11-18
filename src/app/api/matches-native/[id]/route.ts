@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
-import { canManageTournaments } from '@/app/lib/roles';
+import { canEditTournaments, canScoreMatches } from "@/app/lib/roles";
 import { MongoClient, ObjectId } from 'mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../lib/authConfig';
+
+/** What a coach may change on a match through this legacy route. */
+const SCORE_FIELDS = ["score", "status", "winner", "winnerName", "liveScore", "duration", "notes"];
 
 export async function PUT(
   request: Request,
@@ -14,7 +17,7 @@ export async function PUT(
   try {
     // Check authentication and admin role
     const session = await getServerSession(authOptions);
-    if (!session || !canManageTournaments(session.user?.role)) {
+    if (!session || !canScoreMatches(session.user?.role)) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -38,7 +41,11 @@ export async function PUT(
     const db = client.db('SathiyanSports');
     
     // Remove _id from update data to avoid conflicts
-    const { _id, ...updateData } = body;
+    const { _id, ...rest } = body;
+    // A coach only records the game; who plays, where and when stays with the owner
+    const updateData: Record<string, any> = canEditTournaments(session.user?.role)
+      ? rest
+      : Object.fromEntries(Object.entries(rest).filter(([k]) => SCORE_FIELDS.includes(k)));
     updateData.updatedAt = new Date();
 
     // Automatically determine winner if match is completed and scores are provided
@@ -99,7 +106,7 @@ export async function DELETE(
   try {
     // Check authentication and admin role
     const session = await getServerSession(authOptions);
-    if (!session || !canManageTournaments(session.user?.role)) {
+    if (!session || !canEditTournaments(session.user?.role)) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }

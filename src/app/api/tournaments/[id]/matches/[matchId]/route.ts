@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { canManageTournaments } from '@/app/lib/roles';
+import { canEditTournaments, canScoreMatches } from '@/app/lib/roles';
 import { connectToMongoose } from '../../../../../server/mongodb';
 import Match from '../../../../../models/Match';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../../lib/authConfig';
 import { seedKnockoutFromLeague } from '../../../../../lib/leagueSeeding.server';
+
+/** Fixture details only the owner may change; everything else on a match is the score sheet. */
+const FIXTURE_FIELDS = ['round', 'matchNumber', 'player1Name', 'player2Name', 'player1Partner', 'player2Partner', 'courtNumber', 'scheduledTime'];
 
 export async function GET(
   request: NextRequest,
@@ -74,7 +77,7 @@ export async function PUT(
     await connectToMongoose();
 
     // ---------------------------------------------------------
-    // 3. Check admin access
+    // 3. Check staff access: a coach enters scores, the owner can also change the fixture
     // ---------------------------------------------------------
     const User = (await import('../../../../../models/User')).default;
 
@@ -82,7 +85,7 @@ export async function PUT(
       email: session.user.email
     });
 
-    if (!user || !canManageTournaments(user.role)) {
+    if (!user || !canScoreMatches(user.role)) {
       return NextResponse.json(
         {
           success: false,
@@ -91,6 +94,7 @@ export async function PUT(
         { status: 403 }
       );
     }
+    const scoreOnly = !canEditTournaments(user.role);
 
     // ---------------------------------------------------------
     // 4. Find the match
@@ -124,6 +128,13 @@ export async function PUT(
     // 6. Read request body
     // ---------------------------------------------------------
     const body = await request.json();
+
+    // A coach only records the game: who plays, when and where (and cancelling a match)
+    // stay with the owner, so those fields are dropped from a coach's request.
+    if (scoreOnly) {
+      for (const field of FIXTURE_FIELDS) delete body[field];
+      if (body.status === 'cancelled') delete body.status;
+    }
 
     const {
       round,
@@ -397,15 +408,15 @@ export async function DELETE(
     const User = (await import('../../../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
     
-    if (!user || !canManageTournaments(user.role)) {
+    if (!user || !canEditTournaments(user.role)) {
       return NextResponse.json(
-        { success: false, error: 'Staff access required' },
+        { success: false, error: 'Admin access required' },
         { status: 403 }
       );
     }
 
     const match = await (Match.findById as any)(params.matchId);
-    
+
     if (!match) {
       return NextResponse.json(
         { success: false, error: 'Match not found' },

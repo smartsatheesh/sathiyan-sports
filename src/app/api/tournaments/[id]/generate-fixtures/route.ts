@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { canManageTournaments } from '@/app/lib/roles';
+import { canEditTournaments } from "@/app/lib/roles";
 import { connectToMongoose } from '../../../../server/mongodb';
 import Match from '../../../../models/Match';
 import Player from '../../../../models/Player';
@@ -23,8 +23,8 @@ export async function POST(
     await connectToMongoose();
     const User = (await import('../../../../models/User')).default;
     const user = await (User.findOne as any)({ email: session.user.email });
-    if (!user || !canManageTournaments(user.role)) {
-      return NextResponse.json({ success: false, error: 'Staff access required' }, { status: 403 });
+    if (!user || !canEditTournaments(user.role)) {
+      return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 });
     }
 
     const tournamentId = params.id;
@@ -32,7 +32,7 @@ export async function POST(
     if (!tournament) {
       return NextResponse.json({ success: false, error: 'Tournament not found' }, { status: 404 });
     }
-    // only sports that allow leagues (football, cricket) can use them
+    // every sport offers knockout, league and league + knockout; unknown values fall back to knockout
     const format = sportRules(tournament.sport).formats.includes(tournament.format) ? tournament.format : 'knockout';
 
     // Fetch registered players sorted by registration date (earliest = seed 1)

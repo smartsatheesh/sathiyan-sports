@@ -111,7 +111,7 @@ const Navbar = () => {
     profileMenuItems.unshift(
       { label: "Staff home", href: "/admin", icon: <Dashboard /> },
       { label: "Bookings", href: "/admin/manage", icon: <BookOnline /> },
-      { label: "Tournament Management", href: "/admin/tournaments", icon: <Dashboard /> },
+      { label: "Match scores", href: "/admin/tournaments", icon: <Dashboard /> },
       { label: "Attendance", href: "/admin/attendance", icon: <Dashboard /> }
     );
   }

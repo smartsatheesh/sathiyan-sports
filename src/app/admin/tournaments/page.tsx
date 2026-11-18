@@ -58,6 +58,7 @@ import {
 import TournamentBracket from '../../components/TournamentBracket';
 import LeagueTable from '../../components/LeagueTable';
 import { FORMAT_LABELS, TournamentFormat, qualifierCount } from '../../lib/league';
+import { canEditTournaments } from '../../lib/roles';
 import { SCORE_LABEL, SPORT_KEYS, TOURNAMENT_SPORTS, divisionOptions, sportRules } from '../../lib/tournamentSports';
 
 interface Tournament {
@@ -162,6 +163,9 @@ export default function AdminTournamentDashboard() {
   const [activeTab, setActiveTab] = useState(0);
   const [error, setError] = useState('');
   const [fixturesView, setFixturesView] = useState<'list' | 'bracket'>('bracket');
+  // The owner sets tournaments up; a coach only runs matches and enters scores
+  // (the APIs enforce this — hiding the buttons just keeps the page honest)
+  const owner = canEditTournaments(session?.user?.role);
 
   // Registrations tab state
   const [regLoading, setRegLoading] = useState(false);
@@ -793,8 +797,13 @@ export default function AdminTournamentDashboard() {
   return (
     <Container maxWidth="lg" sx={{ mt: 2, mb: 4 }}>
       <Typography variant="h4" fontWeight="bold" gutterBottom>
-        Tournament Management
+        {owner ? 'Tournament Management' : 'Tournaments & scores'}
       </Typography>
+      {!owner && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Coach view: start matches and enter scores. Creating tournaments, fixtures and reshuffles are done by the admin.
+        </Alert>
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -804,17 +813,19 @@ export default function AdminTournamentDashboard() {
 
       {/* Action Buttons */}
       <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => {
-            resetTournamentForm();
-            setEditingTournament(null);
-            setTournamentDialog(true);
-          }}
-        >
-          Create Tournament
-        </Button>
+        {owner && (
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => {
+              resetTournamentForm();
+              setEditingTournament(null);
+              setTournamentDialog(true);
+            }}
+          >
+            Create Tournament
+          </Button>
+        )}
         <Button
           variant="outlined"
           startIcon={<Refresh />}
@@ -916,21 +927,25 @@ export default function AdminTournamentDashboard() {
                     {new Date(tournament.startDate).toLocaleDateString('en-GB')}
                   </TableCell>
                   <TableCell>
-                    <Stack direction="row" spacing={1}>
-                      <IconButton
-                        size="small"
-                        onClick={() => openEditTournament(tournament)}
-                      >
-                        <Edit />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleDeleteTournament(tournament._id)}
-                      >
-                        <Delete />
-                      </IconButton>
-                    </Stack>
+                    {owner ? (
+                      <Stack direction="row" spacing={1}>
+                        <IconButton
+                          size="small"
+                          onClick={() => openEditTournament(tournament)}
+                        >
+                          <Edit />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteTournament(tournament._id)}
+                        >
+                          <Delete />
+                        </IconButton>
+                      </Stack>
+                    ) : (
+                      <Typography variant="caption" color="text.secondary">View only</Typography>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -943,8 +958,8 @@ export default function AdminTournamentDashboard() {
         <Box>
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }} flexWrap="wrap">
             <Typography variant="h6" fontWeight={700}>Fixtures</Typography>
-            <Button variant="contained" size="small" startIcon={<Add />} onClick={() => { resetMatchForm(); setMatchDialog(true); }}>Add Match</Button>
-            <Button
+            {owner && <Button variant="contained" size="small" startIcon={<Add />} onClick={() => { resetMatchForm(); setMatchDialog(true); }}>Add Match</Button>}
+            {owner && <Button
               variant="contained"
               color="secondary"
               size="small"
@@ -972,9 +987,9 @@ export default function AdminTournamentDashboard() {
               }}
             >
               Generate Fixtures
-            </Button>
+            </Button>}
             <Button variant="outlined" size="small" startIcon={<Refresh />} onClick={() => fetchMatches(selectedTournament)}>Refresh</Button>
-            {matches.length > 0 && (
+            {owner && matches.length > 0 && (
               <Button size="small" color="error" variant="outlined" onClick={async () => {
                 if (!confirm(`Delete all ${matches.length} matches? This cannot be undone.`)) return;
                 await fetch(`/api/tournaments/${selectedTournament}/matches`, { method: 'DELETE' });
@@ -1012,7 +1027,7 @@ export default function AdminTournamentDashboard() {
 
           {/* Fixtures grouped by round */}
           {Object.keys(matchesByRound).length === 0 && (
-            <Alert severity="info">No matches yet. Click "Add Match" to create fixtures.</Alert>
+            <Alert severity="info">{owner ? 'No matches yet. Click "Generate Fixtures" to draw them from the registrations, or "Add Match" for a single game.' : 'No fixtures yet — the admin draws them from the registrations.'}</Alert>
           )}
 
           {matchesByGroup.length > 0 && fixturesView === 'bracket' && matchesByGroup.map(({ letter, category, matches: groupMatches }) => (
@@ -1035,7 +1050,7 @@ export default function AdminTournamentDashboard() {
                   {hasLeague && <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>Knockout — fills from the league table when every league match is done</Typography>}
                   <TournamentBracket
                     matches={groupMatches.filter((m) => m.stage !== 'league') as any}
-                    isAdmin
+                    isAdmin={owner}
                     onMatchClick={(m) => openEditScore(m as unknown as Match)}
                     onShuffleRound={(round) => handleShuffleRound(round, category)}
                   />
@@ -1157,7 +1172,7 @@ export default function AdminTournamentDashboard() {
                             </Button>
                           )}
                           <IconButton size="small" onClick={() => openEditScore(match)}><Edit fontSize="small" /></IconButton>
-                          <IconButton size="small" color="error" onClick={() => handleDeleteMatch(match._id, match.tournamentId)}><Delete fontSize="small" /></IconButton>
+                          {owner && <IconButton size="small" color="error" onClick={() => handleDeleteMatch(match._id, match.tournamentId)}><Delete fontSize="small" /></IconButton>}
                         </Box>
                       </Card>
                     </Grid>
@@ -1267,7 +1282,7 @@ export default function AdminTournamentDashboard() {
               <Button variant="contained" startIcon={<Download />} onClick={downloadRegCsv} disabled={regExporting}>
                 {regExporting ? 'Exporting...' : 'Export CSV'}
               </Button>
-              {regRows.length > 0 && regFilters.tournamentId !== 'all' && (
+              {owner && regRows.length > 0 && regFilters.tournamentId !== 'all' && (
                 <Button color="error" variant="outlined" onClick={async () => {
                   if (!confirm(`Delete ALL ${regRows.length} registrations for this tournament? This cannot be undone.`)) return;
                   await fetch(`/api/admin/tournament-registrations?tournamentId=${regFilters.tournamentId}&deleteAll=true`, { method: 'DELETE' });
@@ -1323,10 +1338,12 @@ export default function AdminTournamentDashboard() {
                       </TableCell>
                       <TableCell>{row.transactionId || '-'}</TableCell>
                       <TableCell>
-                        <Stack direction="row" spacing={0.5}>
-                          <IconButton size="small" onClick={() => handleRegEdit(row)}><Edit fontSize="small" /></IconButton>
-                          <IconButton size="small" color="error" onClick={() => handleRegDelete(row.id)}><Delete fontSize="small" /></IconButton>
-                        </Stack>
+                        {owner && (
+                          <Stack direction="row" spacing={0.5}>
+                            <IconButton size="small" onClick={() => handleRegEdit(row)}><Edit fontSize="small" /></IconButton>
+                            <IconButton size="small" color="error" onClick={() => handleRegDelete(row.id)}><Delete fontSize="small" /></IconButton>
+                          </Stack>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
@@ -1847,8 +1864,17 @@ export default function AdminTournamentDashboard() {
     <Grid container spacing={2} sx={{ mt: 0.5 }}>
 
       {/* =========================
-          MATCH INFORMATION
+          MATCH INFORMATION — the fixture itself (who, which round, court, time) is the owner's;
+          a coach sees it in the title and only fills in the score sheet below
       ========================== */}
+      {!owner && (
+        <Grid item xs={12}>
+          <Typography variant="caption" color="text.secondary">
+            #{scoreForm.matchNumber} · {scoreForm.round}{scoreForm.courtNumber ? ` · Court ${scoreForm.courtNumber}` : ''} — players, round, court and time are set by the admin.
+          </Typography>
+        </Grid>
+      )}
+      {owner && (<>
       <Grid item xs={12}>
         <Typography variant="subtitle2" fontWeight={700}>
           Match Information
@@ -2011,6 +2037,7 @@ export default function AdminTournamentDashboard() {
       <Grid item xs={12}>
         <Divider sx={{ my: 0.5 }} />
       </Grid>
+      </>)}
 
       {/* =========================
           MATCH STATUS
@@ -2041,9 +2068,11 @@ export default function AdminTournamentDashboard() {
               ✅ Completed
             </MenuItem>
 
-            <MenuItem value="cancelled">
-              Cancelled
-            </MenuItem>
+            {owner && (
+              <MenuItem value="cancelled">
+                Cancelled
+              </MenuItem>
+            )}
           </Select>
         </FormControl>
       </Grid>
