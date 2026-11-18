@@ -1,5 +1,6 @@
 // Booking customers: remembered automatically from bookings, looked up by mobile at the desk,
 // ranked for offers and for the home page's "booking champs of the week".
+import { createHash } from 'crypto';
 import Booking from '../models/Booking';
 import Customer from '../models/Customer';
 import { connectToMongoose } from '../server/mongodb';
@@ -207,7 +208,8 @@ export async function weeklyChamps(limit = 5): Promise<Champ[]> {
     const name = (doc?.name || s.name || '').trim();
     if (!name) continue;
     champs.push({
-      id: doc ? String(doc._id) : s.mobile,
+      // never the mobile itself: the response is public
+      id: doc ? String(doc._id) : createHash('sha256').update(s.mobile).digest('hex').slice(0, 12),
       name,
       mobile: maskMobile(s.mobile),
       bookings: s.thisWeek,
