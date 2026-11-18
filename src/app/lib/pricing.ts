@@ -131,7 +131,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
     categories: ["Sathiyan sports", "Common", "Seimurai"],
   },
   upi: { vpa: "sathiyansportacademy202525-1@okaxis", payeeName: "Sathiyan Multi Sport Club" },
-  whatsappNumber: "9787020525",
+  whatsappNumber: "9342090294",
 };
 
 // Event sessions are booked as named blocks; price = hours × hourly rate
@@ -346,7 +346,7 @@ export function calculateMembershipPrice(settings: SiteSettings, input: Membersh
   return base + surcharge;
 }
 
-/** Normalises a WhatsApp number to international format without '+', e.g. 919787020525. */
+/** Normalises a WhatsApp number to international format without '+', e.g. 919342090294. */
 export function waNumber(raw: string): string {
   const digits = (raw || "").replace(/\D/g, "");
   return digits.length === 10 ? `91${digits}` : digits;
