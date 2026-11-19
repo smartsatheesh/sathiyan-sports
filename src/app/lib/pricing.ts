@@ -128,7 +128,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   tournamentDefaultFee: 600,
   expenses: {
     people: ["Satheesh", "Sasi", "Maha", "Anu"],
-    categories: ["Sathiyan sports", "Common", "Seimurai"],
+    categories: ["Sathiyan sports", "Common", "Seimurai", "Sathiyan salary"],
   },
   upi: { vpa: "sathiyansportacademy202525-1@okaxis", payeeName: "Sathiyan Multi Sport Club" },
   whatsappNumber: "9342090194",

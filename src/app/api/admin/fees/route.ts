@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { userId, months, amount, method, utr, startDate } = body;
+    const { userId, months, amount, method, utr, startDate, endDate, paidOn } = body;
     if (!mongoose.isValidObjectId(userId) || ![1, 3, 6, 12].includes(Number(months)) || !['cash', 'upi'].includes(method)) {
       return NextResponse.json({ success: false, error: 'Invalid payment details' }, { status: 400 });
     }
@@ -50,7 +50,9 @@ export async function POST(request: NextRequest) {
       amount: amount === undefined || amount === '' ? undefined : Number(amount),
       method,
       utr,
-      startDate,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+      paidOn: paidOn || undefined,
       adminName: session.user.name || 'admin',
       club,
     });

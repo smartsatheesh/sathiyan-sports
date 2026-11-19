@@ -55,13 +55,194 @@ function splitCrossMidnightSlots(slots: string[]): {
   };
 }
 
+const BADMINTON_COURTS = ['S1', 'S2', 'S3'];
+const newReference = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
+interface GroupLine {
+  court: string;
+  slots: string[]; // picked on the selected day's grid
+  nextSlots: string[]; // picked on the next-day overlap grid (00:00–05:00 of the following day)
+}
+
+/**
+ * Several badminton courts in one checkout (S1 6–7, S2 7–8 …): one Booking per court sharing a
+ * `groupRef`, priced per court on the server, every court conflict-checked before anything is
+ * saved, paid and confirmed together (lib/payments.server.ts follows the group).
+ */
+async function createGroupBooking(opts: {
+  sport: string;
+  date: string;
+  rawLines: any[];
+  customerInfo: any;
+  isAdmin: boolean;
+  requestedPrice: unknown;
+  paymentReference?: string;
+}) {
+  const { sport, date, customerInfo, isAdmin } = opts;
+  if (sport !== 'Shuttle Badminton') {
+    return NextResponse.json({ success: false, message: 'Only badminton courts can be booked together' }, { status: 400 });
+  }
+  if (!date || !customerInfo?.name || !customerInfo?.phone) {
+    return NextResponse.json({ success: false, message: 'Missing required booking information' }, { status: 400 });
+  }
+
+  const lines: GroupLine[] = [];
+  for (const raw of opts.rawLines) {
+    const court = String(raw?.court || '');
+    if (!BADMINTON_COURTS.includes(court)) {
+      return NextResponse.json({ success: false, message: 'Choose a court (S1, S2 or S3) for each line' }, { status: 400 });
+    }
+    if (lines.some((l) => l.court === court)) {
+      return NextResponse.json({ success: false, message: `Court ${court} is listed twice` }, { status: 400 });
+    }
+    const slots = parseTimeSlots(undefined, raw?.timeSlots);
+    const nextSlots = parseTimeSlots(undefined, raw?.nextDayTimeSlots);
+    if (slots.length + nextSlots.length > 0) lines.push({ court, slots, nextSlots });
+  }
+  if (lines.length === 0) {
+    return NextResponse.json({ success: false, message: 'No valid time slots selected' }, { status: 400 });
+  }
+
+  const settings = await getSiteSettings();
+  const courtPrice = getCourt(settings, sport);
+  if (!courtPrice || !courtPrice.active) {
+    return NextResponse.json({ success: false, message: 'This sport is not available for booking' }, { status: 400 });
+  }
+
+  const bookingDate = getISTDayStart(date);
+  const nextDate = addDaysFromISTDayStart(bookingDate, 1);
+  if (!isAdmin && bookingDate < getISTTodayStart()) {
+    return NextResponse.json({ success: false, message: 'Past-date booking is allowed only for admins' }, { status: 403 });
+  }
+
+  // Price each court from the owner's settings; customers must follow the booking rules
+  const prices: number[] = [];
+  for (const line of lines) {
+    const priceInput = { sport, date: String(date).slice(0, 10), slots: [...line.slots, ...line.nextSlots] };
+    const ruleError = isAdmin ? null : bookingRuleError(settings, priceInput);
+    if (ruleError) return NextResponse.json({ success: false, message: `Court ${line.court}: ${ruleError}` }, { status: 400 });
+    prices.push(calculateBookingPrice(settings, priceInput)!.total);
+  }
+  // An admin may override the group total (negotiated rate); it is spread across the courts
+  const computedTotal = prices.reduce((a, b) => a + b, 0);
+  const adminTotal = Number(opts.requestedPrice);
+  if (isAdmin && Number.isFinite(adminTotal) && adminTotal >= 0 && adminTotal !== computedTotal) {
+    let allocated = 0;
+    prices.forEach((p, i) => {
+      const share = i === prices.length - 1 ? adminTotal - allocated : Math.round((computedTotal ? p / computedTotal : 1 / prices.length) * adminTotal);
+      prices[i] = share;
+      allocated += share;
+    });
+  }
+
+  // Work out each court's dates the same way a single booking does, then check every court
+  // before saving anything, so a clash on one court leaves nothing half booked
+  const docs: any[] = [];
+  for (const [i, line] of lines.entries()) {
+    let primaryDate = bookingDate;
+    let primarySlots = line.slots;
+    let secondaryDate: Date | undefined;
+    let secondarySlots: string[] | undefined;
+    if (line.nextSlots.length > 0 && line.slots.length > 0) {
+      secondaryDate = nextDate;
+      secondarySlots = line.nextSlots;
+    } else if (line.nextSlots.length > 0) {
+      primaryDate = nextDate;
+      primarySlots = line.nextSlots;
+    } else {
+      const split = splitCrossMidnightSlots(line.slots);
+      if (split.spansMidnight) {
+        primaryDate = nextDate;
+        primarySlots = split.nextDaySlots;
+        secondaryDate = bookingDate;
+        secondarySlots = split.sameDaySlots;
+      }
+    }
+
+    const conflicts = [
+      ...(await findBlockingConflicts(sport, primaryDate, primarySlots, line.court)),
+      ...(secondaryDate && secondarySlots ? await findBlockingConflicts(sport, secondaryDate, secondarySlots, line.court) : []),
+    ];
+    if (conflicts.length > 0) {
+      return NextResponse.json(
+        { success: false, message: `Court ${line.court}: a selected slot is already blocked by a confirmed booking` },
+        { status: 409 }
+      );
+    }
+
+    docs.push({
+      sport,
+      date: primaryDate,
+      timeSlots: primarySlots,
+      nextDayDate: secondaryDate,
+      nextDayTimeSlots: secondarySlots,
+      court: line.court,
+      customerName: customerInfo.name,
+      customerEmail: customerInfo.email,
+      customerPhone: customerInfo.phone,
+      totalAmount: prices[i],
+      paymentStatus: 'pending',
+      paymentReference: opts.paymentReference || '',
+      bookingStatus: isAdmin ? 'confirmed' : 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  const groupRef = newReference('BG');
+  const created: any[] = [];
+  for (const doc of docs) {
+    created.push(await (Booking.create as any)({ ...doc, bookingReference: newReference('BK'), groupRef }));
+  }
+  await rememberCustomer(customerInfo);
+
+  const bookings = created.map((b) => ({
+    id: b._id,
+    bookingReference: b.bookingReference,
+    sport: b.sport,
+    court: b.court,
+    date: b.date,
+    nextDayDate: b.nextDayDate,
+    timeSlots: b.timeSlots,
+    nextDayTimeSlots: b.nextDayTimeSlots,
+    totalAmount: b.totalAmount,
+    bookingStatus: b.bookingStatus,
+    paymentStatus: b.paymentStatus,
+  }));
+  return NextResponse.json({
+    success: true,
+    message: isAdmin
+      ? `✅ ${bookings.length} court${bookings.length > 1 ? 's' : ''} confirmed and blocked immediately.`
+      : '✅ Booking created as pending. Courts will be blocked after admin approval.',
+    group: {
+      ref: groupRef,
+      totalAmount: prices.reduce((a, b) => a + b, 0),
+      // one UPI payment covers the whole group; the server adds up the courts
+      paymentBookingId: created[0]._id,
+    },
+    bookings,
+    booking: bookings[0],
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     await connectToMongoose();
     const session = await getServerSession(authOptions);
     const isAdmin = session?.user?.role === 'admin';
-    
+
     const body = await request.json();
+    if (Array.isArray(body.lines)) {
+      return await createGroupBooking({
+        sport: body.sport,
+        date: body.date,
+        rawLines: body.lines,
+        customerInfo: body.customerInfo,
+        isAdmin,
+        requestedPrice: body.totalPrice,
+        paymentReference: body.paymentReference,
+      });
+    }
     const { 
       sport,
       date,

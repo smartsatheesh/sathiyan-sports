@@ -25,7 +25,7 @@ interface Summary {
   paidTill: string | null;
   nextStart: string;
   awaitingVerification: boolean;
-  options: { months: number; amount: number }[];
+  options: { months: number; amount: number; endDate: string }[];
   club: { slug: string; name: string; upi: { vpa: string; payeeName: string }; whatsappNumber: string } | null;
 }
 
@@ -67,8 +67,8 @@ export default function MemberPayPage({ params }: { params: { token: string } })
 
   const selected = summary.options.find((o) => o.months === months) || summary.options[0];
   const isActive = summary.paidTill && new Date(summary.paidTill) >= new Date();
-  const until = new Date(summary.nextStart);
-  until.setMonth(until.getMonth() + months);
+  // periods run by calendar month (1st to last day), so the end comes from the server
+  const until = selected.endDate;
 
   return (
     <Container maxWidth="xs" sx={{ py: { xs: 3, md: 6 } }}>
@@ -123,7 +123,7 @@ export default function MemberPayPage({ params }: { params: { token: string } })
           </Grid>
 
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Covers {fmt(summary.nextStart)} to {fmt(until.toISOString())}
+            Covers {fmt(summary.nextStart)} to {fmt(until)}
           </Typography>
 
           {summary.club && !summary.club.upi.vpa ? (

@@ -50,3 +50,9 @@ export function addDaysFromISTDayStart(input: string | Date, days: number): Date
   const start = getISTDayStart(input);
   return new Date(start.getTime() + days * DAY_MS);
 }
+
+/** The IST calendar date of an instant as "YYYY-MM-DD". */
+export function toISTDateString(input: string | Date): string {
+  const { year, month, day } = extractISTDateParts(input);
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}

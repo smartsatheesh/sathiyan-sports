@@ -10,7 +10,8 @@ import Payment from "@/app/models/Payment";
 import { getClubSettings, getPublicClub } from "@/app/lib/clubs.server";
 import { clubFilter, clubOf, DEFAULT_CLUB } from "@/app/lib/clubs";
 import { PaymentError, submitPaymentProof } from "@/app/lib/payments.server";
-import { getISTTodayStart } from "@/app/lib/istDate";
+import { getISTDayStart, getISTTodayStart, toISTDateString } from "@/app/lib/istDate";
+import { daysBetweenYmd, isYmd, nextPeriodStartYmd, periodEndYmd } from "@/app/lib/feePeriod";
 import {
   calculateMembershipPrice,
   programFor,
@@ -22,15 +23,14 @@ import { normalizeUtr, isValidUtr } from "@/app/lib/upi";
 import { latestPaidTill, syncUserFeeStatus } from "@/app/lib/feeStatus.server";
 
 // Membership fees are stored as one Subscription document per paid period.
-// "Paid till" = latest endDate of a Paid period; a member is due once that date passes.
+// "Paid till" = latest endDate (inclusive) of a Paid period; a member is due once that day passes.
+// Periods follow calendar months (lib/feePeriod.ts) but every date is admin-editable.
 
 export const SITE_URL = process.env.NEXTAUTH_URL?.replace(/\/$/, "") || PUBLIC_SITE_URL;
 const DAY = 24 * 60 * 60 * 1000;
 const DUE_SOON_DAYS = 7;
 // Overdue longer than this is treated as "probably left" and kept out of the Due list
 export const LAPSED_AFTER_DAYS = 45;
-// A lapse shorter than this continues from the old end date; longer lapses restart today.
-const CONTINUE_WITHIN_DAYS = 30;
 
 export const MONTHS_TO_TYPE: Record<number, SubscriptionType> = {
   1: "monthly",
@@ -51,6 +51,7 @@ export interface FeeMember {
   program: string;
   gender: string;
   paidTill: string | null;
+  nextStart: string; // "YYYY-MM-DD" the next period would start on by default
   daysLeft: number | null; // negative = days overdue
   state: FeeState;
   monthlyFee: number;
@@ -97,19 +98,27 @@ export function feeFor(settings: SiteSettings, user: any, months: number): numbe
   });
 }
 
-/** Where the next period should start, given the current paid-till date. */
+/** Where the next period should start, given the current paid-till date (IST day start). */
 export function nextPeriodStart(paidTill: Date | null): Date {
-  const today = getISTTodayStart();
-  if (paidTill && paidTill.getTime() >= today.getTime() - CONTINUE_WITHIN_DAYS * DAY) {
-    return new Date(paidTill);
-  }
-  return today;
+  const ymd = nextPeriodStartYmd(paidTill ? toISTDateString(paidTill) : null, toISTDateString(new Date()));
+  return getISTDayStart(ymd);
 }
 
-function addMonths(date: Date, months: number): Date {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + months);
-  return d;
+/** Default end of a period: the last day of its final calendar month (IST day start). */
+export function periodEnd(start: Date, months: number): Date {
+  return getISTDayStart(periodEndYmd(toISTDateString(start), months));
+}
+
+/** A "YYYY-MM-DD" from the admin → IST day start, or a clear error. */
+function parseDay(value: unknown, label: string): Date {
+  if (!isYmd(value)) throw new PaymentError(`${label} must be a date`);
+  return getISTDayStart(value);
+}
+
+function checkRange(start: Date, end: Date) {
+  const days = daysBetweenYmd(toISTDateString(start), toISTDateString(end));
+  if (days < 0) throw new PaymentError("The period must end on or after the day it starts");
+  if (days > 400) throw new PaymentError("A period cannot be longer than a year");
 }
 
 // ----- the fee board -----
@@ -150,8 +159,9 @@ export async function getFeeBoard(club: string = DEFAULT_CLUB): Promise<{ member
   const members: FeeMember[] = users.map((u: any) => {
     const id = String(u._id);
     const paid = paidByUser.get(id);
-    const paidTill: Date | null = paid?.paidTill ? new Date(paid.paidTill) : null;
-    const daysLeft = paidTill ? Math.ceil((paidTill.getTime() - today.getTime()) / DAY) : null;
+    // compare calendar days, so older periods saved at UTC midnight still count exactly
+    const paidTill: Date | null = paid?.paidTill ? getISTDayStart(new Date(paid.paidTill)) : null;
+    const daysLeft = paidTill ? Math.round((paidTill.getTime() - today.getTime()) / DAY) : null;
 
     let state: FeeState;
     if (awaitingUsers.has(id)) state = "awaiting_verification";
@@ -171,6 +181,7 @@ export async function getFeeBoard(club: string = DEFAULT_CLUB): Promise<{ member
       program: programFor(settings, u).name,
       gender: u.gender || "",
       paidTill: paidTill ? paidTill.toISOString() : null,
+      nextStart: toISTDateString(nextPeriodStart(paidTill)),
       daysLeft,
       state,
       monthlyFee: feeFor(settings, u, 1),
@@ -182,7 +193,7 @@ export async function getFeeBoard(club: string = DEFAULT_CLUB): Promise<{ member
     };
   });
 
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthStart = getISTDayStart(`${toISTDateString(today).slice(0, 7)}-01`);
   const [collected] = await (Subscription.aggregate as any)([
     { $match: { paymentStatus: "Paid", lastPaymentDate: { $gte: monthStart }, userId: { $in: userIds } } },
     { $group: { _id: null, total: { $sum: "$amount" } } },
@@ -202,12 +213,13 @@ export async function getMemberHistory(userId: string) {
 
 // ----- creating periods -----
 
-async function buildPeriod(user: any, months: number, amount: number, startDate?: Date) {
+async function buildPeriod(user: any, months: number, amount: number, startDate?: Date, endDate?: Date) {
   const type = MONTHS_TO_TYPE[months];
   if (!type) throw new PaymentError("Choose 1, 3, 6 or 12 months");
   const prevCount = await (Subscription.countDocuments as any)({ userId: user._id });
   const start = startDate || nextPeriodStart(await latestPaidTill(String(user._id)));
-  const end = addMonths(start, SUBSCRIPTION_MONTHS[type]);
+  const end = endDate || periodEnd(start, SUBSCRIPTION_MONTHS[type]);
+  checkRange(start, end);
 
   return {
     userId: user._id,
@@ -239,7 +251,12 @@ export async function recordFeePayment(opts: {
   amount?: number;
   method: "cash" | "upi";
   utr?: string;
+  /** "YYYY-MM-DD" IST; defaults to the day after paid-till (or the 1st of this month) */
   startDate?: string;
+  /** "YYYY-MM-DD" IST; defaults to the last day of the plan's final month */
+  endDate?: string;
+  /** "YYYY-MM-DD" IST the money was actually received; defaults to today */
+  paidOn?: string;
   adminName: string;
   /** Club the admin is acting for; members of other clubs are refused. */
   club: string;
@@ -258,14 +275,21 @@ export async function recordFeePayment(opts: {
     if (await (Payment.exists as any)({ utr })) throw new PaymentError("This UPI reference number has already been used", 409);
   }
 
-  const period = await buildPeriod(user, opts.months, amount, opts.startDate ? new Date(opts.startDate) : undefined);
+  const period = await buildPeriod(
+    user,
+    opts.months,
+    amount,
+    opts.startDate ? parseDay(opts.startDate, "Period start") : undefined,
+    opts.endDate ? parseDay(opts.endDate, "Period end") : undefined
+  );
+  const paidOn = opts.paidOn ? parseDay(opts.paidOn, "Payment date") : new Date();
   const sub = await (Subscription.create as any)({
     ...period,
     paymentStatus: "Paid",
     status: "active",
     paymentMethod: opts.method === "upi" ? "UPI" : "Cash",
     transactionId: utr,
-    lastPaymentDate: new Date(),
+    lastPaymentDate: paidOn,
     notes: `Recorded by ${opts.adminName}`,
     updatedBy: user._id,
   });
@@ -283,7 +307,7 @@ export async function recordFeePayment(opts: {
     utr,
     status: "confirmed",
     decidedBy: opts.adminName,
-    decidedAt: new Date(),
+    decidedAt: paidOn,
   });
 
   await (Subscription.updateMany as any)(
@@ -294,6 +318,46 @@ export async function recordFeePayment(opts: {
     await (User.findByIdAndUpdate as any)(user._id, { subscribed: "yes" });
   }
   await syncUserFeeStatus(String(user._id));
+  return sub;
+}
+
+/**
+ * Admin corrects a recorded period: dates (members who joined mid-month, months entered late),
+ * amount, how it was paid and when. The audit Payment row, if any, follows the amount/method.
+ */
+export async function editFeePeriod(opts: {
+  userId: string;
+  subscriptionId: string;
+  startDate: string;
+  endDate: string;
+  amount: number;
+  method: "cash" | "upi";
+  paidOn?: string;
+  adminName: string;
+}) {
+  await connectToMongoose();
+  const sub = await (Subscription.findOne as any)({ _id: opts.subscriptionId, userId: opts.userId });
+  if (!sub) throw new PaymentError("Period not found", 404);
+
+  const start = parseDay(opts.startDate, "Period start");
+  const end = parseDay(opts.endDate, "Period end");
+  checkRange(start, end);
+  if (!Number.isFinite(opts.amount) || opts.amount < 0) throw new PaymentError("Amount must be 0 or more");
+
+  sub.startDate = start;
+  sub.endDate = end;
+  sub.nextDueDate = end;
+  sub.amount = opts.amount;
+  sub.paymentMethod = opts.method === "upi" ? "UPI" : "Cash";
+  if (opts.paidOn) sub.lastPaymentDate = parseDay(opts.paidOn, "Payment date");
+  sub.notes = `${sub.notes ? `${sub.notes}. ` : ""}Edited by ${opts.adminName} on ${toISTDateString(new Date())}`;
+  await sub.save();
+
+  await (Payment.updateMany as any)(
+    { kind: "subscription", refId: sub._id, status: "confirmed" },
+    { amount: opts.amount, method: opts.method }
+  );
+  await syncUserFeeStatus(opts.userId);
   return sub;
 }
 
@@ -338,6 +402,7 @@ export async function getMemberFeeSummary(userId: string) {
   const paidTill = await latestPaidTill(userId);
   const pending = await (Subscription.findOne as any)({ userId, status: "pending", paymentStatus: "Pending" }).select("_id amount").lean();
   const awaiting = pending ? await (Payment.exists as any)({ kind: "subscription", refId: pending._id, status: "submitted" }) : null;
+  const nextStart = nextPeriodStart(paidTill);
 
   return {
     firstName: String(user.name || "").split(" ")[0],
@@ -347,9 +412,9 @@ export async function getMemberFeeSummary(userId: string) {
     sport: user.preferredSport || "",
     program: programFor(settings, user).name,
     paidTill: paidTill ? paidTill.toISOString() : null,
-    nextStart: nextPeriodStart(paidTill).toISOString(),
+    nextStart: nextStart.toISOString(),
     awaitingVerification: Boolean(awaiting),
-    options: [1, 3, 6, 12].map((m) => ({ months: m, amount: feeFor(settings, user, m) })),
+    options: [1, 3, 6, 12].map((m) => ({ months: m, amount: feeFor(settings, user, m), endDate: periodEnd(nextStart, m).toISOString() })),
     // fees go to the member's own club
     club: club ? { slug: club.slug, name: club.name, upi: club.upi, whatsappNumber: club.whatsappNumber } : null,
   };

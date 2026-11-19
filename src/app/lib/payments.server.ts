@@ -27,14 +27,23 @@ interface Target {
   club?: string; // membership fees belong to the member's club
 }
 
+/** A booking plus the other courts booked with it (multi-court checkout), cancelled ones aside. */
+async function bookingGroup(booking: any): Promise<any[]> {
+  if (!booking.groupRef) return [booking];
+  const members = await (Booking.find as any)({ groupRef: booking.groupRef, bookingStatus: { $ne: "cancelled" } });
+  return members.length ? members : [booking];
+}
+
 // The amount always comes from the stored record, never from the browser.
 async function loadTarget(kind: PaymentKind, refId: string): Promise<Target> {
   if (kind === "booking") {
     const b = await (Booking.findById as any)(refId).lean();
     if (!b) throw new PaymentError("Booking not found", 404);
+    // a multi-court booking is paid as one: the amount is the sum of its courts
+    const group = await bookingGroup(b);
     return {
-      amount: Number(b.totalAmount || 0),
-      reference: b.bookingReference || "",
+      amount: group.reduce((sum: number, g: any) => sum + Number(g.totalAmount || 0), 0),
+      reference: b.groupRef || b.bookingReference || "",
       payerName: b.customerName || "",
       payerPhone: b.customerPhone || "",
       alreadyPaid: ["completed", "paid", "refunded"].includes(b.paymentStatus),
@@ -66,12 +75,12 @@ async function loadTarget(kind: PaymentKind, refId: string): Promise<Target> {
 
 async function markTargetSubmitted(kind: PaymentKind, refId: string, utr: string) {
   if (kind === "booking") {
-    await (Booking.findByIdAndUpdate as any)(refId, {
-      paymentStatus: "pending_verification",
-      paymentMethod: "upi",
-      upiTransactionId: utr,
-      updatedAt: new Date(),
-    });
+    const b = await (Booking.findById as any)(refId).lean();
+    const ids = b ? (await bookingGroup(b)).map((g: any) => g._id) : [refId];
+    await (Booking.updateMany as any)(
+      { _id: { $in: ids } },
+      { paymentStatus: "pending_verification", paymentMethod: "upi", upiTransactionId: utr, updatedAt: new Date() }
+    );
   } else if (kind === "tournament") {
     await (Player.findByIdAndUpdate as any)(refId, {
       paymentStatus: "pending_verification",
@@ -122,23 +131,27 @@ export async function decidePayment(paymentId: string, action: "confirm" | "reje
       const booking = await (Booking.findById as any)(refId);
       if (!booking) throw new PaymentError("Booking no longer exists", 404);
 
-      // Confirming blocks the slot, so make sure nobody else holds it now
-      if (booking.bookingStatus !== "confirmed") {
+      // Confirming blocks the slots, so make sure nobody else holds any of them now
+      // (every court of a multi-court booking is checked before any is confirmed)
+      const group = await bookingGroup(booking);
+      for (const b of group) {
+        if (b.bookingStatus === "confirmed") continue;
+        const id = String(b._id);
         const conflicts = [
-          ...(await findBlockingConflicts(booking.sport, getISTDayStart(booking.date), booking.timeSlots || [], booking.court, refId)),
-          ...(booking.nextDayDate
-            ? await findBlockingConflicts(booking.sport, getISTDayStart(booking.nextDayDate), booking.nextDayTimeSlots || [], booking.court, refId)
-            : []),
+          ...(await findBlockingConflicts(b.sport, getISTDayStart(b.date), b.timeSlots || [], b.court, id)),
+          ...(b.nextDayDate ? await findBlockingConflicts(b.sport, getISTDayStart(b.nextDayDate), b.nextDayTimeSlots || [], b.court, id) : []),
         ];
         if (conflicts.length > 0) {
-          throw new PaymentError("Slot is now taken by another confirmed booking. Reject or contact the customer.", 409);
+          const where = b.court ? ` on court ${b.court}` : "";
+          throw new PaymentError(`Slot${where} is now taken by another confirmed booking. Reject or contact the customer.`, 409);
         }
       }
-
-      booking.paymentStatus = "completed";
-      booking.bookingStatus = "confirmed";
-      booking.updatedAt = new Date();
-      await booking.save();
+      for (const b of group) {
+        b.paymentStatus = "completed";
+        b.bookingStatus = "confirmed";
+        b.updatedAt = new Date();
+        await b.save();
+      }
     } else if (payment.kind === "subscription") {
       const sub = await (Subscription.findById as any)(refId);
       if (!sub) throw new PaymentError("Subscription no longer exists", 404);
@@ -158,7 +171,9 @@ export async function decidePayment(paymentId: string, action: "confirm" | "reje
     }
   } else {
     if (payment.kind === "booking") {
-      await (Booking.findByIdAndUpdate as any)(refId, { paymentStatus: "pending", updatedAt: new Date() });
+      const b = await (Booking.findById as any)(refId).lean();
+      const ids = b ? (await bookingGroup(b)).map((g: any) => g._id) : [refId];
+      await (Booking.updateMany as any)({ _id: { $in: ids } }, { paymentStatus: "pending", updatedAt: new Date() });
     } else if (payment.kind === "tournament") {
       await (Player.findByIdAndUpdate as any)(refId, { paymentStatus: "pending" });
     } else {

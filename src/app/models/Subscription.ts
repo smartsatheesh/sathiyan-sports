@@ -209,18 +209,17 @@ const subscriptionSchema = new Schema<ISubscription>({
 subscriptionSchema.index({ userId: 1, paymentStatus: 1 });
 subscriptionSchema.index({ nextDueDate: 1, paymentStatus: 1 });
 
-// Pre-save middleware to calculate end date and next due date
+// Pre-save middleware: only fills in an end date that was not given. Fee periods follow calendar
+// months and are admin-editable (lib/fees.server.ts sets startDate/endDate explicitly), so an
+// end date that is present is never recomputed from the duration.
 subscriptionSchema.pre('save', function(next) {
-  if (this.isNew || this.isModified('startDate') || this.isModified('duration')) {
-    // Calculate end date
+  if (!this.endDate) {
     const endDate = new Date(this.startDate);
     endDate.setMonth(endDate.getMonth() + this.duration);
     this.endDate = endDate;
-    
-    // Set next due date (same as end date for new subscriptions)
-    if (this.isNew) {
-      this.nextDueDate = new Date(endDate);
-    }
+  }
+  if (this.isNew && !this.nextDueDate) {
+    this.nextDueDate = new Date(this.endDate);
   }
   next();
 });

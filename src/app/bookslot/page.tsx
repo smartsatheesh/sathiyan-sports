@@ -301,6 +301,8 @@ interface BookingMessageDetails {
   dateText: string;
   timeText: string;
   amount: number;
+  /** one line per court when several courts were booked together, e.g. "S1: 6:00 PM - 7:00 PM" */
+  courtTimes?: string[];
 }
 
 // Advance received is keyed in by the admin; the balance is worked out here.
@@ -310,8 +312,14 @@ const composeBookingMessage = (d: BookingMessageDetails, advance: number) => {
     paid > 0
       ? `• Amount: *₹${d.amount}*\n• Advance received: *₹${paid}*\n• Balance to pay: *₹${d.amount - paid}*`
       : `• Amount: *₹${d.amount}*`;
-  return `Dear ${d.customerName || 'Customer'},\n\nYour booking request has been received.\n\n*Booking Details*\n\n• Booking ID: *${d.reference}*\n• Venue: *Sathiyan Multisport Sport Club*\n• Slot: *${d.slotText}*\n• Date: *${d.dateText}*\n• Time: *${d.timeText}*\n\n${paymentLines}\n\nThank you for booking with us!\n\n${SITE_HOST}\n\nBest regards,\nSathiyan Multisport Sport Club`;
+  const timeLines = d.courtTimes?.length
+    ? `• Courts:\n${d.courtTimes.map((t) => `   - *${t}*`).join('\n')}`
+    : `• Time: *${d.timeText}*`;
+  return `Dear ${d.customerName || 'Customer'},\n\nYour booking request has been received.\n\n*Booking Details*\n\n• Booking ID: *${d.reference}*\n• Venue: *Sathiyan Multisport Sport Club*\n• Slot: *${d.slotText}*\n• Date: *${d.dateText}*\n${timeLines}\n\n${paymentLines}\n\nThank you for booking with us!\n\n${SITE_HOST}\n\nBest regards,\nSathiyan Multisport Sport Club`;
 };
+
+const BADMINTON_COURTS = ['S1', 'S2', 'S3'];
+type CourtPick = { same: string[]; next: string[] };
 
 export default function BookSlot() {
   const { data: session, status } = useSession();
@@ -326,6 +334,8 @@ export default function BookSlot() {
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
   const [selectedNextDayTimeSlots, setSelectedNextDayTimeSlots] = useState<string[]>([]);
   const [selectedCourt, setSelectedCourt] = useState<string>(""); // Court selection for Shuttle Badminton
+  // Badminton: slots picked on the courts that are not currently shown, so S1 + S2 + S3 can go in one booking
+  const [courtSlots, setCourtSlots] = useState<Record<string, CourtPick>>({});
   const [timeSlots, setTimeSlots] = useState<Array<{time: string; available: boolean; hours?: number; isPast?: boolean}>>(generateTimeSlots(false, null, "", false));
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [overlapBookedSlots, setOverlapBookedSlots] = useState<string[]>([]);
@@ -411,8 +421,11 @@ export default function BookSlot() {
     [selectedTimeSlots, selectedNextDayTimeSlots]
   );
 
+  // a half-typed date in the picker is an invalid Date object (truthy), so check it properly
+  const validSelectedDate = selectedDate && !Number.isNaN(selectedDate.getTime()) ? selectedDate : null;
+
   const bookingBreakdown = useMemo(() => {
-    if (!selectedDate) {
+    if (!selectedDate || Number.isNaN(selectedDate.getTime())) {
       return {
         spansTwoDays: false,
         primaryDate: null as Date | null,
@@ -461,31 +474,64 @@ export default function BookSlot() {
     if (selectedCourtPrice?.perPerson) setPeople(selectedCourtPrice.minPeople || 1);
   }, [selectedSport]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Badminton: every court with slots, the one on screen plus the ones remembered in courtSlots
+  const isBadminton = selectedSport === "Shuttle Badminton";
+  const courtLines = useMemo(() => {
+    if (!isBadminton) return [] as Array<{ court: string } & CourtPick>;
+    return BADMINTON_COURTS.map((court) => {
+      const pick = court === selectedCourt ? { same: selectedTimeSlots, next: selectedNextDayTimeSlots } : courtSlots[court] || { same: [], next: [] };
+      return { court, ...pick };
+    }).filter((l) => l.same.length + l.next.length > 0);
+  }, [isBadminton, selectedCourt, selectedTimeSlots, selectedNextDayTimeSlots, courtSlots]);
+  // Slots and date the price is worked out from: all courts together for badminton
+  const pricingSlots = useMemo(
+    () => (isBadminton ? courtLines.flatMap((l) => [...l.same, ...l.next]) : allSelectedSlots),
+    [isBadminton, courtLines, allSelectedSlots]
+  );
+  const pricingDate = isBadminton ? validSelectedDate : bookingBreakdown.primaryDate;
+  const hasSelection = pricingSlots.length > 0;
+
+  // Keep the current court's picks and show another court's grid
+  const switchCourt = (court: string) => {
+    if (court === selectedCourt) return;
+    if (selectedCourt) {
+      setCourtSlots((prev) => ({ ...prev, [selectedCourt]: { same: selectedTimeSlots, next: selectedNextDayTimeSlots } }));
+    }
+    const saved = courtSlots[court];
+    setSelectedTimeSlots(saved?.same || []);
+    setSelectedNextDayTimeSlots(saved?.next || []);
+    setSelectedCourt(court);
+  };
+  const courtSlotCount = (court: string) => {
+    const line = courtLines.find((l) => l.court === court);
+    return line ? line.same.length + line.next.length : 0;
+  };
+
   // Price from the owner's settings (server recalculates the same way)
   const priceDetails = useMemo(() => {
-    if (!selectedSport || !bookingBreakdown.primaryDate || allSelectedSlots.length === 0) return null;
+    if (!selectedSport || !pricingDate || pricingSlots.length === 0) return null;
     return calculateBookingPrice(settings, {
       sport: selectedSport,
-      date: format(bookingBreakdown.primaryDate, 'yyyy-MM-dd'),
-      slots: allSelectedSlots,
+      date: format(pricingDate, 'yyyy-MM-dd'),
+      slots: pricingSlots,
       people,
     });
-  }, [selectedSport, bookingBreakdown.primaryDate, allSelectedSlots, settings, people]);
+  }, [selectedSport, pricingDate, pricingSlots, settings, people]);
   const baseSlotPrice = priceDetails ? priceDetails.slotTotal : null;
 
   // Booking rules shown before the customer proceeds (admins may override)
   const ruleError = useMemo(() => {
-    if (isAdminUser || !selectedSport || !bookingBreakdown.primaryDate || allSelectedSlots.length === 0) return null;
-    if ((selectedSport === "Cricket" || selectedSport === "Football") && allSelectedSlots.length < 2) {
+    if (isAdminUser || !selectedSport || !pricingDate || pricingSlots.length === 0) return null;
+    if ((selectedSport === "Cricket" || selectedSport === "Football") && pricingSlots.length < 2) {
       return `Minimum 1 hour (2 slots) required for ${selectedSport}`;
     }
     return bookingRuleError(settings, {
       sport: selectedSport,
-      date: format(bookingBreakdown.primaryDate, 'yyyy-MM-dd'),
-      slots: allSelectedSlots,
+      date: format(pricingDate, 'yyyy-MM-dd'),
+      slots: pricingSlots,
       people,
     });
-  }, [isAdminUser, selectedSport, bookingBreakdown.primaryDate, allSelectedSlots, settings, people]);
+  }, [isAdminUser, selectedSport, pricingDate, pricingSlots, settings, people]);
 
   // Total price = slot price + ball extras (or manual override)
   const totalPrice = useMemo(() => {
@@ -661,7 +707,7 @@ export default function BookSlot() {
   // Fetch booked slots when sport, date, or court change
   useEffect(() => {
     const fetchBookedSlots = async () => {
-      if (selectedSport && selectedDate) {
+      if (selectedSport && selectedDate && !Number.isNaN(selectedDate.getTime())) {
         // For Shuttle Badminton, wait for court selection
         if (selectedSport === "Shuttle Badminton" && !selectedCourt) {
           return;
@@ -723,7 +769,8 @@ export default function BookSlot() {
     setSelectedTimeSlots([]);
     setSelectedNextDayTimeSlots([]);
     setOverlapBookedSlots([]);
-    
+    setCourtSlots({});
+
     // Reset court selection when sport changes
     if (selectedSport !== "Shuttle Badminton") {
       setSelectedCourt("");
@@ -798,13 +845,13 @@ export default function BookSlot() {
   // Handle booking submission - Open simplified payment dialog
   const handleBooking = async () => {
     // Email is optional since we're only using WhatsApp notifications
-    if (!selectedSport || !selectedDate || allSelectedSlots.length === 0 || !customerInfo.name || !customerInfo.phone) {
+    if (!selectedSport || !validSelectedDate || !hasSelection || !customerInfo.name || !customerInfo.phone) {
       setAlert({ type: 'error', message: 'Please fill all required fields (Name and Phone are mandatory)' });
       return;
     }
 
-    if (selectedSport === "Shuttle Badminton" && !selectedCourt) {
-      setAlert({ type: 'error', message: 'Please select a court for Shuttle Badminton booking' });
+    if (isBadminton && courtLines.length === 0) {
+      setAlert({ type: 'error', message: 'Please pick slots on at least one court' });
       return;
     }
 
@@ -813,18 +860,82 @@ export default function BookSlot() {
       return;
     }
 
-    if (!bookingBreakdown.primaryDate || bookingBreakdown.primarySlots.length === 0) {
+    if (!isBadminton && (!bookingBreakdown.primaryDate || bookingBreakdown.primarySlots.length === 0)) {
       setAlert({ type: 'error', message: 'Please select at least one valid slot' });
       return;
     }
 
     saveCustomerDetails(customerInfo);
 
+    // Badminton goes as one group: one booking per court, paid and confirmed together
+    if (isBadminton) {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/bookings/simple-create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sport: selectedSport,
+            date: format(validSelectedDate, 'yyyy-MM-dd'),
+            lines: courtLines.map((l) => ({ court: l.court, timeSlots: l.same, nextDayTimeSlots: l.next })),
+            customerInfo,
+            totalPrice: isAdminUser ? totalPrice : undefined,
+          }),
+        });
+        const result = await response.json();
+        if (!result.success) {
+          setAlert({ type: 'error', message: result.message || 'Booking failed' });
+          return;
+        }
+
+        const amount = Number(result.group?.totalAmount || 0);
+        const reference = result.group?.ref || result.booking?.bookingReference;
+        const courtTimes = courtLines.map((l) => `${l.court}: ${slotRangeText([...l.same, ...l.next])}`);
+        if (!isAdminUser) setAdvanceAmount('');
+        setWhatsAppShare({
+          open: isAdminUser,
+          details: {
+            customerName: customerInfo.name,
+            reference,
+            slotText: `${selectedSport} (${courtLines.map((l) => l.court).join(', ')})`,
+            dateText: format(validSelectedDate, 'd MMM yyyy (EEEE)'),
+            timeText: courtTimes.join('; '),
+            amount,
+            courtTimes: courtLines.length > 1 ? courtTimes : undefined,
+          },
+        });
+        setAlert({
+          type: 'success',
+          message: isAdminUser
+            ? `✅ Booking confirmed! Ref: ${reference}`
+            : `✅ Booking received! Ref: ${reference}. Pay by UPI to confirm your courts.`,
+        });
+        setBookingDialogOpen(false);
+        if (!isAdminUser && amount > 0) {
+          setUpiPayment({ bookingId: result.group.paymentBookingId, amount, note: `Booking ${reference}` });
+        }
+        setSelectedSport('');
+        setSelectedDate(null);
+        setSelectedCourt('');
+        setCourtSlots({});
+        setSelectedTimeSlots([]);
+        setSelectedNextDayTimeSlots([]);
+        setEditableAmount(null);
+        setCustomerInfo({ name: '', email: '', phone: '', eventType: '', specialRequirements: '' });
+      } catch (error) {
+        console.error('Booking error:', error);
+        setAlert({ type: 'error', message: 'Failed to create booking. Please try again.' });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     const bookingData: any = {
       sport: selectedSport,
       date: format(bookingBreakdown.primaryDate, 'yyyy-MM-dd'),
       timeSlots: bookingBreakdown.primarySlots,
-      court: selectedSport === "Shuttle Badminton" ? selectedCourt : null,
+      court: null, // badminton (the only sport with courts) went through the group path above
       customerInfo,
       extras: ballCount > 0 ? { ball: ballCount } : undefined,
       people: selectedCourtPrice?.perPerson ? people : undefined,
@@ -1055,11 +1166,13 @@ export default function BookSlot() {
                         }}
                       >
                         <Typography variant="body2">
-                          Choose from our 3 premium shuttle courts (S1, S2, S3). Each court is independent - availability shown is specific to your selected court.
+                          Three shuttle courts (S1, S2, S3). Pick slots on one court, then tap another court to add its slots — all courts go in one booking with one payment.
                         </Typography>
                       </Alert>
                       <Grid container spacing={2}>
-                        {['S1', 'S2', 'S3'].map((court) => (
+                        {BADMINTON_COURTS.map((court) => {
+                          const picked = courtSlotCount(court);
+                          return (
                           <Grid item xs={4} key={court}>
                             <Card
                               elevation={selectedCourt === court ? 6 : 2}
@@ -1067,29 +1180,32 @@ export default function BookSlot() {
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease-in-out',
                                 transform: selectedCourt === court ? 'scale(1.05)' : 'scale(1)',
-                                background: selectedCourt === court 
+                                background: selectedCourt === court
                                   ? 'linear-gradient(135deg, #4caf50 0%, #81c784 100%)'
-                                  : 'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)',
+                                  : picked > 0
+                                    ? 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)'
+                                    : 'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)',
                                 color: selectedCourt === court ? 'white' : 'inherit',
-                                border: selectedCourt === court ? '2px solid #4caf50' : '1px solid #e0e0e0',
+                                border: selectedCourt === court ? '2px solid #4caf50' : picked > 0 ? '1px solid #4caf50' : '1px solid #e0e0e0',
                                 '&:hover': {
                                   transform: 'scale(1.03)',
                                   boxShadow: 4
                                 }
                               }}
-                              onClick={() => setSelectedCourt(court)}
+                              onClick={() => switchCourt(court)}
                             >
                               <CardContent sx={{ textAlign: 'center', py: 2 }}>
                                 <Typography variant="h6" fontWeight="bold">
                                   Court {court}
                                 </Typography>
                                 <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                                  Premium Court
+                                  {picked > 0 ? `${picked} slot${picked > 1 ? 's' : ''} picked` : 'Premium Court'}
                                 </Typography>
                               </CardContent>
                             </Card>
                           </Grid>
-                        ))}
+                          );
+                        })}
                       </Grid>
                     </Box>
                   )}
@@ -1304,15 +1420,29 @@ export default function BookSlot() {
                         </Box>
                       </Box>
 
-                      {allSelectedSlots.length > 0 && (
+                      {hasSelection && (
                         <div className="booking-summary">
                           <h4>Booking Summary</h4>
                           <div className="summary-details">
                             <p><strong>Sport:</strong> {selectedSport}</p>
-                            {selectedSport === "Shuttle Badminton" && selectedCourt && (
-                              <p><strong>Court:</strong> {selectedCourt}</p>
+                            {isBadminton && validSelectedDate && (
+                              <>
+                                <p><strong>Date:</strong> {format(validSelectedDate, "dd MMM yyyy")}</p>
+                                <p><strong>Court{courtLines.length > 1 ? 's' : ''}:</strong></p>
+                                <ul>
+                                  {courtLines.map((l) => (
+                                    <li key={l.court}>
+                                      <strong>{l.court}</strong>: {slotRangeText(l.same)}
+                                      {l.next.length > 0 ? `${l.same.length ? ' · ' : ''}next day ${slotRangeText(l.next)}` : ''}
+                                    </li>
+                                  ))}
+                                </ul>
+                                {courtLines.length < BADMINTON_COURTS.length && (
+                                  <p style={{ color: '#2e7d32', fontSize: '13px' }}>Need another court? Tap it above and pick its slots — same booking, one payment.</p>
+                                )}
+                              </>
                             )}
-                            {(() => {
+                            {!isBadminton && (() => {
                               if (bookingBreakdown.secondaryDate && bookingBreakdown.secondarySlots.length > 0) {
                                 return (
                                   <>
@@ -1331,15 +1461,19 @@ export default function BookSlot() {
                                   : null;
                               }
                             })()}
-                            <p><strong>Selected Time{allSelectedSlots.length > 1 ? 's' : ''}:</strong></p>
-                            <ul>
-                              {bookingBreakdown.primarySlots.map((slot, index) => (
-                                <li key={index}>{slot}</li>
-                              ))}
-                              {bookingBreakdown.secondarySlots.map((slot, index) => (
-                                <li key={`next-${index}`}>{slot} (Next Day)</li>
-                              ))}
-                            </ul>
+                            {!isBadminton && (
+                              <>
+                                <p><strong>Selected Time{allSelectedSlots.length > 1 ? 's' : ''}:</strong></p>
+                                <ul>
+                                  {bookingBreakdown.primarySlots.map((slot, index) => (
+                                    <li key={index}>{slot}</li>
+                                  ))}
+                                  {bookingBreakdown.secondarySlots.map((slot, index) => (
+                                    <li key={`next-${index}`}>{slot} (Next Day)</li>
+                                  ))}
+                                </ul>
+                              </>
+                            )}
                             {selectedSport === "Functions and Events" && (
                               <p><strong>Total Hours:</strong> {allSelectedSlots.reduce((acc, timeSlot) => {
                                 const slot = timeSlots.find(s => s.time === timeSlot);
@@ -1446,10 +1580,18 @@ export default function BookSlot() {
             <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
               <Typography variant="h6" gutterBottom>Booking Summary</Typography>
               <Typography variant="body2">Sport: {selectedSport}</Typography>
-              {selectedSport === "Shuttle Badminton" && selectedCourt && (
-                <Typography variant="body2">Court: {selectedCourt}</Typography>
+              {isBadminton && validSelectedDate && (
+                <>
+                  <Typography variant="body2">Date: {format(validSelectedDate, "dd MMM yyyy")}</Typography>
+                  {courtLines.map((l) => (
+                    <Typography key={l.court} variant="body2">
+                      Court {l.court}: {slotRangeText(l.same)}
+                      {l.next.length > 0 ? `${l.same.length ? ' · ' : ''}next day ${slotRangeText(l.next)}` : ''}
+                    </Typography>
+                  ))}
+                </>
               )}
-              {(() => {
+              {!isBadminton && (() => {
                 if (!selectedDate) return null;
 
                 if (bookingBreakdown.secondaryDate && bookingBreakdown.secondarySlots.length > 0) {
@@ -1467,7 +1609,7 @@ export default function BookSlot() {
                   ? <Typography variant="body2">Date: {format(bookingBreakdown.primaryDate, "dd MMM yyyy")}</Typography>
                   : null;
               })()}
-              <Typography variant="body2">Time: {allSelectedSlots.join(", ")}</Typography>
+              {!isBadminton && <Typography variant="body2">Time: {allSelectedSlots.join(", ")}</Typography>}
               {selectedSport === "Functions and Events" && (
                 <>
                   <Typography variant="body2">Event Type: {customerInfo.eventType}</Typography>

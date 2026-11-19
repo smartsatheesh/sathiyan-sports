@@ -34,6 +34,12 @@ const bookingSchema = new mongoose.Schema({
     enum: ["S1", "S2", "S3"], // Three shuttle courts
     required: false // Will be validated in application logic
   },
+  // Several courts booked in one checkout share a group reference: one UPI payment, one
+  // confirmation, one WhatsApp message. Each court is still its own booking for slot checks.
+  groupRef: {
+    type: String,
+    index: true,
+  },
   totalAmount: {
     type: Number,
     required: [true, "Total amount is required"],

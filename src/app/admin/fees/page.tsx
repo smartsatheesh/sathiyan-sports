@@ -31,8 +31,9 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import { Add, DeleteOutline, ExpandLess, ExpandMore, Refresh, Search, WhatsApp } from "@mui/icons-material";
+import { Add, DeleteOutline, EditOutlined, ExpandLess, ExpandMore, Refresh, Search, WhatsApp } from "@mui/icons-material";
 import { waNumber } from "@/app/lib/pricing";
+import { daysBetweenYmd, periodEndYmd } from "@/app/lib/feePeriod";
 
 type FeeState = "overdue" | "lapsed" | "due_soon" | "paid" | "awaiting_verification" | "never_paid";
 
@@ -45,12 +46,23 @@ interface Member {
   sport: string;
   program: string;
   paidTill: string | null;
+  nextStart: string;
   daysLeft: number | null;
   state: FeeState;
   monthlyFee: number;
   planFees: Record<number, number>;
   feeReminderAt: string | null;
   payLink: string;
+}
+
+interface Period {
+  _id: string;
+  startDate: string;
+  endDate: string;
+  amount: number;
+  paymentStatus: string;
+  paymentMethod?: string;
+  lastPaymentDate?: string;
 }
 
 type TabKey = "due" | "soon" | "paid" | "lapsed" | "all";
@@ -60,6 +72,13 @@ const DAY = 24 * 60 * 60 * 1000;
 
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—";
+
+// "YYYY-MM-DD" in the browser's (IST) calendar
+const toYmd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const ymdOf = (iso: string | null | undefined) => (iso ? toYmd(new Date(iso)) : "");
+const todayYmd = () => toYmd(new Date());
+// a period's dates are IST day starts, so format the calendar date, not the instant
+const fmtYmd = (ymd: string) => (ymd ? new Date(`${ymd}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—");
 
 const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
@@ -96,14 +115,60 @@ function reminderText(m: Member, clubName = "Sathiyan Sports"): string {
 
 const daysAgo = (iso: string | null) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / DAY) : null);
 
-function nextStart(paidTill: string | null): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (paidTill) {
-    const end = new Date(paidTill);
-    if (end.getTime() >= today.getTime() - 30 * DAY) return end.toISOString().slice(0, 10);
-  }
-  return today.toISOString().slice(0, 10);
+/** Shared by both dialogs: start, end and payment-date fields with the usual checks. */
+function PeriodDateFields({
+  startDate,
+  endDate,
+  paidOn,
+  onStart,
+  onEnd,
+  onPaidOn,
+  endHint,
+}: {
+  startDate: string;
+  endDate: string;
+  paidOn: string;
+  onStart: (v: string) => void;
+  onEnd: (v: string) => void;
+  onPaidOn: (v: string) => void;
+  endHint?: string;
+}) {
+  const span = startDate && endDate ? daysBetweenYmd(startDate, endDate) : null;
+  const bad = span !== null && span < 0;
+  return (
+    <>
+      <Stack direction="row" spacing={1.5}>
+        <TextField
+          label="Period from"
+          type="date"
+          value={startDate}
+          onChange={(e) => onStart(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          fullWidth
+        />
+        <TextField
+          label="Paid till"
+          type="date"
+          value={endDate}
+          onChange={(e) => onEnd(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          error={bad}
+          fullWidth
+        />
+      </Stack>
+      <Typography variant="caption" color={bad ? "error" : "text.secondary"} sx={{ mt: -1.5 }}>
+        {bad ? "Paid till must be on or after the start" : endHint || (span !== null ? `${span + 1} days · fees run 1st to month end; change the dates for mid-month joins` : "")}
+      </Typography>
+      <TextField
+        label="Payment received on"
+        type="date"
+        value={paidOn}
+        onChange={(e) => onPaidOn(e.target.value)}
+        InputLabelProps={{ shrink: true }}
+        helperText="Counts towards that month's collection"
+      />
+    </>
+  );
 }
 
 export default function AdminFeesPage() {
@@ -120,9 +185,10 @@ export default function AdminFeesPage() {
   const [group, setGroup] = useState<"all" | "kids" | "adult">("all");
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [history, setHistory] = useState<Record<string, any[]>>({});
+  const [history, setHistory] = useState<Record<string, Period[]>>({});
 
   const [recordFor, setRecordFor] = useState<Member | null>(null);
+  const [editing, setEditing] = useState<{ member: Member; period: Period } | null>(null);
   const [queue, setQueue] = useState<Member[] | null>(null);
 
   // Each club has its own board. The owner switches clubs here; a club admin only ever gets theirs.
@@ -392,9 +458,14 @@ export default function AdminFeesPage() {
                         <Stack spacing={0.75}>
                           {history[m.userId].map((p) => (
                             <Stack key={p._id} direction="row" alignItems="center" spacing={1} sx={{ fontSize: 13 }}>
-                              <Typography variant="body2" sx={{ flex: 1 }}>
-                                {fmtDate(p.startDate)} → {fmtDate(p.endDate)}
-                              </Typography>
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography variant="body2">
+                                  {fmtDate(p.startDate)} → {fmtDate(p.endDate)}
+                                </Typography>
+                                {p.lastPaymentDate && (
+                                  <Typography variant="caption" color="text.secondary">paid {fmtDate(p.lastPaymentDate)}</Typography>
+                                )}
+                              </Box>
                               <Typography variant="body2" fontWeight={600}>{rupees(p.amount || 0)}</Typography>
                               <Chip
                                 size="small"
@@ -402,6 +473,11 @@ export default function AdminFeesPage() {
                                 color={p.paymentStatus === "Paid" ? "success" : "default"}
                                 variant="outlined"
                               />
+                              {p.paymentStatus === "Paid" && (
+                                <IconButton size="small" onClick={() => setEditing({ member: m, period: p })} aria-label="Edit period">
+                                  <EditOutlined fontSize="small" />
+                                </IconButton>
+                              )}
                               <IconButton size="small" onClick={() => deletePeriod(m, p._id)} aria-label="Delete period">
                                 <DeleteOutline fontSize="small" />
                               </IconButton>
@@ -431,6 +507,30 @@ export default function AdminFeesPage() {
               const { [recordFor.userId]: _, ...rest } = h;
               return rest;
             });
+            load();
+          }}
+        />
+      )}
+
+      {editing && (
+        <EditPeriodDialog
+          member={editing.member}
+          period={editing.period}
+          fullScreen={fullScreen}
+          onClose={() => setEditing(null)}
+          onSaved={(msg) => {
+            const { userId } = editing.member;
+            setEditing(null);
+            setToast(msg);
+            setHistory((h) => {
+              const { [userId]: _, ...rest } = h;
+              return rest;
+            });
+            // reload the row's history so the edit shows straight away
+            fetch(`/api/admin/fees/${userId}`)
+              .then((r) => r.json())
+              .then((data) => setHistory((h) => ({ ...h, [userId]: data.history || [] })))
+              .catch(() => {});
             load();
           }}
         />
@@ -466,20 +566,29 @@ function RecordPaymentDialog({
   const [amount, setAmount] = useState(String(member.planFees[1]));
   const [method, setMethod] = useState<"cash" | "upi">("cash");
   const [utr, setUtr] = useState("");
-  const [startDate, setStartDate] = useState(nextStart(member.paidTill));
+  const [startDate, setStartDate] = useState(member.nextStart);
+  // end date follows the plan and start until the admin types one
+  const [endDate, setEndDate] = useState(periodEndYmd(member.nextStart, 1));
+  const [endTouched, setEndTouched] = useState(false);
+  const [paidOn, setPaidOn] = useState(todayYmd());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const pickMonths = (m: number) => {
     setMonths(m);
     setAmount(String(member.planFees[m]));
+    if (!endTouched && startDate) setEndDate(periodEndYmd(startDate, m));
+  };
+  const changeStart = (v: string) => {
+    setStartDate(v);
+    if (!endTouched && /^\d{4}-\d{2}-\d{2}$/.test(v)) setEndDate(periodEndYmd(v, months));
+  };
+  const changeEnd = (v: string) => {
+    setEndTouched(true);
+    setEndDate(v);
   };
 
-  const endDate = useMemo(() => {
-    const d = new Date(startDate);
-    d.setMonth(d.getMonth() + months);
-    return d.toISOString();
-  }, [startDate, months]);
+  const valid = Number(amount) >= 0 && !!startDate && !!endDate && daysBetweenYmd(startDate, endDate) >= 0;
 
   const save = async () => {
     setSaving(true);
@@ -488,11 +597,21 @@ function RecordPaymentDialog({
       const res = await fetch("/api/admin/fees", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: member.userId, months, amount: Number(amount), method, utr: method === "upi" ? utr : undefined, startDate, club }),
+        body: JSON.stringify({
+          userId: member.userId,
+          months,
+          amount: Number(amount),
+          method,
+          utr: method === "upi" ? utr : undefined,
+          startDate,
+          endDate,
+          paidOn,
+          club,
+        }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      onSaved(`Recorded ${rupees(Number(amount))} for ${member.name} — paid till ${fmtDate(endDate)}`);
+      onSaved(`Recorded ${rupees(Number(amount))} for ${member.name} — paid till ${fmtYmd(endDate)}`);
     } catch (e: any) {
       setError(e.message || "Failed to save");
     } finally {
@@ -561,13 +680,13 @@ function RecordPaymentDialog({
             />
           )}
 
-          <TextField
-            label="Period starts"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            helperText={`Paid till ${fmtDate(endDate)}`}
+          <PeriodDateFields
+            startDate={startDate}
+            endDate={endDate}
+            paidOn={paidOn}
+            onStart={changeStart}
+            onEnd={changeEnd}
+            onPaidOn={setPaidOn}
           />
 
           {error && <Alert severity="error">{error}</Alert>}
@@ -575,8 +694,98 @@ function RecordPaymentDialog({
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2 }}>
         <Button onClick={onClose} disabled={saving}>Cancel</Button>
-        <Button variant="contained" size="large" onClick={save} disabled={saving || !(Number(amount) >= 0) || !startDate}>
+        <Button variant="contained" size="large" onClick={save} disabled={saving || !valid}>
           {saving ? <CircularProgress size={22} color="inherit" /> : `Save ${rupees(Number(amount) || 0)}`}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// Correct a recorded period: dates, amount, how and when it was paid.
+function EditPeriodDialog({
+  member,
+  period,
+  fullScreen,
+  onClose,
+  onSaved,
+}: {
+  member: Member;
+  period: Period;
+  fullScreen: boolean;
+  onClose: () => void;
+  onSaved: (message: string) => void;
+}) {
+  const [startDate, setStartDate] = useState(ymdOf(period.startDate));
+  const [endDate, setEndDate] = useState(ymdOf(period.endDate));
+  const [paidOn, setPaidOn] = useState(ymdOf(period.lastPaymentDate) || todayYmd());
+  const [amount, setAmount] = useState(String(period.amount ?? 0));
+  const [method, setMethod] = useState<"cash" | "upi">(period.paymentMethod === "Cash" ? "cash" : "upi");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const valid = Number(amount) >= 0 && !!startDate && !!endDate && daysBetweenYmd(startDate, endDate) >= 0;
+
+  const save = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/fees/${member.userId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "editPeriod", subscriptionId: period._id, startDate, endDate, paidOn, amount: Number(amount), method }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      onSaved(`Updated ${member.name}'s period — ${fmtYmd(startDate)} to ${fmtYmd(endDate)}, ${rupees(Number(amount))}`);
+    } catch (e: any) {
+      setError(e.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onClose={saving ? undefined : onClose} fullScreen={fullScreen} maxWidth="xs" fullWidth>
+      <DialogTitle>
+        Edit payment
+        <Typography variant="body2" color="text.secondary">{member.name} · {member.champId}</Typography>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2.5}>
+          <PeriodDateFields
+            startDate={startDate}
+            endDate={endDate}
+            paidOn={paidOn}
+            onStart={setStartDate}
+            onEnd={setEndDate}
+            onPaidOn={setPaidOn}
+          />
+
+          <TextField
+            label="Amount received"
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+            inputProps={{ min: 0, inputMode: "numeric" }}
+          />
+
+          <Box>
+            <Typography variant="subtitle2" gutterBottom>Paid by</Typography>
+            <ToggleButtonGroup fullWidth exclusive value={method} onChange={(_, v) => v && setMethod(v)}>
+              <ToggleButton value="cash">Cash</ToggleButton>
+              <ToggleButton value="upi">UPI</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+
+          {error && <Alert severity="error">{error}</Alert>}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button onClick={onClose} disabled={saving}>Cancel</Button>
+        <Button variant="contained" size="large" onClick={save} disabled={saving || !valid}>
+          {saving ? <CircularProgress size={22} color="inherit" /> : "Save changes"}
         </Button>
       </DialogActions>
     </Dialog>

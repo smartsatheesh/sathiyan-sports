@@ -138,6 +138,7 @@ interface Booking {
   userId?: string;
   sport: string;
   court?: string;
+  groupRef?: string;
   date: string;
   timeSlots: string[];
   timeSlot?: string; // Single time slot for backward compatibility
@@ -1508,7 +1509,14 @@ export default function AdminDashboard() {
                   <TableRow key={booking._id}>
                     <TableCell>{booking.customerName}</TableCell>
                     <TableCell>{booking.sport}</TableCell>
-                    <TableCell>{booking.court || 'N/A'}</TableCell>
+                    <TableCell>
+                      {booking.court || 'N/A'}
+                      {booking.groupRef && (
+                        <Typography variant="caption" color="text.secondary" component="div" title={booking.groupRef}>
+                          multi-court · {String(booking.groupRef).slice(-6)}
+                        </Typography>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>
