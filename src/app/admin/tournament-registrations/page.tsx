@@ -43,6 +43,10 @@ interface RegistrationRow {
   sport: string;
   venue: string;
   name: string;
+  clubName?: string;
+  email?: string;
+  partnerName?: string;
+  captainName?: string;
   phone: string;
   sex: string;
   category: string;
@@ -288,6 +292,8 @@ export default function AdminTournamentRegistrationsPage() {
                 <TableCell>Registered</TableCell>
                 <TableCell>Tournament</TableCell>
                 <TableCell>Name</TableCell>
+                <TableCell>Club</TableCell>
+                <TableCell>Partner / Captain</TableCell>
                 <TableCell>Phone</TableCell>
                 <TableCell>Sex</TableCell>
                 <TableCell>Category</TableCell>
@@ -301,11 +307,11 @@ export default function AdminTournamentRegistrationsPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={11} align="center"><CircularProgress size={24} /></TableCell>
+                  <TableCell colSpan={13} align="center"><CircularProgress size={24} /></TableCell>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} align="center">No registrations found</TableCell>
+                  <TableCell colSpan={13} align="center">No registrations found</TableCell>
                 </TableRow>
               ) : (
                 rows.map((row) => (
@@ -315,7 +321,12 @@ export default function AdminTournamentRegistrationsPage() {
                       <Typography variant="body2" fontWeight={700}>{row.tournamentName}</Typography>
                       <Typography variant="caption" color="text.secondary">{row.sport} • {row.venue}</Typography>
                     </TableCell>
-                    <TableCell>{row.name}</TableCell>
+                    <TableCell>
+                      {row.name}
+                      {row.email && <Typography variant="caption" color="text.secondary" display="block">{row.email}</Typography>}
+                    </TableCell>
+                    <TableCell>{row.clubName || '-'}</TableCell>
+                    <TableCell>{row.partnerName || (row.captainName ? `Capt. ${row.captainName}` : '-')}</TableCell>
                     <TableCell>{row.phone}</TableCell>
                     <TableCell>{row.sex}</TableCell>
                     <TableCell>{row.category}</TableCell>

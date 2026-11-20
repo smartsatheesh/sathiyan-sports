@@ -9,6 +9,7 @@ import {
   Typography,
   Paper,
   Grid,
+  InputAdornment,
   Card,
   CardContent,
   Button,
@@ -132,6 +133,8 @@ interface RegistrationRow {
   venue: string;
   name: string;
   phone: string;
+  email?: string;
+  clubName?: string;
   partnerName: string;
   captainName?: string;
   sex: string;
@@ -347,7 +350,11 @@ export default function AdminTournamentDashboard() {
           id: regEditRow.id,
           name: regEditRow.name,
           phone: regEditRow.phone,
+          email: regEditRow.email || '',
+          clubName: regEditRow.clubName || '',
           partnerName: regEditRow.partnerName,
+          captainName: regEditRow.captainName || '',
+          registrationFee: regEditRow.registrationFee,
           sex: regEditRow.sex,
           category: regEditRow.category,
           eventType: regEditRow.eventType,
@@ -1299,6 +1306,7 @@ export default function AdminTournamentDashboard() {
                   <TableCell>Registered</TableCell>
                   <TableCell>Tournament</TableCell>
                   <TableCell>Name</TableCell>
+                  <TableCell>Club</TableCell>
                   <TableCell>Partner / Captain</TableCell>
                   <TableCell>Phone</TableCell>
                   <TableCell>Sex</TableCell>
@@ -1312,9 +1320,9 @@ export default function AdminTournamentDashboard() {
               </TableHead>
               <TableBody>
                 {regLoading ? (
-                  <TableRow><TableCell colSpan={12} align="center"><CircularProgress size={24} /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={14} align="center"><CircularProgress size={24} /></TableCell></TableRow>
                 ) : regRows.length === 0 ? (
-                  <TableRow><TableCell colSpan={12} align="center">No registrations found</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={14} align="center">No registrations found</TableCell></TableRow>
                 ) : (
                   regRows.map((row) => (
                     <TableRow key={row.id} hover>
@@ -1323,7 +1331,11 @@ export default function AdminTournamentDashboard() {
                         <Typography variant="body2" fontWeight={700}>{row.tournamentName}</Typography>
                         <Typography variant="caption" color="text.secondary">{row.sport} • {row.venue}</Typography>
                       </TableCell>
-                      <TableCell>{row.name}</TableCell>
+                      <TableCell>
+                        {row.name}
+                        {row.email && <Typography variant="caption" color="text.secondary" display="block">{row.email}</Typography>}
+                      </TableCell>
+                      <TableCell>{row.clubName || '-'}</TableCell>
                       <TableCell>{row.partnerName || (row.captainName ? `Capt. ${row.captainName}` : '-')}</TableCell>
                       <TableCell>{row.phone}</TableCell>
                       <TableCell>{row.sex}</TableCell>
@@ -1413,7 +1425,21 @@ export default function AdminTournamentDashboard() {
                 <TextField fullWidth label="Name" value={regEditRow.name} onChange={(e) => setRegEditRow((p) => p ? { ...p, name: e.target.value } : p)} />
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField fullWidth label="Phone" value={regEditRow.phone} onChange={(e) => setRegEditRow((p) => p ? { ...p, phone: e.target.value } : p)} />
+                <TextField fullWidth label="Phone" value={regEditRow.phone === '-' ? '' : regEditRow.phone} onChange={(e) => setRegEditRow((p) => p ? { ...p, phone: e.target.value } : p)} />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField fullWidth label="Email" type="email" value={regEditRow.email || ''} onChange={(e) => setRegEditRow((p) => p ? { ...p, email: e.target.value } : p)} />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField fullWidth label="Club name" value={regEditRow.clubName || ''} onChange={(e) => setRegEditRow((p) => p ? { ...p, clubName: e.target.value } : p)} helperText="Academy or club the player represents" />
+              </Grid>
+              {sportRules(regEditRow.sport).team && (
+                <Grid item xs={12} md={6}>
+                  <TextField fullWidth label="Captain's name" value={regEditRow.captainName || ''} onChange={(e) => setRegEditRow((p) => p ? { ...p, captainName: e.target.value } : p)} />
+                </Grid>
+              )}
+              <Grid item xs={12} md={6}>
+                <TextField fullWidth label="Registration fee" type="number" value={Number.isFinite(regEditRow.registrationFee) ? regEditRow.registrationFee : ''} onChange={(e) => setRegEditRow((p) => p ? { ...p, registrationFee: e.target.value === '' ? NaN : Number(e.target.value) } : p)} inputProps={{ min: 0, inputMode: 'numeric' }} InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} />
               </Grid>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>

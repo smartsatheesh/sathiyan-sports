@@ -76,6 +76,28 @@ const STEEL_DEPTH =
 const GOLD_DEPTH =
   "drop-shadow(0 1px 0 #a86f00) drop-shadow(0 1px 0 #8a5a00) drop-shadow(0 1px 0 #6e4700) drop-shadow(0 2px 0 #4f3300) drop-shadow(0 8px 14px rgba(0,0,0,0.55))";
 const ORANGE = "#ff6d00";
+// The three hero buttons read as the tricolour: saffron, white with the chakra, green
+const FLAG_GREEN = "#138808";
+const CHAKRA_BLUE = "#06038d";
+
+/** Ashoka Chakra: a navy wheel with 24 spokes, sitting in the white band of the "Join" button. */
+function AshokaChakra({ size = 22 }: { size?: number }) {
+  const spokes = Array.from({ length: 24 }, (_, i) => (i * 360) / 24);
+  return (
+    <Box
+      component="svg"
+      viewBox="0 0 100 100"
+      aria-hidden
+      sx={{ width: size, height: size, mx: 0.9, flex: "none", color: CHAKRA_BLUE, verticalAlign: "middle" }}
+    >
+      <circle cx="50" cy="50" r="44" fill="none" stroke="currentColor" strokeWidth="7" />
+      <circle cx="50" cy="50" r="9" fill="currentColor" />
+      {spokes.map((deg) => (
+        <line key={deg} x1="50" y1="50" x2="50" y2="8" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" transform={`rotate(${deg} 50 50)`} />
+      ))}
+    </Box>
+  );
+}
 const TEAL = "#20b2aa";
 
 const SPORTS = [
@@ -265,12 +287,17 @@ function SathiyanHome() {
               sx={{ bgcolor: ORANGE, "&:hover": { bgcolor: "#e65100" }, py: 1.5, px: 3.5, fontWeight: 800, fontSize: "1.05rem", borderRadius: 3 }}>
               Book a slot
             </Button>
-            <Button component={Link} href="/register" size="large" variant="outlined"
-              sx={{ color: "#fff", borderColor: "rgba(255,255,255,0.7)", py: 1.5, px: 3.5, fontWeight: 800, borderRadius: 3, "&:hover": { borderColor: "#fff", bgcolor: "rgba(255,255,255,0.08)" } }}>
-              Join the academy
+            <Button component={Link} href="/register" size="large" variant="contained"
+              sx={{ bgcolor: "#fff", color: NAVY, py: 1.5, px: 3.5, fontWeight: 800, fontSize: "1.05rem", borderRadius: 3, boxShadow: 3, "&:hover": { bgcolor: "#f4f4f4" } }}>
+              Join the <AshokaChakra /> club
             </Button>
-            <Button href={whatsapp} target="_blank" rel="noopener noreferrer" size="large" startIcon={<WhatsApp />}
-              sx={{ color: "#fff", py: 1.5, fontWeight: 700, borderRadius: 3 }}>
+            <Button href={whatsapp} target="_blank" rel="noopener noreferrer" size="large" variant="contained"
+              startIcon={
+                <Box sx={{ bgcolor: "#fff", borderRadius: "50%", display: "flex", p: "2px" }}>
+                  <WhatsApp sx={{ color: FLAG_GREEN, fontSize: "1.25rem !important" }} />
+                </Box>
+              }
+              sx={{ bgcolor: FLAG_GREEN, color: "#fff", py: 1.5, px: 3.5, fontWeight: 800, fontSize: "1.05rem", borderRadius: 3, "&:hover": { bgcolor: "#0f6e06" } }}>
               WhatsApp us
             </Button>
           </Stack>
