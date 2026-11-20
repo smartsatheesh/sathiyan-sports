@@ -313,10 +313,33 @@ export default function AdminSettingsPage() {
           </Box>
         </Section>
 
-        <Section title="Expenses" subtitle="Names and categories shown when adding an expense. Old entries keep their values.">
+        <Section title="Money & expenses" subtitle="Names and categories shown when adding an expense or money-in entry. Old entries keep their values.">
           <Stack spacing={2.5}>
-            <ChipListEditor label="Paid by" values={s.expenses.people} onChange={(v) => update((d) => { d.expenses.people = v; })} />
-            <ChipListEditor label="Categories" values={s.expenses.categories} onChange={(v) => update((d) => { d.expenses.categories = v; })} />
+            <ChipListEditor label="Paid by / received by" values={s.expenses.people} onChange={(v) => update((d) => { d.expenses.people = v; })} />
+            <ChipListEditor label="Expense categories" values={s.expenses.categories} onChange={(v) => update((d) => { d.expenses.categories = v; })} />
+            <ChipListEditor label="Money-in categories" values={s.expenses.incomeCategories} onChange={(v) => update((d) => { d.expenses.incomeCategories = v; })} />
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Reserve cash</Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={5}>
+                  <MoneyField label="Opening balance" value={s.expenses.openingBalance} onChange={(n) => update((d) => { d.expenses.openingBalance = n; })} />
+                </Grid>
+                <Grid item xs={12} sm={5}>
+                  <TextField
+                    label="Counting from month"
+                    type="month"
+                    size="small"
+                    fullWidth
+                    value={s.expenses.openingMonth}
+                    onChange={(e) => update((d) => { d.expenses.openingMonth = e.target.value; })}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+              </Grid>
+              <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 1 }}>
+                Cash in hand at the start of that month. Reserve cash on the Money page = this + every month&apos;s money in − spent from then on. Leave the month empty to count from the first entry.
+              </Typography>
+            </Box>
           </Stack>
         </Section>
 

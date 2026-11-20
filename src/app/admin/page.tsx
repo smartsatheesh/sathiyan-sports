@@ -95,7 +95,7 @@ export default function AdminHome() {
     { title: "Membership fees", desc: "Who has paid, reminders", href: "/admin/fees", icon: <AccountBalanceWallet />, badge: o?.feesOverdue?.count },
     { title: "Verify payments", desc: "Confirm UPI payments", href: "/admin/payments", icon: <Payments />, badge: o?.paymentsToVerify },
     { title: "Customers", desc: "Regulars, offers & campaigns", href: "/admin/customers", icon: <Loyalty /> },
-    { title: "Expenses", desc: "Add spends, monthly report", href: "/admin/expenses", icon: <ReceiptLong /> },
+    { title: "Money", desc: "Income, expenses, reserve cash", href: "/admin/expenses", icon: <ReceiptLong /> },
     { title: "Inventory", desc: "Products & stock", href: "/admin/inventory", icon: <Inventory2 /> },
     { title: "Tournaments", desc: "Events, fixtures, results", href: "/admin/tournaments", icon: <EmojiEvents /> },
     { title: "Attendance", desc: "Check-ins and reports", href: "/admin/attendance", icon: <FactCheck /> },

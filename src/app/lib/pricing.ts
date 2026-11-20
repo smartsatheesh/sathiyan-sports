@@ -82,7 +82,13 @@ export interface SiteSettings {
     flexibleSurchargePerMonth: number;
   };
   tournamentDefaultFee: number;
-  expenses: { people: string[]; categories: string[] };
+  expenses: {
+    people: string[]; // who paid (expenses) / who received (income)
+    categories: string[]; // expense categories
+    incomeCategories: string[]; // manual money-in categories (reserve, land sale, sponsorship…)
+    openingBalance: number; // cash in hand at the start of openingMonth; reserve cash counts from there
+    openingMonth: string; // "YYYY-MM"; "" = from the very first entry
+  };
   upi: { vpa: string; payeeName: string };
   whatsappNumber: string; // 10-digit or with 91 prefix
 }
@@ -128,7 +134,19 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   tournamentDefaultFee: 600,
   expenses: {
     people: ["Satheesh", "Sasi", "Maha", "Anu"],
-    categories: ["Sathiyan sports", "Common", "Seimurai", "Sathiyan salary"],
+    categories: [
+      "Sathiyan sports",
+      "Common",
+      "Seimurai",
+      "Sathiyan salary",
+      "Electricity bill",
+      "Construction & renovation",
+      "Tournament",
+      "Ad hoc",
+    ],
+    incomeCategories: ["Reserve money", "Land sale", "Tournament income", "Sponsorship", "Other income"],
+    openingBalance: 0,
+    openingMonth: "",
   },
   upi: { vpa: "sathiyansportacademy202525-1@okaxis", payeeName: "Sathiyan Multi Sport Club" },
   whatsappNumber: "9342090194",
@@ -174,6 +192,9 @@ export function withDefaults(stored: Partial<SiteSettings> | null | undefined): 
     expenses: {
       people: s.expenses?.people?.length ? s.expenses.people : DEFAULT_SETTINGS.expenses.people,
       categories: s.expenses?.categories?.length ? s.expenses.categories : DEFAULT_SETTINGS.expenses.categories,
+      incomeCategories: s.expenses?.incomeCategories?.length ? s.expenses.incomeCategories : DEFAULT_SETTINGS.expenses.incomeCategories,
+      openingBalance: Number.isFinite(Number(s.expenses?.openingBalance)) ? Number(s.expenses!.openingBalance) : 0,
+      openingMonth: /^\d{4}-(0[1-9]|1[0-2])$/.test(s.expenses?.openingMonth || "") ? s.expenses!.openingMonth : "",
     },
     upi: { ...DEFAULT_SETTINGS.upi, ...(s.upi || {}) },
   };

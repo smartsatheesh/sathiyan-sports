@@ -3,19 +3,24 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/authConfig';
 import { connectToMongoose } from '@/app/server/mongodb';
 import Expense from '@/app/models/Expense';
-import { getMonthReport, parseExpense } from '@/app/lib/expenses.server';
+import { getMonthReport, getYearReport, parseExpense } from '@/app/lib/expenses.server';
 
 export const dynamic = 'force-dynamic';
 
-// GET ?month=YYYY-MM → that month's expenses + summary (totals, income, net)
+// GET ?month=YYYY-MM → that month's entries + summary (money in, spent, net, reserve cash)
+// GET ?year=YYYY   → twelve months of in / out / net / reserve for budgeting
 export async function GET(request: NextRequest) {
   const month = request.nextUrl.searchParams.get('month') || '';
-  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+  const year = request.nextUrl.searchParams.get('year') || '';
+  if (year && !/^20\d{2}$/.test(year)) {
+    return NextResponse.json({ success: false, error: 'year must be YYYY' }, { status: 400 });
+  }
+  if (!year && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
     return NextResponse.json({ success: false, error: 'month must be YYYY-MM' }, { status: 400 });
   }
   try {
     await connectToMongoose();
-    const report = await getMonthReport(month);
+    const report = year ? await getYearReport(Number(year)) : await getMonthReport(month);
     return NextResponse.json({ success: true, ...report });
   } catch (error) {
     console.error('Expense report failed:', error);

@@ -89,6 +89,10 @@ export function validateSettings(s: SiteSettings, opts: { allowNoCourts?: boolea
   const names = (list: unknown) => Array.isArray(list) && list.length > 0 && list.every((x) => typeof x === "string" && x.trim().length > 0 && x.length <= 40);
   if (!names(s.expenses?.people)) errors.push("Add at least one person who pays expenses");
   if (!names(s.expenses?.categories)) errors.push("Add at least one expense category");
+  if (!names(s.expenses?.incomeCategories)) errors.push("Add at least one income category");
+  const ob = s.expenses?.openingBalance;
+  if (!(typeof ob === "number" && Number.isFinite(ob) && ob >= 0 && ob <= 1_000_000_000)) errors.push("Opening balance is invalid");
+  if (s.expenses?.openingMonth && !/^\d{4}-(0[1-9]|1[0-2])$/.test(s.expenses.openingMonth)) errors.push("Opening balance month must be YYYY-MM");
 
   if (!VPA_RE.test(s.upi?.vpa || "")) errors.push("UPI ID looks invalid (example: name@okaxis)");
   if (!s.upi?.payeeName?.trim()) errors.push("UPI payee name is required");

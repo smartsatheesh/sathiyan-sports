@@ -1,9 +1,12 @@
 import mongoose from "mongoose";
 
-// Money spent by the academy. Allowed "paidBy" names and categories are owner-editable
-// in Admin → Settings (validated in the API), so they are plain strings here.
+// The money ledger: money spent by the academy (type "expense", the default so older records
+// stay valid) and money received outside bookings/fees (type "income": reserve money, land sale,
+// sponsorship…). Allowed "paidBy" names and categories are owner-editable in Admin → Settings
+// (validated in the API), so they are plain strings here.
 const expenseSchema = new mongoose.Schema(
   {
+    type: { type: String, enum: ["expense", "income"], default: "expense" },
     amount: {
       type: Number,
       required: [true, "Amount is required"],
@@ -28,6 +31,7 @@ const expenseSchema = new mongoose.Schema(
 );
 
 expenseSchema.index({ date: -1 });
+expenseSchema.index({ type: 1, date: -1 });
 expenseSchema.index({ category: 1 });
 
 const Expense = mongoose.models.Expense || mongoose.model("Expense", expenseSchema);

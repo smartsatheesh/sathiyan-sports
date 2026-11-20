@@ -27,7 +27,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
   // Old entries may use names/categories since removed from Settings; allow keeping them
   const body = await request.json();
-  const allowLegacy = body.paidBy === existing.paidBy && body.category === existing.category;
+  const sameType = (body.type === 'income' ? 'income' : 'expense') === (existing.type || 'expense');
+  const allowLegacy = sameType && body.paidBy === existing.paidBy && body.category === existing.category;
   const [data, error] = await parseExpense({ ...body, allowLegacy });
   if (error) return NextResponse.json({ success: false, error }, { status: 400 });
 
