@@ -5,6 +5,7 @@ import { isStaff } from "@/app/lib/roles";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
+  Autocomplete,
   Container,
   Paper,
   Typography,
@@ -296,6 +297,7 @@ const slotRangeText = (slots: string[]) => {
 
 interface BookingMessageDetails {
   customerName: string;
+  customerPhone: string; // the booked number: the WhatsApp message opens a chat with it
   reference: string;
   slotText: string;
   dateText: string;
@@ -317,6 +319,14 @@ const composeBookingMessage = (d: BookingMessageDetails, advance: number) => {
     : `• Time: *${d.timeText}*`;
   return `Dear ${d.customerName || 'Customer'},\n\nYour booking request has been received.\n\n*Booking Details*\n\n• Booking ID: *${d.reference}*\n• Venue: *Sathiyan Multisport Sport Club*\n• Slot: *${d.slotText}*\n• Date: *${d.dateText}*\n${timeLines}\n\n${paymentLines}\n\nThank you for booking with us!\n\n${SITE_HOST}\n\nBest regards,\nSathiyan Multisport Sport Club`;
 };
+
+interface CustomerSuggestion {
+  mobile: string;
+  name: string;
+  email: string;
+  bookingCount: number;
+  favouriteSport: string;
+}
 
 const BADMINTON_COURTS = ['S1', 'S2', 'S3'];
 type CourtPick = { same: string[]; next: string[] };
@@ -367,7 +377,14 @@ export default function BookSlot() {
     () => (whatsAppShare.details ? composeBookingMessage(whatsAppShare.details, advanceValue) : ''),
     [whatsAppShare.details, advanceValue]
   );
-  const whatsAppUrl = `https://wa.me/?text=${encodeURIComponent(whatsAppMessage)}`;
+  // Open the chat with the booked number (Indian mobiles get the 91 prefix); fall back to the picker
+  const whatsAppTarget = useMemo(() => {
+    const digits = (whatsAppShare.details?.customerPhone || '').replace(/\D/g, '');
+    if (digits.length === 10) return `91${digits}`;
+    if (digits.length === 12 && digits.startsWith('91')) return digits;
+    return '';
+  }, [whatsAppShare.details?.customerPhone]);
+  const whatsAppUrl = `https://wa.me/${whatsAppTarget}?text=${encodeURIComponent(whatsAppMessage)}`;
   const closeWhatsAppShare = () => {
     setWhatsAppShare((prev) => ({ ...prev, open: false }));
     setAdvanceAmount(''); // next booking starts with no advance
@@ -548,9 +565,9 @@ export default function BookSlot() {
   //   }
   // }, [session, status, router]);
 
-  // Auto-fill customer information for authenticated users
+  // Auto-fill customer information for authenticated users (not staff: the desk books for customers)
   useEffect(() => {
-    if (session?.user) {
+    if (session?.user && !isStaff(session.user.role)) {
       setCustomerInfo(prev => ({
         ...prev,
         name: session.user.name || prev.name,
@@ -599,6 +616,45 @@ export default function BookSlot() {
     } catch (error) {
       console.log('Could not save customer details:', error);
     }
+  };
+
+  // Staff typeahead: suggestions from the customer book while typing a name or a number
+  const [suggestions, setSuggestions] = useState<CustomerSuggestion[]>([]);
+  const [suggestQuery, setSuggestQuery] = useState('');
+  useEffect(() => {
+    if (!isStaffUser || suggestQuery.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    const q = suggestQuery.trim();
+    let cancelled = false;
+    const t = setTimeout(() => {
+      fetch(`/api/admin/customers/lookup?q=${encodeURIComponent(q)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (!cancelled && d?.success) setSuggestions(d.customers || []);
+        })
+        .catch(() => {});
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [isStaffUser, suggestQuery]);
+
+  const applyCustomer = (c: CustomerSuggestion) => {
+    setCustomerInfo((prev) => ({
+      ...prev,
+      name: c.name || prev.name,
+      email: c.email || prev.email,
+      phone: c.mobile || prev.phone,
+    }));
+    setSuggestions([]);
+    setSuggestQuery('');
+    setAlert({
+      type: 'info',
+      message: `${c.name || 'This customer'} has booked ${c.bookingCount} time${c.bookingCount === 1 ? '' : 's'} before${c.favouriteSport ? ` (mostly ${c.favouriteSport})` : ''} — details filled in.`,
+    });
   };
 
   // Load customer details when phone number is entered in the form
@@ -680,8 +736,8 @@ export default function BookSlot() {
   // Re-populate customer info when booking dialog opens
   useEffect(() => {
     if (bookingDialogOpen) {
-      // Refresh customer info from session and saved data
-      if (session?.user) {
+      // Refresh customer info from session and saved data (staff fill in the customer instead)
+      if (session?.user && !isStaff(session.user.role)) {
         setCustomerInfo(prev => ({
           ...prev,
           name: prev.name || session.user.name || '',
@@ -896,6 +952,7 @@ export default function BookSlot() {
           open: isAdminUser,
           details: {
             customerName: customerInfo.name,
+            customerPhone: customerInfo.phone,
             reference,
             slotText: `${selectedSport} (${courtLines.map((l) => l.court).join(', ')})`,
             dateText: format(validSelectedDate, 'd MMM yyyy (EEEE)'),
@@ -975,6 +1032,7 @@ export default function BookSlot() {
         open: isAdminUser, // admins share immediately; customers see it after paying
         details: {
           customerName: customerInfo.name,
+          customerPhone: customerInfo.phone,
           reference: booking.bookingReference,
           slotText,
           dateText,
@@ -1522,6 +1580,36 @@ export default function BookSlot() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {/* Customer Information */}
             <Typography variant="h6" gutterBottom>Customer Information</Typography>
+            {isStaffUser ? (
+              <Autocomplete
+                freeSolo
+                options={suggestions}
+                filterOptions={(o) => o}
+                getOptionLabel={(o) => (typeof o === 'string' ? o : o.name || o.mobile)}
+                inputValue={customerInfo.name}
+                onInputChange={(_, value, reason) => {
+                  if (reason === 'reset') return;
+                  setCustomerInfo((prev) => ({ ...prev, name: value }));
+                  setSuggestQuery(value);
+                }}
+                onChange={(_, value) => {
+                  if (value && typeof value !== 'string') applyCustomer(value);
+                }}
+                renderOption={(props, o) => (
+                  <li {...props} key={o.mobile}>
+                    <Box>
+                      <Typography variant="body2">{o.name || 'No name'} · {o.mobile}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {o.bookingCount} booking{o.bookingCount === 1 ? '' : 's'}{o.favouriteSport ? ` · ${o.favouriteSport}` : ''}
+                      </Typography>
+                    </Box>
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField {...params} label="Full Name" required helperText="Start typing a name or number to pick a returning customer" />
+                )}
+              />
+            ) : (
             <TextField
               label="Full Name"
               fullWidth
@@ -1529,6 +1617,7 @@ export default function BookSlot() {
               onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
               required
             />
+            )}
             <TextField
               label="Email (Optional)"
               type="email"
@@ -1537,6 +1626,36 @@ export default function BookSlot() {
               onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
               helperText="Email notifications are disabled. Only WhatsApp notifications will be sent."
             />
+            {isStaffUser ? (
+              <Autocomplete
+                freeSolo
+                options={suggestions}
+                filterOptions={(o) => o}
+                getOptionLabel={(o) => (typeof o === 'string' ? o : o.mobile)}
+                inputValue={customerInfo.phone}
+                onInputChange={(_, value, reason) => {
+                  if (reason === 'reset') return;
+                  handlePhoneChange(value);
+                  setSuggestQuery(value);
+                }}
+                onChange={(_, value) => {
+                  if (value && typeof value !== 'string') applyCustomer(value);
+                }}
+                renderOption={(props, o) => (
+                  <li {...props} key={o.mobile}>
+                    <Box>
+                      <Typography variant="body2">{o.mobile} · {o.name || 'No name'}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {o.bookingCount} booking{o.bookingCount === 1 ? '' : 's'}{o.favouriteSport ? ` · ${o.favouriteSport}` : ''}
+                      </Typography>
+                    </Box>
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField {...params} label="Phone Number" required inputProps={{ ...params.inputProps, inputMode: 'tel' }} helperText="The WhatsApp confirmation goes to this number" />
+                )}
+              />
+            ) : (
             <TextField
               label="Phone Number"
               fullWidth
@@ -1545,6 +1664,7 @@ export default function BookSlot() {
               helperText="We'll pre-fill your details if you've booked with us before"
               required
             />
+            )}
 
             {/* Functions and Events specific fields */}
             {selectedSport === "Functions and Events" && (
@@ -1710,7 +1830,9 @@ export default function BookSlot() {
         <DialogTitle>Booking Confirmed - Share on WhatsApp</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 1.5, color: 'text.secondary' }}>
-            Copy this message and send it to your mobile WhatsApp.
+            {whatsAppTarget
+              ? `Open WhatsApp sends this confirmation to ${whatsAppShare.details?.customerPhone} (the booked number).`
+              : 'Copy this message and send it on WhatsApp.'}
           </Typography>
           {isAdminUser && whatsAppShare.details && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5, flexWrap: 'wrap' }}>
@@ -1752,7 +1874,7 @@ export default function BookSlot() {
             variant="contained"
             onClick={() => window.open(whatsAppUrl, '_blank')}
           >
-            Open WhatsApp
+            {whatsAppTarget ? `Send to ${whatsAppShare.details?.customerPhone}` : 'Open WhatsApp'}
           </Button>
         </DialogActions>
       </Dialog>

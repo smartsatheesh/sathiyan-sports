@@ -175,6 +175,41 @@ export async function lookupCustomer(mobileInput: string) {
   };
 }
 
+export interface CustomerSuggestion {
+  mobile: string;
+  name: string;
+  email: string;
+  bookingCount: number;
+  lastBookingAt: Date | null;
+  favouriteSport: string;
+}
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Staff typeahead on /bookslot: match a name (any word start) or the start of a mobile number. */
+export async function searchCustomers(query: string, limit = 8): Promise<CustomerSuggestion[]> {
+  const q = String(query || '').trim();
+  if (q.length < 2) return [];
+  await connectToMongoose();
+  const digits = q.replace(/[\s+\-()]/g, '');
+  const filter = /^\d+$/.test(digits)
+    ? { mobile: new RegExp('^' + digits.replace(/^(91|0)(?=\d{10}$)/, '')) }
+    : { name: new RegExp('(^|\\s)' + escapeRe(q), 'i') };
+  const docs = await (Customer.find as any)(filter)
+    .sort({ lastBookingAt: -1, bookingCount: -1 })
+    .limit(limit)
+    .select('mobile name email bookingCount lastBookingAt favouriteSport')
+    .lean();
+  return docs.map((d: any) => ({
+    mobile: d.mobile,
+    name: d.name || '',
+    email: d.email || '',
+    bookingCount: d.bookingCount || 0,
+    lastBookingAt: d.lastBookingAt || null,
+    favouriteSport: d.favouriteSport || '',
+  }));
+}
+
 export interface Champ {
   id: string;
   name: string;
