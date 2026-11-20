@@ -13,8 +13,9 @@ import { isPreviewHost, TENANT_COOKIE, TENANT_HEADER, tenantFromHost } from "@/a
 // (never revenue, never tournament set-up); club_admin = a partner club's admin.
 //   staff     = admin or coach
 //   clubAdmin = admin or club_admin; those routes scope data to the club themselves
-//   adminArea = admin, coach or club_admin (the /admin hub itself)
-type Access = "public" | "admin" | "clubAdmin" | "staff" | "adminArea" | "user";
+//   finance   = admin or finance (Sathiyan Finance collection staff)
+//   adminArea = admin, coach, club_admin or finance (the /admin hub itself)
+type Access = "public" | "admin" | "clubAdmin" | "staff" | "finance" | "adminArea" | "user";
 
 interface Rule {
   pattern: RegExp;
@@ -34,6 +35,11 @@ const API_RULES: Rule[] = [
   { pattern: /^\/api\/attendance\//, access: "admin" },
 
   { pattern: /^\/api\/admin\/(fees|payments|club|settings)(\/|$)/, access: "clubAdmin" },
+  // Sathiyan Finance: staff record loans and collections; reports, settings, edits and deletes are the owner's
+  { pattern: /^\/api\/admin\/finance\/(settings|report)(\/|$)/, access: "admin" },
+  { pattern: /^\/api\/admin\/finance\/(loans|entries)\/[^/]+$/, access: "admin", methods: ["PUT", "PATCH", "DELETE"] },
+  { pattern: /^\/api\/admin\/finance\/borrowers\/[^/]+$/, access: "admin", methods: ["DELETE"] },
+  { pattern: /^\/api\/admin\/finance(\/|$)/, access: "finance" },
   // Coaches see registrations and run bookings (the handlers hide amounts from them);
   // changing or deleting a registration is the owner's
   { pattern: /^\/api\/admin\/tournament-registrations(\/|$)/, access: "admin", methods: WRITE },
@@ -70,6 +76,8 @@ const API_RULES: Rule[] = [
 const PAGE_RULES: Rule[] = [
   { pattern: /^\/admin\/?$/, access: "adminArea" },
   { pattern: /^\/admin\/(fees|payments|club|settings)(\/|$)/, access: "clubAdmin" },
+  { pattern: /^\/admin\/finance\/settings(\/|$)/, access: "admin" },
+  { pattern: /^\/admin\/finance(\/|$)/, access: "finance" },
   // Coach pages: bookings (no money), tournaments (scores only — the page hides set-up actions),
   // attendance, the check-in QR. The legacy tournament editors stay with the owner.
   { pattern: /^\/admin\/(manage|tournaments|tournament-registrations|attendance|universal-qr)(\/|$)/, access: "staff" },
@@ -96,7 +104,8 @@ function isAllowed(access: Access, role: string | undefined): boolean {
   if (access === "user") return true;
   if (access === "staff") return role === "admin" || role === "coach";
   if (access === "clubAdmin") return role === "admin" || role === "club_admin";
-  if (access === "adminArea") return role === "admin" || role === "coach" || role === "club_admin";
+  if (access === "finance") return role === "admin" || role === "finance";
+  if (access === "adminArea") return role === "admin" || role === "coach" || role === "club_admin" || role === "finance";
   return role === "admin";
 }
 

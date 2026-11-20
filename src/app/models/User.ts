@@ -32,8 +32,8 @@ const userSchema = new mongoose.Schema({
   role: {
     type: String,
     default: "customer",
-    // club_admin manages members and fees of their own club only
-    enum: ["customer", "admin", "coach", "club_admin"],
+    // club_admin manages members and fees of their own club only; finance = Sathiyan Finance collection staff
+    enum: ["customer", "admin", "coach", "club_admin", "finance"],
   },
   // Club the member belongs to (slug). Missing = Sathiyan, the default club, so the
   // existing members need no migration.

@@ -5,21 +5,25 @@
 //   coach       runs the ground: match scores and live scoring, attendance, booking status —
 //               never revenue, and never the tournament set-up (creating, fixtures, reshuffles)
 //   club_admin  a partner club's admin: their club's members, fees and settings
+//   finance     Sathiyan Finance collection staff: records loans given, instalments, interest
+//               and principal received — never the finance reports or settings, and nothing
+//               else in the admin area
 //   customer    a member / walk-in customer
 
-export type Role = "customer" | "admin" | "coach" | "club_admin";
+export type Role = "customer" | "admin" | "coach" | "club_admin" | "finance";
 
-export const ROLES: Role[] = ["customer", "coach", "admin", "club_admin"];
+export const ROLES: Role[] = ["customer", "coach", "admin", "club_admin", "finance"];
 
 export const ROLE_LABELS: Record<Role, string> = {
   customer: "Member",
   coach: "Coach",
   admin: "Admin",
   club_admin: "Club admin",
+  finance: "Finance staff",
 };
 
 /** Roles the owner can give a Sathiyan user from the members screen. */
-export const ASSIGNABLE_ROLES: Role[] = ["customer", "coach", "admin"];
+export const ASSIGNABLE_ROLES: Role[] = ["customer", "coach", "admin", "finance"];
 
 export const isOwner = (role?: string | null) => role === "admin";
 
@@ -42,5 +46,10 @@ export const canManageBookings = isStaff;
 /** Revenue, amounts, fees, payments, expenses: owner only. */
 export const canSeeMoney = isOwner;
 
+/** Sathiyan Finance (lending ledger): the owner and the finance staff. */
+export const canUseFinance = (role?: string | null) => role === "admin" || role === "finance";
+/** Finance reports (interest earned, money out), loan edits and the finance settings: owner only. */
+export const canManageFinance = isOwner;
+
 /** Anyone who gets the /admin hub. */
-export const hasAdminArea = (role?: string | null) => isStaff(role) || role === "club_admin";
+export const hasAdminArea = (role?: string | null) => isStaff(role) || role === "club_admin" || role === "finance";

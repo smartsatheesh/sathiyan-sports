@@ -35,6 +35,7 @@ import {
   Diversity3,
   PersonAdd,
   Public,
+  AccountBalance,
 } from "@mui/icons-material";
 
 interface Overview {
@@ -71,10 +72,12 @@ export default function AdminHome() {
   // A partner club's admin only handles their own club's members and fees
   const clubAdmin = session?.user?.role === "club_admin";
   const coach = session?.user?.role === "coach";
+  // Finance staff only keep the lending book
+  const finance = session?.user?.role === "finance";
   const club = session?.user?.club;
 
   useEffect(() => {
-    if (status !== "authenticated" || clubAdmin) return;
+    if (status !== "authenticated" || clubAdmin || finance) return;
     fetch("/api/admin/overview")
       .then((r) => r.json())
       .then((d) => d.success && setO(d))
@@ -96,6 +99,7 @@ export default function AdminHome() {
     { title: "Verify payments", desc: "Confirm UPI payments", href: "/admin/payments", icon: <Payments />, badge: o?.paymentsToVerify },
     { title: "Customers", desc: "Regulars, offers & campaigns", href: "/admin/customers", icon: <Loyalty /> },
     { title: "Money", desc: "Income, expenses, reserve cash", href: "/admin/expenses", icon: <ReceiptLong /> },
+    { title: "Sathiyan Finance", desc: "Loans, thavanai, interest", href: "/admin/finance", icon: <AccountBalance /> },
     { title: "Inventory", desc: "Products & stock", href: "/admin/inventory", icon: <Inventory2 /> },
     { title: "Tournaments", desc: "Events, fixtures, results", href: "/admin/tournaments", icon: <EmojiEvents /> },
     { title: "Attendance", desc: "Check-ins and reports", href: "/admin/attendance", icon: <FactCheck /> },
@@ -116,7 +120,10 @@ export default function AdminHome() {
     { title: "AI coach plans", desc: "Members' plans & progress", href: "/coach/admin", icon: <BarChart /> },
     { title: "Check-in QR", desc: "Print the venue QR", href: "/admin/universal-qr", icon: <QrCode2 /> },
   ];
-  const sections = clubAdmin ? clubSections : coach ? coachSections : ownerSections;
+  const financeSections: { title: string; desc: string; href: string; icon: React.ReactNode; badge?: number }[] = [
+    { title: "Sathiyan Finance", desc: "Collections, loans, people", href: "/admin/finance", icon: <AccountBalance /> },
+  ];
+  const sections = clubAdmin ? clubSections : coach ? coachSections : finance ? financeSections : ownerSections;
 
   const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
 
@@ -132,7 +139,7 @@ export default function AdminHome() {
         </Stack>
       </Box>
 
-      {!clubAdmin && (
+      {!clubAdmin && !finance && (
       <Grid container spacing={1.5} sx={{ mb: 3 }}>
         {!o ? (
           [0, 1, 2, 3].map((i) => (

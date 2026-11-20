@@ -146,6 +146,8 @@ export default function LoginPage() {
           ? callbackUrl
           : session?.user?.role === 'club_admin'
             ? '/admin/fees'
+            : session?.user?.role === 'finance'
+              ? '/admin/finance'
             : !isDefaultClub(session?.user?.club)
               ? tenant.isDefault ? `/club/${session.user.club}` : '/' 
               : callbackUrl;
